@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"testing"
 
-	"code.google.com/p/certificate-transparency/src/go/client"
-	"code.google.com/p/certificate-transparency/src/go/x509"
+	"code.google.com/p/certificate-transparency/go/client"
+	"code.google.com/p/certificate-transparency/go/x509"
 )
 
 func CertMatchesRegex(r *regexp.Regexp, cert *x509.Certificate) bool {

@@ -7,7 +7,7 @@ package x509
 import (
 	"crypto/rsa"
 	// START CT CHANGES
-	"code.google.com/p/certificate-transparency/src/go/asn1"
+	"code.google.com/p/certificate-transparency/go/asn1"
 	// END CT CHANGES
 	"errors"
 	"math/big"
