@@ -1,0 +1,35 @@
+This is the really early beginnings of a CT Log client written in Go, along
+with a Log Scanner tool.
+
+You'll need go v1.1 or higher to compile.
+
+
+Installation:
+
+This go code must be imported into your go workspace before you can use it, you
+can do that with:
+
+  go get code.google.com/p/certificate-transparency/src/go/client
+  go get code.google.com/p/certificate-transparency/src/go/scanner
+  etc.
+
+
+Building the binaries:
+
+The go/merkletree package contains a cgo binding onto the C++ MerkleTree
+library, so if you're using this go package (either directly or indirectly!)
+you need to run the following command in the parent directory:
+  make golibs
+
+This will create any necessary .syso files and will place them directly into
+the relevant go package src directories so that they will be automatically
+picked up during cgo compilation.
+
+To compile the log scanner run:
+  go build code.google.com/p/certificate-transparency/src/go/scanner/main/scanner.go
+
+
+Contributing:
+
+When sending pull requests, please ensure that everything's been run through
+gofmt beforehand so we can keep everything nice and tidy.
