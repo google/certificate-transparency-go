@@ -58,7 +58,7 @@ func TestGetSTHWorks(t *testing.T) {
 			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
 		}
 		fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
-			ValidSTHResponse_TreeSize, ValidSTHResponse_Timestamp, ValidSTHResponse_SHA256RootHash,
+			ValidSTHResponse_TreeSize, int64(ValidSTHResponse_Timestamp), ValidSTHResponse_SHA256RootHash,
 			ValidSTHResponse_TreeHeadSignature)
 	}))
 	defer ts.Close()
