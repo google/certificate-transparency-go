@@ -19,7 +19,7 @@ Building the binaries:
 The go/merkletree package contains a cgo binding onto the C++ MerkleTree
 library, so if you're using this go package (either directly or indirectly!)
 you need to run the following command in the parent directory:
-  make golibs
+  cd cpp && make golibs
 
 This will create any necessary .syso files and will place them directly into
 the relevant go package src directories so that they will be automatically
