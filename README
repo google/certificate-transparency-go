@@ -9,8 +9,8 @@ Installation:
 This go code must be imported into your go workspace before you can use it, you
 can do that with:
 
-  go get code.google.com/p/certificate-transparency/go/client
-  go get code.google.com/p/certificate-transparency/go/scanner
+  go get github.com/google/certificate-transparency/go/client
+  go get github.com/google/certificate-transparency/go/scanner
   etc.
 
 
@@ -26,7 +26,7 @@ the relevant go package src directories so that they will be automatically
 picked up during cgo compilation.
 
 To compile the log scanner run:
-  go build code.google.com/p/certificate-transparency/go/scanner/main/scanner.go
+  go build github.com/google/certificate-transparency/go/scanner/main/scanner.go
 
 
 Contributing:

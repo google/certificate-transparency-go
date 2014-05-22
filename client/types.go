@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 
-	"code.google.com/p/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency/go/x509"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////

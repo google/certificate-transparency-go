@@ -20,8 +20,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	// START CT CHANGES
-	"code.google.com/p/certificate-transparency/go/asn1"
-	"code.google.com/p/certificate-transparency/go/x509/pkix"
+	"github.com/google/certificate-transparency/go/asn1"
+	"github.com/google/certificate-transparency/go/x509/pkix"
 	// END CT CHANGES
 	"encoding/pem"
 	"errors"

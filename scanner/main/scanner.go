@@ -5,9 +5,9 @@ import (
 	"log"
 	"regexp"
 
-	"code.google.com/p/certificate-transparency/go/client"
-	"code.google.com/p/certificate-transparency/go/scanner"
-	"code.google.com/p/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency/go/client"
+	"github.com/google/certificate-transparency/go/scanner"
+	"github.com/google/certificate-transparency/go/x509"
 )
 
 const (
