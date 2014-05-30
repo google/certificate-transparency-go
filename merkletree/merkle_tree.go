@@ -1,9 +1,9 @@
 package merkletree
 
 /*
-#cgo LDFLAGS: -lcrypto -lglog -lgflags
-#cgo CPPFLAGS: -I../../
-#include "go/merkletree/merkle_tree.h"
+#cgo LDFLAGS: -lcrypto -lglog
+#cgo CPPFLAGS: -I../../cpp
+#include "merkle_tree_go.h"
 */
 import "C"
 import (

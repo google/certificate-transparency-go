@@ -6,7 +6,7 @@
 
 // These types & functions provide a trampoline to call the C++ MerkleTree
 // implementation from within Go code.
-// 
+//
 // Generally we try to jump through hoops to not allocate memory from the C++
 // side, but rather have Go allocate it inside its GC memory such that we don't
 // have to worry about leaks.  Apart from the obvious benefit of doing it this
@@ -17,9 +17,9 @@ extern "C" {
 #endif
 
 // The _cgo_export.h file doesn't appear to exist when this header is pulled in
-// to the .go file, because of this we can't use types like GoSlice here and so 
-// we end up with void* everywhere;  we'll at least typedef them so that the 
-// source is a _little_ more readable. 
+// to the .go file, because of this we can't use types like GoSlice here and so
+// we end up with void* everywhere;  we'll at least typedef them so that the
+// source is a _little_ more readable.
 // Grumble grumble.
 typedef void* HASHER;
 typedef void* TREE;
@@ -51,17 +51,17 @@ bool RootAtSnapshot(TREE tree, BYTE_SLICE out, size_t snapshot);
 
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
-// |num_entries| is set to the number of actual elements stored in |out|. 
+// |num_entries| is set to the number of actual elements stored in |out|.
 bool PathToCurrentRoot(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t leaf);
 
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
-// |num_entries| is set to the number of actual elements stored in |out|. 
+// |num_entries| is set to the number of actual elements stored in |out|.
 bool PathToRootAtSnapshot(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t leaf, size_t snapshot);
 
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
-// |num_entries| is set to the number of actual elements stored in |out|. 
+// |num_entries| is set to the number of actual elements stored in |out|.
 bool SnapshotConsistency(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t snapshot1, size_t snapshot2);
 
 #ifdef __cplusplus
