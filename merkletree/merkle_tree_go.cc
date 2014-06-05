@@ -1,9 +1,9 @@
+#include "merkletree/merkle_tree.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <vector>
 #include <glog/logging.h>
-
-#include "merkletree/merkle_tree.h"
 
 #include "_cgo_export.h"
 #include "merkle_tree_go.h"
