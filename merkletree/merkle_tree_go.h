@@ -52,17 +52,20 @@ bool RootAtSnapshot(TREE tree, BYTE_SLICE out, size_t snapshot);
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
 // |num_entries| is set to the number of actual elements stored in |out|.
-bool PathToCurrentRoot(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t leaf);
+bool PathToCurrentRoot(TREE tree, BYTE_SLICE out, size_t* num_entries,
+                       size_t leaf);
 
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
 // |num_entries| is set to the number of actual elements stored in |out|.
-bool PathToRootAtSnapshot(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t leaf, size_t snapshot);
+bool PathToRootAtSnapshot(TREE tree, BYTE_SLICE out, size_t* num_entries,
+                          size_t leaf, size_t snapshot);
 
 // |out| must contain sufficent space to hold all of the path elements
 // sequentially.
 // |num_entries| is set to the number of actual elements stored in |out|.
-bool SnapshotConsistency(TREE tree, BYTE_SLICE out, size_t* num_entries, size_t snapshot1, size_t snapshot2);
+bool SnapshotConsistency(TREE tree, BYTE_SLICE out, size_t* num_entries,
+                         size_t snapshot1, size_t snapshot2);
 
 #ifdef __cplusplus
 }

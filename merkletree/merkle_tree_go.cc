@@ -9,7 +9,6 @@
 #include "merkle_tree_go.h"
 
 extern "C" {
-
 // Some hollow functions to cast the void* types into what they really
 // are, they're only really here to provide a little bit of type
 // safety.  Hopefully these should all be optimized away into oblivion
@@ -78,7 +77,7 @@ size_t AddLeafHash(TREE tree, BYTE_SLICE hash) {
 
 bool CurrentRoot(TREE tree, BYTE_SLICE out) {
   GoSlice* slice(BS(out));
-  MerkleTree *t(MT(tree));
+  MerkleTree* t(MT(tree));
   const size_t nodesize(t->NodeSize());
   if (slice->data == NULL || slice->len != nodesize) {
     return false;
@@ -92,7 +91,7 @@ bool CurrentRoot(TREE tree, BYTE_SLICE out) {
 
 bool RootAtSnapshot(TREE tree, BYTE_SLICE out, size_t snapshot) {
   GoSlice* slice(BS(out));
-  MerkleTree *t(MT(tree));
+  MerkleTree* t(MT(tree));
   const size_t nodesize(t->NodeSize());
   if (slice->data == NULL || slice->len != nodesize) {
     return false;
@@ -115,7 +114,7 @@ bool CopyNodesToSlice(const std::vector<std::string>& path, GoSlice* dst,
     *num_copied = 0;
     return false;
   }
-  char *e = static_cast<char*>(dst->data);
+  char* e = static_cast<char*>(dst->data);
   for (int i = 0; i < path.size(); ++i) {
     CHECK_EQ(nodesize, path[i].size());
     memcpy(e, path[i].data(), nodesize);
@@ -128,23 +127,24 @@ bool CopyNodesToSlice(const std::vector<std::string>& path, GoSlice* dst,
 
 bool PathToCurrentRoot(TREE tree, BYTE_SLICE out, size_t* num_entries,
                        size_t leaf) {
-  MerkleTree *t(MT(tree));
+  MerkleTree* t(MT(tree));
   const std::vector<std::string> path = t->PathToCurrentRoot(leaf);
   return CopyNodesToSlice(path, BS(out), t->NodeSize(), num_entries);
 }
 
 bool PathToRootAtSnapshot(TREE tree, BYTE_SLICE out, size_t* num_entries,
                           size_t leaf, size_t snapshot) {
-  MerkleTree *t(MT(tree));
-  const std::vector<std::string> path = t->PathToRootAtSnapshot(leaf, snapshot);
+  MerkleTree* t(MT(tree));
+  const std::vector<std::string> path =
+      t->PathToRootAtSnapshot(leaf, snapshot);
   return CopyNodesToSlice(path, BS(out), t->NodeSize(), num_entries);
 }
 
 bool SnapshotConsistency(TREE tree, BYTE_SLICE out, size_t* num_entries,
                          size_t snapshot1, size_t snapshot2) {
-  MerkleTree *t(MT(tree));
-  const std::vector<std::string> path = t->SnapshotConsistency(
-      snapshot1, snapshot2);
+  MerkleTree* t(MT(tree));
+  const std::vector<std::string> path =
+      t->SnapshotConsistency(snapshot1, snapshot2);
   return CopyNodesToSlice(path, BS(out), t->NodeSize(), num_entries);
 }
 
