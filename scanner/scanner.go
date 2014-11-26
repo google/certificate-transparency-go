@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"fmt"
 	"log"
+	"math/big"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -45,6 +46,18 @@ func (m MatchNone) CertificateMatches(_ *x509.Certificate) bool {
 
 func (m MatchNone) PrecertificateMatches(_ *client.Precertificate) bool {
 	return false
+}
+
+type MatchSerialNumber struct {
+	SerialNumber big.Int
+}
+
+func (m MatchSerialNumber) CertificateMatches(c *x509.Certificate) bool {
+	return c.SerialNumber.String() == m.SerialNumber.String()
+}
+
+func (m MatchSerialNumber) PrecertificateMatches(p *client.Precertificate) bool {
+	return p.TBSCertificate.SerialNumber.String() == m.SerialNumber.String()
 }
 
 // MatchSubjectRegex is a Matcher which will use |CertificateSubjectRegex| and |PrecertificateSubjectRegex|
