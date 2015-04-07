@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -18,8 +19,10 @@ import (
 
 // URI paths for CT Log endpoints
 const (
-	GetSTHPath     = "/ct/v1/get-sth"
-	GetEntriesPath = "/ct/v1/get-entries"
+	AddChainPath    = "/ct/v1/add-chain"
+	AddPreChainPath = "/ct/v1/add-pre-chain"
+	GetSTHPath      = "/ct/v1/get-sth"
+	GetEntriesPath  = "/ct/v1/get-entries"
 )
 
 const (
@@ -36,6 +39,12 @@ type LogClient struct {
 // JSON structures follow.
 // These represent the structures returned by the CT Log server.
 //////////////////////////////////////////////////////////////////////////////////
+
+// addChainRequest represents the JSON request body sent to the add-chain CT
+// method.
+type addChainRequest struct {
+	Chain []string `json:"chain"`
+}
 
 // addChainResponse represents the JSON response to the add-chain CT method.
 // An SCT represents a Log's promise to integrate a [pre-]certificate into the
@@ -59,6 +68,7 @@ type getSTHResponse struct {
 // base64LeafEntry respresents a Base64 encoded leaf entry
 type base64LeafEntry struct {
 	LeafInput string `json:"leaf_input"`
+	ExtraData string `json:"extra_data"`
 }
 
 // getEntriesReponse respresents the JSON response to the CT get-entries method
@@ -111,11 +121,11 @@ func New(uri string) *LogClient {
 // representation of the structure in |res|.
 // Returns a non-nil |error| if there was a problem.
 func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
-	req, _ := http.NewRequest("GET", uri, nil)
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Get(uri)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -124,6 +134,66 @@ func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
 		return err
 	}
 	return nil
+}
+
+// Makes a HTTP POST call to |uri|, and attempts to parse the response as a JSON
+// representation of the structure in |res|.
+// Returns a non-nil |error| if there was a problem.
+func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) error {
+	post_body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	resp, err := c.httpClient.Post(uri, "application/json", bytes.NewReader(post_body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &res); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Attempts to add |chain| to the log, using the api end-point specified by
+// |path|.
+func (c *LogClient) addChain(path string, chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
+	var resp addChainResponse
+	var req addChainRequest
+	for _, link := range chain {
+		req.Chain = append(req.Chain, base64.StdEncoding.EncodeToString(link))
+	}
+	if err := c.postAndParse(c.uri+path, &req, &resp); err != nil {
+		return nil, err
+	}
+	rawLogId, err := base64.StdEncoding.DecodeString(resp.ID)
+	if err != nil {
+		return nil, err
+	}
+	rawSignature, err := base64.StdEncoding.DecodeString(resp.Signature)
+	if err != nil {
+		return nil, err
+	}
+	return &SignedCertificateTimestamp{
+		SCTVersion: resp.SCTVersion,
+		LogID:      rawLogId,
+		Timestamp:  resp.Timestamp,
+		Extensions: CTExtensions(resp.Extensions),
+		Signature:  rawSignature}, nil
+}
+
+// Adds the (DER represented) X509 |chain| to the log.
+func (c *LogClient) AddChain(chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
+	return c.addChain(AddChainPath, chain)
+}
+
+// Add the (DER represented) Precertificate |chain| to the log.
+func (c *LogClient) AddPreChain(chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
+	return c.addChain(AddPreChainPath, chain)
 }
 
 // Retrieves the current STH from the log.
@@ -153,7 +223,7 @@ func (c *LogClient) GetSTH() (sth *SignedTreeHead, err error) {
 // Attempts to retrieve the entries in the sequence [|start|, |end|] from the CT
 // log server. (see section 4.6.)
 // Returns a slice of LeafInputs or a non-nil error.
-func (c *LogClient) GetEntries(start, end int64) ([]LeafInput, error) {
+func (c *LogClient) GetEntries(start, end int64) ([]LogEntry, error) {
 	if end < 0 {
 		return nil, errors.New("end should be >= 0")
 	}
@@ -165,12 +235,32 @@ func (c *LogClient) GetEntries(start, end int64) ([]LeafInput, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]LeafInput, end-start+1, end-start+1)
+	entries := make([]LogEntry, end-start+1, end-start+1)
 	for index, entry := range resp.Entries {
-		entries[index], err = base64.StdEncoding.DecodeString(entry.LeafInput)
+		leafBytes, err := base64.StdEncoding.DecodeString(entry.LeafInput)
+		leaf, err := ReadMerkleTreeLeaf(bytes.NewBuffer(leafBytes))
 		if err != nil {
 			return nil, err
 		}
+		entries[index].Leaf = *leaf
+		chainBytes, err := base64.StdEncoding.DecodeString(entry.ExtraData)
+
+		var chain []ASN1Cert
+		switch leaf.TimestampedEntry.EntryType {
+		case X509LogEntryType:
+			chain, err = UnmarshalX509ChainArray(chainBytes)
+
+		case PrecertLogEntryType:
+			chain, err = UnmarshalPrecertChainArray(chainBytes)
+
+		default:
+			return nil, fmt.Errorf("saw unknown entry type: %v", leaf.TimestampedEntry.EntryType)
+		}
+		if err != nil {
+			return nil, err
+		}
+		entries[index].Chain = chain
+		entries[index].Index = start + int64(index)
 	}
 	return entries, nil
 }

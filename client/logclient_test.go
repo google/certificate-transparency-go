@@ -38,7 +38,7 @@ func TestGetEntriesWorks(t *testing.T) {
 		if !positiveDecimalNumber.MatchString(q["end"][0]) {
 			t.Fatal("Invalid 'end' parameter: " + q["end"][0])
 		}
-		fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s", "extra_data": ""}, {"leaf_input": "%s", "extra_data": ""}]}`, PrecertEntryB64, CertEntryB64)
+		fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`, PrecertEntryB64, PrecertEntryExtraDataB64, CertEntryB64, CertEntryExtraDataB64)
 	}))
 	defer ts.Close()
 

@@ -1,6 +1,8 @@
 package client
 
 import (
+	"bytes"
+	"container/list"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,9 +11,10 @@ import (
 
 // Variable size structure prefix-header byte lengths
 const (
-	CertificateLengthBytes    = 3
-	PreCertificateLengthBytes = 3
-	ExtensionsLengthBytes     = 2
+	CertificateLengthBytes      = 3
+	PreCertificateLengthBytes   = 3
+	ExtensionsLengthBytes       = 2
+	CertificateChainLengthBytes = 3
 )
 
 // Reads a variable length array of bytes from |r|. |numLenBytes| specifies the
@@ -45,6 +48,34 @@ func readVarBytes(r io.Reader, numLenBytes int) ([]byte, error) {
 		return nil, fmt.Errorf("short read: expected %d but got %d", l, n)
 	}
 	return data, nil
+}
+
+// Reads a list of ASN1Cert types from |r|
+func readASN1CertList(r io.Reader, total_len_bytes int, element_len_bytes int) ([]ASN1Cert, error) {
+	list_bytes, err := readVarBytes(r, total_len_bytes)
+	if err != nil {
+		return []ASN1Cert{}, err
+	}
+	list := list.New()
+	list_reader := bytes.NewReader(list_bytes)
+	var entry []byte
+	for err == nil {
+		entry, err = readVarBytes(list_reader, element_len_bytes)
+		if err != nil {
+			if err != io.EOF {
+				return []ASN1Cert{}, err
+			}
+		} else {
+			list.PushBack(entry)
+		}
+	}
+	ret := make([]ASN1Cert, list.Len())
+	i := 0
+	for e := list.Front(); e != nil; e = e.Next() {
+		ret[i] = e.Value.([]byte)
+		i++
+	}
+	return ret, nil
 }
 
 // Parses the byte-stream representation of a TimestampedEntry from |r| and populates
@@ -100,4 +131,25 @@ func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
 		return nil, err
 	}
 	return &m, nil
+}
+
+// Unmarshalls the contents of the "chain:" entry in a GetEntries response in
+// the case where the entry refers to an X509 leaf.
+func UnmarshalX509ChainArray(b []byte) ([]ASN1Cert, error) {
+	return readASN1CertList(bytes.NewReader(b), CertificateChainLengthBytes, CertificateLengthBytes)
+}
+
+// Unmarshalls the contents of the "chain:" entry in a GetEntries response in
+// the case where the entry refers to a Precertificate leaf.
+func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
+	var chain []ASN1Cert
+
+	reader := bytes.NewReader(b)
+	// read (and discard) the pre-cert entry:
+	_, err := readVarBytes(reader, CertificateLengthBytes)
+	if err != nil {
+		return chain, err
+	}
+	// and then read and return the chain up to the root:
+	return readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
 }

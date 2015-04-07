@@ -1,0 +1,110 @@
+package main
+
+import (
+	"flag"
+	"log"
+	"regexp"
+	"sync"
+
+	"github.com/google/certificate-transparency/go/client"
+	"github.com/google/certificate-transparency/go/scanner"
+)
+
+var sourceLogUri = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+var targetLogUri = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
+var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
+var numWorkers = flag.Int("num_workers", 2, "Number of concurrent matchers")
+var parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+var parallelSubmit = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
+var startIndex = flag.Int64("start_index", 0, "Log index to start scanning at")
+var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
+
+func createMatcher() (scanner.Matcher, error) {
+	// Make a "match everything" regex matcher
+	precertRegex := regexp.MustCompile(".*")
+	certRegex := precertRegex
+	return scanner.MatchSubjectRegex{
+		CertificateSubjectRegex:    certRegex,
+		PrecertificateSubjectRegex: precertRegex}, nil
+}
+
+func certSubmitterJob(log_client *client.LogClient, certs <-chan *client.LogEntry,
+	wg *sync.WaitGroup) {
+	for c := range certs {
+		chain := make([]client.ASN1Cert, len(c.Chain))
+		chain[0] = c.X509Cert.Raw
+		copy(chain[1:], c.Chain)
+		sct, err := log_client.AddChain(chain)
+		if err != nil {
+			log.Printf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
+			continue
+		}
+		if !*quiet {
+			log.Printf("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
+		}
+	}
+	wg.Done()
+}
+
+func precertSubmitterJob(log_client *client.LogClient,
+	precerts <-chan *client.LogEntry,
+	wg *sync.WaitGroup) {
+	for c := range precerts {
+		chain := make([]client.ASN1Cert, len(c.Chain))
+		chain[0] = c.Precert.Raw
+		copy(chain[1:], c.Chain)
+		sct, err := log_client.AddPreChain(chain)
+		if err != nil {
+			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
+			continue
+		}
+		if !*quiet {
+			log.Printf("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
+		}
+	}
+	wg.Done()
+}
+
+func main() {
+	flag.Parse()
+	fetchLogClient := client.New(*sourceLogUri)
+	matcher, err := createMatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	opts := scanner.ScannerOptions{
+		Matcher:       matcher,
+		BatchSize:     *batchSize,
+		NumWorkers:    *numWorkers,
+		ParallelFetch: *parallelFetch,
+		StartIndex:    *startIndex,
+		Quiet:         *quiet,
+	}
+	scanner := scanner.NewScanner(fetchLogClient, opts)
+
+	certs := make(chan *client.LogEntry, *batchSize**parallelFetch)
+	precerts := make(chan *client.LogEntry, *batchSize**parallelFetch)
+
+	submitLogClient := client.New(*targetLogUri)
+
+	var submitterWG sync.WaitGroup
+	for w := 0; w < *parallelSubmit; w++ {
+		submitterWG.Add(2)
+		go certSubmitterJob(submitLogClient, certs, &submitterWG)
+		go precertSubmitterJob(submitLogClient, precerts, &submitterWG)
+	}
+
+	addChainFunc := func(entry *client.LogEntry) {
+		certs <- entry
+	}
+	addPreChainFunc := func(entry *client.LogEntry) {
+		precerts <- entry
+	}
+
+	scanner.Scan(addChainFunc, addPreChainFunc)
+
+	close(certs)
+	close(precerts)
+	submitterWG.Wait()
+}

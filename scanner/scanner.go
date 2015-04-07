@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"bytes"
 	"container/list"
 	"fmt"
 	"log"
@@ -105,7 +104,7 @@ type ScannerOptions struct {
 	PrecertOnly bool
 
 	// Number of entries to request in one batch from the Log
-	BlockSize int
+	BatchSize int
 
 	// Number of concurrent matchers to run
 	NumWorkers int
@@ -125,7 +124,7 @@ func DefaultScannerOptions() *ScannerOptions {
 	return &ScannerOptions{
 		Matcher:       &MatchAll{},
 		PrecertOnly:   false,
-		BlockSize:     1000,
+		BatchSize:     1000,
 		NumWorkers:    1,
 		ParallelFetch: 1,
 		StartIndex:    0,
@@ -153,8 +152,8 @@ type Scanner struct {
 
 // matcherJob represents the context for an individual matcher job.
 type matcherJob struct {
-	// The raw LeafInput returned by the log server
-	leaf client.LeafInput
+	// The log entry returned by the log server
+	entry client.LogEntry
 	// The index of the entry containing the LeafInput in the log
 	index int64
 }
@@ -191,40 +190,37 @@ func (s *Scanner) handleParseEntryError(err error, entryType client.LogEntryType
 	return nil
 }
 
-// Processes the given |leafInput| found at |index| in the specified log.
-func (s *Scanner) processEntry(index int64, leafInput client.LeafInput, foundCert func(int64, *x509.Certificate), foundPrecert func(int64, *client.Precertificate)) {
-	leaf, err := client.ReadMerkleTreeLeaf(bytes.NewBuffer(leafInput))
-	if err != nil {
-		s.Log(fmt.Sprintf("Failed to parse MerkleTreeLeaf at index %d : %s", index, err.Error()))
-		return
-	}
+// Processes the given |entry| in the specified log.
+func (s *Scanner) processEntry(entry client.LogEntry, foundCert func(*client.LogEntry), foundPrecert func(*client.LogEntry)) {
 	atomic.AddInt64(&s.certsProcessed, 1)
-	switch leaf.TimestampedEntry.EntryType {
+	switch entry.Leaf.TimestampedEntry.EntryType {
 	case client.X509LogEntryType:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return
 		}
-		cert, err := x509.ParseCertificate(leaf.TimestampedEntry.X509Entry)
-		if err = s.handleParseEntryError(err, leaf.TimestampedEntry.EntryType, index); err != nil {
+		cert, err := x509.ParseCertificate(entry.Leaf.TimestampedEntry.X509Entry)
+		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
 			// We hit an unparseable entry, already logged inside handleParseEntryError()
 			return
 		}
 		if s.opts.Matcher.CertificateMatches(cert) {
-			foundCert(index, cert)
+			entry.X509Cert = cert
+			foundCert(&entry)
 		}
 	case client.PrecertLogEntryType:
-		c, err := x509.ParseTBSCertificate(leaf.TimestampedEntry.PrecertEntry.TBSCertificate)
-		if err = s.handleParseEntryError(err, leaf.TimestampedEntry.EntryType, index); err != nil {
+		c, err := x509.ParseTBSCertificate(entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate)
+		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
 			// We hit an unparseable entry, already logged inside handleParseEntryError()
 			return
 		}
 		precert := &client.Precertificate{
 			Raw:            c.RawTBSCertificate,
 			TBSCertificate: *c,
-			IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
+			IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
 		if s.opts.Matcher.PrecertificateMatches(precert) {
-			foundPrecert(index, precert)
+			entry.Precert = precert
+			foundPrecert(&entry)
 		}
 		s.precertsSeen++
 	}
@@ -233,9 +229,9 @@ func (s *Scanner) processEntry(index int64, leafInput client.LeafInput, foundCer
 // Worker function to match certs.
 // Accepts MatcherJobs over the |entries| channel, and processes them.
 // Returns true over the |done| channel when the |entries| channel is closed.
-func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(int64, *x509.Certificate), foundPrecert func(int64, *client.Precertificate), wg *sync.WaitGroup) {
+func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*client.LogEntry), foundPrecert func(*client.LogEntry), wg *sync.WaitGroup) {
 	for e := range entries {
-		s.processEntry(e.index, e.leaf, foundCert, foundPrecert)
+		s.processEntry(e.entry, foundCert, foundPrecert)
 	}
 	s.Log(fmt.Sprintf("Matcher %d finished", id))
 	wg.Done()
@@ -252,13 +248,14 @@ func (s *Scanner) fetcherJob(id int, ranges <-chan fetchRange, entries chan<- ma
 		success := false
 		// TODO(alcutter): give up after a while:
 		for !success {
-			leaves, err := s.logClient.GetEntries(r.start, r.end)
+			logEntries, err := s.logClient.GetEntries(r.start, r.end)
 			if err != nil {
 				s.Log(fmt.Sprintf("Problem fetching from log: %s", err.Error()))
 				continue
 			}
-			for _, leaf := range leaves {
-				entries <- matcherJob{leaf, r.start}
+			for _, logEntry := range logEntries {
+				logEntry.Index = r.start
+				entries <- matcherJob{logEntry, r.start}
 				r.start++
 			}
 			if r.start > r.end {
@@ -326,7 +323,8 @@ func (s Scanner) Log(msg string) {
 // precert string as the arguments.
 //
 // This method blocks until the scan is complete.
-func (s *Scanner) Scan(foundCert func(int64, *x509.Certificate), foundPrecert func(int64, *client.Precertificate)) error {
+func (s *Scanner) Scan(foundCert func(*client.LogEntry),
+	foundPrecert func(*client.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
 	s.precertsSeen = 0
@@ -356,7 +354,7 @@ func (s *Scanner) Scan(foundCert func(int64, *x509.Certificate), foundPrecert fu
 
 	var ranges list.List
 	for start := s.opts.StartIndex; start < int64(latestSth.TreeSize); {
-		end := min(start+int64(s.opts.BlockSize), int64(latestSth.TreeSize)) - 1
+		end := min(start+int64(s.opts.BatchSize), int64(latestSth.TreeSize)) - 1
 		ranges.PushBack(fetchRange{start, end})
 		start = end + 1
 	}

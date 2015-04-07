@@ -173,7 +173,7 @@ func TestScannerEndToEnd(t *testing.T) {
 	logClient := client.New(ts.URL)
 	opts := ScannerOptions{
 		Matcher:       &MatchSubjectRegex{regexp.MustCompile(".*\\.google\\.com"), nil},
-		BlockSize:     10,
+		BatchSize:     10,
 		NumWorkers:    1,
 		ParallelFetch: 1,
 		StartIndex:    0,
@@ -183,12 +183,12 @@ func TestScannerEndToEnd(t *testing.T) {
 	var matchedCerts list.List
 	var matchedPrecerts list.List
 
-	err := scanner.Scan(func(index int64, c *x509.Certificate) {
+	err := scanner.Scan(func(e *client.LogEntry) {
 		// Annoyingly we can't t.Fatal() in here, as this is run in another go
 		// routine
-		matchedCerts.PushBack(*c)
-	}, func(index int64, p *client.Precertificate) {
-		matchedPrecerts.PushBack(p)
+		matchedCerts.PushBack(*e.X509Cert)
+	}, func(e *client.LogEntry) {
+		matchedPrecerts.PushBack(*e.Precert)
 	})
 
 	if err != nil {
@@ -222,8 +222,8 @@ func TestDefaultScannerOptions(t *testing.T) {
 	if opts.PrecertOnly {
 		t.Fatal("Expected PrecertOnly to be false.")
 	}
-	if opts.BlockSize < 1 {
-		t.Fatalf("Insane BlockSize %d", opts.BlockSize)
+	if opts.BatchSize < 1 {
+		t.Fatalf("Insane BatchSize %d", opts.BatchSize)
 	}
 	if opts.NumWorkers < 1 {
 		t.Fatalf("Insane NumWorkers %d", opts.NumWorkers)

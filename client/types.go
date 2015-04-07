@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/google/certificate-transparency/go/x509"
@@ -69,6 +70,14 @@ type AuditPath []MerkleTreeNode
 // LeafInput represents a serialized MerkleTreeLeaf structure
 type LeafInput []byte
 
+type LogEntry struct {
+	Index    int64
+	Leaf     MerkleTreeLeaf
+	X509Cert *x509.Certificate
+	Precert  *Precertificate
+	Chain    []ASN1Cert
+}
+
 // SignedTreeHead represents the structure returned by the get-sth CT method after
 // base64 decoding. See sections 3.5 and 4.3 in the RFC)
 type SignedTreeHead struct {
@@ -85,8 +94,16 @@ type SignedCertificateTimestamp struct {
 	LogID      []byte  // the SHA-256 hash of the log's public key, calculated over
 	// the DER encoding of the key represented as SubjectPublicKeyInfo.
 	Timestamp  uint64       // Timestamp (in ms since unix epoc) at which the SCT was issued
-	Extentions CTExtensions // For future extensions to the protocol
+	Extensions CTExtensions // For future extensions to the protocol
 	Signature  []byte       // The Log's signature for this SCT
+}
+
+func (s SignedCertificateTimestamp) String() string {
+	return fmt.Sprintf("{Version:%d LogId:%s Timestamp:%d Extensions:'%s' Signature:%s}", s.SCTVersion,
+		base64.StdEncoding.EncodeToString(s.LogID),
+		s.Timestamp,
+		s.Extensions,
+		base64.StdEncoding.EncodeToString(s.Signature))
 }
 
 // TimestampedEntry is part of the MerkleTreeLeaf structure.
