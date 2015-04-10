@@ -70,7 +70,7 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *client.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
-		chain := make([]client.ASN1Cert, len(c.Chain))
+		chain := make([]client.ASN1Cert, len(c.Chain) + 1)
 		chain[0] = c.X509Cert.Raw
 		copy(chain[1:], c.Chain)
 		sct, err := log_client.AddChain(chain)
@@ -91,7 +91,7 @@ func precertSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *clien
 	precerts <-chan *client.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
-		chain := make([]client.ASN1Cert, len(c.Chain))
+		chain := make([]client.ASN1Cert, len(c.Chain) + 1)
 		chain[0] = c.Precert.Raw
 		copy(chain[1:], c.Chain)
 		sct, err := log_client.AddPreChain(chain)
