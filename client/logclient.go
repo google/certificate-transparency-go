@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/mreiferson/go-httpclient"
@@ -105,7 +107,6 @@ type getEntryAndProofResponse struct {
 func New(uri string) *LogClient {
 	var c LogClient
 	c.uri = uri
-	// TODO(alcutter): make these timeouts modifiable
 	transport := &httpclient.Transport{
 		ConnectTimeout:        10 * time.Second,
 		RequestTimeout:        30 * time.Second,
@@ -121,12 +122,20 @@ func New(uri string) *LogClient {
 // representation of the structure in |res|.
 // Returns a non-nil |error| if there was a problem.
 func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
-	resp, err := c.httpClient.Get(uri)
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	req.Header.Set("Keep-Alive", "timeout=15, max=100")
+	resp, err := c.httpClient.Do(req)
+	var body []byte
+	if resp != nil {
+		body, err = ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return err
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -139,37 +148,77 @@ func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
 // Makes a HTTP POST call to |uri|, and attempts to parse the response as a JSON
 // representation of the structure in |res|.
 // Returns a non-nil |error| if there was a problem.
-func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) error {
+func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) (*http.Response, string, error) {
 	post_body, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
-	resp, err := c.httpClient.Post(uri, "application/json", bytes.NewReader(post_body))
+	httpReq, err := http.NewRequest("POST", uri, bytes.NewReader(post_body))
 	if err != nil {
-		return err
+		return nil, "", err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	httpReq.Header.Set("Keep-Alive", "timeout=15, max=100")
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(httpReq)
+	// Read all of the body, if there is one, so that the http.Client can do
+	// Keep-Alive:
+	var body []byte
+	if resp != nil {
+		body, err = ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+	}
 	if err != nil {
-		return err
+		return resp, string(body), err
 	}
-	if err = json.Unmarshal(body, &res); err != nil {
-		return err
+	if resp.StatusCode == 200 {
+		if err != nil {
+			return resp, string(body), err
+		}
+		if err = json.Unmarshal(body, &res); err != nil {
+			return resp, string(body), err
+		}
 	}
-	return nil
+	return resp, "", nil
 }
 
 // Attempts to add |chain| to the log, using the api end-point specified by
 // |path|.
-func (c *LogClient) addChain(path string, chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
+func (c *LogClient) addChainWithRetry(path string, chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
 	var resp addChainResponse
 	var req addChainRequest
 	for _, link := range chain {
 		req.Chain = append(req.Chain, base64.StdEncoding.EncodeToString(link))
 	}
-	if err := c.postAndParse(c.uri+path, &req, &resp); err != nil {
-		return nil, err
+	done := false
+	for !done {
+		backoffSeconds := 0
+		httpResp, errorBody, err := c.postAndParse(c.uri+path, &req, &resp)
+		if err != nil {
+			log.Printf("Got %s, backing off.", err)
+			backoffSeconds = 10
+		} else {
+			switch {
+			case httpResp.StatusCode == 200:
+				done = true
+				break
+			case httpResp.StatusCode == 408:
+			case httpResp.StatusCode == 503:
+				// Retry
+				backoffSeconds = 10
+				if retryAfter := httpResp.Header.Get("Retry-After"); retryAfter != "" {
+					if seconds, err := strconv.Atoi(retryAfter); err != nil {
+						backoffSeconds = seconds
+					}
+				}
+			default:
+				return nil, fmt.Errorf("Got HTTP Status %s: %s", httpResp.Status, errorBody)
+			}
+		}
+		// Now back-off before retrying
+		log.Printf("Got %s, backing-off %d seconds.", httpResp.Status, backoffSeconds)
+		time.Sleep(time.Duration(backoffSeconds) * time.Second)
 	}
+
 	rawLogId, err := base64.StdEncoding.DecodeString(resp.ID)
 	if err != nil {
 		return nil, err
@@ -188,12 +237,12 @@ func (c *LogClient) addChain(path string, chain []ASN1Cert) (*SignedCertificateT
 
 // Adds the (DER represented) X509 |chain| to the log.
 func (c *LogClient) AddChain(chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
-	return c.addChain(AddChainPath, chain)
+	return c.addChainWithRetry(AddChainPath, chain)
 }
 
 // Add the (DER represented) Precertificate |chain| to the log.
 func (c *LogClient) AddPreChain(chain []ASN1Cert) (*SignedCertificateTimestamp, error) {
-	return c.addChain(AddPreChainPath, chain)
+	return c.addChainWithRetry(AddPreChainPath, chain)
 }
 
 // Retrieves the current STH from the log.
