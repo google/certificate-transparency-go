@@ -190,6 +190,7 @@ func (c *LogClient) addChainWithRetry(path string, chain []ASN1Cert) (*SignedCer
 		req.Chain = append(req.Chain, base64.StdEncoding.EncodeToString(link))
 	}
 	done := false
+	httpStatus := "Unknown"
 	for !done {
 		backoffSeconds := 0
 		httpResp, errorBody, err := c.postAndParse(c.uri+path, &req, &resp)
@@ -213,9 +214,10 @@ func (c *LogClient) addChainWithRetry(path string, chain []ASN1Cert) (*SignedCer
 			default:
 				return nil, fmt.Errorf("Got HTTP Status %s: %s", httpResp.Status, errorBody)
 			}
+			httpStatus = httpResp.Status
 		}
 		// Now back-off before retrying
-		log.Printf("Got %s, backing-off %d seconds.", httpResp.Status, backoffSeconds)
+		log.Printf("Got %s, backing-off %d seconds.", httpStatus, backoffSeconds)
 		time.Sleep(time.Duration(backoffSeconds) * time.Second)
 	}
 
