@@ -215,7 +215,7 @@ func (s *Scanner) processEntry(entry client.LogEntry, foundCert func(*client.Log
 			return
 		}
 		precert := &client.Precertificate{
-			Raw:            c.RawTBSCertificate,
+			Raw:            entry.Chain[0],
 			TBSCertificate: *c,
 			IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
 		if s.opts.Matcher.PrecertificateMatches(precert) {

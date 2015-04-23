@@ -145,11 +145,18 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	var chain []ASN1Cert
 
 	reader := bytes.NewReader(b)
-	// read (and discard) the pre-cert entry:
-	_, err := readVarBytes(reader, CertificateLengthBytes)
+	// read the pre-cert entry:
+	precert, err := readVarBytes(reader, CertificateLengthBytes)
 	if err != nil {
 		return chain, err
 	}
+	chain = append(chain, precert)
 	// and then read and return the chain up to the root:
-	return readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
+	remaining_chain, err := readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
+	if err != nil {
+		return chain, err
+	}
+	fmt.Printf("remainin_chain len %d\n", len(remaining_chain))
+	chain = append(chain, remaining_chain...)
+	return chain, nil
 }

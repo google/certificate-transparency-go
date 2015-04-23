@@ -178,7 +178,7 @@ func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) (
 			return resp, string(body), err
 		}
 	}
-	return resp, "", nil
+	return resp, string(body), nil
 }
 
 // Attempts to add |chain| to the log, using the api end-point specified by

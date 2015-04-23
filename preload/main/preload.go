@@ -16,6 +16,11 @@ import (
 	"github.com/google/certificate-transparency/go/scanner"
 )
 
+const (
+	// A regex which cannot match any input
+	MatchesNothingRegex = "a^"
+)
+
 var sourceLogUri = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
 var targetLogUri = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
 var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
@@ -25,11 +30,17 @@ var parallelSubmit = flag.Int("parallel_submit", 2, "Number of concurrent add-[p
 var startIndex = flag.Int64("start_index", 0, "Log index to start scanning at")
 var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 var sctInputFile = flag.String("sct_file", "", "File to save SCTs & leaf data to")
+var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
 
 func createMatcher() (scanner.Matcher, error) {
 	// Make a "match everything" regex matcher
 	precertRegex := regexp.MustCompile(".*")
-	certRegex := precertRegex
+	var certRegex *regexp.Regexp
+	if *precertsOnly {
+		certRegex = regexp.MustCompile(MatchesNothingRegex)
+	} else {
+		certRegex = precertRegex
+	}
 	return scanner.MatchSubjectRegex{
 		CertificateSubjectRegex:    certRegex,
 		PrecertificateSubjectRegex: precertRegex}, nil
@@ -91,16 +102,14 @@ func precertSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *clien
 	precerts <-chan *client.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
-		chain := make([]client.ASN1Cert, len(c.Chain)+1)
-		chain[0] = c.Precert.Raw
-		copy(chain[1:], c.Chain)
-		sct, err := log_client.AddPreChain(chain)
+		sct, err := log_client.AddPreChain(c.Chain)
 		if err != nil {
 			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
-			recordFailure(addedCerts, chain[0], err)
+			log.Printf("%d", len(c.Chain))
+			recordFailure(addedCerts, c.Chain[0], err)
 			continue
 		}
-		recordSct(addedCerts, chain[0], sct)
+		recordSct(addedCerts, c.Chain[0], sct)
 		if !*quiet {
 			log.Printf("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
 		}
@@ -150,6 +159,7 @@ func main() {
 	addedCerts := make(chan *preload.AddedCert, *batchSize**parallelFetch)
 
 	var sctWriterWG sync.WaitGroup
+	sctWriterWG.Add(1)
 	go sctWriterJob(addedCerts, sctWriter, &sctWriterWG)
 
 	submitLogClient := client.New(*targetLogUri)
