@@ -156,7 +156,6 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	if err != nil {
 		return chain, err
 	}
-	fmt.Printf("remainin_chain len %d\n", len(remaining_chain))
 	chain = append(chain, remaining_chain...)
 	return chain, nil
 }
