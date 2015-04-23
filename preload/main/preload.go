@@ -67,7 +67,15 @@ func recordFailure(addedCerts chan<- *preload.AddedCert, certDer client.ASN1Cert
 func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
 	encoder := gob.NewEncoder(sctWriter)
 
+    numAdded := 0
+    numFailed := 0
+
 	for c := range addedCerts {
+      if c.AddedOk {
+        numAdded++
+      } else {
+        numFailed++
+      }
 		if encoder != nil {
 			err := encoder.Encode(c)
 			if err != nil {
@@ -75,6 +83,7 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 			}
 		}
 	}
+    log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
 	wg.Done()
 }
 
@@ -105,7 +114,6 @@ func precertSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *clien
 		sct, err := log_client.AddPreChain(c.Chain)
 		if err != nil {
 			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
-			log.Printf("%d", len(c.Chain))
 			recordFailure(addedCerts, c.Chain[0], err)
 			continue
 		}
