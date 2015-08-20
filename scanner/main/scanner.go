@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"regexp"
 
+	"github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/scanner"
 )
@@ -28,13 +29,13 @@ var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, o
 
 // Prints out a short bit of info about |cert|, found at |index| in the
 // specified log
-func logCertInfo(entry *client.LogEntry) {
+func logCertInfo(entry *ct.LogEntry) {
 	log.Printf("Interesting cert at index %d: CN: '%s'", entry.Index, entry.X509Cert.Subject.CommonName)
 }
 
 // Prints out a short bit of info about |precert|, found at |index| in the
 // specified log
-func logPrecertInfo(entry *client.LogEntry) {
+func logPrecertInfo(entry *ct.LogEntry) {
 	log.Printf("Interesting precert at index %d: CN: '%s' Issuer: %s", entry.Index,
 		entry.Precert.TBSCertificate.Subject.CommonName, entry.Precert.TBSCertificate.Issuer.CommonName)
 }

@@ -1,4 +1,4 @@
-package client
+package ct
 
 import (
 	"bytes"
@@ -51,16 +51,16 @@ func readVarBytes(r io.Reader, numLenBytes int) ([]byte, error) {
 }
 
 // Reads a list of ASN1Cert types from |r|
-func readASN1CertList(r io.Reader, total_len_bytes int, element_len_bytes int) ([]ASN1Cert, error) {
-	list_bytes, err := readVarBytes(r, total_len_bytes)
+func readASN1CertList(r io.Reader, totalLenBytes int, elementLenBytes int) ([]ASN1Cert, error) {
+	listBytes, err := readVarBytes(r, totalLenBytes)
 	if err != nil {
 		return []ASN1Cert{}, err
 	}
 	list := list.New()
-	list_reader := bytes.NewReader(list_bytes)
+	listReader := bytes.NewReader(listBytes)
 	var entry []byte
 	for err == nil {
-		entry, err = readVarBytes(list_reader, element_len_bytes)
+		entry, err = readVarBytes(listReader, elementLenBytes)
 		if err != nil {
 			if err != io.EOF {
 				return []ASN1Cert{}, err
@@ -78,9 +78,9 @@ func readASN1CertList(r io.Reader, total_len_bytes int, element_len_bytes int) (
 	return ret, nil
 }
 
-// Parses the byte-stream representation of a TimestampedEntry from |r| and populates
-// the struct |t| with the data.
-// See RFC section 3.4 for details on the format.
+// ReadTimestampedEntryInto parses the byte-stream representation of a
+// TimestampedEntry from |r| and populates the struct |t| with the data.  See
+// RFC section 3.4 for details on the format.
 // Returns a non-nil error if there was a problem.
 func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	var err error
@@ -109,10 +109,12 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	return nil
 }
 
-// Parses the byte-stream representation of a MerkleTreeLeaf and returns a
-// pointer to a new MerkleTreeLeaf structure containing the parsed data.
+// ReadMerkleTreeLeaf parses the byte-stream representation of a MerkleTreeLeaf
+// and returns a pointer to a new MerkleTreeLeaf structure containing the
+// parsed data.
 // See RFC section 3.4 for details on the format.
-// Returns a pointer to a new MerkleTreeLeaf or non-nil error if there was a problem
+// Returns a pointer to a new MerkleTreeLeaf or non-nil error if there was a
+// problem
 func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
 	var m MerkleTreeLeaf
 	if err := binary.Read(r, binary.BigEndian, &m.Version); err != nil {
@@ -133,14 +135,15 @@ func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
 	return &m, nil
 }
 
-// Unmarshalls the contents of the "chain:" entry in a GetEntries response in
-// the case where the entry refers to an X509 leaf.
+// UnmarshalX509ChainArray unmarshalls the contents of the "chain:" entry in a
+// GetEntries response in the case where the entry refers to an X509 leaf.
 func UnmarshalX509ChainArray(b []byte) ([]ASN1Cert, error) {
 	return readASN1CertList(bytes.NewReader(b), CertificateChainLengthBytes, CertificateLengthBytes)
 }
 
-// Unmarshalls the contents of the "chain:" entry in a GetEntries response in
-// the case where the entry refers to a Precertificate leaf.
+// UnmarshalPrecertChainArray unmarshalls the contents of the "chain:" entry in
+// a GetEntries response in the case where the entry refers to a Precertificate
+// leaf.
 func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	var chain []ASN1Cert
 
@@ -152,10 +155,10 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	}
 	chain = append(chain, precert)
 	// and then read and return the chain up to the root:
-	remaining_chain, err := readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
+	remainingChain, err := readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
 	if err != nil {
 		return chain, err
 	}
-	chain = append(chain, remaining_chain...)
+	chain = append(chain, remainingChain...)
 	return chain, nil
 }

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/preload"
 	"github.com/google/certificate-transparency/go/scanner"
@@ -46,7 +47,7 @@ func createMatcher() (scanner.Matcher, error) {
 		PrecertificateSubjectRegex: precertRegex}, nil
 }
 
-func recordSct(addedCerts chan<- *preload.AddedCert, certDer client.ASN1Cert, sct *client.SignedCertificateTimestamp) {
+func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
 	addedCert := preload.AddedCert{
 		CertDER:                    certDer,
 		SignedCertificateTimestamp: *sct,
@@ -55,7 +56,7 @@ func recordSct(addedCerts chan<- *preload.AddedCert, certDer client.ASN1Cert, sc
 	addedCerts <- &addedCert
 }
 
-func recordFailure(addedCerts chan<- *preload.AddedCert, certDer client.ASN1Cert, addError error) {
+func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, addError error) {
 	addedCert := preload.AddedCert{
 		CertDER:      certDer,
 		AddedOk:      false,
@@ -87,10 +88,10 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 	wg.Done()
 }
 
-func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *client.LogEntry,
+func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
-		chain := make([]client.ASN1Cert, len(c.Chain)+1)
+		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
 		chain[0] = c.X509Cert.Raw
 		copy(chain[1:], c.Chain)
 		sct, err := log_client.AddChain(chain)
@@ -108,7 +109,7 @@ func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.L
 }
 
 func precertSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient,
-	precerts <-chan *client.LogEntry,
+	precerts <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
 		sct, err := log_client.AddPreChain(c.Chain)
@@ -162,8 +163,8 @@ func main() {
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 
-	certs := make(chan *client.LogEntry, *batchSize**parallelFetch)
-	precerts := make(chan *client.LogEntry, *batchSize**parallelFetch)
+	certs := make(chan *ct.LogEntry, *batchSize**parallelFetch)
+	precerts := make(chan *ct.LogEntry, *batchSize**parallelFetch)
 	addedCerts := make(chan *preload.AddedCert, *batchSize**parallelFetch)
 
 	var sctWriterWG sync.WaitGroup
@@ -179,10 +180,10 @@ func main() {
 		go precertSubmitterJob(addedCerts, submitLogClient, precerts, &submitterWG)
 	}
 
-	addChainFunc := func(entry *client.LogEntry) {
+	addChainFunc := func(entry *ct.LogEntry) {
 		certs <- entry
 	}
-	addPreChainFunc := func(entry *client.LogEntry) {
+	addPreChainFunc := func(entry *ct.LogEntry) {
 		precerts <- entry
 	}
 

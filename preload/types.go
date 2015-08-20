@@ -1,12 +1,12 @@
 package preload
 
 import (
-	"github.com/google/certificate-transparency/go/client"
+	"github.com/google/certificate-transparency/go"
 )
 
 type AddedCert struct {
-	CertDER                    client.ASN1Cert
-	SignedCertificateTimestamp client.SignedCertificateTimestamp
+	CertDER                    ct.ASN1Cert
+	SignedCertificateTimestamp ct.SignedCertificateTimestamp
 	AddedOk                    bool
 	ErrorMessage               string
 }

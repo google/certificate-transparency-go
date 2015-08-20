@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/x509"
 )
@@ -98,7 +99,7 @@ func TestScannerMatchSubjectRegexMatchesCertificateSAN(t *testing.T) {
 func TestScannerMatchSubjectRegexMatchesPrecertificateCommonName(t *testing.T) {
 	const SubjectName = "www.example.com"
 	const SubjectRegEx = ".*example.com"
-	var precert client.Precertificate
+	var precert ct.Precertificate
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -110,7 +111,7 @@ func TestScannerMatchSubjectRegexMatchesPrecertificateCommonName(t *testing.T) {
 func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateCommonName(t *testing.T) {
 	const SubjectName = "www.google.com"
 	const SubjectRegEx = ".*example.com"
-	var precert client.Precertificate
+	var precert ct.Precertificate
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -122,7 +123,7 @@ func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateCommonName(t *tes
 func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateSAN(t *testing.T) {
 	const SubjectName = "www.google.com"
 	const SubjectRegEx = ".*example.com"
-	var precert client.Precertificate
+	var precert ct.Precertificate
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -138,7 +139,7 @@ func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateSAN(t *testing.T)
 func TestScannerMatchSubjectRegexMatchesPrecertificateSAN(t *testing.T) {
 	const SubjectName = "www.example.com"
 	const SubjectRegEx = ".*example.com"
-	var precert client.Precertificate
+	var precert ct.Precertificate
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -183,11 +184,11 @@ func TestScannerEndToEnd(t *testing.T) {
 	var matchedCerts list.List
 	var matchedPrecerts list.List
 
-	err := scanner.Scan(func(e *client.LogEntry) {
+	err := scanner.Scan(func(e *ct.LogEntry) {
 		// Annoyingly we can't t.Fatal() in here, as this is run in another go
 		// routine
 		matchedCerts.PushBack(*e.X509Cert)
-	}, func(e *client.LogEntry) {
+	}, func(e *ct.LogEntry) {
 		matchedPrecerts.PushBack(*e.Precert)
 	})
 

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/x509"
 )
@@ -22,7 +23,7 @@ type Matcher interface {
 
 	// PrecertificateMatches is called by the scanner for each CT Precertificate found in the log.
 	// The implementation should return |true| if the passed Precertificate is interesting, and |false| otherwise.
-	PrecertificateMatches(*client.Precertificate) bool
+	PrecertificateMatches(*ct.Precertificate) bool
 }
 
 // MatchAll is a Matcher which will match every possible Certificate and Precertificate.
@@ -32,7 +33,7 @@ func (m MatchAll) CertificateMatches(_ *x509.Certificate) bool {
 	return true
 }
 
-func (m MatchAll) PrecertificateMatches(_ *client.Precertificate) bool {
+func (m MatchAll) PrecertificateMatches(_ *ct.Precertificate) bool {
 	return true
 }
 
@@ -43,7 +44,7 @@ func (m MatchNone) CertificateMatches(_ *x509.Certificate) bool {
 	return false
 }
 
-func (m MatchNone) PrecertificateMatches(_ *client.Precertificate) bool {
+func (m MatchNone) PrecertificateMatches(_ *ct.Precertificate) bool {
 	return false
 }
 
@@ -55,7 +56,7 @@ func (m MatchSerialNumber) CertificateMatches(c *x509.Certificate) bool {
 	return c.SerialNumber.String() == m.SerialNumber.String()
 }
 
-func (m MatchSerialNumber) PrecertificateMatches(p *client.Precertificate) bool {
+func (m MatchSerialNumber) PrecertificateMatches(p *ct.Precertificate) bool {
 	return p.TBSCertificate.SerialNumber.String() == m.SerialNumber.String()
 }
 
@@ -82,7 +83,7 @@ func (m MatchSubjectRegex) CertificateMatches(c *x509.Certificate) bool {
 }
 
 // Returns true if either CN or any SAN of |p| matches |PrecertificatesubjectRegex|.
-func (m MatchSubjectRegex) PrecertificateMatches(p *client.Precertificate) bool {
+func (m MatchSubjectRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	if m.PrecertificateSubjectRegex.FindStringIndex(p.TBSCertificate.Subject.CommonName) != nil {
 		return true
 	}
@@ -153,7 +154,7 @@ type Scanner struct {
 // matcherJob represents the context for an individual matcher job.
 type matcherJob struct {
 	// The log entry returned by the log server
-	entry client.LogEntry
+	entry ct.LogEntry
 	// The index of the entry containing the LeafInput in the log
 	index int64
 }
@@ -172,7 +173,7 @@ type fetchRange struct {
 // Fatal errors will be logged, unparsableEntires will be incremented, and the
 // fatal error itself will be returned.
 // When |err| is nil, this method does nothing.
-func (s *Scanner) handleParseEntryError(err error, entryType client.LogEntryType, index int64) error {
+func (s *Scanner) handleParseEntryError(err error, entryType ct.LogEntryType, index int64) error {
 	if err == nil {
 		// No error to handle
 		return nil
@@ -191,10 +192,10 @@ func (s *Scanner) handleParseEntryError(err error, entryType client.LogEntryType
 }
 
 // Processes the given |entry| in the specified log.
-func (s *Scanner) processEntry(entry client.LogEntry, foundCert func(*client.LogEntry), foundPrecert func(*client.LogEntry)) {
+func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	atomic.AddInt64(&s.certsProcessed, 1)
 	switch entry.Leaf.TimestampedEntry.EntryType {
-	case client.X509LogEntryType:
+	case ct.X509LogEntryType:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return
@@ -208,13 +209,13 @@ func (s *Scanner) processEntry(entry client.LogEntry, foundCert func(*client.Log
 			entry.X509Cert = cert
 			foundCert(&entry)
 		}
-	case client.PrecertLogEntryType:
+	case ct.PrecertLogEntryType:
 		c, err := x509.ParseTBSCertificate(entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate)
 		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
 			// We hit an unparseable entry, already logged inside handleParseEntryError()
 			return
 		}
-		precert := &client.Precertificate{
+		precert := &ct.Precertificate{
 			Raw:            entry.Chain[0],
 			TBSCertificate: *c,
 			IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
@@ -229,7 +230,7 @@ func (s *Scanner) processEntry(entry client.LogEntry, foundCert func(*client.Log
 // Worker function to match certs.
 // Accepts MatcherJobs over the |entries| channel, and processes them.
 // Returns true over the |done| channel when the |entries| channel is closed.
-func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*client.LogEntry), foundPrecert func(*client.LogEntry), wg *sync.WaitGroup) {
+func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry), wg *sync.WaitGroup) {
 	for e := range entries {
 		s.processEntry(e.entry, foundCert, foundPrecert)
 	}
@@ -323,8 +324,8 @@ func (s Scanner) Log(msg string) {
 // precert string as the arguments.
 //
 // This method blocks until the scan is complete.
-func (s *Scanner) Scan(foundCert func(*client.LogEntry),
-	foundPrecert func(*client.LogEntry)) error {
+func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
+	foundPrecert func(*ct.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
 	s.precertsSeen = 0
@@ -342,7 +343,7 @@ func (s *Scanner) Scan(foundCert func(*client.LogEntry),
 	fetches := make(chan fetchRange, 1000)
 	jobs := make(chan matcherJob, 100000)
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			throughput := float64(s.certsProcessed) / time.Since(startTime).Seconds()
 			remainingCerts := int64(latestSth.TreeSize) - int64(s.opts.StartIndex) - s.certsProcessed
 			remainingSeconds := int(float64(remainingCerts) / throughput)
