@@ -2,6 +2,7 @@ package ct
 
 import (
 	"bytes"
+	"encoding/hex"
 	"strings"
 	"testing"
 )
@@ -52,6 +53,29 @@ func TestCreateVarByteBuf(t *testing.T) {
 	}
 }
 
+func TestWriteVarBytes(t *testing.T) {
+	const dataSize = 453641
+	data := make([]byte, dataSize)
+	for x := uint64(0); x < dataSize; x++ {
+		data[x] = byte(x)
+	}
+
+	var buf bytes.Buffer
+	if err := writeVarBytes(&buf, data, 3); err != nil {
+		t.Errorf("Failed to write data to buffer: %v", err)
+	}
+	if buf.Len() != dataSize+3 {
+		t.Errorf("Wrong buffer size created, expected %d but got %d", dataSize+3, buf.Len())
+	}
+	b := buf.Bytes()
+	if b[0] != 0x06 || b[1] != 0xec || b[2] != 0x09 {
+		t.Errorf("Buffer has incorrect size header %02x,%02x,%02x", b[0], b[1], b[2])
+	}
+	if bytes.Compare(data, b[3:]) != 0 {
+		t.Errorf("Buffer data corrupt")
+	}
+}
+
 func TestReadVarBytes(t *testing.T) {
 	const BufSize = 453641
 	r := createVarByteBuf(BufSize)
@@ -98,5 +122,188 @@ func TestReadTimestampedEntryIntoChecksEntryType(t *testing.T) {
 	err := ReadTimestampedEntryInto(bytes.NewReader(buffer), &tse)
 	if err == nil || !strings.Contains(err.Error(), "unknown EntryType") {
 		t.Fatal("Failed to check EntryType - accepted 0x4545")
+	}
+}
+
+func TestCheckCertificateFormatOk(t *testing.T) {
+	if err := checkCertificateFormat([]byte("I'm a cert, honest.")); err != nil {
+		t.Fatalf("checkCertificateFormat objected to valid format: %v", err)
+	}
+}
+
+func TestCheckCertificateFormatZeroSize(t *testing.T) {
+	if checkCertificateFormat([]byte("")) == nil {
+		t.Fatalf("checkCertificateFormat failed to object to zero length cert")
+	}
+}
+
+func TestCheckCertificateFormatTooBig(t *testing.T) {
+	big := make([]byte, MaxCertificateLength+1)
+	if checkCertificateFormat(big) == nil {
+		t.Fatalf("checkCertificateFormat failed to object to cert of length %d (max %d)", len(big), MaxCertificateLength)
+	}
+}
+
+func TestCheckExtensionsFormatOk(t *testing.T) {
+	if err := checkExtensionsFormat([]byte("I'm an extension, honest.")); err != nil {
+		t.Fatalf("checkExtensionsFormat objected to valid format: %v", err)
+	}
+}
+
+func TestCheckExtensionsFormatTooBig(t *testing.T) {
+	big := make([]byte, MaxExtensionsLength+1)
+	if checkExtensionsFormat(big) == nil {
+		t.Fatalf("checkExtensionsFormat failed to object to extension of length %d (max %d)", len(big), MaxExtensionsLength)
+	}
+}
+
+const (
+	DefaultSCTLogIDString          string = "iamapublickeyshatwofivesixdigest"
+	DefaultSCTTimestamp            uint64 = 1234
+	DefaultSCTSignatureString      string = "signature"
+	DefaultCertifictateString      string = "certificate"
+	DefaultPrecertString           string = "precert"
+	DefaultPrecertIssuerHashString string = "iamapublickeyshatwofivesixdigest"
+	DefaultPrecertTBSString        string = "tbs"
+
+	DefaultCertificateSCTSignatureInputHexString string =
+	// version, 1 byte
+	"00" +
+		// signature type, 1 byte
+		"00" +
+		// timestamp, 8 bytes
+		"00000000000004d2" +
+		// entry type, 2 bytes
+		"0000" +
+		// leaf certificate length, 3 bytes
+		"00000b" +
+		// leaf certificate, 11 bytes
+		"6365727469666963617465" +
+		// extensions length, 2 bytes
+		"0000" +
+		// extensions, 0 bytes
+		""
+
+	DefaultPrecertSCTSignatureInputHexString string =
+	// version, 1 byte
+	"00" +
+		// signature type, 1 byte
+		"00" +
+		// timestamp, 8 bytes
+		"00000000000004d2" +
+		// entry type, 2 bytes
+		"0001" +
+		// issuer key hash, 32 bytes
+		"69616d617075626c69636b657973686174776f66697665736978646967657374" +
+		// tbs certificate length, 3 bytes
+		"000003" +
+		// tbs certificate, 3 bytes
+		"746273" +
+		// extensions length, 2 bytes
+		"0000" +
+		// extensions, 0 bytes
+		""
+)
+
+func DefaultSCTLogID() []byte {
+	return []byte(DefaultSCTLogIDString)
+}
+
+func DefaultSCTSignature() []byte {
+	return []byte(DefaultSCTSignatureString)
+}
+
+func DefaultSCT() SignedCertificateTimestamp {
+	return SignedCertificateTimestamp{
+		SCTVersion: V1,
+		LogID:      DefaultSCTLogID(),
+		Timestamp:  DefaultSCTTimestamp,
+		Signature:  DefaultSCTSignature()}
+}
+
+func DefaultCertificate() []byte {
+	return []byte(DefaultCertifictateString)
+}
+
+func DefaultExtensions() []byte {
+	return []byte{}
+}
+
+func DefaultCertificateSCTSignatureInput(t *testing.T) []byte {
+	r, err := hex.DecodeString(DefaultCertificateSCTSignatureInputHexString)
+	if err != nil {
+		t.Fatalf("failed to decode DefaultCertificateSCTSignatureInputHexString: %v", err)
+	}
+	return r
+}
+
+func DefaultCertificateLogEntry() LogEntry {
+	return LogEntry{
+		Index: 1,
+		Leaf: MerkleTreeLeaf{
+			Version:  V1,
+			LeafType: TimestampedEntryLeafType,
+			TimestampedEntry: TimestampedEntry{
+				Timestamp: DefaultSCTTimestamp,
+				EntryType: X509LogEntryType,
+				X509Entry: DefaultCertificate(),
+			},
+		},
+	}
+}
+
+func DefaultPrecertSCTSignatureInput(t *testing.T) []byte {
+	r, err := hex.DecodeString(DefaultPrecertSCTSignatureInputHexString)
+	if err != nil {
+		t.Fatalf("failed to decode DefaultPrecertSCTSignatureInputHexString: %v", err)
+	}
+	return r
+}
+
+func DefaultPrecertTBS() []byte {
+	return []byte(DefaultPrecertTBSString)
+}
+
+func DefaultPrecertIssuerHash() [issuerKeyHashLength]byte {
+	var b [issuerKeyHashLength]byte
+	copy(b[:], []byte(DefaultPrecertIssuerHashString))
+	return b
+}
+
+func DefaultPrecertLogEntry() LogEntry {
+	return LogEntry{
+		Index: 1,
+		Leaf: MerkleTreeLeaf{
+			Version:  V1,
+			LeafType: TimestampedEntryLeafType,
+			TimestampedEntry: TimestampedEntry{
+				Timestamp: DefaultSCTTimestamp,
+				EntryType: PrecertLogEntryType,
+				PrecertEntry: PreCert{
+					IssuerKeyHash:  DefaultPrecertIssuerHash(),
+					TBSCertificate: DefaultPrecertTBS(),
+				},
+			},
+		},
+	}
+}
+
+func TestSerializeV1SCTSignatureInputForCertificateKAT(t *testing.T) {
+	serialized, err := SerializeV1SCTSignatureInput(DefaultSCT(), DefaultCertificateLogEntry())
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT for signing: %v", err)
+	}
+	if bytes.Compare(serialized, DefaultCertificateSCTSignatureInput(t)) != 0 {
+		t.Fatalf("Serialized certificate signature input doesn't match expected answer:\n%v\n%v", serialized, DefaultCertificateSCTSignatureInput(t))
+	}
+}
+
+func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
+	serialized, err := SerializeV1SCTSignatureInput(DefaultSCT(), DefaultPrecertLogEntry())
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT for signing: %v", err)
+	}
+	if bytes.Compare(serialized, DefaultPrecertSCTSignatureInput(t)) != 0 {
+		t.Fatalf("Serialized precertificate signature input doesn't match expected answer:\n%v\n%v", serialized, DefaultPrecertSCTSignatureInput(t))
 	}
 }

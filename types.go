@@ -32,12 +32,21 @@ func (e LogEntryType) String() string {
 // LogEntryType constants, see section 3.1 of RFC6962.
 const (
 	X509LogEntryType    LogEntryType = 0
-	PrecertLogEntryType              = 1
+	PrecertLogEntryType LogEntryType = 1
 )
 
 // MerkleLeafType represents the MerkleLeafType enum from section 3.4 of the
 // RFC: enum { timestamped_entry(0), (255) } MerkleLeafType;
 type MerkleLeafType uint8
+
+func (m MerkleLeafType) String() string {
+	switch m {
+	case TimestampedEntryLeafType:
+		return "TimestampedEntryLeafType"
+	default:
+		return fmt.Sprintf("UnknownLeafType(%d)", m)
+	}
+}
 
 // MerkleLeafType constants, see section 3.4 of the RFC.
 const (
@@ -48,9 +57,39 @@ const (
 // enum { v1(0), (255) } Version;
 type Version uint8
 
+func (v Version) String() string {
+	switch v {
+	case V1:
+		return "V1"
+	default:
+		return fmt.Sprintf("UnknownVersion(%d)", v)
+	}
+}
+
 // CT Version constants, see section 3.2 of the RFC.
 const (
 	V1 Version = 0
+)
+
+// SignatureType differentiates STH signatures from SCT signatures, see RFC
+// section 3.2
+type SignatureType uint8
+
+func (st SignatureType) String() string {
+	switch st {
+	case CertificateTimestampSignatureType:
+		return "CertificateTimestamp"
+	case TreeHashSignatureType:
+		return "TreeHash"
+	default:
+		return fmt.Sprintf("UnknownSignatureType(%d)", st)
+	}
+}
+
+// SignatureType constants, see RFC section 3.2
+const (
+	CertificateTimestampSignatureType SignatureType = 0
+	TreeHashSignatureType             SignatureType = 1
 )
 
 // ASN1Cert type for holding the raw DER bytes of an ASN.1 Certificate

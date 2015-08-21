@@ -17,27 +17,65 @@ const (
 	CertificateChainLengthBytes = 3
 )
 
+// Max lengths
+const (
+	MaxCertificateLength = (1 << 24) - 1
+	MaxExtensionsLength  = (1 << 16) - 1
+)
+
+func writeUint(w io.Writer, value uint64, numBytes int) error {
+	buf := make([]uint8, numBytes)
+	for i := 0; i < numBytes; i++ {
+		buf[numBytes-i-1] = uint8(value & 0xff)
+		value >>= 8
+	}
+	if value != 0 {
+		return errors.New("numBytes was insufficiently large to represent value")
+	}
+	if _, err := w.Write(buf); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeVarBytes(w io.Writer, value []byte, numLenBytes int) error {
+	if err := writeUint(w, uint64(len(value)), numLenBytes); err != nil {
+		return err
+	}
+	if _, err := w.Write(value); err != nil {
+		return err
+	}
+	return nil
+}
+
+func readUint(r io.Reader, numBytes int) (uint64, error) {
+	var l uint64
+	for i := 0; i < numBytes; i++ {
+		l <<= 8
+		var t uint8
+		if err := binary.Read(r, binary.BigEndian, &t); err != nil {
+			return 0, err
+		}
+		l |= uint64(t)
+	}
+	return l, nil
+}
+
 // Reads a variable length array of bytes from |r|. |numLenBytes| specifies the
 // number of (BigEndian) prefix-bytes which contain the length of the actual
 // array data bytes that follow.
 // Allocates an array to hold the contents and returns a slice view into it if
 // the read was successful, or an error otherwise.
 func readVarBytes(r io.Reader, numLenBytes int) ([]byte, error) {
-	var l uint64
 	switch {
 	case numLenBytes > 8:
 		return nil, fmt.Errorf("numLenBytes too large (%d)", numLenBytes)
 	case numLenBytes == 0:
 		return nil, errors.New("numLenBytes should be > 0")
 	}
-	// Read the length header bytes
-	for i := 0; i < numLenBytes; i++ {
-		l <<= 8
-		var t uint8
-		if err := binary.Read(r, binary.BigEndian, &t); err != nil {
-			return nil, err
-		}
-		l |= uint64(t)
+	l, err := readUint(r, numLenBytes)
+	if err != nil {
+		return nil, err
 	}
 	data := make([]byte, l)
 	n, err := r.Read(data)
@@ -161,4 +199,103 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	}
 	chain = append(chain, remainingChain...)
 	return chain, nil
+}
+
+func checkCertificateFormat(cert ASN1Cert) error {
+	if len(cert) == 0 {
+		return errors.New("certificate is zero length")
+	}
+	if len(cert) > MaxCertificateLength {
+		return errors.New("certificate too large")
+	}
+	return nil
+}
+
+func checkExtensionsFormat(ext CTExtensions) error {
+	if len(ext) > MaxExtensionsLength {
+		return errors.New("extensions too large")
+	}
+	return nil
+}
+
+func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExtensions) ([]byte, error) {
+	if err := checkCertificateFormat(cert); err != nil {
+		return nil, err
+	}
+	if err := checkExtensionsFormat(ext); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, X509LogEntryType); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, cert, CertificateLengthBytes); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, ext, ExtensionsLengthBytes); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [issuerKeyHashLength]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
+	if err := checkCertificateFormat(tbs); err != nil {
+		return nil, err
+	}
+	if err := checkExtensionsFormat(ext); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, PrecertLogEntryType); err != nil {
+		return nil, err
+	}
+	if _, err := buf.Write(issuerKeyHash[:]); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, tbs, CertificateLengthBytes); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, ext, ExtensionsLengthBytes); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// SerializeV1SCTSignatureInput serializes the passed in sct and log entry into
+// the correct format for signing.
+func SerializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
+	if sct.SCTVersion != V1 {
+		return nil, fmt.Errorf("unsupported SCT version, expected V1, but got %s", sct.SCTVersion)
+	}
+	if entry.Leaf.LeafType != TimestampedEntryLeafType {
+		return nil, fmt.Errorf("Unsupported leaf type %s", entry.Leaf.LeafType)
+	}
+	switch entry.Leaf.TimestampedEntry.EntryType {
+	case X509LogEntryType:
+		return serializeV1CertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.X509Entry, entry.Leaf.TimestampedEntry.Extensions)
+	case PrecertLogEntryType:
+		return serializeV1PrecertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
+			entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
+			entry.Leaf.TimestampedEntry.Extensions)
+	default:
+		return nil, fmt.Errorf("unknown TimestampedEntryLeafType %s", entry.Leaf.TimestampedEntry.EntryType)
+	}
 }
