@@ -226,12 +226,16 @@ func (c *LogClient) addChainWithRetry(path string, chain []ct.ASN1Cert) (*ct.Sig
 	if err != nil {
 		return nil, err
 	}
+	ds, err := ct.UnmarshalDigitallySigned(rawSignature)
+	if err != nil {
+		return nil, err
+	}
 	return &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      rawLogID,
 		Timestamp:  resp.Timestamp,
 		Extensions: ct.CTExtensions(resp.Extensions),
-		Signature:  rawSignature}, nil
+		Signature:  *ds}, nil
 }
 
 // AddChain adds the (DER represented) X509 |chain| to the log.
@@ -261,10 +265,16 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	if len(sth.SHA256RootHash) != sha256.Size {
 		return nil, errors.New("sha256_root_hash is invalid length")
 	}
-	if sth.TreeHeadSignature, err = base64.StdEncoding.DecodeString(resp.TreeHeadSignature); err != nil {
+	rawSignature, err := base64.StdEncoding.DecodeString(resp.TreeHeadSignature)
+	if err != nil {
 		return nil, errors.New("invalid base64 encoding in tree_head_signature")
 	}
+	ds, err := ct.UnmarshalDigitallySigned(rawSignature)
+	if err != nil {
+		return nil, err
+	}
 	// TODO(alcutter): Verify signature
+	sth.TreeHeadSignature = *ds
 	return
 }
 

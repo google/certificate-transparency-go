@@ -160,7 +160,7 @@ func TestCheckExtensionsFormatTooBig(t *testing.T) {
 const (
 	DefaultSCTLogIDString          string = "iamapublickeyshatwofivesixdigest"
 	DefaultSCTTimestamp            uint64 = 1234
-	DefaultSCTSignatureString      string = "signature"
+	DefaultSCTSignatureString      string = "\x00\x00\x00\x09signature"
 	DefaultCertifictateString      string = "certificate"
 	DefaultPrecertString           string = "precert"
 	DefaultPrecertIssuerHashString string = "iamapublickeyshatwofivesixdigest"
@@ -209,8 +209,12 @@ func DefaultSCTLogID() []byte {
 	return []byte(DefaultSCTLogIDString)
 }
 
-func DefaultSCTSignature() []byte {
-	return []byte(DefaultSCTSignatureString)
+func DefaultSCTSignature() DigitallySigned {
+	ds, err := UnmarshalDigitallySigned([]byte(DefaultSCTSignatureString))
+	if err != nil {
+		panic(err)
+	}
+	return *ds
 }
 
 func DefaultSCT() SignedCertificateTimestamp {
@@ -305,5 +309,44 @@ func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
 	}
 	if bytes.Compare(serialized, DefaultPrecertSCTSignatureInput(t)) != 0 {
 		t.Fatalf("Serialized precertificate signature input doesn't match expected answer:\n%v\n%v", serialized, DefaultPrecertSCTSignatureInput(t))
+	}
+}
+
+func TestMarshalDigitallySigned(t *testing.T) {
+	b, err := MarshalDigitallySigned(
+		DigitallySigned{
+			HashAlgorithm:      SHA512,
+			SignatureAlgorithm: ECDSA,
+			Signature:          []byte("signature")})
+	if err != nil {
+		t.Fatalf("Failed to marshal DigitallySigned struct: %v", err)
+	}
+	if b[0] != byte(SHA512) {
+		t.Fatalf("Expected b[0] == SHA512, but found %v", HashAlgorithm(b[0]))
+	}
+	if b[1] != byte(ECDSA) {
+		t.Fatalf("Expected b[1] == ECDSA, but found %v", SignatureAlgorithm(b[1]))
+	}
+	if b[2] != 0x00 || b[3] != 0x09 {
+		t.Fatalf("Found incorrect length bytes, expected (0x00, 0x09) found %v", b[2:3])
+	}
+	if string(b[4:]) != "signature" {
+		t.Fatalf("Found incorrect signature bytes, expected %v, found %v", []byte("signature"), b[4:])
+	}
+}
+
+func TestUnmarshalDigitallySigned(t *testing.T) {
+	ds, err := UnmarshalDigitallySigned([]byte("\x01\x02\x00\x0aSiGnAtUrE!"))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal DigitallySigned: %v", err)
+	}
+	if ds.HashAlgorithm != MD5 {
+		t.Fatalf("Expected HashAlgorithm %v, but got %v", MD5, ds.HashAlgorithm)
+	}
+	if ds.SignatureAlgorithm != DSA {
+		t.Fatalf("Expected SignatureAlgorithm %v, but got %v", DSA, ds.SignatureAlgorithm)
+	}
+	if string(ds.Signature) != "SiGnAtUrE!" {
+		t.Fatalf("Expected Signature %v, but got %v", []byte("SiGnAtUrE!"), ds.Signature)
 	}
 }

@@ -1,12 +1,15 @@
 package client
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
+
+	"github.com/google/certificate-transparency/go"
 )
 
 const (
@@ -87,11 +90,21 @@ func TestGetSTHWorks(t *testing.T) {
 	if string(sth.SHA256RootHash) != string(hash) {
 		t.Fatal("Invalid SHA256RootHash")
 	}
-	sig, err := base64.StdEncoding.DecodeString(ValidSTHResponseTreeHeadSignature)
+	expectedRawSignature, err := base64.StdEncoding.DecodeString(ValidSTHResponseTreeHeadSignature)
 	if err != nil {
 		t.Fatal("Couldn't b64 decode 'correct' STH signature!")
 	}
-	if string(sth.TreeHeadSignature) != string(sig) {
-		t.Fatal("Invalid TreeHeadSignature")
+	expectedDS, err := ct.UnmarshalDigitallySigned(expectedRawSignature)
+	if err != nil {
+		t.Fatal("Couldn't unmarshal DigitallySigned: %v", err)
+	}
+	if sth.TreeHeadSignature.HashAlgorithm != expectedDS.HashAlgorithm {
+		t.Fatalf("Invalid TreeHeadSignature.HashAlgorithm: expected %v, got %v", sth.TreeHeadSignature.HashAlgorithm, expectedDS.HashAlgorithm)
+	}
+	if sth.TreeHeadSignature.SignatureAlgorithm != expectedDS.SignatureAlgorithm {
+		t.Fatalf("Invalid TreeHeadSignature.SignatureAlgorithm: expected %v, got %v", sth.TreeHeadSignature.SignatureAlgorithm, expectedDS.SignatureAlgorithm)
+	}
+	if bytes.Compare(sth.TreeHeadSignature.Signature, expectedDS.Signature) != 0 {
+		t.Fatalf("Invalid TreeHeadSignature.Signature: expected %v, got %v", sth.TreeHeadSignature.Signature, expectedDS.Signature)
 	}
 }

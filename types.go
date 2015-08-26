@@ -119,6 +119,74 @@ type AuditPath []MerkleTreeNode
 // LeafInput represents a serialized MerkleTreeLeaf structure
 type LeafInput []byte
 
+// HashAlgorithm from the DigitallySigned struct
+type HashAlgorithm byte
+
+// HashAlgorithm constants
+const (
+	None   HashAlgorithm = 0
+	MD5    HashAlgorithm = 1
+	SHA1   HashAlgorithm = 2
+	SHA224 HashAlgorithm = 3
+	SHA256 HashAlgorithm = 4
+	SHA384 HashAlgorithm = 5
+	SHA512 HashAlgorithm = 6
+)
+
+func (h HashAlgorithm) String() string {
+	switch h {
+	case None:
+		return "None"
+	case MD5:
+		return "MD5"
+	case SHA1:
+		return "SHA1"
+	case SHA224:
+		return "SHA224"
+	case SHA256:
+		return "SHA256"
+	case SHA384:
+		return "SHA384"
+	case SHA512:
+		return "SHA512"
+	default:
+		return fmt.Sprintf("UNKNOWN(%v)", h)
+	}
+}
+
+// SignatureAlgorithm from the the DigitallySigned struct
+type SignatureAlgorithm byte
+
+// SignatureAlgorithm constants
+const (
+	Anonymous SignatureAlgorithm = 0
+	RSA       SignatureAlgorithm = 1
+	DSA       SignatureAlgorithm = 2
+	ECDSA     SignatureAlgorithm = 3
+)
+
+func (s SignatureAlgorithm) String() string {
+	switch s {
+	case Anonymous:
+		return "Anonymous"
+	case RSA:
+		return "RSA"
+	case DSA:
+		return "DSA"
+	case ECDSA:
+		return "ECDSA"
+	default:
+		return fmt.Sprintf("UNKNOWN(%v)", s)
+	}
+}
+
+// DigitallySigned represents an RFC5246 DigitallySigned structure
+type DigitallySigned struct {
+	HashAlgorithm      HashAlgorithm
+	SignatureAlgorithm SignatureAlgorithm
+	Signature          []byte
+}
+
 // LogEntry represents the contents of an entry in a CT log, see section 3.1.
 type LogEntry struct {
 	Index    int64
@@ -131,10 +199,10 @@ type LogEntry struct {
 // SignedTreeHead represents the structure returned by the get-sth CT method
 // after base64 decoding. See sections 3.5 and 4.3 in the RFC)
 type SignedTreeHead struct {
-	TreeSize          uint64 // The number of entries in the new tree
-	Timestamp         uint64 // The time at which the STH was created
-	SHA256RootHash    []byte // The root hash of the log's Merkle tree
-	TreeHeadSignature []byte // The Log's signature for this STH (see RFC section 3.5)
+	TreeSize          uint64          // The number of entries in the new tree
+	Timestamp         uint64          // The time at which the STH was created
+	SHA256RootHash    []byte          // The root hash of the log's Merkle tree
+	TreeHeadSignature DigitallySigned // The Log's signature for this STH (see RFC section 3.5)
 }
 
 // SignedCertificateTimestamp represents the structure returned by the
@@ -144,17 +212,17 @@ type SignedCertificateTimestamp struct {
 	SCTVersion Version // The version of the protocol to which the SCT conforms
 	LogID      []byte  // the SHA-256 hash of the log's public key, calculated over
 	// the DER encoding of the key represented as SubjectPublicKeyInfo.
-	Timestamp  uint64       // Timestamp (in ms since unix epoc) at which the SCT was issued
-	Extensions CTExtensions // For future extensions to the protocol
-	Signature  []byte       // The Log's signature for this SCT
+	Timestamp  uint64          // Timestamp (in ms since unix epoc) at which the SCT was issued
+	Extensions CTExtensions    // For future extensions to the protocol
+	Signature  DigitallySigned // The Log's signature for this SCT
 }
 
 func (s SignedCertificateTimestamp) String() string {
-	return fmt.Sprintf("{Version:%d LogId:%s Timestamp:%d Extensions:'%s' Signature:%s}", s.SCTVersion,
+	return fmt.Sprintf("{Version:%d LogId:%s Timestamp:%d Extensions:'%s' Signature:%v}", s.SCTVersion,
 		base64.StdEncoding.EncodeToString(s.LogID),
 		s.Timestamp,
 		s.Extensions,
-		base64.StdEncoding.EncodeToString(s.Signature))
+		s.Signature)
 }
 
 // TimestampedEntry is part of the MerkleTreeLeaf structure.

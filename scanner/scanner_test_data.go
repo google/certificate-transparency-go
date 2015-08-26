@@ -7,8 +7,9 @@ import (
 )
 
 const (
+    // TODO(alcutter): this signature is syntactically correct, but invalid. 
 	FourEntrySTH = "{" +
-		"\"tree_size\":4,\"timestamp\":1396877652123,\"sha256_root_hash\":\"0JBu0CkZnKXc1niEndDaqqgCRHucCfVt1/WBAXs/5T8=\",\"tree_head_signature\":\"\"}"
+		"\"tree_size\":4,\"timestamp\":1396877652123,\"sha256_root_hash\":\"0JBu0CkZnKXc1niEndDaqqgCRHucCfVt1/WBAXs/5T8=\",\"tree_head_signature\":\"AAAACXNpZ25hdHVyZQ==\"}"
 	FourEntries = "{\"entries\":[{\"leaf_input\":\"AAAAAAE9pCDoYwAAAAOGMIIDgjCCAuu" +
 		"gAwIBAgIKFIT5BQAAAAB9PDANBgkqhkiG9w0BAQUFADBGMQswCQYDVQQGEwJVUzETMBEGA1UEChMKR29" +
 		"vZ2xlIEluYzEiMCAGA1UEAxMZR29vZ2xlIEludGVybmV0IEF1dGhvcml0eTAeFw0xMzAyMjAxMzM0NTF" +

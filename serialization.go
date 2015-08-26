@@ -15,6 +15,7 @@ const (
 	PreCertificateLengthBytes   = 3
 	ExtensionsLengthBytes       = 2
 	CertificateChainLengthBytes = 3
+	SignatureLengthBytes        = 2
 )
 
 // Max lengths
@@ -199,6 +200,47 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	}
 	chain = append(chain, remainingChain...)
 	return chain, nil
+}
+
+// UnmarshalDigitallySigned reconstructs a DigitallySigned structure from a byte array
+func UnmarshalDigitallySigned(b []byte) (*DigitallySigned, error) {
+	reader := bytes.NewReader(b)
+
+	h, err := reader.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read HashAlgorithm: %v", err)
+	}
+
+	s, err := reader.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SignatureAlgorithm: %v", err)
+	}
+
+	sig, err := readVarBytes(reader, SignatureLengthBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Signature bytes: %v", err)
+	}
+
+	return &DigitallySigned{
+		HashAlgorithm:      HashAlgorithm(h),
+		SignatureAlgorithm: SignatureAlgorithm(s),
+		Signature:          sig,
+	}, nil
+}
+
+// MarshalDigitallySigned marshalls a DigitallySigned structure into a byte array
+func MarshalDigitallySigned(ds DigitallySigned) ([]byte, error) {
+	var b bytes.Buffer
+	if err := b.WriteByte(byte(ds.HashAlgorithm)); err != nil {
+		return nil, fmt.Errorf("failed to write HashAlgorithm: %v", err)
+	}
+	if err := b.WriteByte(byte(ds.SignatureAlgorithm)); err != nil {
+		return nil, fmt.Errorf("failed to write SignatureAlgorithm: %v", err)
+	}
+	if err := writeVarBytes(&b, ds.Signature, SignatureLengthBytes); err != nil {
+		return nil, fmt.Errorf("failed to write HashAlgorithm: %v", err)
+	}
+	return b.Bytes(), nil
 }
 
 func checkCertificateFormat(cert ASN1Cert) error {
