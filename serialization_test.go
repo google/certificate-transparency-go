@@ -293,7 +293,7 @@ func DefaultPrecertLogEntry() LogEntry {
 }
 
 func TestSerializeV1SCTSignatureInputForCertificateKAT(t *testing.T) {
-	serialized, err := SerializeV1SCTSignatureInput(DefaultSCT(), DefaultCertificateLogEntry())
+	serialized, err := SerializeSCTSignatureInput(DefaultSCT(), DefaultCertificateLogEntry())
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT for signing: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestSerializeV1SCTSignatureInputForCertificateKAT(t *testing.T) {
 }
 
 func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
-	serialized, err := SerializeV1SCTSignatureInput(DefaultSCT(), DefaultPrecertLogEntry())
+	serialized, err := SerializeSCTSignatureInput(DefaultSCT(), DefaultPrecertLogEntry())
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT for signing: %v", err)
 	}

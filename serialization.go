@@ -321,9 +321,7 @@ func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [issuer
 	return buf.Bytes(), nil
 }
 
-// SerializeV1SCTSignatureInput serializes the passed in sct and log entry into
-// the correct format for signing.
-func SerializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
+func serializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
 	if sct.SCTVersion != V1 {
 		return nil, fmt.Errorf("unsupported SCT version, expected V1, but got %s", sct.SCTVersion)
 	}
@@ -339,5 +337,16 @@ func SerializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry
 			entry.Leaf.TimestampedEntry.Extensions)
 	default:
 		return nil, fmt.Errorf("unknown TimestampedEntryLeafType %s", entry.Leaf.TimestampedEntry.EntryType)
+	}
+}
+
+// SerializeSCTSignatureInput serializes the passed in sct and log entry into
+// the correct format for signing.
+func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
+	switch sct.SCTVersion {
+	case V1:
+		return serializeV1SCTSignatureInput(sct, entry)
+	default:
+		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
 	}
 }

@@ -150,7 +150,7 @@ func (h HashAlgorithm) String() string {
 	case SHA512:
 		return "SHA512"
 	default:
-		return fmt.Sprintf("UNKNOWN(%v)", h)
+		return fmt.Sprintf("UNKNOWN(%d)", h)
 	}
 }
 
@@ -176,7 +176,7 @@ func (s SignatureAlgorithm) String() string {
 	case ECDSA:
 		return "ECDSA"
 	default:
-		return fmt.Sprintf("UNKNOWN(%v)", s)
+		return fmt.Sprintf("UNKNOWN(%d)", s)
 	}
 }
 
