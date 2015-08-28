@@ -199,6 +199,7 @@ type LogEntry struct {
 // SignedTreeHead represents the structure returned by the get-sth CT method
 // after base64 decoding. See sections 3.5 and 4.3 in the RFC)
 type SignedTreeHead struct {
+	Version           Version         // The version of the protocol to which the STH conforms
 	TreeSize          uint64          // The number of entries in the new tree
 	Timestamp         uint64          // The time at which the STH was created
 	SHA256RootHash    []byte          // The root hash of the log's Merkle tree

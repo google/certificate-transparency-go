@@ -118,3 +118,12 @@ func (s SignatureVerifier) VerifySCTSignature(sct SignedCertificateTimestamp, en
 	}
 	return s.verifySignature(sctData, sct.Signature)
 }
+
+// VerifySTHSignature verifies that the STH's signature is valid.
+func (s SignatureVerifier) VerifySTHSignature(sth SignedTreeHead) error {
+	sthData, err := SerializeSTHSignatureInput(sth)
+	if err != nil {
+		return err
+	}
+	return s.verifySignature(sthData, sth.TreeHeadSignature)
+}

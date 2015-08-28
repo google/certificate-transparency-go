@@ -34,9 +34,9 @@ const (
 		"cf92a4d5d5dd5cbe3f0a11e25f04078df88fc388b61b867a8de46216c0e17c31fc7d8003e" +
 		"cc37be22292f84242ab87fb08bd4dfa3c1b9ce4d3ee6667da"
 
-	sigTestSCTTimestamp       = 1348589665525
-	sigTestCertSCTSignatureEC = "0403" +
-		"0048" +
+	sigTestSCTTimestamp = 1348589665525
+
+	sigTestCertSCTSignatureEC = "0403" + "0048" +
 		"3046022100d3f7690e7ee80d9988a54a3821056393e9eb0c686ad67fbae3686c888fb1a3c" +
 		"e022100f9a51c6065bbba7ad7116a31bea1c31dbed6a921e1df02e4b403757fae3254ae"
 
@@ -94,8 +94,7 @@ const (
 		"AQIDAQAB\n" +
 		"-----END PUBLIC KEY-----\n"
 
-	sigTestCertSCTSignatureRSA = "0401" +
-		"0100" +
+	sigTestCertSCTSignatureRSA = "0401" + "0100" +
 		"6bc1fecfe9052036e31278cd7eded90d000b127f2b657831baf5ecb31ee3" +
 		"c17497abd9562df6319928a36df0ab1a1a917b3f4530e1ca0000ae6c4a0c" +
 		"0efada7df83beb95da8eea98f1a27c70afa1ccaa7a0245e1db785b1c0d9f" +
@@ -106,11 +105,24 @@ const (
 		"2d3c916eb77f167323500d1b53dc4253321a106e441af343cf2f68630873" +
 		"abd43ca52629c586107eb7eb85f2c3ee"
 
-	sigTestCertSCTSignatureUnsupportedSignatureAlgorithm = "0402" +
-		"0000"
+	sigTestCertSCTSignatureUnsupportedSignatureAlgorithm = "0402" + "0000"
 
-	sigTestCertSCTSignatureUnsupportedHashAlgorithm = "0303" +
-		"0000"
+	sigTestCertSCTSignatureUnsupportedHashAlgorithm = "0303" + "0000"
+
+	// Some time in September 2012.
+	sigTestDefaultSTHTimestamp = 1348589667204
+
+	sigTestDefaultTreeSize = 42
+
+	// *Some* hash that we pretend is a valid root hash.
+	sigTestDefaultRootHash = "18041bd4665083001fba8c5411d2d748e8abbfdcdfd9218cb02b68a78e7d4c23"
+
+	sigTestDefaultSTHSerialized = "000100000139fe354384000000000000002a18041bd4665083001fba8c5411d2d748e8abb" +
+		"fdcdfd9218cb02b68a78e7d4c23"
+
+	sigTestDefaultSTHSignature = "0403" + "0048" +
+		"3046022100befd8060563763a5e49ba53e6443c13f7624fd6403178113736e16012aca983" +
+		"e022100f572568dbfe9a86490eb915c4ee16ad5ecd708fed35ed4e5cd1b2c3f087b4130"
 
 	sigTestKeyIDEC = "b69d879e3f2c4402556dcda2f6b2e02ff6b6df4789c53000e14f4b125ae847aa"
 
@@ -185,12 +197,40 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 	}
 }
 
+func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
+	ds, err := UnmarshalDigitallySigned(mustDehex(t, sigTestDefaultSTHSignature))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
+	}
+	return SignedTreeHead{
+		Version:           V1,
+		Timestamp:         sigTestDefaultSTHTimestamp,
+		TreeSize:          sigTestDefaultTreeSize,
+		SHA256RootHash:    mustDehex(t, sigTestDefaultRootHash),
+		TreeHeadSignature: *ds,
+	}
+}
+
 func mustCreateSignatureVerifier(t *testing.T, pk crypto.PublicKey) SignatureVerifier {
 	sv, err := NewSignatureVerifier(pk)
 	if err != nil {
 		t.Fatalf("Failed to create SignatureVerifier: %v", err)
 	}
 	return *sv
+}
+
+func corruptByteAt(b []byte, pos int) {
+	b[pos] ^= byte(mrand.Intn(255) + 1)
+}
+
+func corruptBytes(b []byte) {
+	corruptByteAt(b, mrand.Intn(len(b)))
+}
+
+func expectVerifySCTToFail(t *testing.T, sv SignatureVerifier, sct SignedCertificateTimestamp, msg string) {
+	if err := sv.VerifySCTSignature(sct, sigTestCertLogEntry(t)); err == nil {
+		t.Fatal(msg)
+	}
 }
 
 func TestVerifySCTSignatureEC(t *testing.T) {
@@ -211,48 +251,59 @@ func TestVerifySCTSignatureRSA(t *testing.T) {
 
 func TestVerifySCTSignatureFailsForMismatchedSignatureAlgorithm(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
-	if err := v.VerifySCTSignature(sigTestSCTRSA(t), sigTestCertLogEntry(t)); err == nil {
-		t.Fatalf("Sucessfully verified with mismatched signature algorithm")
-	}
-
+	expectVerifySCTToFail(t, v, sigTestSCTRSA(t), "Sucessfully verified with mismatched signature algorithm")
 }
 
 func TestVerifySCTSignatureFailsForUnknownSignatureAlgorithm(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
-	if err := v.VerifySCTSignature(sigTestSCTWithSignature(t, sigTestCertSCTSignatureUnsupportedSignatureAlgorithm, sigTestKeyIDEC), sigTestCertLogEntry(t)); err == nil {
-		t.Fatal("Successfully verified signature with unsupported signature algorithm")
-	}
+	expectVerifySCTToFail(t, v, sigTestSCTWithSignature(t, sigTestCertSCTSignatureUnsupportedSignatureAlgorithm, sigTestKeyIDEC),
+		"Successfully verified signature with unsupported signature algorithm")
 }
 
 func TestVerifySCTSignatureFailsForUnknownHashAlgorithm(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
-	if err := v.VerifySCTSignature(sigTestSCTWithSignature(t, sigTestCertSCTSignatureUnsupportedHashAlgorithm, sigTestKeyIDEC), sigTestCertLogEntry(t)); err == nil {
-		t.Fatal("Successfully verified signature with unsupported hash algorithm")
-	}
+	expectVerifySCTToFail(t, v, sigTestSCTWithSignature(t, sigTestCertSCTSignatureUnsupportedHashAlgorithm, sigTestKeyIDEC),
+		"Successfully verified signature with unsupported hash algorithm")
 }
 
-func testVerifySCTSignatureFailsForIncorrectInput(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
+func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
 	entry := sigTestCertLogEntry(t)
 	for i := range entry.Leaf.TimestampedEntry.X509Entry {
 		old := entry.Leaf.TimestampedEntry.X509Entry[i]
-		entry.Leaf.TimestampedEntry.X509Entry[i] ^= byte(mrand.Intn(255) + 1)
+		corruptByteAt(entry.Leaf.TimestampedEntry.X509Entry, i)
 		if err := sv.VerifySCTSignature(sct, entry); err == nil {
-			t.Fatalf("Incorrectly verfied signature over corrupted input data, uncovered byte at %d?", i)
+			t.Fatalf("Incorrectly verfied signature over corrupted leaf data, uncovered byte at %d?", i)
 		}
 		entry.Leaf.TimestampedEntry.X509Entry[i] = old
+	}
+	// Ensure we were only corrupting one byte at a time, should be correct again now.
+	if err := sv.VerifySCTSignature(sct, entry); err != nil {
+		t.Fatalf("Input data appears to still be corrupt, bug? %v", err)
 	}
 }
 
 func testVerifySCTSignatureFailsForIncorrectSignature(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
-	sct.Signature.Signature[mrand.Intn(len(sct.Signature.Signature))] ^= byte(mrand.Intn(255) + 1)
-	if err := sv.VerifySCTSignature(sct, sigTestCertLogEntry(t)); err == nil {
-		t.Fatal("Incorrectly verfied corrupt signature.")
-	}
+	corruptBytes(sct.Signature.Signature)
+	expectVerifySCTToFail(t, sv, sct, "Incorrectly verified corrupt signature")
 }
 
-func TestVerifySCTSignatureECFailsForIncorrectInput(t *testing.T) {
+func TestVerifySCTSignatureECFailsForIncorrectLeafBytes(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
-	testVerifySCTSignatureFailsForIncorrectInput(t, sigTestSCTEC(t), v)
+	testVerifySCTSignatureFailsForIncorrectLeafBytes(t, sigTestSCTEC(t), v)
+}
+
+func TestVerifySCTSignatureECFailsForIncorrectTimestamp(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sct := sigTestSCTEC(t)
+	sct.Timestamp++
+	expectVerifySCTToFail(t, v, sct, "Incorrectly verified signature with incorrect SCT timestamp.")
+}
+
+func TestVerifySCTSignatureECFailsForIncorrectVersion(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sct := sigTestSCTEC(t)
+	sct.SCTVersion++
+	expectVerifySCTToFail(t, v, sct, "Incorrectly verified signature with incorrect SCT Version.")
 }
 
 func TestVerifySCTSignatureECFailsForIncorrectSignature(t *testing.T) {
@@ -260,9 +311,9 @@ func TestVerifySCTSignatureECFailsForIncorrectSignature(t *testing.T) {
 	testVerifySCTSignatureFailsForIncorrectSignature(t, sigTestSCTEC(t), v)
 }
 
-func TestVerifySCTSignatureRSAFailsForIncorrectInput(t *testing.T) {
+func TestVerifySCTSignatureRSAFailsForIncorrectLeafBytes(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestRSAPublicKey(t))
-	testVerifySCTSignatureFailsForIncorrectInput(t, sigTestSCTRSA(t), v)
+	testVerifySCTSignatureFailsForIncorrectLeafBytes(t, sigTestSCTRSA(t), v)
 }
 
 func TestVerifySCTSignatureRSAFailsForIncorrectSignature(t *testing.T) {
@@ -278,6 +329,77 @@ func TestVerifySCTSignatureFailsForSignatureCreatedWithDifferentAlgorithm(t *tes
 func TestVerifySCTSignatureFailsForSignatureCreatedWithDifferentKey(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey2(t))
 	testVerifySCTSignatureFailsForIncorrectSignature(t, sigTestSCTEC(t), v)
+}
+
+func expectVerifySTHToPass(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+	if err := v.VerifySTHSignature(sth); err != nil {
+		t.Fatalf("Incorrectly failed to verify STH signature: %v", err)
+	}
+}
+
+func expectVerifySTHToFail(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+	if err := v.VerifySTHSignature(sth); err == nil {
+		t.Fatal("Incorrectly verified STH signature")
+	}
+}
+
+func TestVerifyValidSTH(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	expectVerifySTHToPass(t, v, sth)
+}
+
+func TestVerifySTHCatchesCorruptSignature(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	corruptBytes(sth.TreeHeadSignature.Signature)
+	expectVerifySTHToFail(t, v, sth)
+}
+
+func TestVerifySTHCatchesCorruptRootHash(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	for i := range sth.SHA256RootHash {
+		old := sth.SHA256RootHash[i]
+		corruptByteAt(sth.SHA256RootHash, i)
+		expectVerifySTHToFail(t, v, sth)
+		sth.SHA256RootHash[i] = old
+	}
+	// ensure we were only testing one corrupt byte at a time - should be correct again now.
+	expectVerifySTHToPass(t, v, sth)
+}
+
+func TestVerifySTHCatchesCorruptTimestamp(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	sth.Timestamp++
+	expectVerifySTHToFail(t, v, sth)
+}
+
+func TestVerifySTHCatchesCorruptVersion(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	sth.Version++
+	expectVerifySTHToFail(t, v, sth)
+}
+
+func TestVerifySTHCatchesCorruptTreeSize(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	sth.TreeSize++
+	expectVerifySTHToFail(t, v, sth)
+}
+
+func TestVerifySTHFailsToVerifyForKeyWithDifferentAlgorithm(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestRSAPublicKey(t))
+	sth := sigTestDefaultSTH(t)
+	expectVerifySTHToFail(t, v, sth)
+}
+
+func TestVerifySTHFailsToVerifyForDifferentKey(t *testing.T) {
+	v := mustCreateSignatureVerifier(t, sigTestECPublicKey2(t))
+	sth := sigTestDefaultSTH(t)
+	expectVerifySTHToFail(t, v, sth)
 }
 
 func TestNewSignatureVerifierFailsWithUnsupportedKeyType(t *testing.T) {

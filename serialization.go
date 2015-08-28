@@ -3,6 +3,7 @@ package ct
 import (
 	"bytes"
 	"container/list"
+	"crypto"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -348,5 +349,46 @@ func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) 
 		return serializeV1SCTSignatureInput(sct, entry)
 	default:
 		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
+	}
+}
+
+func serializeV1STHSignatureInput(sth SignedTreeHead) ([]byte, error) {
+	if sth.Version != V1 {
+		return nil, fmt.Errorf("invalid STH version %d", sth.Version)
+	}
+	if sth.TreeSize < 0 {
+		return nil, fmt.Errorf("invalid tree size %d", sth.TreeSize)
+	}
+	if len(sth.SHA256RootHash) != crypto.SHA256.Size() {
+		return nil, fmt.Errorf("invalid TreeHash length, got %d expected %d", len(sth.SHA256RootHash), crypto.SHA256.Size())
+	}
+
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, TreeHashSignatureType); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sth.Timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sth.TreeSize); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sth.SHA256RootHash); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// SerializeSTHSignatureInput serializes the passed in sth into the correct
+// format for signing.
+func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
+	switch sth.Version {
+	case V1:
+		return serializeV1STHSignatureInput(sth)
+	default:
+		return nil, fmt.Errorf("unsupported STH version %d", sth.Version)
 	}
 }
