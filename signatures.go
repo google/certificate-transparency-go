@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
@@ -18,13 +19,14 @@ import (
 var allowVerificationWithNonCompliantKeys = flag.Bool("allow_verification_with_non_compliant_keys", false,
 	"Allow a SignatureVerifier to use keys which are technically non-compliant with RFC6962.")
 
-// PublicKeyFromPEM parses a PEM formatted block and returns the public key contained within.
-func PublicKeyFromPEM(b []byte) (crypto.PublicKey, error) {
-	p, _ := pem.Decode(b)
+// PublicKeyFromPEM parses a PEM formatted block and returns the public key contained within and any remaining unread bytes, or an error.
+func PublicKeyFromPEM(b []byte) (crypto.PublicKey, SHA256Hash, []byte, error) {
+	p, rest := pem.Decode(b)
 	if p == nil {
-		return nil, fmt.Errorf("no PEM block found in %s", string(b))
+		return nil, [sha256.Size]byte{}, rest, fmt.Errorf("no PEM block found in %s", string(b))
 	}
-	return x509.ParsePKIXPublicKey(p.Bytes)
+	k, err := x509.ParsePKIXPublicKey(p.Bytes)
+	return k, sha256.Sum256(p.Bytes), rest, err
 }
 
 // SignatureVerifier can verify signatures on SCTs and STHs

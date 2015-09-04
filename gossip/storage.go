@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
+	ct "github.com/google/certificate-transparency/go"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -234,9 +236,13 @@ func (s *Storage) AddSCTFeedback(feedback SCTFeedback) (err error) {
 	return nil
 }
 
-func (s *Storage) addSTHPollinationEntryIfNotExists(tx *sql.Tx, pe STHPollinationEntry) error {
+func (s *Storage) addSTHIfNotExists(tx *sql.Tx, sth ct.SignedTreeHead) error {
 	stmt := tx.Stmt(s.insertSTHPollination)
-	_, err := stmt.Exec(pe.STHVersion, pe.TreeSize, pe.Timestamp, pe.Sha256RootHashB64, pe.TreeHeadSignatureB64, pe.LogID)
+	sigB64, err := sth.TreeHeadSignature.Base64String()
+	if err != nil {
+		return fmt.Errorf("Failed to base64 sth signature: %v", err)
+	}
+	_, err = stmt.Exec(sth.Version, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash.Base64String(), sigB64, sth.LogID.Base64String())
 	if err != nil {
 		switch err.(type) {
 		case sqlite3.Error:
@@ -252,28 +258,37 @@ func (s *Storage) addSTHPollinationEntryIfNotExists(tx *sql.Tx, pe STHPollinatio
 }
 
 // GetRandomSTHPollination returns a random selection of "fresh" (i.e. at most 14 days old) STHs from the pool.
-func (s *Storage) GetRandomSTHPollination(limit int) (*STHPollination, error) {
-	freshTime := time.Now().AddDate(0, 0, -14)
+func (s *Storage) GetRandomSTHPollination(newerThan time.Time, limit int) (*STHPollination, error) {
 	// Occasionally this fails to select the pollen which was added by the
 	// AddSTHPollination request which went on trigger this query, even though
 	// the transaction committed successfully.  Attempting this query under a
 	// transaction doesn't fix it. /sadface
 	// Still, that shouldn't really matter too much in practice.
-	r, err := s.selectRandomRecentPollination.Query(freshTime.Unix(), limit)
+	r, err := s.selectRandomRecentPollination.Query(newerThan.Unix()*1000, limit)
 	if err != nil {
 		return nil, err
 	}
 	var pollination STHPollination
 	for r.Next() {
-		var entry STHPollinationEntry
-		if err := r.Scan(&entry.STHVersion, &entry.TreeSize, &entry.Timestamp, &entry.Sha256RootHashB64, &entry.TreeHeadSignatureB64, &entry.LogID); err != nil {
+		var entry ct.SignedTreeHead
+		var rootB64, sigB64, idB64 string
+		if err := r.Scan(&entry.Version, &entry.TreeSize, &entry.Timestamp, &rootB64, &sigB64, &idB64); err != nil {
+			return nil, err
+		}
+		if err := entry.SHA256RootHash.FromBase64String(rootB64); err != nil {
+			return nil, err
+		}
+		if err := entry.TreeHeadSignature.FromBase64String(sigB64); err != nil {
+			return nil, err
+		}
+		if err := entry.LogID.FromBase64String(idB64); err != nil {
 			return nil, err
 		}
 		pollination.STHs = append(pollination.STHs, entry)
 	}
 	// If there are no entries to return, wedge an empty array in there so that the json encoder returns something valid.
 	if pollination.STHs == nil {
-		pollination.STHs = make([]STHPollinationEntry, 0)
+		pollination.STHs = make([]ct.SignedTreeHead, 0)
 	}
 	return &pollination, nil
 }
@@ -292,8 +307,8 @@ func (s *Storage) AddSTHPollination(pollination STHPollination) error {
 		err = tx.Commit()
 	}()
 
-	for _, pe := range pollination.STHs {
-		if err := s.addSTHPollinationEntryIfNotExists(tx, pe); err != nil {
+	for _, sth := range pollination.STHs {
+		if err := s.addSTHIfNotExists(tx, sth); err != nil {
 			return err
 		}
 	}
@@ -348,8 +363,13 @@ func (s *Storage) hasFeedback(sctID, chainID int64) bool {
 	return r.Next()
 }
 
-func (s *Storage) hasSTH(version STHVersion, treeSize, timestamp int64, rootHash, signature, logID string) bool {
-	r, err := s.selectSTH.Query(version, treeSize, timestamp, rootHash, signature, logID)
+func (s *Storage) hasSTH(sth ct.SignedTreeHead) bool {
+	sigB64, err := sth.TreeHeadSignature.Base64String()
+	if err != nil {
+		log.Printf("%v", err)
+		return false
+	}
+	r, err := s.selectSTH.Query(sth.Version, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash.Base64String(), sigB64, sth.LogID.Base64String())
 	if err != nil {
 		return false
 	}

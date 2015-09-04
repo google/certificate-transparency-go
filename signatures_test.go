@@ -142,9 +142,11 @@ func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateT
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
+	var id SHA256Hash
+	copy(id[:], mustDehex(t, keyID))
 	return SignedCertificateTimestamp{
 		SCTVersion: V1,
-		LogID:      mustDehex(t, keyID),
+		LogID:      id,
 		Timestamp:  sigTestSCTTimestamp,
 		Signature:  *ds,
 	}
@@ -159,7 +161,7 @@ func sigTestSCTRSA(t *testing.T) SignedCertificateTimestamp {
 }
 
 func sigTestECPublicKey(t *testing.T) crypto.PublicKey {
-	pk, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKeyPEM))
+	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKeyPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestEC256PublicKey: %v", err)
 	}
@@ -167,7 +169,7 @@ func sigTestECPublicKey(t *testing.T) crypto.PublicKey {
 }
 
 func sigTestECPublicKey2(t *testing.T) crypto.PublicKey {
-	pk, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKey2PEM))
+	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKey2PEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestEC256PublicKey2: %v", err)
 	}
@@ -175,7 +177,7 @@ func sigTestECPublicKey2(t *testing.T) crypto.PublicKey {
 }
 
 func sigTestRSAPublicKey(t *testing.T) crypto.PublicKey {
-	pk, err := PublicKeyFromPEM([]byte(sigTestRSAPublicKeyPEM))
+	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestRSAPublicKeyPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestRSAPublicKey: %v", err)
 	}
@@ -202,11 +204,13 @@ func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
+	var rootHash SHA256Hash
+	copy(rootHash[:], mustDehex(t, sigTestDefaultRootHash))
 	return SignedTreeHead{
 		Version:           V1,
 		Timestamp:         sigTestDefaultSTHTimestamp,
 		TreeSize:          sigTestDefaultTreeSize,
-		SHA256RootHash:    mustDehex(t, sigTestDefaultRootHash),
+		SHA256RootHash:    rootHash,
 		TreeHeadSignature: *ds,
 	}
 }
@@ -361,7 +365,7 @@ func TestVerifySTHCatchesCorruptRootHash(t *testing.T) {
 	sth := sigTestDefaultSTH(t)
 	for i := range sth.SHA256RootHash {
 		old := sth.SHA256RootHash[i]
-		corruptByteAt(sth.SHA256RootHash, i)
+		corruptByteAt(sth.SHA256RootHash[:], i)
 		expectVerifySTHToFail(t, v, sth)
 		sth.SHA256RootHash[i] = old
 	}

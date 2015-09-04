@@ -217,8 +217,10 @@ const (
 		"696d757374626565786163746c7974686972747974776f62797465736c6f6e67"
 )
 
-func defaultSCTLogID() []byte {
-	return []byte(defaultSCTLogIDString)
+func defaultSCTLogID() SHA256Hash {
+	var id SHA256Hash
+	copy(id[:], defaultSCTLogIDString)
+	return id
 }
 
 func defaultSCTSignature() DigitallySigned {
@@ -305,10 +307,12 @@ func defaultPrecertLogEntry() LogEntry {
 }
 
 func defaultSTH() SignedTreeHead {
+	var root SHA256Hash
+	copy(root[:], "imustbeexactlythirtytwobyteslong")
 	return SignedTreeHead{
 		TreeSize:       6,
 		Timestamp:      2345,
-		SHA256RootHash: []byte("imustbeexactlythirtytwobyteslong"),
+		SHA256RootHash: root,
 		TreeHeadSignature: DigitallySigned{
 			HashAlgorithm:      SHA256,
 			SignatureAlgorithm: ECDSA,

@@ -4,15 +4,34 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
+	"time"
+
+	ct "github.com/google/certificate-transparency/go"
 )
 
 var defaultNumPollinationsToReturn = flag.Int("default_num_pollinations_to_return", 10,
 	"Number of randomly selected STH pollination entries to return for sth-pollination requests.")
 
+type clock interface {
+	Now() time.Time
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time {
+	return time.Now()
+}
+
+// SignatureVerifierMap is a map of SignatureVerifier by LogID
+type SignatureVerifierMap map[ct.SHA256Hash]ct.SignatureVerifier
+
 // Handler for the gossip HTTP requests.
 type Handler struct {
-	storage *Storage
+	storage   *Storage
+	verifiers SignatureVerifierMap
+	clock     clock
 }
 
 func writeWrongMethodResponse(rw *http.ResponseWriter, allowed string) {
@@ -66,13 +85,29 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 		return
 	}
 
+	sthToKeep := make([]ct.SignedTreeHead, 0, len(p.STHs))
+	for _, sth := range p.STHs {
+		v, found := h.verifiers[sth.LogID]
+		if !found {
+			log.Printf("Pollination entry for unknown logID: %s", sth.LogID.Base64String())
+			continue
+		}
+		if err := v.VerifySTHSignature(sth); err != nil {
+			log.Printf("Failed to verify STH, dropping: %v", err)
+			continue
+		}
+		sthToKeep = append(sthToKeep, sth)
+	}
+	p.STHs = sthToKeep
+
 	err := h.storage.AddSTHPollination(p)
 	if err != nil {
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't store pollination: %v", err))
 		return
 	}
 
-	rp, err := h.storage.GetRandomSTHPollination(*defaultNumPollinationsToReturn)
+	freshTime := h.clock.Now().AddDate(0, 0, -14)
+	rp, err := h.storage.GetRandomSTHPollination(freshTime, *defaultNumPollinationsToReturn)
 	if err != nil {
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't fetch pollination to return: %v", err))
 		return
@@ -86,7 +121,23 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 }
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to
-// use for storing and retrieving feedback and pollination data.
-func NewHandler(s *Storage) Handler {
-	return Handler{storage: s}
+// use for storing and retrieving feedback and pollination data, and a
+// SignatureVerifierMap for verifying signatures from known logs.
+func NewHandler(s *Storage, v SignatureVerifierMap) Handler {
+	return Handler{
+		storage:   s,
+		verifiers: v,
+		clock:     realClock{},
+	}
+}
+
+// NewHandler creates a new Handler object, taking a pointer a Storage object to
+// use for storing and retrieving feedback and pollination data, and a
+// SignatureVerifierMap for verifying signatures from known logs.
+func newHandlerWithClock(s *Storage, v SignatureVerifierMap, c clock) Handler {
+	return Handler{
+		storage:   s,
+		verifiers: v,
+		clock:     c,
+	}
 }

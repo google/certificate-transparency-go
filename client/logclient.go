@@ -230,9 +230,11 @@ func (c *LogClient) addChainWithRetry(path string, chain []ct.ASN1Cert) (*ct.Sig
 	if err != nil {
 		return nil, err
 	}
+	var logID ct.SHA256Hash
+	copy(logID[:], rawLogID)
 	return &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
-		LogID:      rawLogID,
+		LogID:      logID,
 		Timestamp:  resp.Timestamp,
 		Extensions: ct.CTExtensions(resp.Extensions),
 		Signature:  *ds}, nil
@@ -259,12 +261,16 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 		TreeSize:  resp.TreeSize,
 		Timestamp: resp.Timestamp,
 	}
-	if sth.SHA256RootHash, err = base64.StdEncoding.DecodeString(resp.SHA256RootHash); err != nil {
-		return nil, errors.New("invalid base64 encoding in sha256_root_hash")
+
+	rawRootHash, err := base64.StdEncoding.DecodeString(resp.SHA256RootHash)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 encoding in sha256_root_hash: %v", err)
 	}
-	if len(sth.SHA256RootHash) != sha256.Size {
-		return nil, errors.New("sha256_root_hash is invalid length")
+	if len(rawRootHash) != sha256.Size {
+		return nil, fmt.Errorf("sha256_root_hash is invalid length, expected %d got %d", sha256.Size, len(rawRootHash))
 	}
+	copy(sth.SHA256RootHash[:], rawRootHash)
+
 	rawSignature, err := base64.StdEncoding.DecodeString(resp.TreeHeadSignature)
 	if err != nil {
 		return nil, errors.New("invalid base64 encoding in tree_head_signature")

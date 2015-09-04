@@ -1,7 +1,9 @@
 package ct
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/certificate-transparency/go/x509"
@@ -187,6 +189,48 @@ type DigitallySigned struct {
 	Signature          []byte
 }
 
+// FromBase64String populates the DigitallySigned structure from the base64 data passed in.
+// Returns an error if the base64 data is invalid.
+func (d *DigitallySigned) FromBase64String(b64 string) error {
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return fmt.Errorf("failed to unbase64 DigitallySigned: %v", err)
+	}
+	ds, err := UnmarshalDigitallySigned(raw)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal DigitallySigned: %v", err)
+	}
+	*d = *ds
+	return nil
+}
+
+// Base64String returns the base64 representation of the DigitallySigned struct.
+func (d DigitallySigned) Base64String() (string, error) {
+	b, err := MarshalDigitallySigned(d)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+// MarshalJSON implements the json.Marshaller interface.
+func (d DigitallySigned) MarshalJSON() ([]byte, error) {
+	b64, err := d.Base64String()
+	if err != nil {
+		return []byte{}, err
+	}
+	return []byte(`"` + b64 + `"`), nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *DigitallySigned) UnmarshalJSON(b []byte) error {
+	var content string
+	if err := json.Unmarshal(b, &content); err != nil {
+		return fmt.Errorf("failed to unmarshal DigitallySigned: %v", err)
+	}
+	return d.FromBase64String(content)
+}
+
 // LogEntry represents the contents of an entry in a CT log, see section 3.1.
 type LogEntry struct {
 	Index    int64
@@ -196,22 +240,58 @@ type LogEntry struct {
 	Chain    []ASN1Cert
 }
 
+// SHA256Hash represents the output from the SHA256 hash function.
+type SHA256Hash [sha256.Size]byte
+
+// FromBase64String populates the SHA256 struct with the contents of the base64 data passed in.
+func (s *SHA256Hash) FromBase64String(b64 string) error {
+	bs, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return fmt.Errorf("failed to unbase64 LogID: %v", err)
+	}
+	if len(bs) != sha256.Size {
+		return fmt.Errorf("invalid SHA256 length, expected 32 but got %d", len(bs))
+	}
+	copy(s[:], bs)
+	return nil
+}
+
+// Base64String returns the base64 representation of this SHA256Hash.
+func (s SHA256Hash) Base64String() string {
+	return base64.StdEncoding.EncodeToString(s[:])
+}
+
+// MarshalJSON implements the json.Marshaller interface for SHA256Hash.
+func (s SHA256Hash) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + s.Base64String() + `"`), nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (s *SHA256Hash) UnmarshalJSON(b []byte) error {
+	var content string
+	if err := json.Unmarshal(b, &content); err != nil {
+		return fmt.Errorf("failed to unmarshal SHA256Hash: %v", err)
+	}
+	return s.FromBase64String(content)
+}
+
 // SignedTreeHead represents the structure returned by the get-sth CT method
 // after base64 decoding. See sections 3.5 and 4.3 in the RFC)
 type SignedTreeHead struct {
-	Version           Version         // The version of the protocol to which the STH conforms
-	TreeSize          uint64          // The number of entries in the new tree
-	Timestamp         uint64          // The time at which the STH was created
-	SHA256RootHash    []byte          // The root hash of the log's Merkle tree
-	TreeHeadSignature DigitallySigned // The Log's signature for this STH (see RFC section 3.5)
+	Version           Version         `json:"sth_version"`         // The version of the protocol to which the STH conforms
+	TreeSize          uint64          `json:"tree_size"`           // The number of entries in the new tree
+	Timestamp         uint64          `json:"timestamp"`           // The time at which the STH was created
+	SHA256RootHash    SHA256Hash      `json:"sha256_root_hash"`    // The root hash of the log's Merkle tree
+	TreeHeadSignature DigitallySigned `json:"tree_head_signature"` // The Log's signature for this STH (see RFC section 3.5)
+	LogID             SHA256Hash      `json:"log_id"`              // The SHA256 hash of the log's public key
 }
 
 // SignedCertificateTimestamp represents the structure returned by the
 // add-chain and add-pre-chain methods after base64 decoding. (see RFC sections
 // 3.2 ,4.1 and 4.2)
 type SignedCertificateTimestamp struct {
-	SCTVersion Version // The version of the protocol to which the SCT conforms
-	LogID      []byte  // the SHA-256 hash of the log's public key, calculated over
+	SCTVersion Version    // The version of the protocol to which the SCT conforms
+	LogID      SHA256Hash // the SHA-256 hash of the log's public key, calculated over
 	// the DER encoding of the key represented as SubjectPublicKeyInfo.
 	Timestamp  uint64          // Timestamp (in ms since unix epoc) at which the SCT was issued
 	Extensions CTExtensions    // For future extensions to the protocol
@@ -220,7 +300,7 @@ type SignedCertificateTimestamp struct {
 
 func (s SignedCertificateTimestamp) String() string {
 	return fmt.Sprintf("{Version:%d LogId:%s Timestamp:%d Extensions:'%s' Signature:%v}", s.SCTVersion,
-		base64.StdEncoding.EncodeToString(s.LogID),
+		base64.StdEncoding.EncodeToString(s.LogID[:]),
 		s.Timestamp,
 		s.Extensions,
 		s.Signature)

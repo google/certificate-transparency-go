@@ -83,11 +83,7 @@ func TestGetSTHWorks(t *testing.T) {
 	if sth.Timestamp != ValidSTHResponseTimestamp {
 		t.Fatal("Invalid Timestamp")
 	}
-	hash, err := base64.StdEncoding.DecodeString(ValidSTHResponseSHA256RootHash)
-	if err != nil {
-		t.Fatal("Couldn't b64 decode 'correct' STH root hash!")
-	}
-	if string(sth.SHA256RootHash) != string(hash) {
+	if sth.SHA256RootHash.Base64String() != ValidSTHResponseSHA256RootHash {
 		t.Fatal("Invalid SHA256RootHash")
 	}
 	expectedRawSignature, err := base64.StdEncoding.DecodeString(ValidSTHResponseTreeHeadSignature)

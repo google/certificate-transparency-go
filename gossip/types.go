@@ -1,5 +1,9 @@
 package gossip
 
+import (
+	ct "github.com/google/certificate-transparency/go"
+)
+
 // STHVersion reflects the STH Version field in RFC6862[-bis]
 type STHVersion int
 
@@ -20,17 +24,7 @@ type SCTFeedback struct {
 	Feedback []SCTFeedbackEntry `json:"sct_feedback"`
 }
 
-// STHPollinationEntry is a pollination record for a single STH
-type STHPollinationEntry struct {
-	STHVersion           STHVersion `json:"sth_version"`
-	TreeSize             int64      `json:"tree_size"`
-	Timestamp            int64      `json:"timestamp"`
-	Sha256RootHashB64    string     `json:"sha256_root_hash"`
-	TreeHeadSignatureB64 string     `json:"tree_head_signature"`
-	LogID                string     `json:"log_id"`
-}
-
 // STHPollination represents a collection of STH pollination entries which a client might send together.
 type STHPollination struct {
-	STHs []STHPollinationEntry `json:"sths"`
+	STHs []ct.SignedTreeHead `json:"sths"`
 }
