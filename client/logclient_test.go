@@ -90,7 +90,7 @@ func TestGetSTHWorks(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't b64 decode 'correct' STH signature!")
 	}
-	expectedDS, err := ct.UnmarshalDigitallySigned(expectedRawSignature)
+	expectedDS, err := ct.UnmarshalDigitallySigned(bytes.NewReader(expectedRawSignature))
 	if err != nil {
 		t.Fatal("Couldn't unmarshal DigitallySigned: %v", err)
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-    // TODO(alcutter): this signature is syntactically correct, but invalid. 
+	// TODO(alcutter): this signature is syntactically correct, but invalid.
 	FourEntrySTH = "{" +
 		"\"tree_size\":4,\"timestamp\":1396877652123,\"sha256_root_hash\":\"0JBu0CkZnKXc1niEndDaqqgCRHucCfVt1/WBAXs/5T8=\",\"tree_head_signature\":\"AAAACXNpZ25hdHVyZQ==\"}"
 	FourEntries = "{\"entries\":[{\"leaf_input\":\"AAAAAAE9pCDoYwAAAAOGMIIDgjCCAuu" +

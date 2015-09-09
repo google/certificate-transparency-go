@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Returns a "variable-length" byte buffer containing |dataSize| data bytes
@@ -160,7 +162,7 @@ func TestCheckExtensionsFormatTooBig(t *testing.T) {
 const (
 	defaultSCTLogIDString          string = "iamapublickeyshatwofivesixdigest"
 	defaultSCTTimestamp            uint64 = 1234
-	defaultSCTSignatureString      string = "\x00\x00\x00\x09signature"
+	defaultSCTSignatureString      string = "\x04\x03\x00\x09signature"
 	defaultCertifictateString      string = "certificate"
 	defaultPrecertString           string = "precert"
 	defaultPrecertIssuerHashString string = "iamapublickeyshatwofivesixdigest"
@@ -215,6 +217,23 @@ const (
 		"0000000000000006" +
 		// root hash, 32 bytes
 		"696d757374626565786163746c7974686972747974776f62797465736c6f6e67"
+
+	defaultSCTHexString string =
+	// version, 1 byte
+	"00" +
+		// keyid, 32 bytes
+		"69616d617075626c69636b657973686174776f66697665736978646967657374" +
+		// timestamp, 8 bytes
+		"00000000000004d2" +
+		// extensions length, 2 bytes
+		"0000" +
+		// extensions, 0 bytes
+		// hash algo, sig algo, 2 bytes
+		"0403" +
+		// signature length, 2 bytes
+		"0009" +
+		// signature, 9 bytes
+		"7369676e6174757265"
 )
 
 func defaultSCTLogID() SHA256Hash {
@@ -224,7 +243,7 @@ func defaultSCTLogID() SHA256Hash {
 }
 
 func defaultSCTSignature() DigitallySigned {
-	ds, err := UnmarshalDigitallySigned([]byte(defaultSCTSignatureString))
+	ds, err := UnmarshalDigitallySigned(bytes.NewReader([]byte(defaultSCTSignatureString)))
 	if err != nil {
 		panic(err)
 	}
@@ -236,6 +255,7 @@ func defaultSCT() SignedCertificateTimestamp {
 		SCTVersion: V1,
 		LogID:      defaultSCTLogID(),
 		Timestamp:  defaultSCTTimestamp,
+		Extensions: []byte{},
 		Signature:  defaultSCTSignature()}
 }
 
@@ -379,7 +399,7 @@ func TestMarshalDigitallySigned(t *testing.T) {
 }
 
 func TestUnmarshalDigitallySigned(t *testing.T) {
-	ds, err := UnmarshalDigitallySigned([]byte("\x01\x02\x00\x0aSiGnAtUrE!"))
+	ds, err := UnmarshalDigitallySigned(bytes.NewReader([]byte("\x01\x02\x00\x0aSiGnAtUrE!")))
 	if err != nil {
 		t.Fatalf("Failed to unmarshal DigitallySigned: %v", err)
 	}
@@ -392,4 +412,34 @@ func TestUnmarshalDigitallySigned(t *testing.T) {
 	if string(ds.Signature) != "SiGnAtUrE!" {
 		t.Fatalf("Expected Signature %v, but got %v", []byte("SiGnAtUrE!"), ds.Signature)
 	}
+}
+
+func TestSCTSerializationRoundTrip(t *testing.T) {
+	b, err := SerializeSCT(defaultSCT())
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT: %v", err)
+	}
+	sct, err := DeserializeSCT(bytes.NewReader(b))
+	if err != nil {
+		t.Fatalf("Failed to deserialize SCT: %v", err)
+	}
+	assert.Equal(t, defaultSCT(), *sct)
+}
+
+func TestSerializeSCT(t *testing.T) {
+	b, err := SerializeSCT(defaultSCT())
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT: %v", err)
+	}
+	if bytes.Compare(mustDehex(t, defaultSCTHexString), b) != 0 {
+		t.Fatalf("Serialized SCT differs from expected KA. Expected:\n%v\nGot:\n%v", mustDehex(t, defaultSCTHexString), b)
+	}
+}
+
+func TestDeserializeSCT(t *testing.T) {
+	sct, err := DeserializeSCT(bytes.NewReader(mustDehex(t, defaultSCTHexString)))
+	if err != nil {
+		t.Fatalf("Failed to deserialize SCT: %v", err)
+	}
+	assert.Equal(t, defaultSCT(), *sct)
 }

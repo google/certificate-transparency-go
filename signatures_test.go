@@ -1,6 +1,7 @@
 package ct
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
@@ -138,7 +139,7 @@ func mustDehex(t *testing.T, h string) []byte {
 }
 
 func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateTimestamp {
-	ds, err := UnmarshalDigitallySigned(mustDehex(t, sig))
+	ds, err := UnmarshalDigitallySigned(bytes.NewReader(mustDehex(t, sig)))
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
@@ -200,7 +201,7 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 }
 
 func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
-	ds, err := UnmarshalDigitallySigned(mustDehex(t, sigTestDefaultSTHSignature))
+	ds, err := UnmarshalDigitallySigned(bytes.NewReader(mustDehex(t, sigTestDefaultSTHSignature)))
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}

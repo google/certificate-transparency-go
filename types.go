@@ -1,6 +1,7 @@
 package ct
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -196,7 +197,7 @@ func (d *DigitallySigned) FromBase64String(b64 string) error {
 	if err != nil {
 		return fmt.Errorf("failed to unbase64 DigitallySigned: %v", err)
 	}
-	ds, err := UnmarshalDigitallySigned(raw)
+	ds, err := UnmarshalDigitallySigned(bytes.NewReader(raw))
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal DigitallySigned: %v", err)
 	}

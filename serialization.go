@@ -203,21 +203,19 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	return chain, nil
 }
 
-// UnmarshalDigitallySigned reconstructs a DigitallySigned structure from a byte array
-func UnmarshalDigitallySigned(b []byte) (*DigitallySigned, error) {
-	reader := bytes.NewReader(b)
-
-	h, err := reader.ReadByte()
-	if err != nil {
+// UnmarshalDigitallySigned reconstructs a DigitallySigned structure from a Reader
+func UnmarshalDigitallySigned(r io.Reader) (*DigitallySigned, error) {
+	var h byte
+	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
 		return nil, fmt.Errorf("failed to read HashAlgorithm: %v", err)
 	}
 
-	s, err := reader.ReadByte()
-	if err != nil {
+	var s byte
+	if err := binary.Read(r, binary.BigEndian, &s); err != nil {
 		return nil, fmt.Errorf("failed to read SignatureAlgorithm: %v", err)
 	}
 
-	sig, err := readVarBytes(reader, SignatureLengthBytes)
+	sig, err := readVarBytes(r, SignatureLengthBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Signature bytes: %v", err)
 	}
@@ -347,6 +345,77 @@ func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) 
 	switch sct.SCTVersion {
 	case V1:
 		return serializeV1SCTSignatureInput(sct, entry)
+	default:
+		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
+	}
+}
+
+func serializeV1SCT(sct SignedCertificateTimestamp) ([]byte, error) {
+	if err := checkExtensionsFormat(sct.Extensions); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sct.LogID); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sct.Timestamp); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, sct.Extensions, ExtensionsLengthBytes); err != nil {
+		return nil, err
+	}
+	sig, err := MarshalDigitallySigned(sct.Signature)
+	if err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, sig); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// SerializeSCT serializes the passed in sct into the format specified
+// by RFC6962 section 3.2
+func SerializeSCT(sct SignedCertificateTimestamp) ([]byte, error) {
+	switch sct.SCTVersion {
+	case V1:
+		return serializeV1SCT(sct)
+	default:
+		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
+	}
+}
+
+func deserializeSCTV1(r io.Reader, sct *SignedCertificateTimestamp) error {
+	if err := binary.Read(r, binary.BigEndian, &sct.LogID); err != nil {
+		return err
+	}
+	if err := binary.Read(r, binary.BigEndian, &sct.Timestamp); err != nil {
+		return err
+	}
+	ext, err := readVarBytes(r, ExtensionsLengthBytes)
+	if err != nil {
+		return err
+	}
+	sct.Extensions = ext
+	ds, err := UnmarshalDigitallySigned(r)
+	if err != nil {
+		return err
+	}
+	sct.Signature = *ds
+	return nil
+}
+
+func DeserializeSCT(r io.Reader) (*SignedCertificateTimestamp, error) {
+	var sct SignedCertificateTimestamp
+	if err := binary.Read(r, binary.BigEndian, &sct.SCTVersion); err != nil {
+		return nil, err
+	}
+	switch sct.SCTVersion {
+	case V1:
+		return &sct, deserializeSCTV1(r, &sct)
 	default:
 		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
 	}

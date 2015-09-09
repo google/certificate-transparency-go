@@ -226,7 +226,7 @@ func (c *LogClient) addChainWithRetry(path string, chain []ct.ASN1Cert) (*ct.Sig
 	if err != nil {
 		return nil, err
 	}
-	ds, err := ct.UnmarshalDigitallySigned(rawSignature)
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	if err != nil {
 		return nil, errors.New("invalid base64 encoding in tree_head_signature")
 	}
-	ds, err := ct.UnmarshalDigitallySigned(rawSignature)
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
 	if err != nil {
 		return nil, err
 	}
