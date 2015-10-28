@@ -1,7 +1,7 @@
 package merkletree
 
 /*
-#cgo LDFLAGS: -lcrypto -lglog
+#cgo LDFLAGS: -lcrypto
 #cgo CPPFLAGS: -I../../cpp
 #cgo CXXFLAGS: -std=c++11
 #include "merkle_tree_go.h"

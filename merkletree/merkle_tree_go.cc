@@ -1,9 +1,9 @@
 #include "merkletree/merkle_tree.h"
 
+#include <assert.h>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-#include <glog/logging.h>
 
 #include "_cgo_export.h"
 #include "merkle_tree_go.h"
@@ -14,13 +14,16 @@ extern "C" {
 // safety.  Hopefully these should all be optimized away into oblivion
 // by the compiler.
 static inline MerkleTree* MT(TREE tree) {
-  return static_cast<MerkleTree*>(CHECK_NOTNULL(tree));
+  assert(tree);
+  return static_cast<MerkleTree*>(tree);
 }
 static inline Sha256Hasher* H(HASHER hasher) {
-  return static_cast<Sha256Hasher*>(CHECK_NOTNULL(hasher));
+  assert(hasher);
+  return static_cast<Sha256Hasher*>(hasher);
 }
 static inline GoSlice* BS(BYTE_SLICE slice) {
-  return static_cast<GoSlice*>(CHECK_NOTNULL(slice));
+  assert(slice);
+  return static_cast<GoSlice*>(slice);
 }
 
 HASHER NewSha256Hasher() {
@@ -51,7 +54,7 @@ bool LeafHash(TREE tree, BYTE_SLICE out, size_t leaf) {
     return false;
   }
   const std::string& hash = t->LeafHash(leaf);
-  CHECK_EQ(nodesize, hash.size());
+  assert(nodesize == hash.size());
   memcpy(slice->data, hash.data(), nodesize);
   slice->len = nodesize;
   return true;
@@ -83,7 +86,7 @@ bool CurrentRoot(TREE tree, BYTE_SLICE out) {
     return false;
   }
   const std::string& hash = t->CurrentRoot();
-  CHECK_EQ(nodesize, hash.size());
+  assert(nodesize == hash.size());
   memcpy(slice->data, hash.data(), nodesize);
   slice->len = nodesize;
   return true;
@@ -97,7 +100,7 @@ bool RootAtSnapshot(TREE tree, BYTE_SLICE out, size_t snapshot) {
     return false;
   }
   const std::string& hash = t->RootAtSnapshot(snapshot);
-  CHECK_EQ(nodesize, hash.size());
+  assert(nodesize == hash.size());
   memcpy(slice->data, hash.data(), nodesize);
   slice->len = nodesize;
   return true;
@@ -108,15 +111,15 @@ bool RootAtSnapshot(TREE tree, BYTE_SLICE out, size_t snapshot) {
 // |num_copied| is set to the number of entries copied.
 bool CopyNodesToSlice(const std::vector<std::string>& path, GoSlice* dst,
                       size_t nodesize, size_t* num_copied) {
-  CHECK_NOTNULL(dst);
-  CHECK_NOTNULL(num_copied);
+  assert(dst);
+  assert(num_copied);
   if (dst->cap < path.size() * nodesize) {
     *num_copied = 0;
     return false;
   }
   char* e = static_cast<char*>(dst->data);
   for (int i = 0; i < path.size(); ++i) {
-    CHECK_EQ(nodesize, path[i].size());
+    assert(nodesize == path[i].size());
     memcpy(e, path[i].data(), nodesize);
     e += nodesize;
   }
