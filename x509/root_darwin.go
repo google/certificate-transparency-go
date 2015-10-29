@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !darwin,cgo
+// +build darwin,cgo
 
 package x509
 
@@ -13,14 +13,14 @@ package x509
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
-// FetchPEMRoots fetches the system's list of trusted X.509 root certificates.
+// FetchPEMRootsCTX509 fetches the system's list of trusted X.509 root certificates.
 //
 // On success it returns 0 and fills pemRoots with a CFDataRef that contains the extracted root
 // certificates of the system. On failure, the function returns -1.
 //
 // Note: The CFDataRef returned in pemRoots must be released (using CFRelease) after
 // we've consumed its content.
-int FetchPEMRoots(CFDataRef *pemRoots) {
+int FetchPEMRootsCTX509(CFDataRef *pemRoots) {
 	if (pemRoots == NULL) {
 		return -1;
 	}
@@ -71,7 +71,7 @@ func initSystemRoots() {
 	roots := NewCertPool()
 
 	var data C.CFDataRef = nil
-	err := C.FetchPEMRoots(&data)
+	err := C.FetchPEMRootsCTX509(&data)
 	if err == -1 {
 		return
 	}
