@@ -25,6 +25,7 @@ type verifyTest struct {
 	systemSkip           bool
 	keyUsages            []ExtKeyUsage
 	testSystemRootsError bool
+	disableTimeChecks    bool
 
 	errorCallback  func(*testing.T, int, error) bool
 	expectedChains [][]string
@@ -78,9 +79,42 @@ var verifyTests = []verifyTest{
 		intermediates: []string{thawteIntermediate},
 		roots:         []string{verisignRoot},
 		currentTime:   1,
-		dnsName:       "www.example.com",
+		dnsName:       "www.google.com",
 
 		errorCallback: expectExpired,
+	},
+	{
+		leaf:              googleLeaf,
+		intermediates:     []string{thawteIntermediate},
+		roots:             []string{verisignRoot},
+		currentTime:       1,
+		dnsName:           "www.google.com",
+		disableTimeChecks: true,
+
+		expectedChains: [][]string{
+			{"Google", "Thawte", "VeriSign"},
+		},
+	},
+	{
+		leaf:          googleLeaf,
+		intermediates: []string{thawteIntermediate},
+		roots:         []string{verisignRoot},
+		currentTime:   10000000000,
+		dnsName:       "www.google.com",
+
+		errorCallback: expectExpired,
+	},
+	{
+		leaf:              googleLeaf,
+		intermediates:     []string{thawteIntermediate},
+		roots:             []string{verisignRoot},
+		currentTime:       10000000000,
+		dnsName:           "www.google.com",
+		disableTimeChecks: true,
+
+		expectedChains: [][]string{
+			{"Google", "Thawte", "VeriSign"},
+		},
 	},
 	{
 		leaf:        googleLeaf,
@@ -275,10 +309,11 @@ func testVerify(t *testing.T, useSystemRoots bool) {
 		}
 
 		opts := VerifyOptions{
-			Intermediates: NewCertPool(),
-			DNSName:       test.dnsName,
-			CurrentTime:   time.Unix(test.currentTime, 0),
-			KeyUsages:     test.keyUsages,
+			Intermediates:     NewCertPool(),
+			DNSName:           test.dnsName,
+			CurrentTime:       time.Unix(test.currentTime, 0),
+			KeyUsages:         test.keyUsages,
+			DisableTimeChecks: test.disableTimeChecks,
 		}
 
 		if !useSystemRoots {
