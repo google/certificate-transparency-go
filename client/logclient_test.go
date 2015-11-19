@@ -92,7 +92,7 @@ func TestGetSTHWorks(t *testing.T) {
 	}
 	expectedDS, err := ct.UnmarshalDigitallySigned(bytes.NewReader(expectedRawSignature))
 	if err != nil {
-		t.Fatal("Couldn't unmarshal DigitallySigned: %v", err)
+		t.Fatalf("Couldn't unmarshal DigitallySigned: %v", err)
 	}
 	if sth.TreeHeadSignature.HashAlgorithm != expectedDS.HashAlgorithm {
 		t.Fatalf("Invalid TreeHeadSignature.HashAlgorithm: expected %v, got %v", sth.TreeHeadSignature.HashAlgorithm, expectedDS.HashAlgorithm)

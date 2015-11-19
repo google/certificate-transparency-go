@@ -49,7 +49,7 @@ func main() {
 			log.Println(addedCert.SignedCertificateTimestamp)
 			numAdded++
 		} else {
-			log.Println("Cert was not added: %s", addedCert.ErrorMessage)
+			log.Printf("Cert was not added: %s", addedCert.ErrorMessage)
 			numFailed++
 		}
 	}
