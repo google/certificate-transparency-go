@@ -56,9 +56,12 @@ var fixTests = []fixTest{
 	},
 
 	// fixChain()
-	{	// Correct chain results in duplicates of chain due to behaviour of
-		// augmentIntermediates() and allowance of duplicate certs in bag.
-		// TODO(katjoyce): Would it be better to prevent duplication in bag?
+	{	// Correct chain returns multiple chains - the complete one initially
+		// given, and one containing the cert for Thawte downloaded by
+		// augmentIntermediates() from the url in the AIA information of the
+		// googleLeaf cert.
+		// Note: In practice this should not happen, as fixChain is only called
+		// if constructChain fails.
 		cert: googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
@@ -206,7 +209,7 @@ func testFix(t *testing.T, i int, ft *fixTest) {
 
 	// Check for 1:1 correspondance between expectedChains and the chains that
 	// were produced by function call
-	if len(ft.expectedChains) != len (chains) {
+	if len(ft.expectedChains) != len(chains) {
 		t.Errorf("#%d: Wanted %d chains, got back %d", i,
 			len(ft.expectedChains), len(chains))
 	}
@@ -224,7 +227,7 @@ func testFix(t *testing.T, i int, ft *fixTest) {
 					continue
 				}
 				for k, cert := range chain {
-					if strings.Index(nameToKey(&cert.Subject), expChain[k]) == -1 {
+					if !strings.Contains(nameToKey(&cert.Subject), expChain[k]) {
 						continue TryNextExpected
 					}
 					seen[j] = true

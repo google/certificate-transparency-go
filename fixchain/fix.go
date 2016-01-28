@@ -54,7 +54,8 @@ func (fix *toFix) fixChain() ([][]*x509.Certificate, *FixError) {
 }
 
 func (fix *toFix) augmentIntermediates(url string) {
-	// PKCS#7 additions
+	// PKCS#7 additions as (at time of writing) there is no standard Go PKCS#7
+	// implementation
 	r := urlReplacement(url)
 	if r != nil {
 		log.Printf("Replaced %s: %+v", url, r)
@@ -63,6 +64,7 @@ func (fix *toFix) augmentIntermediates(url string) {
 		}
 		return
 	}
+
 	body, err := fix.fixer.cache.getURL(url)
 	if err != nil {
 		fix.fixer.errors <- &FixError{Type: CannotFetchURL, Cert: fix.cert,

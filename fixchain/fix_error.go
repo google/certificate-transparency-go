@@ -18,7 +18,7 @@ const (
 	VerifyFailed
 )
 
-// FixError is the structure to which errors in the fixing process are reported
+// FixError is the struct with which errors in the fixing process are reported
 type FixError struct {
 	Type  errorType
 	Cert  *x509.Certificate   // The supplied leaf certificate
