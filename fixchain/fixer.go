@@ -34,20 +34,11 @@ type Fixer struct {
 // fixer, with respect to the given roots
 func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
 	d := &dedupedChain{}
-	intermediates := x509.NewCertPool()
 	for _, c := range chain {
 		d.addCert(c)
-		intermediates.AddCert(c)
 	}
 
-	opts := x509.VerifyOptions{
-		Intermediates:     intermediates,
-		Roots:             roots,
-		DisableTimeChecks: true,
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-	}
-
-	f.toFix <- &toFix{cert: cert, chain: d, opts: &opts, fixer: f}
+	f.toFix <- &toFix{cert: cert, chain: d, roots: roots, fixer: f}
 }
 
 // Wait for all the fixers to finish.

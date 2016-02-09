@@ -149,17 +149,20 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan<- *FixError) *toFix {
 		}
 	}
 
-	roots := x509.NewCertPool()
+	fix.roots = x509.NewCertPool()
 	for j, cert := range ft.roots {
-		ok := roots.AppendCertsFromPEM([]byte(cert))
+		ok := fix.roots.AppendCertsFromPEM([]byte(cert))
 		if !ok {
 			t.Errorf("#%d: Failed to parse root #%d", i, j)
 		}
 	}
 
-	fix.opts = &x509.VerifyOptions{Intermediates: intermediates,
-		Roots: roots, DisableTimeChecks: true,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}}
+	fix.opts = &x509.VerifyOptions{
+		Intermediates: intermediates,
+		Roots: fix.roots,
+		DisableTimeChecks: true,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
 
 	return fix
 }

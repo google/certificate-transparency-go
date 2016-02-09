@@ -10,11 +10,24 @@ import (
 type toFix struct {
 	cert  *x509.Certificate
 	chain *dedupedChain
+	roots *x509.CertPool
 	opts  *x509.VerifyOptions
 	fixer *Fixer
 }
 
 func (fix *toFix) handleChain() ([][]*x509.Certificate, *FixError) {
+	intermediates := x509.NewCertPool()
+	for _, c := range fix.chain.certs {
+		intermediates.AddCert(c)
+	}
+
+	fix.opts = &x509.VerifyOptions{
+		Intermediates:     intermediates,
+		Roots:             fix.roots,
+		DisableTimeChecks: true,
+		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
 	chains, ferr := fix.constructChain()
 	if ferr != nil {
 		fix.fixer.errors <- ferr
