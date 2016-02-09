@@ -126,11 +126,11 @@ var fixTests = []fixTest{
 	},
 }
 
-func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
+func setUpFix(t *testing.T, i int, ft *fixTest, ch chan<- *FixError) *toFix {
 	// Set up Fixer
 	client := &http.Client{}
 	cache := &urlCache{cache: make(map[string][]byte), client: client}
-	fixer := &Fixer{errors: make(chan *FixError), cache: cache}
+	fixer := &Fixer{errors: ch, cache: cache}
 
 	// Create & populate toFix to test from fixTest info
 	fix := &toFix{fixer: fixer}
@@ -182,15 +182,16 @@ func chainToDebugString(chain []*x509.Certificate) string {
 }
 
 // Function simply to allow fixer.error chan to be written to if required.
-func logErrors(t *testing.T, i int, fix *toFix) {
-	for ferr := range fix.fixer.errors {
+func logErrors(t *testing.T, i int, ch <-chan *FixError) {
+	for ferr := range ch {
 		t.Logf("#%d: %s", i, ferr.TypeString())
 	}
 }
 
 func testFix(t *testing.T, i int, ft *fixTest) {
-	fix := setUpFix(t, i, ft)
-	go logErrors(t, i, fix)
+	ch := make(chan *FixError)
+	go logErrors(t, i, ch)
+	fix := setUpFix(t, i, ft, ch)
 
 	var chains [][]*x509.Certificate
 	var ferr *FixError

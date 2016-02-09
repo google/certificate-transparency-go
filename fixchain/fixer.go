@@ -14,7 +14,7 @@ import (
 // information about each attempt that is made to fix a certificate chain.
 type Fixer struct {
 	toFix  chan *toFix
-	chains chan []*x509.Certificate // Chains successfully fixed by the fixer
+	chains chan<- []*x509.Certificate // Chains successfully fixed by the fixer
 	active uint32
 	// Counters may not be entirely accurate due to non-atomicity
 	reconstructed    uint
@@ -25,7 +25,7 @@ type Fixer struct {
 	alreadyDone      uint
 
 	wg     sync.WaitGroup
-	errors chan *FixError
+	errors chan<- *FixError
 	cache  *urlCache
 	done   *lockedMap
 }
@@ -48,7 +48,7 @@ func (f *Fixer) QueueChain(cert *x509.Certificate, d *DedupedChain, roots *x509.
 	f.toFix <- &toFix{cert: cert, chain: d, opts: &opts, fixer: f}
 }
 
-// Wait for all the fixers to finish
+// Wait for all the fixers to finish.
 func (f *Fixer) Wait() {
 	close(f.toFix)
 	f.wg.Wait()
@@ -94,7 +94,7 @@ func (f *Fixer) logStats() {
 // NewFixer creates a new fixer and starts up a pool of workers.  Errors are
 // pushed to the errors channel, and fixed chains are pushed to the chains
 // channel.
-func NewFixer(chains chan []*x509.Certificate, errors chan *FixError, client *http.Client) *Fixer {
+func NewFixer(chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client) *Fixer {
 	f := &Fixer{
 		toFix:  make(chan *toFix),
 		chains: chains,
