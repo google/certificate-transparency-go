@@ -13,9 +13,9 @@ import (
 // Fixer contains methods to fix certificate chains and properties to store
 // information about each attempt that is made to fix a certificate chain.
 type Fixer struct {
-	toFix   chan *toFix
-	chains  chan []*x509.Certificate // Chains successfully fixed by the fixer
-	active  uint32
+	toFix  chan *toFix
+	chains chan []*x509.Certificate // Chains successfully fixed by the fixer
+	active uint32
 	// Counters may not be entirely accurate due to non-atomicity
 	reconstructed    uint
 	notReconstructed uint
@@ -38,11 +38,20 @@ func (f *Fixer) QueueChain(cert *x509.Certificate, d *DedupedChain, roots *x509.
 		intermediates.AddCert(c)
 	}
 
-	opts := x509.VerifyOptions{Intermediates: intermediates,
-		Roots: roots, DisableTimeChecks: true,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny}}
+	opts := x509.VerifyOptions{
+		Intermediates:     intermediates,
+		Roots:             roots,
+		DisableTimeChecks: true,
+		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
 
 	f.toFix <- &toFix{cert: cert, chain: d, opts: &opts, fixer: f}
+}
+
+// Wait for all the fixers to finish
+func (f *Fixer) Wait() {
+	close(f.toFix)
+	f.wg.Wait()
 }
 
 func (f *Fixer) fixServer() {
@@ -86,16 +95,15 @@ func (f *Fixer) logStats() {
 // pushed to the errors channel, and fixed chains are pushed to the chains
 // channel.
 func NewFixer(chains chan []*x509.Certificate, errors chan *FixError, client *http.Client) *Fixer {
-	f := &Fixer{toFix: make(chan *toFix), chains: chains, errors: errors,
-		cache: newURLCache(client), done: newLockedMap()}
+	f := &Fixer{
+		toFix:  make(chan *toFix),
+		chains: chains,
+		errors: errors,
+		cache:  newURLCache(client),
+		done:   newLockedMap(),
+	}
 
 	f.newFixServerPool()
 	f.logStats()
 	return f
-}
-
-// Wait for all the fixers to finish
-func (f *Fixer) Wait() {
-	close(f.toFix)
-	f.wg.Wait()
 }

@@ -1,6 +1,6 @@
 package fixchain
 
-import(
+import (
 	"encoding/pem"
 	"errors"
 	"testing"
@@ -21,7 +21,7 @@ func CertificateFromPEM(pemBytes string) (*x509.Certificate, error) {
 // GetTestCertificateFromPEM returns an x509.Certificate from a certificate in
 // PEM format for testing purposes.  Any errors in the PEM decoding process are
 // reported to the testing framework
-func GetTestCertificateFromPEM(t *testing.T, pemBytes string) (*x509.Certificate) {
+func GetTestCertificateFromPEM(t *testing.T, pemBytes string) *x509.Certificate {
 	cert, err := CertificateFromPEM(pemBytes)
 	if err != nil {
 		t.Errorf("Failed to parse leaf: %s", err)

@@ -27,8 +27,12 @@ func (fix *toFix) constructChain() ([][]*x509.Certificate, *FixError) {
 	chains, err := fix.cert.Verify(*fix.opts)
 	if err != nil {
 		fix.fixer.notReconstructed++
-		return chains, &FixError{Type: VerifyFailed, Cert: fix.cert,
-			Chain: fix.chain.certs, Error: err}
+		return chains, &FixError{
+			Type:  VerifyFailed,
+			Cert:  fix.cert,
+			Chain: fix.chain.certs,
+			Error: err,
+		}
 	}
 	fix.fixer.reconstructed++
 	return chains, nil
@@ -49,8 +53,11 @@ func (fix *toFix) fixChain() ([][]*x509.Certificate, *FixError) {
 		}
 	}
 	fix.fixer.notFixed++
-	return nil, &FixError{Type: FixFailed, Cert: fix.cert,
-		Chain: fix.chain.certs}
+	return nil, &FixError{
+		Type:  FixFailed,
+		Cert:  fix.cert,
+		Chain: fix.chain.certs,
+	}
 }
 
 func (fix *toFix) augmentIntermediates(url string) {
@@ -67,8 +74,13 @@ func (fix *toFix) augmentIntermediates(url string) {
 
 	body, err := fix.fixer.cache.getURL(url)
 	if err != nil {
-		fix.fixer.errors <- &FixError{Type: CannotFetchURL, Cert: fix.cert,
-			Chain: fix.chain.certs, URL: url, Error: err}
+		fix.fixer.errors <- &FixError{
+			Type:  CannotFetchURL,
+			Cert:  fix.cert,
+			Chain: fix.chain.certs,
+			URL:   url,
+			Error: err,
+		}
 		return
 	}
 	icert, err := x509.ParseCertificate(body)
@@ -80,8 +92,14 @@ func (fix *toFix) augmentIntermediates(url string) {
 	}
 
 	if err != nil {
-		fix.fixer.errors <- &FixError{Type: ParseFailure, Cert: fix.cert,
-			Chain: fix.chain.certs, URL: url, Bad: body, Error: err}
+		fix.fixer.errors <- &FixError{
+			Type:  ParseFailure,
+			Cert:  fix.cert,
+			Chain: fix.chain.certs,
+			URL:   url,
+			Bad:   body,
+			Error: err,
+		}
 		return
 	}
 	fix.opts.Intermediates.AddCert(icert)

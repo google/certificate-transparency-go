@@ -3,37 +3,37 @@ package fixchain
 import "testing"
 
 type fixErrorTest struct {
-	ferr FixError
+	ferr     FixError
 	expected string
 }
 
 var fixErrorTests = []fixErrorTest{
 	{
-		ferr: FixError{Type: None},
+		ferr:     FixError{Type: None},
 		expected: "None",
 	},
 	{
-		ferr: FixError{Type: ParseFailure},
+		ferr:     FixError{Type: ParseFailure},
 		expected: "ParseFailure",
 	},
 	{
-		ferr: FixError{Type: CannotFetchURL},
+		ferr:     FixError{Type: CannotFetchURL},
 		expected: "CannotFetchURL",
 	},
 	{
-		ferr: FixError{Type: FixFailed},
+		ferr:     FixError{Type: FixFailed},
 		expected: "FixFailed",
 	},
 	{
-		ferr: FixError{Type: LogPostFailed},
+		ferr:     FixError{Type: LogPostFailed},
 		expected: "LogPostFailed",
 	},
 	{
-		ferr: FixError{Type: VerifyFailed},
+		ferr:     FixError{Type: VerifyFailed},
 		expected: "VerifyFailed",
 	},
 	{
-		ferr: FixError{},
+		ferr:     FixError{},
 		expected: "None",
 	},
 }

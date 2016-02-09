@@ -11,19 +11,19 @@ import (
 )
 
 type fixTest struct {
-	cert string
+	cert  string
 	chain []string
 	roots []string
 
-	function string
+	function       string
 	expectedChains [][]string
-	expectErr bool
+	expectErr      bool
 }
 
 var fixTests = []fixTest{
 	// constructChain()
-	{	// Correct chain returns chain
-		cert: googleLeaf,
+	{ // Correct chain returns chain
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
@@ -32,37 +32,37 @@ var fixTests = []fixTest{
 			{"Google", "Thawte", "Verisign"},
 		},
 	},
-	{	// No roots results in an error
-		cert: googleLeaf,
+	{ // No roots results in an error
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 
-		function: "constructChain",
+		function:  "constructChain",
 		expectErr: true,
 	},
-	{	// No complete chain results in an error
-		cert: googleLeaf,
+	{ // No complete chain results in an error
+		cert:  googleLeaf,
 		roots: []string{verisignRoot},
 
-		function: "constructChain",
+		function:  "constructChain",
 		expectErr: true,
 	},
-	{	// The wrong chain results in an error
-		cert: smimeLeaf,
+	{ // The wrong chain results in an error
+		cert:  smimeLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
-		function: "constructChain",
+		function:  "constructChain",
 		expectErr: true,
 	},
 
 	// fixChain()
-	{	// Correct chain returns multiple chains - the complete one initially
+	{ // Correct chain returns multiple chains - the complete one initially
 		// given, and one containing the cert for Thawte downloaded by
 		// augmentIntermediates() from the url in the AIA information of the
 		// googleLeaf cert.
 		// Note: In practice this should not happen, as fixChain is only called
 		// if constructChain fails.
-		cert: googleLeaf,
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
@@ -72,15 +72,15 @@ var fixTests = []fixTest{
 			{"Google", "Thawte", "Verisign"},
 		},
 	},
-	{	// No roots results in an error
-		cert: googleLeaf,
+	{ // No roots results in an error
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 
-		function: "fixChain",
+		function:  "fixChain",
 		expectErr: true,
 	},
-	{	// Incomplete chain returns fixed chain
-		cert: googleLeaf,
+	{ // Incomplete chain returns fixed chain
+		cert:  googleLeaf,
 		roots: []string{verisignRoot},
 
 		function: "fixChain",
@@ -90,8 +90,8 @@ var fixTests = []fixTest{
 	},
 
 	// handleChain()
-	{	// Correct chain returns chain
-		cert: googleLeaf,
+	{ // Correct chain returns chain
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
@@ -100,15 +100,15 @@ var fixTests = []fixTest{
 			{"Google", "Thawte", "Verisign"},
 		},
 	},
-	{	// No roots results in an error
-		cert: googleLeaf,
+	{ // No roots results in an error
+		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 
-		function: "handleChain",
+		function:  "handleChain",
 		expectErr: true,
 	},
-	{	// Incomplete chain returns a fixed chain
-		cert: googleLeaf,
+	{ // Incomplete chain returns a fixed chain
+		cert:  googleLeaf,
 		roots: []string{verisignRoot},
 
 		function: "handleChain",
@@ -116,12 +116,12 @@ var fixTests = []fixTest{
 			{"Google", "Thawte", "Verisign"},
 		},
 	},
-	{	// The wrong chain results in an error
-		cert: smimeLeaf,
+	{ // The wrong chain results in an error
+		cert:  smimeLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
-		function: "handleChain",
+		function:  "handleChain",
 		expectErr: true,
 	},
 }
@@ -133,7 +133,7 @@ func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
 	fixer := &Fixer{errors: make(chan *FixError), cache: cache}
 
 	// Create & populate toFix to test from fixTest info
-	fix := &toFix{fixer:fixer}
+	fix := &toFix{fixer: fixer}
 	fix.cert = GetTestCertificateFromPEM(t, ft.cert)
 
 	fix.chain = &DedupedChain{}
@@ -166,7 +166,7 @@ func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
 
 func nameToKey(name *pkix.Name) string {
 	return fmt.Sprintf("[%s/%s/%s/%s]", strings.Join(name.Country, ","),
-		strings.Join(name.Organization, ","), 
+		strings.Join(name.Organization, ","),
 		strings.Join(name.OrganizationalUnit, ","), name.CommonName)
 }
 
@@ -194,7 +194,7 @@ func testFix(t *testing.T, i int, ft *fixTest) {
 
 	var chains [][]*x509.Certificate
 	var ferr *FixError
-	switch (ft.function) {
+	switch ft.function {
 	case "constructChain":
 		chains, ferr = fix.constructChain()
 	case "fixChain":
