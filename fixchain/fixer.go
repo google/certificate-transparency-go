@@ -73,8 +73,8 @@ func (f *Fixer) fixServer() {
 	}
 }
 
-func (f *Fixer) newFixServerPool() {
-	for i := 0; i < 100; i++ {
+func (f *Fixer) newFixServerPool(workerCount int) {
+	for i := 0; i < workerCount; i++ {
 		f.wg.Add(1)
 		go f.fixServer()
 	}
@@ -96,7 +96,7 @@ func (f *Fixer) logStats() {
 // NewFixer creates a new fixer and starts up a pool of workers.  Errors are
 // pushed to the errors channel, and fixed chains are pushed to the chains
 // channel.
-func NewFixer(chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client) *Fixer {
+func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client) *Fixer {
 	f := &Fixer{
 		toFix:  make(chan *toFix),
 		chains: chains,
@@ -105,7 +105,7 @@ func NewFixer(chains chan<- []*x509.Certificate, errors chan<- *FixError, client
 		done:   newLockedMap(),
 	}
 
-	f.newFixServerPool()
+	f.newFixServerPool(workerCount)
 	f.logStats()
 	return f
 }
