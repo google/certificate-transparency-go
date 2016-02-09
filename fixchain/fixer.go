@@ -32,9 +32,11 @@ type Fixer struct {
 
 // QueueChain adds the given cert and chain to the queue to be fixed by the
 // fixer, with respect to the given roots
-func (f *Fixer) QueueChain(cert *x509.Certificate, d *DedupedChain, roots *x509.CertPool) {
+func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
+	d := &dedupedChain{}
 	intermediates := x509.NewCertPool()
-	for _, c := range d.certs {
+	for _, c := range chain {
+		d.addCert(c)
 		intermediates.AddCert(c)
 	}
 

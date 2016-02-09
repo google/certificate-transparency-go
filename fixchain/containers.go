@@ -7,14 +7,11 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-// DedupedChain is a chain of certificates with any duplicates dropped
-type DedupedChain struct {
+type dedupedChain struct {
 	certs []*x509.Certificate
 }
 
-// AddCert adds a new certificate to the end of the chain if the cert is not
-// already present in the chain
-func (d *DedupedChain) AddCert(cert *x509.Certificate) {
+func (d *dedupedChain) addCert(cert *x509.Certificate) {
 	// Check that the certificate isn't being added twice.
 	for _, c := range d.certs {
 		if c.Equal(cert) {

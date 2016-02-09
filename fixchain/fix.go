@@ -9,7 +9,7 @@ import (
 
 type toFix struct {
 	cert  *x509.Certificate
-	chain *DedupedChain
+	chain *dedupedChain
 	opts  *x509.VerifyOptions
 	fixer *Fixer
 }
@@ -39,9 +39,9 @@ func (fix *toFix) constructChain() ([][]*x509.Certificate, *FixError) {
 }
 
 func (fix *toFix) fixChain() ([][]*x509.Certificate, *FixError) {
-	d2 := *fix.chain
-	d2.AddCert(fix.cert)
-	for _, c := range d2.certs {
+	d := *fix.chain
+	d.addCert(fix.cert)
+	for _, c := range d.certs {
 		urls := c.IssuingCertificateURL
 		for _, url := range urls {
 			fix.augmentIntermediates(url)

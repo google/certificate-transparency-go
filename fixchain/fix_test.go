@@ -136,9 +136,9 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan<- *FixError) *toFix {
 	fix := &toFix{fixer: fixer}
 	fix.cert = GetTestCertificateFromPEM(t, ft.cert)
 
-	fix.chain = &DedupedChain{}
+	fix.chain = &dedupedChain{}
 	for _, cert := range ft.chain {
-		fix.chain.AddCert(GetTestCertificateFromPEM(t, cert))
+		fix.chain.addCert(GetTestCertificateFromPEM(t, cert))
 	}
 
 	intermediates := x509.NewCertPool()
