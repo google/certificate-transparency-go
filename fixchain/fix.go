@@ -12,7 +12,7 @@ type toFix struct {
 	chain *dedupedChain
 	roots *x509.CertPool
 	opts  *x509.VerifyOptions
-	fixer *Fixer
+	fixer *AsyncFixer
 }
 
 func (fix *toFix) handleChain() ([][]*x509.Certificate, *FixError) {

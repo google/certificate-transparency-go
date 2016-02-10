@@ -10,9 +10,9 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-// Fixer contains methods to fix certificate chains and properties to store
+// AsyncFixer contains methods to fix certificate chains and properties to store
 // information about each attempt that is made to fix a certificate chain.
-type Fixer struct {
+type AsyncFixer struct {
 	toFix  chan *toFix
 	chains chan<- []*x509.Certificate // Chains successfully fixed by the fixer
 	active uint32
@@ -32,7 +32,7 @@ type Fixer struct {
 
 // QueueChain adds the given cert and chain to the queue to be fixed by the
 // fixer, with respect to the given roots
-func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
+func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
 	d := &dedupedChain{}
 	for _, c := range chain {
 		d.addCert(c)
@@ -42,12 +42,12 @@ func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, ro
 }
 
 // Wait for all the fixers to finish.
-func (f *Fixer) Wait() {
+func (f *AsyncFixer) Wait() {
 	close(f.toFix)
 	f.wg.Wait()
 }
 
-func (f *Fixer) fixServer() {
+func (f *AsyncFixer) fixServer() {
 	defer f.wg.Done()
 
 	for fix := range f.toFix {
@@ -64,14 +64,14 @@ func (f *Fixer) fixServer() {
 	}
 }
 
-func (f *Fixer) newFixServerPool(workerCount int) {
+func (f *AsyncFixer) newFixServerPool(workerCount int) {
 	for i := 0; i < workerCount; i++ {
 		f.wg.Add(1)
 		go f.fixServer()
 	}
 }
 
-func (f *Fixer) logStats() {
+func (f *AsyncFixer) logStats() {
 	t := time.NewTicker(time.Second)
 	go func() {
 		for _ = range t.C {
@@ -84,11 +84,11 @@ func (f *Fixer) logStats() {
 	}()
 }
 
-// NewFixer creates a new fixer and starts up a pool of workers.  Errors are
-// pushed to the errors channel, and fixed chains are pushed to the chains
+// NewAsyncFixer creates a new fixer and starts up a pool of workers.  Errors
+// are pushed to the errors channel, and fixed chains are pushed to the chains
 // channel.
-func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *Fixer {
-	f := &Fixer{
+func NewAsyncFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *AsyncFixer {
+	f := &AsyncFixer{
 		toFix:  make(chan *toFix),
 		chains: chains,
 		errors: errors,

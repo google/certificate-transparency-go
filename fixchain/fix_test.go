@@ -126,11 +126,11 @@ var fixTests = []fixTest{
 	},
 }
 
-func setUpFix(t *testing.T, i int, ft *fixTest, ch chan<- *FixError) *toFix {
-	// Set up Fixer
+func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
+	// Set up AsyncFixer
 	client := &http.Client{}
 	cache := &urlCache{cache: make(map[string][]byte), client: client}
-	fixer := &Fixer{errors: ch, cache: cache}
+	fixer := &AsyncFixer{errors: ch, cache: cache}
 
 	// Create & populate toFix to test from fixTest info
 	fix := &toFix{fixer: fixer}
