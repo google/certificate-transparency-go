@@ -87,16 +87,18 @@ func (f *Fixer) logStats() {
 // NewFixer creates a new fixer and starts up a pool of workers.  Errors are
 // pushed to the errors channel, and fixed chains are pushed to the chains
 // channel.
-func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client) *Fixer {
+func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *Fixer {
 	f := &Fixer{
 		toFix:  make(chan *toFix),
 		chains: chains,
 		errors: errors,
-		cache:  newURLCache(client),
+		cache:  newURLCache(client, logStats),
 		done:   newLockedMap(),
 	}
 
 	f.newFixServerPool(workerCount)
-	f.logStats()
+	if logStats {
+		f.logStats()
+	}
 	return f
 }
