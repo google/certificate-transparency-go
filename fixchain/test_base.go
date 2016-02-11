@@ -1,11 +1,14 @@
 package fixchain
 
 import (
+	"fmt"
 	"encoding/pem"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency/go/x509/pkix"
 )
 
 // CertificateFromPEM takes a string representing a certificate in PEM format
@@ -27,6 +30,12 @@ func GetTestCertificateFromPEM(t *testing.T, pemBytes string) *x509.Certificate 
 		t.Errorf("Failed to parse leaf: %s", err)
 	}
 	return cert
+}
+
+func nameToKey(name *pkix.Name) string {
+	return fmt.Sprintf("%s/%s/%s/%s", strings.Join(name.Country, ","),
+		strings.Join(name.Organization, ","),
+		strings.Join(name.OrganizationalUnit, ","), name.CommonName)
 }
 
 const verisignRoot = `-----BEGIN CERTIFICATE-----

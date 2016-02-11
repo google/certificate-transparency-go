@@ -1,13 +1,11 @@
 package fixchain
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency/go/x509"
-	"github.com/google/certificate-transparency/go/x509/pkix"
 )
 
 type fixTest struct {
@@ -29,7 +27,7 @@ var fixTests = []fixTest{
 
 		function: "constructChain",
 		expectedChains: [][]string{
-			{"Google", "Thawte", "Verisign"},
+			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 	{ // No roots results in an error
@@ -68,8 +66,8 @@ var fixTests = []fixTest{
 
 		function: "fixChain",
 		expectedChains: [][]string{
-			{"Google", "Thawte", "Verisign"},
-			{"Google", "Thawte", "Verisign"},
+			{"Google", "Thawte", "VeriSign"},
+			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 	{ // No roots results in an error
@@ -85,7 +83,7 @@ var fixTests = []fixTest{
 
 		function: "fixChain",
 		expectedChains: [][]string{
-			{"Google", "Thawte", "Verisign"},
+			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 
@@ -97,7 +95,7 @@ var fixTests = []fixTest{
 
 		function: "handleChain",
 		expectedChains: [][]string{
-			{"Google", "Thawte", "Verisign"},
+			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 	{ // No roots results in an error
@@ -113,7 +111,7 @@ var fixTests = []fixTest{
 
 		function: "handleChain",
 		expectedChains: [][]string{
-			{"Google", "Thawte", "Verisign"},
+			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 	{ // The wrong chain results in an error
@@ -165,12 +163,6 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
 	}
 
 	return fix
-}
-
-func nameToKey(name *pkix.Name) string {
-	return fmt.Sprintf("[%s/%s/%s/%s]", strings.Join(name.Country, ","),
-		strings.Join(name.Organization, ","),
-		strings.Join(name.OrganizationalUnit, ","), name.CommonName)
 }
 
 func chainToDebugString(chain []*x509.Certificate) string {
@@ -234,9 +226,9 @@ func testFix(t *testing.T, i int, ft *fixTest) {
 					if !strings.Contains(nameToKey(&cert.Subject), expChain[k]) {
 						continue TryNextExpected
 					}
-					seen[j] = true
-					continue NextOutputChain
 				}
+				seen[j] = true
+				continue NextOutputChain
 			}
 			t.Errorf("#%d: No expected chain matched output chain %s", i,
 				chainToDebugString(chain))
