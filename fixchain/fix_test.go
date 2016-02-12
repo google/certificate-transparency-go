@@ -2,23 +2,12 @@ package fixchain
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-type fixTest struct {
-	cert  string
-	chain []string
-	roots []string
-
-	function       string
-	expectedChains [][]string
-	expectErr      bool
-}
-
-var fixTests = []fixTest{
+var constructChainTests = []fixTest{
 	// constructChain()
 	{ // Correct chain returns chain
 		cert:  googleLeaf,
@@ -37,22 +26,32 @@ var fixTests = []fixTest{
 		function:  "constructChain",
 		expectErr: true,
 	},
-	{ // No complete chain results in an error
+	{ // Incomplete chain results in an error
 		cert:  googleLeaf,
 		roots: []string{verisignRoot},
 
 		function:  "constructChain",
 		expectErr: true,
 	},
-	{ // The wrong chain results in an error
-		cert:  smimeLeaf,
+	{ // The wrong intermediate and root results in an error
+		cert:  megaLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
 		function:  "constructChain",
 		expectErr: true,
 	},
+	{ // The wrong root results in an error
+		cert:  megaLeaf,
+		chain: []string{verisignRoot, comodoIntermediate},
+		roots: []string{verisignRoot},
 
+		function:  "constructChain",
+		expectErr: true,
+	},
+}
+
+var fixChainTests = []fixTest{
 	// fixChain()
 	{ // Correct chain returns multiple chains - the complete one initially
 		// given, and one containing the cert for Thawte downloaded by
@@ -86,40 +85,20 @@ var fixTests = []fixTest{
 			{"Google", "Thawte", "VeriSign"},
 		},
 	},
-
-	// handleChain()
-	{ // Correct chain returns chain
-		cert:  googleLeaf,
+	{ // The wrong intermediate and root results in an error
+		cert:  megaLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
-		function: "handleChain",
-		expectedChains: [][]string{
-			{"Google", "Thawte", "VeriSign"},
-		},
-	},
-	{ // No roots results in an error
-		cert:  googleLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
-
-		function:  "handleChain",
+		function:  "fixChain",
 		expectErr: true,
 	},
-	{ // Incomplete chain returns a fixed chain
-		cert:  googleLeaf,
+	{ // The wrong root results in an error
+		cert:  megaLeaf,
+		chain: []string{verisignRoot, comodoIntermediate},
 		roots: []string{verisignRoot},
 
-		function: "handleChain",
-		expectedChains: [][]string{
-			{"Google", "Thawte", "VeriSign"},
-		},
-	},
-	{ // The wrong chain results in an error
-		cert:  smimeLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
-		roots: []string{verisignRoot},
-
-		function:  "handleChain",
+		function:  "fixChain",
 		expectErr: true,
 	},
 }
@@ -134,10 +113,8 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
 	fix := &toFix{fixer: fixer}
 	fix.cert = GetTestCertificateFromPEM(t, ft.cert)
 
-	fix.chain = &dedupedChain{}
-	for _, cert := range ft.chain {
-		fix.chain.addCert(GetTestCertificateFromPEM(t, cert))
-	}
+	fix.chain = &dedupedChain{certs: extractTestChain(t, i, ft.chain)}
+	fix.roots = extractTestRoots(t, i, ft.roots)
 
 	intermediates := x509.NewCertPool()
 	for j, cert := range ft.chain {
@@ -147,33 +124,14 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
 		}
 	}
 
-	fix.roots = x509.NewCertPool()
-	for j, cert := range ft.roots {
-		ok := fix.roots.AppendCertsFromPEM([]byte(cert))
-		if !ok {
-			t.Errorf("#%d: Failed to parse root #%d", i, j)
-		}
-	}
-
 	fix.opts = &x509.VerifyOptions{
-		Intermediates: intermediates,
-		Roots: fix.roots,
+		Intermediates:     intermediates,
+		Roots:             fix.roots,
 		DisableTimeChecks: true,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
 	return fix
-}
-
-func chainToDebugString(chain []*x509.Certificate) string {
-	var chainStr string
-	for _, cert := range chain {
-		if len(chainStr) > 0 {
-			chainStr += " -> "
-		}
-		chainStr += nameToKey(&cert.Subject)
-	}
-	return chainStr
 }
 
 // Function simply to allow fixer.error chan to be written to if required.
@@ -203,41 +161,15 @@ func testFix(t *testing.T, i int, ft *fixTest) {
 		t.Errorf("#%d: Failed to get valid chain: %s", i, ferr.TypeString())
 	}
 
-	// Check for 1:1 correspondance between expectedChains and the chains that
-	// were produced by function call
-	if len(ft.expectedChains) != len(chains) {
-		t.Errorf("#%d: Wanted %d chains, got back %d", i,
-			len(ft.expectedChains), len(chains))
-	}
-
-	if ft.expectedChains != nil {
-		seen := make([]bool, len(ft.expectedChains))
-	NextOutputChain:
-		for _, chain := range chains {
-		TryNextExpected:
-			for j, expChain := range ft.expectedChains {
-				if seen[j] {
-					continue
-				}
-				if len(chain) != len(expChain) {
-					continue
-				}
-				for k, cert := range chain {
-					if !strings.Contains(nameToKey(&cert.Subject), expChain[k]) {
-						continue TryNextExpected
-					}
-				}
-				seen[j] = true
-				continue NextOutputChain
-			}
-			t.Errorf("#%d: No expected chain matched output chain %s", i,
-				chainToDebugString(chain))
-		}
-	}
+	matchTestChainList(t, i, ft.expectedChains, chains)
 }
 
 func TestFix(t *testing.T) {
-	for i, ft := range fixTests {
+	var allTests []fixTest
+	allTests = append(allTests, constructChainTests...)
+	allTests = append(allTests, fixChainTests...)
+	allTests = append(allTests, handleChainTests...)
+	for i, ft := range allTests {
 		testFix(t, i, &ft)
 	}
 }
