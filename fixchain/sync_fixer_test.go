@@ -22,9 +22,9 @@ func TestSyncFixSingle(t *testing.T) {
 	for i, test := range handleChainTests {
 		chainsToFix := []*ChainToFix{
 			&ChainToFix{
-				cert:  GetTestCertificateFromPEM(t, test.cert),
-				chain: extractTestChain(t, i, test.chain),
-				roots: extractTestRoots(t, i, test.roots),
+				Cert:  GetTestCertificateFromPEM(t, test.cert),
+				Chain: extractTestChain(t, i, test.chain),
+				Roots: extractTestRoots(t, i, test.roots),
 			},
 		}
 		chains, ferrs := f.Fix(chainsToFix)
@@ -40,9 +40,9 @@ func TestSyncFixMultiple(t *testing.T) {
 	var expectedErrs []errorType
 	for _, test := range handleChainTests {
 		chainsToFix = append(chainsToFix, &ChainToFix{
-			cert:  GetTestCertificateFromPEM(t, test.cert),
-			chain: extractTestChain(t, 0, test.chain),
-			roots: extractTestRoots(t, 0, test.roots),
+			Cert:  GetTestCertificateFromPEM(t, test.cert),
+			Chain: extractTestChain(t, 0, test.chain),
+			Roots: extractTestRoots(t, 0, test.roots),
 		})
 		expectedChains = append(expectedChains, test.expectedChains...)
 		expectedErrs = append(expectedErrs, test.expectedErrs...)

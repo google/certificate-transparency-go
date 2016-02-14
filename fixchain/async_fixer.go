@@ -10,11 +10,14 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-// AsyncFixer contains methods to fix certificate chains and properties to store
-// information about each attempt that is made to fix a certificate chain.
+// AsyncFixer contains methods to asynchronously fix certificate chains and
+// properties to store information about each attempt that is made to fix a
+// certificate chain.
 type AsyncFixer struct {
 	toFix  chan *toFix
 	chains chan<- []*x509.Certificate // Chains successfully fixed by the fixer
+	errors chan<- *FixError
+
 	active uint32
 	// Counters may not be entirely accurate due to non-atomicity
 	reconstructed    uint
@@ -24,14 +27,13 @@ type AsyncFixer struct {
 	skipped          uint
 	alreadyDone      uint
 
-	wg     sync.WaitGroup
-	errors chan<- *FixError
-	cache  *urlCache
-	done   *lockedMap
+	wg    sync.WaitGroup
+	cache *urlCache
+	done  *lockedMap
 }
 
 // QueueChain adds the given cert and chain to the queue to be fixed by the
-// fixer, with respect to the given roots
+// fixer, with respect to the given roots.
 func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
 	d := &dedupedChain{}
 	for _, c := range chain {
@@ -41,7 +43,7 @@ func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificat
 	f.toFix <- &toFix{cert: cert, chain: d, roots: roots, fixer: f}
 }
 
-// Wait for all the fixers to finish.
+// Wait for all the fixer workers to finish.
 func (f *AsyncFixer) Wait() {
 	close(f.toFix)
 	f.wg.Wait()
@@ -84,9 +86,10 @@ func (f *AsyncFixer) logStats() {
 	}()
 }
 
-// NewAsyncFixer creates a new fixer and starts up a pool of workers.  Errors
-// are pushed to the errors channel, and fixed chains are pushed to the chains
-// channel.
+// NewAsyncFixer creates a new asynchronous fixer and starts up a pool of
+// workerCount workers.  Errors are pushed to the errors channel, and fixed
+// chains are pushed to the chains channel.  client is used to try to get any
+// missing certificates that are needed when attempting to fix chains.
 func NewAsyncFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *AsyncFixer {
 	f := &AsyncFixer{
 		toFix:  make(chan *toFix),
