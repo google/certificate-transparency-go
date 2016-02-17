@@ -31,6 +31,7 @@ func (u *urlCache) getURL(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer c.Body.Close()
+	// TODO(katjoyce): Add caching of permanent errors.
 	if c.StatusCode != 200 {
 		u.badStatus++
 		return nil, fmt.Errorf("can't deal with status %d", c.StatusCode)
