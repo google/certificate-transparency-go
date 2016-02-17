@@ -6,6 +6,8 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
+const workerCount = 100
+
 // Fixer contains methods to synchronously fix certificate chains.
 type Fixer struct {
 	client *http.Client
@@ -29,7 +31,7 @@ type ChainToFix struct {
 func (f *Fixer) Fix(chainsToFix []*ChainToFix) ([][]*x509.Certificate, []*FixError) {
 	chains := make(chan []*x509.Certificate)
 	errors := make(chan *FixError)
-	af := NewAsyncFixer(100, chains, errors, f.client, false)
+	af := NewAsyncFixer(workerCount, chains, errors, f.client, false)
 
 	chainList := make(chan [][]*x509.Certificate)
 	defer close(chainList)
