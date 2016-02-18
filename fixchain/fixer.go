@@ -10,10 +10,10 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-// AsyncFixer contains methods to asynchronously fix certificate chains and
+// Fixer contains methods to asynchronously fix certificate chains and
 // properties to store information about each attempt that is made to fix a
 // certificate chain.
-type AsyncFixer struct {
+type Fixer struct {
 	toFix  chan *toFix
 	chains chan<- []*x509.Certificate // Chains successfully fixed by the fixer
 	errors chan<- *FixError
@@ -34,7 +34,7 @@ type AsyncFixer struct {
 
 // QueueChain adds the given cert and chain to the queue to be fixed by the
 // fixer, with respect to the given roots.
-func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
+func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
 	f.toFix <- &toFix{
 		cert:  cert,
 		chain: newDedupedChain(chain),
@@ -44,12 +44,12 @@ func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificat
 }
 
 // Wait for all the fixer workers to finish.
-func (f *AsyncFixer) Wait() {
+func (f *Fixer) Wait() {
 	close(f.toFix)
 	f.wg.Wait()
 }
 
-func (f *AsyncFixer) updateCounters(ferrs []*FixError) {
+func (f *Fixer) updateCounters(ferrs []*FixError) {
 	var verifyFailed bool
 	var fixFailed bool
 	for _, ferr := range ferrs {
@@ -78,7 +78,7 @@ func (f *AsyncFixer) updateCounters(ferrs []*FixError) {
 	f.reconstructed++
 }
 
-func (f *AsyncFixer) fixServer() {
+func (f *Fixer) fixServer() {
 	defer f.wg.Done()
 
 	for fix := range f.toFix {
@@ -95,14 +95,14 @@ func (f *AsyncFixer) fixServer() {
 	}
 }
 
-func (f *AsyncFixer) newFixServerPool(workerCount int) {
+func (f *Fixer) newFixServerPool(workerCount int) {
 	for i := 0; i < workerCount; i++ {
 		f.wg.Add(1)
 		go f.fixServer()
 	}
 }
 
-func (f *AsyncFixer) logStats() {
+func (f *Fixer) logStats() {
 	t := time.NewTicker(time.Second)
 	go func() {
 		for _ = range t.C {
@@ -115,12 +115,12 @@ func (f *AsyncFixer) logStats() {
 	}()
 }
 
-// NewAsyncFixer creates a new asynchronous fixer and starts up a pool of
+// NewFixer creates a new asynchronous fixer and starts up a pool of
 // workerCount workers.  Errors are pushed to the errors channel, and fixed
 // chains are pushed to the chains channel.  client is used to try to get any
 // missing certificates that are needed when attempting to fix chains.
-func NewAsyncFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *AsyncFixer {
-	f := &AsyncFixer{
+func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- *FixError, client *http.Client, logStats bool) *Fixer {
+	f := &Fixer{
 		toFix:  make(chan *toFix),
 		chains: chains,
 		errors: errors,

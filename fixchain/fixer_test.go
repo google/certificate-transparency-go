@@ -28,8 +28,8 @@ func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixE
 	matchTestErrorList(t, i, expectedErrs, allFerrs)
 }
 
-// NewAsyncFixer() test
-func TestNewAsyncFixer(t *testing.T) {
+// NewFixer() test
+func TestNewFixer(t *testing.T) {
 	chains := make(chan []*x509.Certificate)
 	errors := make(chan *FixError)
 
@@ -45,7 +45,7 @@ func TestNewAsyncFixer(t *testing.T) {
 	go testChains(t, 0, expectedChains, chains, &wg)
 	go testErrors(t, 0, expectedErrs, errors, &wg)
 
-	f := NewAsyncFixer(10, chains, errors, &http.Client{}, false)
+	f := NewFixer(10, chains, errors, &http.Client{}, false)
 	for _, test := range handleChainTests {
 		f.QueueChain(GetTestCertificateFromPEM(t, test.cert),
 			extractTestChain(t, 0, test.chain), extractTestRoots(t, 0, test.roots))
@@ -57,10 +57,10 @@ func TestNewAsyncFixer(t *testing.T) {
 	wg.Wait()
 }
 
-// AsyncFixer.fixServer() test
+// Fixer.fixServer() test
 func TestFixServer(t *testing.T) {
 	cache := &urlCache{cache: make(map[string][]byte), client: &http.Client{}}
-	f := &AsyncFixer{cache: cache}
+	f := &Fixer{cache: cache}
 
 	var wg sync.WaitGroup
 	fixServerTests := handleChainTests
@@ -122,7 +122,7 @@ func TestFixServer(t *testing.T) {
 	wg.Wait()
 }
 
-// AsyncFixer.QueueChain() tests
+// Fixer.QueueChain() tests
 type queueTest struct {
 	cert  string
 	chain []string
@@ -154,7 +154,7 @@ var queueTests = []queueTest{
 	},
 }
 
-func testQueueChain(t *testing.T, i int, qt *queueTest, f *AsyncFixer) {
+func testQueueChain(t *testing.T, i int, qt *queueTest, f *Fixer) {
 	defer f.wg.Done()
 	fix := <-f.toFix
 	// Check the deduped chain
@@ -175,7 +175,7 @@ func testQueueChain(t *testing.T, i int, qt *queueTest, f *AsyncFixer) {
 func TestQueueChain(t *testing.T) {
 	ch := make(chan *toFix)
 	defer close(ch)
-	f := &AsyncFixer{toFix: ch}
+	f := &Fixer{toFix: ch}
 
 	for i, qt := range queueTests {
 		f.wg.Add(1)
