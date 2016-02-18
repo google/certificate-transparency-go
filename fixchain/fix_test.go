@@ -157,3 +157,15 @@ func TestFixChainFunctions(t *testing.T) {
 		testFixChainFunctions(t, i, &ft)
 	}
 }
+
+func TestFix(t *testing.T) {
+	for i, test := range handleChainTests {
+		chains, ferrs := Fix(GetTestCertificateFromPEM(t, test.cert),
+			extractTestChain(t, i, test.chain),
+			extractTestRoots(t, i, test.roots),
+			&http.Client{})
+
+		matchTestChainList(t, i, test.expectedChains, chains)
+		matchTestErrorList(t, i, test.expectedErrs, ferrs)
+	}
+}
