@@ -122,6 +122,50 @@ func TestFixServer(t *testing.T) {
 	wg.Wait()
 }
 
+// Fixer.updateCounters() tests
+func TestUpdateCounters(t *testing.T) {
+	counterTests := []struct {
+		errors           []errorType
+		reconstructed    uint
+		notReconstructed uint
+		fixed            uint
+		notFixed         uint
+	}{
+		{[]errorType{}, 1, 0, 0, 0},
+		{[]errorType{VerifyFailed}, 0, 1, 1, 0},
+		{[]errorType{VerifyFailed, FixFailed}, 0, 1, 0, 1},
+
+		{[]errorType{ParseFailure}, 1, 0, 0, 0},
+		{[]errorType{ParseFailure, VerifyFailed}, 0, 1, 1, 0},
+		{[]errorType{ParseFailure, VerifyFailed, FixFailed}, 0, 1, 0, 1},
+	}
+
+	for i, test := range counterTests {
+		f := &Fixer{}
+		var ferrs []*FixError
+		for _, err := range test.errors {
+			ferrs = append(ferrs, &FixError{Type: err})
+		}
+		f.updateCounters(ferrs)
+
+		if f.skipped != 0 || f.alreadyDone != 0 {
+			t.Errorf("#%d: Counters that should have been unaffected have been changed", i)
+		}
+		if f.reconstructed != test.reconstructed {
+			t.Errorf("#%d: Incorrect value for reconstructed, wanted %d, got %d", i, test.reconstructed, f.reconstructed)
+		}
+		if f.notReconstructed != test.notReconstructed {
+			t.Errorf("#%d: Incorrect value for notReconstructed, wanted %d, got %d", i, test.notReconstructed, f.notReconstructed)
+		}
+		if f.fixed != test.fixed {
+			t.Errorf("#%d: Incorrect value for fixed, wanted %d, got %d", i, test.fixed, f.fixed)
+		}
+		if f.notFixed != test.notFixed {
+			t.Errorf("#%d: Incorrect value for notFixed, wanted %d, got %d", i, test.notFixed, f.notFixed)
+		}
+	}
+}
+
 // Fixer.QueueChain() tests
 type queueTest struct {
 	cert  string
