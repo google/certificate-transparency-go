@@ -3,19 +3,40 @@ package fixchain
 import (
 	"encoding/pem"
 	"log"
+	"net/http"
 
 	"github.com/google/certificate-transparency/go/x509"
 )
+
+// Fix attempts to fix the certificate chain for the certificate that is passed
+// to it, with respect to the given roots.  Fix returns a list of successfully
+// constructed chains, and a list of errors it encountered along the way.  The
+// presence of FixErrors does not mean the fix was unsuccessful.  Callers should
+// check for returned chains to determine success.
+func Fix(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool, client *http.Client) ([][]*x509.Certificate, []*FixError) {
+	dchain := &dedupedChain{}
+	for _, c := range chain {
+		dchain.addCert(c)
+	}
+
+	fix := &toFix{
+		cert:  cert,
+		chain: dchain,
+		roots: roots,
+		cache: newURLCache(client, false),
+	}
+	return fix.handleChain()
+}
 
 type toFix struct {
 	cert  *x509.Certificate
 	chain *dedupedChain
 	roots *x509.CertPool
 	opts  *x509.VerifyOptions
-	fixer *AsyncFixer
+	cache *urlCache
 }
 
-func (fix *toFix) handleChain() ([][]*x509.Certificate, *FixError) {
+func (fix *toFix) handleChain() ([][]*x509.Certificate, []*FixError) {
 	intermediates := x509.NewCertPool()
 	for _, c := range fix.chain.certs {
 		intermediates.AddCert(c)
@@ -28,52 +49,58 @@ func (fix *toFix) handleChain() ([][]*x509.Certificate, *FixError) {
 		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
-	chains, ferr := fix.constructChain()
-	if ferr != nil {
-		fix.fixer.errors <- ferr
-		chains, ferr = fix.fixChain()
-	}
-	return chains, ferr
-}
-
-func (fix *toFix) constructChain() ([][]*x509.Certificate, *FixError) {
-	chains, err := fix.cert.Verify(*fix.opts)
-	if err != nil {
-		fix.fixer.notReconstructed++
-		return chains, &FixError{
-			Type:  VerifyFailed,
-			Cert:  fix.cert,
-			Chain: fix.chain.certs,
-			Error: err,
+	var retferrs []*FixError
+	chains, ferrs := fix.constructChain()
+	if ferrs != nil {
+		retferrs = append(retferrs, ferrs...)
+		chains, ferrs = fix.fixChain()
+		if ferrs != nil {
+			retferrs = append(retferrs, ferrs...)
 		}
 	}
-	fix.fixer.reconstructed++
+	return chains, retferrs
+}
+
+func (fix *toFix) constructChain() ([][]*x509.Certificate, []*FixError) {
+	chains, err := fix.cert.Verify(*fix.opts)
+	if err != nil {
+		return chains, []*FixError{
+			&FixError{
+				Type:  VerifyFailed,
+				Cert:  fix.cert,
+				Chain: fix.chain.certs,
+				Error: err,
+			},
+		}
+	}
 	return chains, nil
 }
 
-func (fix *toFix) fixChain() ([][]*x509.Certificate, *FixError) {
+func (fix *toFix) fixChain() ([][]*x509.Certificate, []*FixError) {
+	var ferrs []*FixError
 	d := *fix.chain
 	d.addCert(fix.cert)
 	for _, c := range d.certs {
 		urls := c.IssuingCertificateURL
 		for _, url := range urls {
-			fix.augmentIntermediates(url)
+			ferr := fix.augmentIntermediates(url)
+			if ferr != nil {
+				ferrs = append(ferrs, ferr)
+			}
 			chains, err := fix.cert.Verify(*fix.opts)
 			if err == nil {
-				fix.fixer.fixed++
 				return chains, nil
 			}
 		}
 	}
-	fix.fixer.notFixed++
-	return nil, &FixError{
+	return nil, append(ferrs, &FixError{
 		Type:  FixFailed,
 		Cert:  fix.cert,
 		Chain: fix.chain.certs,
-	}
+	})
 }
 
-func (fix *toFix) augmentIntermediates(url string) {
+func (fix *toFix) augmentIntermediates(url string) *FixError {
 	// PKCS#7 additions as (at time of writing) there is no standard Go PKCS#7
 	// implementation
 	r := urlReplacement(url)
@@ -82,19 +109,18 @@ func (fix *toFix) augmentIntermediates(url string) {
 		for _, c := range r {
 			fix.opts.Intermediates.AddCert(c)
 		}
-		return
+		return nil
 	}
 
-	body, err := fix.fixer.cache.getURL(url)
+	body, err := fix.cache.getURL(url)
 	if err != nil {
-		fix.fixer.errors <- &FixError{
+		return &FixError{
 			Type:  CannotFetchURL,
 			Cert:  fix.cert,
 			Chain: fix.chain.certs,
 			URL:   url,
 			Error: err,
 		}
-		return
 	}
 	icert, err := x509.ParseCertificate(body)
 	if err != nil {
@@ -105,7 +131,7 @@ func (fix *toFix) augmentIntermediates(url string) {
 	}
 
 	if err != nil {
-		fix.fixer.errors <- &FixError{
+		return &FixError{
 			Type:  ParseFailure,
 			Cert:  fix.cert,
 			Chain: fix.chain.certs,
@@ -113,7 +139,7 @@ func (fix *toFix) augmentIntermediates(url string) {
 			Bad:   body,
 			Error: err,
 		}
-		return
 	}
 	fix.opts.Intermediates.AddCert(icert)
+	return nil
 }

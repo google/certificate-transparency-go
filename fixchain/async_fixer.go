@@ -40,7 +40,7 @@ func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificat
 		d.addCert(c)
 	}
 
-	f.toFix <- &toFix{cert: cert, chain: d, roots: roots, fixer: f}
+	f.toFix <- &toFix{cert: cert, chain: d, roots: roots, cache: f.cache}
 }
 
 // Wait for all the fixer workers to finish.
@@ -49,18 +49,47 @@ func (f *AsyncFixer) Wait() {
 	f.wg.Wait()
 }
 
+func (f *AsyncFixer) updateCounters(ferrs []*FixError) {
+	var verifyFailed bool
+	var fixFailed bool
+	for _, ferr := range ferrs {
+		switch ferr.Type {
+		case VerifyFailed:
+			verifyFailed = true
+		case FixFailed:
+			fixFailed = true
+		}
+	}
+	// No errors --> reconstructed
+	// VerifyFailed --> notReconstructed
+	// VerifyFailed but no FixFailed --> fixed
+	// VerifyFailed and FixFailed --> notFixed
+	if verifyFailed {
+		f.notReconstructed++
+		// FixFailed error will only be present if a VerifyFailed error is, as
+		// fixChain() is only called if constructChain() fails.
+		if fixFailed {
+			f.notFixed++
+			return
+		}
+		f.fixed++
+		return
+	}
+	f.reconstructed++
+}
+
 func (f *AsyncFixer) fixServer() {
 	defer f.wg.Done()
 
 	for fix := range f.toFix {
 		atomic.AddUint32(&f.active, 1)
-		chains, ferr := fix.handleChain()
-		if ferr != nil {
+		chains, ferrs := fix.handleChain()
+		f.updateCounters(ferrs)
+		for _, ferr := range ferrs {
 			f.errors <- ferr
-		} else {
-			for _, chain := range chains {
-				f.chains <- chain
-			}
+		}
+		for _, chain := range chains {
+			f.chains <- chain
 		}
 		atomic.AddUint32(&f.active, ^uint32(0))
 	}
