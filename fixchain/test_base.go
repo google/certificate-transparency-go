@@ -18,7 +18,6 @@ type fixTest struct {
 
 	function       string
 	expectedChains [][]string
-	expectErr      bool
 	expectedErrs   []errorType
 }
 
@@ -39,7 +38,6 @@ var handleChainTests = []fixTest{
 		chain: []string{verisignRoot, thawteIntermediate},
 
 		function:     "handleChain",
-		expectErr:    true,
 		expectedErrs: []errorType{VerifyFailed, FixFailed},
 	},
 	{ // Incomplete chain returns a fixed chain
@@ -58,7 +56,6 @@ var handleChainTests = []fixTest{
 		roots: []string{verisignRoot},
 
 		function:     "handleChain",
-		expectErr:    true,
 		expectedErrs: []errorType{VerifyFailed, FixFailed},
 	},
 	{ // The wrong root results in an error
@@ -67,7 +64,6 @@ var handleChainTests = []fixTest{
 		roots: []string{verisignRoot},
 
 		function:     "handleChain",
-		expectErr:    true,
 		expectedErrs: []errorType{VerifyFailed, FixFailed},
 	},
 }

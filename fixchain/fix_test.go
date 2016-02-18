@@ -23,31 +23,31 @@ var constructChainTests = []fixTest{
 		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 
-		function:  "constructChain",
-		expectErr: true,
+		function:     "constructChain",
+		expectedErrs: []errorType{VerifyFailed},
 	},
 	{ // Incomplete chain results in an error
 		cert:  googleLeaf,
 		roots: []string{verisignRoot},
 
-		function:  "constructChain",
-		expectErr: true,
+		function:     "constructChain",
+		expectedErrs: []errorType{VerifyFailed},
 	},
 	{ // The wrong intermediate and root results in an error
 		cert:  megaLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
-		function:  "constructChain",
-		expectErr: true,
+		function:     "constructChain",
+		expectedErrs: []errorType{VerifyFailed},
 	},
 	{ // The wrong root results in an error
 		cert:  megaLeaf,
 		chain: []string{verisignRoot, comodoIntermediate},
 		roots: []string{verisignRoot},
 
-		function:  "constructChain",
-		expectErr: true,
+		function:     "constructChain",
+		expectedErrs: []errorType{VerifyFailed},
 	},
 }
 
@@ -73,8 +73,8 @@ var fixChainTests = []fixTest{
 		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
 
-		function:  "fixChain",
-		expectErr: true,
+		function:     "fixChain",
+		expectedErrs: []errorType{FixFailed},
 	},
 	{ // Incomplete chain returns fixed chain
 		cert:  googleLeaf,
@@ -90,31 +90,27 @@ var fixChainTests = []fixTest{
 		chain: []string{verisignRoot, thawteIntermediate},
 		roots: []string{verisignRoot},
 
-		function:  "fixChain",
-		expectErr: true,
+		function:     "fixChain",
+		expectedErrs: []errorType{FixFailed},
 	},
 	{ // The wrong root results in an error
 		cert:  megaLeaf,
 		chain: []string{verisignRoot, comodoIntermediate},
 		roots: []string{verisignRoot},
 
-		function:  "fixChain",
-		expectErr: true,
+		function:     "fixChain",
+		expectedErrs: []errorType{FixFailed},
 	},
 }
 
-func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
-	// Set up AsyncFixer
-	client := &http.Client{}
-	cache := &urlCache{cache: make(map[string][]byte), client: client}
-	fixer := &AsyncFixer{errors: ch, cache: cache}
-
+func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
 	// Create & populate toFix to test from fixTest info
-	fix := &toFix{fixer: fixer}
-	fix.cert = GetTestCertificateFromPEM(t, ft.cert)
-
-	fix.chain = &dedupedChain{certs: extractTestChain(t, i, ft.chain)}
-	fix.roots = extractTestRoots(t, i, ft.roots)
+	fix := &toFix{
+		cert:  GetTestCertificateFromPEM(t, ft.cert),
+		chain: newDedupedChain(extractTestChain(t, i, ft.chain)),
+		roots: extractTestRoots(t, i, ft.roots),
+		cache: newURLCache(&http.Client{}, false),
+	}
 
 	intermediates := x509.NewCertPool()
 	for j, cert := range ft.chain {
@@ -134,42 +130,30 @@ func setUpFix(t *testing.T, i int, ft *fixTest, ch chan *FixError) *toFix {
 	return fix
 }
 
-// Function simply to allow fixer.error chan to be written to if required.
-func logErrors(t *testing.T, i int, ch <-chan *FixError) {
-	for ferr := range ch {
-		t.Logf("#%d: %s", i, ferr.TypeString())
-	}
-}
-
-func testFix(t *testing.T, i int, ft *fixTest) {
-	ch := make(chan *FixError)
-	go logErrors(t, i, ch)
-	fix := setUpFix(t, i, ft, ch)
+func testFixChainFunctions(t *testing.T, i int, ft *fixTest) {
+	fix := setUpFix(t, i, ft)
 
 	var chains [][]*x509.Certificate
-	var ferr *FixError
+	var ferrs []*FixError
 	switch ft.function {
 	case "constructChain":
-		chains, ferr = fix.constructChain()
+		chains, ferrs = fix.constructChain()
 	case "fixChain":
-		chains, ferr = fix.fixChain()
+		chains, ferrs = fix.fixChain()
 	case "handleChain":
-		chains, ferr = fix.handleChain()
-	}
-
-	if !ft.expectErr && ferr != nil {
-		t.Errorf("#%d: Failed to get valid chain: %s", i, ferr.TypeString())
+		chains, ferrs = fix.handleChain()
 	}
 
 	matchTestChainList(t, i, ft.expectedChains, chains)
+	matchTestErrorList(t, i, ft.expectedErrs, ferrs)
 }
 
-func TestFix(t *testing.T) {
+func TestFixChainFunctions(t *testing.T) {
 	var allTests []fixTest
 	allTests = append(allTests, constructChainTests...)
 	allTests = append(allTests, fixChainTests...)
 	allTests = append(allTests, handleChainTests...)
 	for i, ft := range allTests {
-		testFix(t, i, &ft)
+		testFixChainFunctions(t, i, &ft)
 	}
 }
