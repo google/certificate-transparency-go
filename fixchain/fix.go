@@ -14,14 +14,9 @@ import (
 // presence of FixErrors does not mean the fix was unsuccessful.  Callers should
 // check for returned chains to determine success.
 func Fix(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool, client *http.Client) ([][]*x509.Certificate, []*FixError) {
-	dchain := &dedupedChain{}
-	for _, c := range chain {
-		dchain.addCert(c)
-	}
-
 	fix := &toFix{
 		cert:  cert,
-		chain: dchain,
+		chain: newDedupedChain(chain),
 		roots: roots,
 		cache: newURLCache(client, false),
 	}

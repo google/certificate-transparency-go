@@ -35,12 +35,12 @@ type AsyncFixer struct {
 // QueueChain adds the given cert and chain to the queue to be fixed by the
 // fixer, with respect to the given roots.
 func (f *AsyncFixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
-	d := &dedupedChain{}
-	for _, c := range chain {
-		d.addCert(c)
+	f.toFix <- &toFix{
+		cert:  cert,
+		chain: newDedupedChain(chain),
+		roots: roots,
+		cache: f.cache,
 	}
-
-	f.toFix <- &toFix{cert: cert, chain: d, roots: roots, cache: f.cache}
 }
 
 // Wait for all the fixer workers to finish.

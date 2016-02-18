@@ -21,6 +21,14 @@ func (d *dedupedChain) addCert(cert *x509.Certificate) {
 	d.certs = append(d.certs, cert)
 }
 
+func newDedupedChain(chain []*x509.Certificate) *dedupedChain {
+	d := &dedupedChain{}
+	for _, cert := range chain {
+		d.addCert(cert)
+	}
+	return d
+}
+
 const hashSize = sha256.Size
 
 type lockedMap struct {
