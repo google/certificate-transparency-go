@@ -11,7 +11,7 @@ var constructChainTests = []fixTest{
 	// constructChain()
 	{ // Correct chain returns chain
 		cert:  googleLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function: "constructChain",
@@ -19,9 +19,20 @@ var constructChainTests = []fixTest{
 			{"Google", "Thawte", "VeriSign"},
 		},
 	},
+	{
+		cert:  testLeaf,
+		chain: []string{testIntermediate2, testIntermediate1, testRoot},
+		roots: []string{testRoot},
+
+		function: "constructChain",
+		expectedChains: [][]string{
+			{"Leaf", "Intermediate2", "Intermediate1", "CA"},
+			{"Leaf", "Intermediate2", "Intermediate1", "CA", "CA"},
+		},
+	},
 	{ // No roots results in an error
 		cert:  googleLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
 
 		function:     "constructChain",
 		expectedErrs: []errorType{VerifyFailed},
@@ -35,7 +46,7 @@ var constructChainTests = []fixTest{
 	},
 	{ // The wrong intermediate and root results in an error
 		cert:  megaLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function:     "constructChain",
@@ -43,7 +54,7 @@ var constructChainTests = []fixTest{
 	},
 	{ // The wrong root results in an error
 		cert:  megaLeaf,
-		chain: []string{verisignRoot, comodoIntermediate},
+		chain: []string{comodoIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function:     "constructChain",
@@ -53,25 +64,26 @@ var constructChainTests = []fixTest{
 
 var fixChainTests = []fixTest{
 	// fixChain()
-	{ // Correct chain returns multiple chains - the complete one initially
-		// given, and one containing the cert for Thawte downloaded by
-		// augmentIntermediates() from the url in the AIA information of the
-		// googleLeaf cert.
-		// Note: In practice this should not happen, as fixChain is only called
-		// if constructChain fails.
+	{ // Correct chain returns chain
 		cert:  googleLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function: "fixChain",
 		expectedChains: [][]string{
 			{"Google", "Thawte", "VeriSign"},
-			{"Google", "Thawte", "VeriSign"},
 		},
 	},
 	{ // No roots results in an error
 		cert:  googleLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
+
+		function:     "fixChain",
+		expectedErrs: []errorType{FixFailed},
+	},
+	{ // No roots where chain that will be built contains a loop results in error
+		cert:  testC,
+		chain: []string{testB, testA},
 
 		function:     "fixChain",
 		expectedErrs: []errorType{FixFailed},
@@ -85,9 +97,38 @@ var fixChainTests = []fixTest{
 			{"Google", "Thawte", "VeriSign"},
 		},
 	},
+	{
+		cert:  testLeaf,
+		chain: []string{testIntermediate2},
+		roots: []string{testRoot},
+
+		function: "fixChain",
+		expectedChains: [][]string{
+			{"Leaf", "Intermediate2", "Intermediate1", "CA"},
+		},
+	},
+	{
+		cert:  testLeaf,
+		chain: []string{testIntermediate1},
+		roots: []string{testRoot},
+
+		function: "fixChain",
+		expectedChains: [][]string{
+			{"Leaf", "Intermediate2", "Intermediate1", "CA"},
+		},
+	},
+	{
+		cert:  testLeaf,
+		roots: []string{testRoot},
+
+		function: "fixChain",
+		expectedChains: [][]string{
+			{"Leaf", "Intermediate2", "Intermediate1", "CA"},
+		},
+	},
 	{ // The wrong intermediate and root results in an error
 		cert:  megaLeaf,
-		chain: []string{verisignRoot, thawteIntermediate},
+		chain: []string{thawteIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function:     "fixChain",
@@ -95,12 +136,13 @@ var fixChainTests = []fixTest{
 	},
 	{ // The wrong root results in an error
 		cert:  megaLeaf,
-		chain: []string{verisignRoot, comodoIntermediate},
+		chain: []string{comodoIntermediate, verisignRoot},
 		roots: []string{verisignRoot},
 
 		function:     "fixChain",
 		expectedErrs: []errorType{FixFailed},
 	},
+	// TODO(katjoyce): Add test where cert has multiple URLs in AIA extension.
 }
 
 func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
@@ -109,7 +151,7 @@ func setUpFix(t *testing.T, i int, ft *fixTest) *toFix {
 		cert:  GetTestCertificateFromPEM(t, ft.cert),
 		chain: newDedupedChain(extractTestChain(t, i, ft.chain)),
 		roots: extractTestRoots(t, i, ft.roots),
-		cache: newURLCache(&http.Client{}, false),
+		cache: newURLCache(&http.Client{Transport: &testRoundTripper{}}, false),
 	}
 
 	intermediates := x509.NewCertPool()
@@ -163,7 +205,7 @@ func TestFix(t *testing.T) {
 		chains, ferrs := Fix(GetTestCertificateFromPEM(t, test.cert),
 			extractTestChain(t, i, test.chain),
 			extractTestRoots(t, i, test.roots),
-			&http.Client{})
+			&http.Client{Transport: &testRoundTripper{}})
 
 		matchTestChainList(t, i, test.expectedChains, chains)
 		matchTestErrorList(t, i, test.expectedErrs, ferrs)

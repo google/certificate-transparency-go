@@ -2,31 +2,11 @@ package fixchain
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 	"testing"
 
 	"github.com/google/certificate-transparency/go/x509"
 )
-
-// Helper functions
-func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x509.Certificate, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var allChains [][]*x509.Certificate
-	for chain := range chains {
-		allChains = append(allChains, chain)
-	}
-	matchTestChainList(t, i, expectedChains, allChains)
-}
-
-func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixError, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var allFerrs []*FixError
-	for ferr := range errors {
-		allFerrs = append(allFerrs, ferr)
-	}
-	matchTestErrorList(t, i, expectedErrs, allFerrs)
-}
 
 // NewFixer() test
 func TestNewFixer(t *testing.T) {
@@ -45,7 +25,7 @@ func TestNewFixer(t *testing.T) {
 	go testChains(t, 0, expectedChains, chains, &wg)
 	go testErrors(t, 0, expectedErrs, errors, &wg)
 
-	f := NewFixer(10, chains, errors, &http.Client{}, false)
+	f := NewFixer(10, chains, errors, &http.Client{Transport: &testRoundTripper{}}, false)
 	for _, test := range handleChainTests {
 		f.QueueChain(GetTestCertificateFromPEM(t, test.cert),
 			extractTestChain(t, 0, test.chain), extractTestRoots(t, 0, test.roots))
@@ -59,7 +39,7 @@ func TestNewFixer(t *testing.T) {
 
 // Fixer.fixServer() test
 func TestFixServer(t *testing.T) {
-	cache := &urlCache{cache: make(map[string][]byte), client: &http.Client{}}
+	cache := &urlCache{cache: newLockedCache(), client: &http.Client{Transport: &testRoundTripper{}}}
 	f := &Fixer{cache: cache}
 
 	var wg sync.WaitGroup
@@ -126,10 +106,10 @@ func TestFixServer(t *testing.T) {
 func TestUpdateCounters(t *testing.T) {
 	counterTests := []struct {
 		errors           []errorType
-		reconstructed    uint
-		notReconstructed uint
-		fixed            uint
-		notFixed         uint
+		reconstructed    uint32
+		notReconstructed uint32
+		fixed            uint32
+		notFixed         uint32
 	}{
 		{[]errorType{}, 1, 0, 0, 0},
 		{[]errorType{VerifyFailed}, 0, 1, 1, 0},
@@ -148,9 +128,6 @@ func TestUpdateCounters(t *testing.T) {
 		}
 		f.updateCounters(ferrs)
 
-		if f.skipped != 0 || f.alreadyDone != 0 {
-			t.Errorf("#%d: Counters that should have been unaffected have been changed", i)
-		}
 		if f.reconstructed != test.reconstructed {
 			t.Errorf("#%d: Incorrect value for reconstructed, wanted %d, got %d", i, test.reconstructed, f.reconstructed)
 		}
@@ -167,7 +144,7 @@ func TestUpdateCounters(t *testing.T) {
 }
 
 // Fixer.QueueChain() tests
-type queueTest struct {
+type fixerQueueTest struct {
 	cert  string
 	chain []string
 	roots []string
@@ -175,7 +152,7 @@ type queueTest struct {
 	dchain []string
 }
 
-var queueTests = []queueTest{
+var fixerQueueTests = []fixerQueueTest{
 	{
 		cert:  googleLeaf,
 		chain: []string{verisignRoot, thawteIntermediate},
@@ -198,32 +175,21 @@ var queueTests = []queueTest{
 	},
 }
 
-func testQueueChain(t *testing.T, i int, qt *queueTest, f *Fixer) {
+func testFixerQueueChain(t *testing.T, i int, qt *fixerQueueTest, f *Fixer) {
 	defer f.wg.Done()
 	fix := <-f.toFix
 	// Check the deduped chain
-	if len(fix.chain.certs) != len(qt.dchain) {
-		t.Errorf("#%d: Expected a chain of length %d, got one of length %d",
-			i, len(qt.dchain), len(fix.chain.certs))
-	}
-
-	if qt.dchain != nil {
-		for j, cert := range fix.chain.certs {
-			if !strings.Contains(nameToKey(&cert.Subject), qt.dchain[j]) {
-				t.Errorf("#%d: Chain does not match expected chain at position %d", i, j)
-			}
-		}
-	}
+	matchTestChain(t, i, qt.dchain, fix.chain.certs)
 }
 
-func TestQueueChain(t *testing.T) {
+func TestFixerQueueChain(t *testing.T) {
 	ch := make(chan *toFix)
 	defer close(ch)
 	f := &Fixer{toFix: ch}
 
-	for i, qt := range queueTests {
+	for i, qt := range fixerQueueTests {
 		f.wg.Add(1)
-		go testQueueChain(t, i, &qt, f)
+		go testFixerQueueChain(t, i, &qt, f)
 		chain := extractTestChain(t, i, qt.chain)
 		roots := extractTestRoots(t, i, qt.roots)
 		f.QueueChain(GetTestCertificateFromPEM(t, qt.cert), chain, roots)

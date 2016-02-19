@@ -5,49 +5,73 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
+type lockedCache struct {
+	m map[string][]byte
+	sync.RWMutex
+}
+
+func (c *lockedCache) get(str string) ([]byte, bool) {
+	c.RLock()
+	defer c.RUnlock()
+	b, ok := c.m[str]
+	return b, ok
+}
+
+func (c *lockedCache) set(str string, b []byte) {
+	c.Lock()
+	defer c.Unlock()
+	c.m[str] = b
+}
+
+func newLockedCache() *lockedCache {
+	return &lockedCache{m: make(map[string][]byte)}
+}
+
 type urlCache struct {
 	client *http.Client
-	cache  map[string][]byte
-	// counters may not be totally accurate due to non-atomicity
-	hit       uint
-	miss      uint
-	errors    uint
-	badStatus uint
-	readFail  uint
+	cache  *lockedCache
+
+	hit       uint32
+	miss      uint32
+	errors    uint32
+	badStatus uint32
+	readFail  uint32
 }
 
 func (u *urlCache) getURL(url string) ([]byte, error) {
-	r, ok := u.cache[url]
+	r, ok := u.cache.get(url)
 	if ok {
-		u.hit++
+		atomic.AddUint32(&u.hit, 1)
 		return r, nil
 	}
 	c, err := u.client.Get(url)
 	if err != nil {
-		u.errors++
+		atomic.AddUint32(&u.errors, 1)
 		return nil, err
 	}
 	defer c.Body.Close()
 	// TODO(katjoyce): Add caching of permanent errors.
 	if c.StatusCode != 200 {
-		u.badStatus++
+		atomic.AddUint32(&u.badStatus, 1)
 		return nil, fmt.Errorf("can't deal with status %d", c.StatusCode)
 	}
 	r, err = ioutil.ReadAll(c.Body)
 	if err != nil {
-		u.readFail++
+		atomic.AddUint32(&u.readFail, 1)
 		return nil, err
 	}
-	u.miss++
-	u.cache[url] = r
+	atomic.AddUint32(&u.miss, 1)
+	u.cache.set(url, r)
 	return r, nil
 }
 
 func newURLCache(c *http.Client, logStats bool) *urlCache {
-	u := &urlCache{cache: make(map[string][]byte), client: c}
+	u := &urlCache{cache: newLockedCache(), client: c}
 
 	if logStats {
 		t := time.NewTicker(time.Second)
@@ -56,7 +80,7 @@ func newURLCache(c *http.Client, logStats bool) *urlCache {
 				log.Printf("cache: %d hits, %d misses, %d errors, "+
 					"%d bad status, %d read fail, %d cached", u.hit,
 					u.miss, u.errors, u.badStatus, u.readFail,
-					len(u.cache))
+					len(u.cache.m))
 			}
 		}()
 	}

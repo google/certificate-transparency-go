@@ -1,7 +1,6 @@
 package fixchain
 
 import (
-	"crypto/sha256"
 	"sync"
 
 	"github.com/google/certificate-transparency/go/x509"
@@ -21,6 +20,16 @@ func (d *dedupedChain) addCert(cert *x509.Certificate) {
 	d.certs = append(d.certs, cert)
 }
 
+func (d *dedupedChain) addCertToFront(cert *x509.Certificate) {
+	// Check that the certificate isn't being added twice.
+	for _, c := range d.certs {
+		if c.Equal(cert) {
+			return
+		}
+	}
+	d.certs = append([]*x509.Certificate{cert}, d.certs...)
+}
+
 func newDedupedChain(chain []*x509.Certificate) *dedupedChain {
 	d := &dedupedChain{}
 	for _, cert := range chain {
@@ -28,8 +37,6 @@ func newDedupedChain(chain []*x509.Certificate) *dedupedChain {
 	}
 	return d
 }
-
-const hashSize = sha256.Size
 
 type lockedMap struct {
 	m map[[hashSize]byte]bool

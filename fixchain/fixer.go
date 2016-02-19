@@ -19,21 +19,19 @@ type Fixer struct {
 	errors chan<- *FixError
 
 	active uint32
-	// Counters may not be entirely accurate due to non-atomicity
-	reconstructed    uint
-	notReconstructed uint
-	fixed            uint
-	notFixed         uint
-	skipped          uint
-	alreadyDone      uint
+
+	reconstructed    uint32
+	notReconstructed uint32
+	fixed            uint32
+	notFixed         uint32
 
 	wg    sync.WaitGroup
 	cache *urlCache
-	done  *lockedMap
 }
 
 // QueueChain adds the given cert and chain to the queue to be fixed by the
-// fixer, with respect to the given roots.
+// fixer, with respect to the given roots.  Note: chain is expected to be in the
+// order of cert --> root.
 func (f *Fixer) QueueChain(cert *x509.Certificate, chain []*x509.Certificate, roots *x509.CertPool) {
 	f.toFix <- &toFix{
 		cert:  cert,
@@ -65,17 +63,17 @@ func (f *Fixer) updateCounters(ferrs []*FixError) {
 	// VerifyFailed but no FixFailed --> fixed
 	// VerifyFailed and FixFailed --> notFixed
 	if verifyFailed {
-		f.notReconstructed++
+		atomic.AddUint32(&f.notReconstructed, 1)
 		// FixFailed error will only be present if a VerifyFailed error is, as
 		// fixChain() is only called if constructChain() fails.
 		if fixFailed {
-			f.notFixed++
+			atomic.AddUint32(&f.notFixed, 1)
 			return
 		}
-		f.fixed++
+		atomic.AddUint32(&f.fixed, 1)
 		return
 	}
-	f.reconstructed++
+	atomic.AddUint32(&f.reconstructed, 1)
 }
 
 func (f *Fixer) fixServer() {
@@ -106,11 +104,10 @@ func (f *Fixer) logStats() {
 	t := time.NewTicker(time.Second)
 	go func() {
 		for _ = range t.C {
-			log.Printf("fixers: %d active, "+
-				"%d reconstructed, %d not reconstructed, "+
-				"%d fixed, %d not fixed, %d skipped, %d already done",
+			log.Printf("fixers: %d active, %d reconstructed, "+
+				"%d not reconstructed, %d fixed, %d not fixed",
 				f.active, f.reconstructed, f.notReconstructed,
-				f.fixed, f.notFixed, f.skipped, f.alreadyDone)
+				f.fixed, f.notFixed)
 		}
 	}()
 }
@@ -125,7 +122,6 @@ func NewFixer(workerCount int, chains chan<- []*x509.Certificate, errors chan<- 
 		chains: chains,
 		errors: errors,
 		cache:  newURLCache(client, logStats),
-		done:   newLockedMap(),
 	}
 
 	f.newFixServerPool(workerCount)
