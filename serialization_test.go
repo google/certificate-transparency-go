@@ -234,6 +234,16 @@ const (
 		"0009" +
 		// signature, 9 bytes
 		"7369676e6174757265"
+
+	defaultSCTListHexString string =
+	// Total length, 2 bytes
+	"0074" +
+		// defaultSCTLength, 2 bytes
+		"0038" +
+		defaultSCTHexString +
+		// defaultSCTLength, 2 bytes
+		"0038" +
+		defaultSCTHexString
 )
 
 func defaultSCTLogID() SHA256Hash {
@@ -433,6 +443,16 @@ func TestSerializeSCT(t *testing.T) {
 	}
 	if bytes.Compare(mustDehex(t, defaultSCTHexString), b) != 0 {
 		t.Fatalf("Serialized SCT differs from expected KA. Expected:\n%v\nGot:\n%v", mustDehex(t, defaultSCTHexString), b)
+	}
+}
+
+func TestSerializeSCTList(t *testing.T) {
+	b, err := SerializeSCTListHere([]SignedCertificateTimestamp{defaultSCT(), defaultSCT()}, nil)
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT List: %v", err)
+	}
+	if bytes.Compare(mustDehex(t, defaultSCTListHexString), b) != 0 {
+		t.Fatalf("Serialized SCT differs from expected KA. Expected:\n%v\nGot:\n%v", mustDehex(t, defaultSCTListHexString), b)
 	}
 }
 

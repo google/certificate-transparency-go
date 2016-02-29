@@ -509,3 +509,66 @@ func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported STH version %d", sth.Version)
 	}
 }
+
+// SCTListSerializedLength determines the length of the required buffer should a SCT List need to be serialized
+func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
+	sctListLen := 2
+	for i, sct := range scts {
+		n, err := sct.SerializedLength()
+		if err != nil {
+			return 0, fmt.Errorf("unable to determine length of SCT in position %d: %v", i, err)
+		}
+		if n > 0xFFFF {
+			return 0, fmt.Errorf("SCT in position %d too large: %d", i, n)
+		}
+		sctListLen += n + 2
+	}
+
+	if sctListLen == 2 {
+		return 0, fmt.Errorf("SCT List empty")
+	}
+
+	if sctListLen > 0xFFFF+2 {
+		return 0, fmt.Errorf("SCT List too large to serialize: %d", sctListLen)
+	}
+	return sctListLen, nil
+}
+
+// SerializeSCTListHere serializes the passed in slice of SignedCertificateTimestamp in the
+// SCT List structure. If the passed in byte slice is not nil it will be used, otherwise
+// a buffer will be allocated and returned
+func SerializeSCTListHere(scts []SignedCertificateTimestamp, here []byte) ([]byte, error) {
+	sctListOutLen, err := SCTListSerializedLength(scts)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(here) == 0 {
+		here = make([]byte, sctListOutLen)
+	}
+
+	if len(here) < sctListOutLen {
+		return nil, ErrNotEnoughBuffer
+	}
+
+	here = here[0:sctListOutLen]
+
+	binary.BigEndian.PutUint16(here[0:2], uint16(sctListOutLen-2))
+	sctListPos := 2
+	for i, sct := range scts {
+		n, _ := sct.SerializedLength()
+		// Error conditions for SerializedLength checked in SCTListSerializedLength above
+		binary.BigEndian.PutUint16(here[sctListPos:sctListPos+2], uint16(n))
+		sctListPos += 2
+		_, err := SerializeSCTHere(sct, here[sctListPos:sctListPos+n])
+		if err != nil {
+			return nil, fmt.Errorf("unable to serialize SCT in position %d: %v", i, err)
+		}
+		sctListPos += n
+	}
+
+	if sctListPos != sctListOutLen {
+		return nil, fmt.Errorf("SCTList size expected %d got %d", sctListOutLen, sctListPos)
+	}
+	return here, nil
+}
