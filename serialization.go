@@ -514,6 +514,10 @@ func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 
 // SCTListSerializedLength determines the length of the required buffer should a SCT List need to be serialized
 func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
+	if len(scts) == 0 {
+		return 0, fmt.Errorf("SCT List empty")
+	}
+
 	sctListLen := 2
 	for i, sct := range scts {
 		n, err := sct.SerializedLength()
@@ -524,10 +528,6 @@ func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
 			return 0, fmt.Errorf("SCT in position %d too large: %d", i, n)
 		}
 		sctListLen += 2 + n
-	}
-
-	if sctListLen == 2 {
-		return 0, fmt.Errorf("SCT List empty")
 	}
 
 	if sctListLen > MaxSCTListLength+2 {
