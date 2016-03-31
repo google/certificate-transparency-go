@@ -3,7 +3,6 @@ package fixchain
 import (
 	"bytes"
 	"log"
-	"math"
 	"net/http"
 	"sort"
 	"sync"
@@ -87,12 +86,19 @@ type chainSlice struct {
 	chains [][]*x509.Certificate
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
 func (c chainSlice) Len() int { return len(c.chains) }
 func (c chainSlice) Less(i, j int) bool {
 	chi := c.chains[i]
 	chj := c.chains[j]
-	for k := 0; k < int(math.Min(float64(len(chi)), float64(len(chj)))); k++ {
+	for k := 0; k < min(len(chi), len(chj)); k++ {
 		if !chi[k].Equal(chj[k]) {
 			return bytes.Compare(chi[k].Raw, chj[k].Raw) < 0
 		}
