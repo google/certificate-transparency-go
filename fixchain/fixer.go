@@ -1,8 +1,11 @@
 package fixchain
 
 import (
+	"bytes"
 	"log"
+	"math"
 	"net/http"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +28,7 @@ type Fixer struct {
 	fixed               uint32
 	notFixed            uint32
 	validChainsProduced uint32
+	validChainsOut      uint32
 
 	wg    sync.WaitGroup
 	cache *urlCache
@@ -79,6 +83,48 @@ func (f *Fixer) updateCounters(chains [][]*x509.Certificate, ferrs []*FixError) 
 	atomic.AddUint32(&f.reconstructed, 1)
 }
 
+type chainSlice struct {
+	chains [][]*x509.Certificate
+}
+
+// sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
+func (c chainSlice) Len() int { return len(c.chains) }
+func (c chainSlice) Less(i, j int) bool {
+	chi := c.chains[i]
+	chj := c.chains[j]
+	for k := 0; k < int(math.Min(float64(len(chi)), float64(len(chj)))); k++ {
+		if !chi[k].Equal(chj[k]) {
+			return bytes.Compare(chi[k].Raw, chj[k].Raw) < 0
+		}
+	}
+	return len(chi) < len(chj)
+}
+func (c chainSlice) Swap(i, j int) {
+	t := c.chains[i]
+	c.chains[i] = c.chains[j]
+	c.chains[j] = t
+}
+
+func removeSuperChains(chains [][]*x509.Certificate) [][]*x509.Certificate {
+	c := chainSlice{chains: chains}
+	sort.Sort(c)
+	var retChains [][]*x509.Certificate
+NextChain:
+	for i := 0; i < len(c.chains); {
+		retChains = append(retChains, c.chains[i])
+		for j := i + 1; j < len(c.chains); j++ {
+			for k := range c.chains[i] {
+				if !c.chains[i][k].Equal(c.chains[j][k]) {
+					i = j
+					continue NextChain
+				}
+			}
+		}
+		break
+	}
+	return retChains
+}
+
 func (f *Fixer) fixServer() {
 	defer f.wg.Done()
 
@@ -89,8 +135,14 @@ func (f *Fixer) fixServer() {
 		for _, ferr := range ferrs {
 			f.errors <- ferr
 		}
-		for _, chain := range chains {
+
+		// If handleChain() outputs valid chains that are subchains of other
+		// valid chains, (where the subchains start at the leaf)
+		// e.g. A -> B -> C and A -> B -> C -> D, only forward on the shorter
+		// of the chains.
+		for _, chain := range removeSuperChains(chains) {
 			f.chains <- chain
+			atomic.AddUint32(&f.validChainsOut, 1)
 		}
 		atomic.AddUint32(&f.active, ^uint32(0))
 	}
@@ -108,9 +160,10 @@ func (f *Fixer) logStats() {
 	go func() {
 		for _ = range t.C {
 			log.Printf("fixers: %d active, %d reconstructed, "+
-				"%d not reconstructed, %d fixed, %d not fixed, %d valid chains produced",
+				"%d not reconstructed, %d fixed, %d not fixed, "+
+				"%d valid chains produced, %d valid chains sent on chan",
 				f.active, f.reconstructed, f.notReconstructed,
-				f.fixed, f.notFixed, f.validChainsProduced)
+				f.fixed, f.notFixed, f.validChainsProduced, f.validChainsOut)
 		}
 	}()
 }
