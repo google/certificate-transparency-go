@@ -20,10 +20,11 @@ type Fixer struct {
 
 	active uint32
 
-	reconstructed    uint32
-	notReconstructed uint32
-	fixed            uint32
-	notFixed         uint32
+	reconstructed       uint32
+	notReconstructed    uint32
+	fixed               uint32
+	notFixed            uint32
+	validChainsProduced uint32
 
 	wg    sync.WaitGroup
 	cache *urlCache
@@ -47,7 +48,9 @@ func (f *Fixer) Wait() {
 	f.wg.Wait()
 }
 
-func (f *Fixer) updateCounters(ferrs []*FixError) {
+func (f *Fixer) updateCounters(chains [][]*x509.Certificate, ferrs []*FixError) {
+	atomic.AddUint32(&f.validChainsProduced, uint32(len(chains)))
+
 	var verifyFailed bool
 	var fixFailed bool
 	for _, ferr := range ferrs {
@@ -82,7 +85,7 @@ func (f *Fixer) fixServer() {
 	for fix := range f.toFix {
 		atomic.AddUint32(&f.active, 1)
 		chains, ferrs := fix.handleChain()
-		f.updateCounters(ferrs)
+		f.updateCounters(chains, ferrs)
 		for _, ferr := range ferrs {
 			f.errors <- ferr
 		}
@@ -105,9 +108,9 @@ func (f *Fixer) logStats() {
 	go func() {
 		for _ = range t.C {
 			log.Printf("fixers: %d active, %d reconstructed, "+
-				"%d not reconstructed, %d fixed, %d not fixed",
+				"%d not reconstructed, %d fixed, %d not fixed, %d valid chains produced",
 				f.active, f.reconstructed, f.notReconstructed,
-				f.fixed, f.notFixed)
+				f.fixed, f.notFixed, f.validChainsProduced)
 		}
 	}()
 }

@@ -30,7 +30,8 @@ type Logger struct {
 
 	active uint32
 
-	posted        uint32 // How many chains have been queued to be posted.
+	queued        uint32 // How many chains have been queued to be posted.
+	posted        uint32 // How many chains have been posted.
 	reposted      uint32 // How many chains for an already-posted cert have been queued.
 	chainReposted uint32 // How many chains have been queued again.
 
@@ -56,7 +57,7 @@ func (l *Logger) QueueChain(chain []*x509.Certificate) {
 		return
 	}
 
-	atomic.AddUint32(&l.posted, 1)
+	atomic.AddUint32(&l.queued, 1)
 	// Has a chain for the cert this chain if for already been successfully
 	//posted to the log by this Logger?
 	h := hash(chain[0]) // Chains are cert -> root
@@ -172,6 +173,7 @@ func (l *Logger) postChain(p *toPost) {
 
 	l.limiter.Wait()
 	ferr := PostChainToLog(p.chain, l.client, l.url)
+	atomic.AddUint32(&l.posted, 1)
 	if ferr != nil {
 		switch ferr.Type {
 		case PostFailed:
@@ -217,8 +219,8 @@ func (l *Logger) logStats() {
 	t := time.NewTicker(time.Second)
 	go func() {
 		for _ = range t.C {
-			log.Printf("posters: %d active, %d posted, %d reposted, %d chains reposted",
-				l.active, l.posted, l.reposted, l.chainReposted)
+			log.Printf("posters: %d active, %d posted, %d queued, %d certs requeued, %d chains requeued",
+				l.active, l.posted, l.queued, l.reposted, l.chainReposted)
 		}
 	}()
 }
