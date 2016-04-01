@@ -208,7 +208,7 @@ func TestUpdateCounters(t *testing.T) {
 		for _, err := range test.errors {
 			ferrs = append(ferrs, &FixError{Type: err})
 		}
-		f.updateCounters(ferrs)
+		f.updateCounters(nil, ferrs)
 
 		if f.reconstructed != test.reconstructed {
 			t.Errorf("#%d: Incorrect value for reconstructed, wanted %d, got %d", i, test.reconstructed, f.reconstructed)
