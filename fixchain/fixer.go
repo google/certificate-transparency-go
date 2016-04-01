@@ -94,6 +94,26 @@ func min(a, b int) int {
 }
 
 // sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
+// Sort will sort the chains contained within the chainSlice.  The chains will
+// be sorted in order of the first certificate in the chain, i.e. their leaf
+// certificate.  If two chains have equal leaf certificates, they will be sorted
+// by the second certificate in the chain, and so on.  By this logic, a chain
+// that is a subchain of another chain beginning at the leaf of the other chain,
+// will come before the other chain after sorting.
+//
+// Example:
+//
+// Before sorting:
+// A -> B -> C
+// D
+// A -> C
+// A -> B
+//
+// After sorting:
+// A -> B
+// A -> B -> C
+// A -> C
+// D
 func (c chainSlice) Len() int { return len(c.chains) }
 func (c chainSlice) Less(i, j int) bool {
 	chi := c.chains[i]
@@ -111,15 +131,56 @@ func (c chainSlice) Swap(i, j int) {
 	c.chains[j] = t
 }
 
+// removeSuperChains will remove super chains from the list of chains passed to
+// it.  A super chain is considered to be a chain whose first x certificates are
+// included in the list somewhere else as a whole chain.  Put another way, if
+// there exists a chain A in the list, and another chain B that is A with some
+// additional certificates chained onto the end, B is a super chain of A
+// (and A is a subchain of B).
+//
+// Examples:
+// 1) A -> B -> C is a super chain of A -> B, and both are super chains of A.
+// 2) Z -> A -> B is not a super chain of A -> B, as A -> B is not at the
+//    beginning of Z -> A -> B.
+// 3) Calling removeSuperChains on:
+//    A -> B -> C
+//    A -> C
+//    A -> B
+//    A -> C -> D
+//    will return:
+//    A -> B
+//    A -> C
+// 4) Calling removeSuperChains on:
+//    A -> B -> C
+//    A -> C
+//    A -> B
+//    A -> C -> D
+//    A
+//    will return:
+//    A
 func removeSuperChains(chains [][]*x509.Certificate) [][]*x509.Certificate {
+	// Sort the list of chains using the sorting algorithm described above.
+	// This will result in chains and their super chains being grouped together
+	// in the list, with the shortest chain listed first in the group (i.e. a
+	// chain, and then all its super chains - if any - listed directly after
+	// that chain).
 	c := chainSlice{chains: chains}
 	sort.Sort(c)
 	var retChains [][]*x509.Certificate
 NextChain:
+	// Start at the beginning of the list.
 	for i := 0; i < len(c.chains); {
+		// Add the chain to the list of chains to be returned.
 		retChains = append(retChains, c.chains[i])
+		// Step past any super chains of the chain just added to the return list,
+		// without adding them to the return list.  We do not want super chains
+		// of other chains in our return list.  Due to the initial sort of the
+		// list, any super chains of a chain will come directly after said chain.
 		for j := i + 1; j < len(c.chains); j++ {
 			for k := range c.chains[i] {
+				// When a chain that is not a super chain of the chain most
+				// recently added to the return list is found, move to that
+				// chain and start over.
 				if !c.chains[i][k].Equal(c.chains[j][k]) {
 					i = j
 					continue NextChain
@@ -167,7 +228,7 @@ func (f *Fixer) logStats() {
 		for _ = range t.C {
 			log.Printf("fixers: %d active, %d reconstructed, "+
 				"%d not reconstructed, %d fixed, %d not fixed, "+
-				"%d valid chains produced, %d valid chains sent on chan",
+				"%d valid chains produced, %d valid chains sent",
 				f.active, f.reconstructed, f.notReconstructed,
 				f.fixed, f.notFixed, f.validChainsProduced, f.validChainsOut)
 		}
