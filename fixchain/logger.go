@@ -136,32 +136,8 @@ type toPost struct {
 }
 
 func (l *Logger) postToLog(p *toPost) {
-	// Add post to toPost channel in a separate goroutine to avoid deadlock
-	// during retries.  Without the separate goroutine, deadlock can occur in
-	// the following situation:
-	//
-	// Suppose there is only one postServer() goroutine running, and it is
-	// blocked waiting for a toPost on the toPost chan.  A toPost gets added to
-	// the chan, which causes the following to happen:
-	// - the postServer takes the toPost from the chan.
-	// - the postServer calls l.postChain(toPost), and waits for l.postChain()
-	//   to return before going back to the toPost chan for another toPost.
-	// - l.postChain() begins execution.  Suppose the first post attempt of the
-	//   toPost fails for some network-related reason.
-	// - l.postChain retries and calls l.postToLog() to queue up the toPost to
-	//   try to post it again.
-	// - l.postToLog() tries to put the toPost on the toPost chan, and blocks
-	//   until a postServer takes it off the chan.
-	// But the one and only postServer is still waiting for l.postChain (and
-	// therefore l.postToLog) to return, and will not go to take another toPost
-	// off the toPost chan until that happens.
-	// Thus, deadlock.
-	//
-	// Similar situations with multiple postServers can easily be imagined.
 	l.wg.Add(1)
-	go func() {
-		l.toPost <- p
-	}()
+	l.toPost <- p
 }
 
 func (l *Logger) postChain(p *toPost) {
@@ -182,7 +158,38 @@ func (l *Logger) postChain(p *toPost) {
 			} else {
 				log.Printf(ferr.Error.Error())
 				p.retries--
-				l.postToLog(p)
+				// postToLog() is called in a separate goroutine to avoid
+				// deadlock during retries.  Without the separate goroutine,
+				// deadlock can occur in the following situation:
+				//
+				// Suppose there is only one postServer() goroutine running, and
+				// it is blocked waiting for a toPost on the toPost chan.  A
+				// toPost gets added to the chan, which causes the following to
+				// happen:
+				// - the postServer takes the toPost from the chan.
+				// - the postServer calls l.postChain(toPost), and waits for
+				//   l.postChain() to return before going back to the toPost
+				//   chan for another toPost.
+				// - l.postChain() begins execution.  Suppose the first post
+				//   attempt of the toPost fails for some network-related
+				//   reason.
+				// - l.postChain retries and calls l.postToLog() to queue up the
+				//   toPost to try to post it again.
+				// - l.postToLog() tries to put the toPost on the toPost chan,
+				//   and blocks until a postServer takes it off the chan.
+				// But the one and only postServer is still waiting for
+				// l.postChain (and therefore l.postToLog) to return, and will
+				// not go to take another toPost off the toPost chan until that
+				// happens.
+				// Thus, deadlock.
+				//
+				// Similar situations with multiple postServers can easily be
+				// imagined.
+				l.wg.Add(1)
+				go func() {
+					l.postToLog(p)
+					l.wg.Done()
+				}()
 			}
 			return
 		case LogPostFailed:
@@ -193,7 +200,13 @@ func (l *Logger) postChain(p *toPost) {
 				l.errors <- ferr
 			} else {
 				p.retries--
-				l.postToLog(p)
+				// See above explanation for reason for spinning up a new
+				// goroutine for postToLog() during retries.
+				l.wg.Add(1)
+				go func() {
+					l.postToLog(p)
+					l.wg.Done()
+				}()
 			}
 			return
 		default:
