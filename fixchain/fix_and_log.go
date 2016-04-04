@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/certificate-transparency/go/x509"
@@ -16,19 +17,22 @@ type FixAndLog struct {
 	logger *Logger
 	wg     sync.WaitGroup
 
+	queued      uint32     // Whole chains queued - before checking cache.
 	done        *lockedMap // Cache of chains that QueueAllCertsInChain() has already been called on.
-	alreadyDone uint
+	alreadyDone uint32
+	chainsSent  uint32
 }
 
 // QueueAllCertsInChain adds every cert in the chain and the chain to the queue
 // to be fixed and logged.
 func (fl *FixAndLog) QueueAllCertsInChain(chain []*x509.Certificate) {
 	if chain != nil {
+		atomic.AddUint32(&fl.queued, 1)
 		dchain := newDedupedChain(chain)
 		// Caching check
 		h := hashBag(dchain.certs)
 		if fl.done.get(h) {
-			fl.alreadyDone++
+			atomic.AddUint32(&fl.alreadyDone, 1)
 			return
 		}
 		fl.done.set(h, true)
@@ -38,6 +42,7 @@ func (fl *FixAndLog) QueueAllCertsInChain(chain []*x509.Certificate) {
 				continue
 			}
 			fl.fixer.QueueChain(cert, dchain.certs, fl.logger.RootCerts())
+			atomic.AddUint32(&fl.chainsSent, 1)
 		}
 	}
 }
@@ -52,6 +57,7 @@ func (fl *FixAndLog) QueueChain(chain []*x509.Certificate) {
 			return
 		}
 		fl.fixer.QueueChain(chain[0], chain, fl.logger.RootCerts())
+		atomic.AddUint32(&fl.chainsSent, 1)
 	}
 }
 
@@ -89,7 +95,7 @@ func NewFixAndLog(fixerWorkerCount int, loggerWorkerCount int, errors chan<- *Fi
 		t := time.NewTicker(time.Second)
 		go func() {
 			for _ = range t.C {
-				log.Printf("fix-then-log whole chains: %d already done", fl.alreadyDone)
+				log.Printf("fix-then-log: %d whole chains queued, %d whole chains already done, %d chains sent", fl.queued, fl.alreadyDone, fl.chainsSent)
 			}
 		}()
 	}
