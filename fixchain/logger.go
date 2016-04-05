@@ -135,8 +135,12 @@ type toPost struct {
 	retries uint8
 }
 
+// postToLog is called in the QueueChain API call to initially add a chain to
+// queue of chains to be logged, and during retries - to re-add a chain to the
+// queue after failing to be posted (provided it has only been retried <5 times
+// so far).
 func (l *Logger) postToLog(p *toPost) {
-	l.wg.Add(1)
+	l.wg.Add(1) // Add to the wg as we are adding a new active request to the logger queue.
 	l.toPost <- p
 }
 
@@ -185,7 +189,18 @@ func (l *Logger) postChain(p *toPost) {
 				//
 				// Similar situations with multiple postServers can easily be
 				// imagined.
-				l.wg.Add(1)
+				//
+				// Note: Spinning up the extra goroutine is done here rather
+				// than in the postToLog() function, as that function is also
+				// used by QueueChain().  If a new goroutine was spun up inside
+				// postToLog(), then every time a new chain was queued, a new
+				// goroutine would be created, each holding their own chain -
+				// regardless of whether there were postServers available to
+				// process them or not.  If a large number of chains were being
+				// queued in a short period of time, this could lead to a large
+				// number of these additional goroutines being created,
+				// resulting in excessive memory usage.
+				l.wg.Add(1) // Add to the wg to ensure logger.Wait() can't return before the goroutine below has returned.
 				go func() {
 					l.postToLog(p)
 					l.wg.Done()
@@ -202,7 +217,7 @@ func (l *Logger) postChain(p *toPost) {
 				p.retries--
 				// See above explanation for reason for spinning up a new
 				// goroutine for postToLog() during retries.
-				l.wg.Add(1)
+				l.wg.Add(1) // Add to the wg to ensure logger.Wait() can't return before the goroutine below has returned.
 				go func() {
 					l.postToLog(p)
 					l.wg.Done()
