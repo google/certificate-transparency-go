@@ -79,6 +79,15 @@ func (l *Logger) QueueChain(chain []*x509.Certificate) {
 	l.postChainCache.set(h, true)
 
 	p := &toPost{chain: chain, retries: 5}
+	// postToLog() is called during the initial queueing of chains, rather than
+	// its asynchronous couterpart, asyncPostToLog(), to avoid spinning up an
+	// excessive number of goroutines, and unecessarily using up memory. If
+	// asyncPostToLog() was called instead, then every time a new chain was
+	// queued, a new goroutine would be created, each holding their own chain -
+	// regardless of whether there were postServers available to process them or
+	// not.  If a large number of chains were queued in a short period of time,
+	// this could lead to a large number of these additional goroutines being
+	// created, resulting in excessive memory usage.
 	l.postToLog(p)
 }
 
@@ -135,13 +144,16 @@ type toPost struct {
 	retries uint8
 }
 
-// postToLog is called in the QueueChain API call to initially add a chain to
-// queue of chains to be logged, and during retries - to re-add a chain to the
-// queue after failing to be posted (provided it has only been retried <5 times
-// so far).
 func (l *Logger) postToLog(p *toPost) {
 	l.wg.Add(1) // Add to the wg as we are adding a new active request to the logger queue.
 	l.toPost <- p
+}
+
+func (l *Logger) asyncPostToLog(p *toPost) {
+	l.wg.Add(1) // Add to the wg as we are adding a new active request to the logger queue.
+	go func() {
+		l.toPost <- p
+	}()
 }
 
 func (l *Logger) postChain(p *toPost) {
@@ -162,8 +174,9 @@ func (l *Logger) postChain(p *toPost) {
 			} else {
 				log.Printf(ferr.Error.Error())
 				p.retries--
-				// postToLog() is called in a separate goroutine to avoid
-				// deadlock during retries.  Without the separate goroutine,
+				// asyncPostToLog() is called instead of its synchronous
+				// counterpart, postToLog(), to avoid deadlock during retries.
+				// Without the separate goroutine created in asyncPostToLog(),
 				// deadlock can occur in the following situation:
 				//
 				// Suppose there is only one postServer() goroutine running, and
@@ -189,22 +202,7 @@ func (l *Logger) postChain(p *toPost) {
 				//
 				// Similar situations with multiple postServers can easily be
 				// imagined.
-				//
-				// Note: Spinning up the extra goroutine is done here rather
-				// than in the postToLog() function, as that function is also
-				// used by QueueChain().  If a new goroutine was spun up inside
-				// postToLog(), then every time a new chain was queued, a new
-				// goroutine would be created, each holding their own chain -
-				// regardless of whether there were postServers available to
-				// process them or not.  If a large number of chains were being
-				// queued in a short period of time, this could lead to a large
-				// number of these additional goroutines being created,
-				// resulting in excessive memory usage.
-				l.wg.Add(1) // Add to the wg to ensure logger.Wait() can't return before the goroutine below has returned.
-				go func() {
-					l.postToLog(p)
-					l.wg.Done()
-				}()
+				l.asyncPostToLog(p)
 			}
 			return
 		case LogPostFailed:
@@ -215,13 +213,7 @@ func (l *Logger) postChain(p *toPost) {
 				l.errors <- ferr
 			} else {
 				p.retries--
-				// See above explanation for reason for spinning up a new
-				// goroutine for postToLog() during retries.
-				l.wg.Add(1) // Add to the wg to ensure logger.Wait() can't return before the goroutine below has returned.
-				go func() {
-					l.postToLog(p)
-					l.wg.Done()
-				}()
+				l.asyncPostToLog(p)
 			}
 			return
 		default:
