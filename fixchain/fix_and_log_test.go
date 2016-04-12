@@ -184,7 +184,8 @@ func TestNewFixAndLog(t *testing.T) {
 	for i, test := range newFixAndLogTests {
 		seen := make([]bool, len(test.expLoggedChains))
 		errors := make(chan *FixError)
-		fl := NewFixAndLog(1, 1, errors, &http.Client{Transport: &testRoundTripper{t: t, test: &test, testIndex: i, seen: seen}}, test.url, newNilLimiter(), false)
+		client := &http.Client{Transport: &testRoundTripper{t: t, test: &test, testIndex: i, seen: seen}}
+		fl := NewFixAndLog(1, 1, errors, client, client, test.url, newNilLimiter(), false)
 
 		var wg sync.WaitGroup
 		wg.Add(1)

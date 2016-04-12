@@ -103,7 +103,8 @@ func main() {
 	go logStringErrors(&wg, errors, errDir)
 
 	limiter := ratelimiter.NewLimiter(1000)
-	fl := fixchain.NewFixAndLog(100, 100, errors, &http.Client{}, logURL, limiter, true)
+	client := &http.Client{}
+	fl := fixchain.NewFixAndLog(100, 100, errors, client, client, logURL, limiter, true)
 
 	processChains(chainsFile, fl)
 
