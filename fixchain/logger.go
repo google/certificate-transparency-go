@@ -265,6 +265,7 @@ func NewLogger(workerCount int, url string, errors chan<- *FixError, client *htt
 		postChainCache: newLockedMap(),
 		limiter:        limiter,
 	}
+	l.RootCerts()
 
 	// Start post server pool.
 	for i := 0; i < workerCount; i++ {

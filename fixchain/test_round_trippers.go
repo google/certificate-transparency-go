@@ -138,6 +138,19 @@ type postTestRoundTripper struct {
 }
 
 func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	if strings.Contains(request.URL.Path, "/ct/v1/get-roots") {
+		b := stringRootsToJSON([]string{verisignRoot})
+		return &http.Response{
+			Status:        "200 OK",
+			StatusCode:    200,
+			Proto:         request.Proto,
+			ProtoMajor:    request.ProtoMajor,
+			ProtoMinor:    request.ProtoMinor,
+			Body:          &bytesReadCloser{bytes.NewReader(b)},
+			ContentLength: int64(len(b)),
+			Request:       request,
+		}, nil
+	}
 	// For tests that are checking the correct FixError type is returned:
 	if rt.test.ferr.Type == PostFailed {
 		return nil, errors.New("")
@@ -221,14 +234,15 @@ type newLoggerTestRoundTripper struct{}
 
 func (rt newLoggerTestRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	// Return a response
+	b := stringRootsToJSON([]string{verisignRoot})
 	return &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,
 		Proto:         request.Proto,
 		ProtoMajor:    request.ProtoMajor,
 		ProtoMinor:    request.ProtoMinor,
-		Body:          &bytesReadCloser{bytes.NewReader([]byte(""))},
-		ContentLength: 0,
+		Body:          &bytesReadCloser{bytes.NewReader(b)},
+		ContentLength: int64(len(b)),
 		Request:       request,
 	}, nil
 }
