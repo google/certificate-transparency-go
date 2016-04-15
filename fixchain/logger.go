@@ -2,6 +2,7 @@ package fixchain
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -90,23 +91,32 @@ func (l *Logger) Wait() {
 // RootCerts returns the root certificates that the log accepts.
 func (l *Logger) RootCerts() *x509.CertPool {
 	if l.roots == nil {
-		l.roots = l.getRoots()
+		// Retry if unable to get roots.
+		for i := 0; i < 10; i++ {
+			roots, err := l.getRoots()
+			if err == nil {
+				l.roots = roots
+				return l.roots
+			}
+			log.Println(err)
+		}
+		log.Fatalf("Can't get roots from %s", l.url)
 	}
 	return l.roots
 }
 
-func (l *Logger) getRoots() *x509.CertPool {
+func (l *Logger) getRoots() (*x509.CertPool, error) {
 	rootsJSON, err := l.client.Get(l.url + "/ct/v1/get-roots")
 	if err != nil {
-		log.Fatalf("can't get roots from %s: %s", l.url, err)
+		return nil, fmt.Errorf("can't get roots from %s: %s", l.url, err)
 	}
 	defer rootsJSON.Body.Close()
-	if rootsJSON.StatusCode != 200 {
-		log.Fatalf("can't deal with status other than 200 from %s: %d", l.url, rootsJSON.StatusCode)
-	}
 	j, err := ioutil.ReadAll(rootsJSON.Body)
 	if err != nil {
-		log.Fatalf("can't read roots from %s: %s", l.url, err)
+		return nil, fmt.Errorf("can't read body from %s: %s", l.url, err)
+	}
+	if rootsJSON.StatusCode != 200 {
+		return nil, fmt.Errorf("can't deal with status other than 200 from %s: %d\nbody: %s", l.url, rootsJSON.StatusCode, string(j))
 	}
 	type Certificates struct {
 		Certificates [][]byte
@@ -114,7 +124,7 @@ func (l *Logger) getRoots() *x509.CertPool {
 	var certs Certificates
 	err = json.Unmarshal(j, &certs)
 	if err != nil {
-		log.Fatalf("can't parse json (%s) from %s: %s", err, l.url, j)
+		return nil, fmt.Errorf("can't parse json (%s) from %s: %s", err, l.url, j)
 	}
 	ret := x509.NewCertPool()
 	for i := 0; i < len(certs.Certificates); i++ {
@@ -123,11 +133,11 @@ func (l *Logger) getRoots() *x509.CertPool {
 		case nil, x509.NonFatalErrors:
 			// ignore
 		default:
-			log.Fatalf("can't parse certificate from %s: %s %#v", l.url, err, certs.Certificates[i])
+			return nil, fmt.Errorf("can't parse certificate from %s: %s %#v", l.url, err, certs.Certificates[i])
 		}
 		ret.AddCert(r)
 	}
-	return ret
+	return ret, nil
 }
 
 type toPost struct {
