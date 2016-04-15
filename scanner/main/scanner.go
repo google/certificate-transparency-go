@@ -53,11 +53,7 @@ func chainToString(certs []ct.ASN1Cert) string {
 	return base64.StdEncoding.EncodeToString(output)
 }
 
-func logCertChain(entry *ct.LogEntry) {
-	log.Printf("Index %d: Chain: %s", entry.Index, chainToString(entry.Chain))
-}
-
-func logPrecertChain(entry *ct.LogEntry) {
+func logFullChain(entry *ct.LogEntry) {
 	log.Printf("Index %d: Chain: %s", entry.Index, chainToString(entry.Chain))
 }
 
@@ -117,7 +113,7 @@ func main() {
 	scanner := scanner.NewScanner(logClient, opts)
 
 	if *printChains {
-		scanner.Scan(logCertChain, logPrecertChain)
+		scanner.Scan(logFullChain, logFullChain)
 	} else {
 		scanner.Scan(logCertInfo, logPrecertInfo)
 	}
