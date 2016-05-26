@@ -183,3 +183,34 @@ func TestAddChainWithContext(t *testing.T) {
 		}
 	}
 }
+
+func TestAddJSON(t *testing.T) {
+	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte(`{"sct_version":0,"id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=","timestamp":1337,"extensions":"","signature":"BAMARjBEAiAIc21J5ZbdKZHw5wLxCP+MhBEsV5+nfvGyakOIv6FOvAIgWYMZb6Pw///uiNM7QTg2Of1OqmK1GbeGuEl9VJN8v8c="}`))
+		if err != nil {
+			return
+		}
+	}))
+	defer hs.Close()
+
+	c := New(hs.URL)
+
+	tests := []struct {
+		success bool
+		data    interface{}
+	}{
+		{true, struct{ hi string }{"bob"}},
+	}
+
+	for _, tc := range tests {
+		sct, err := c.AddJSON(tc.data)
+		if tc.success && err != nil {
+			t.Fatalf("Failed to submit json: %s", err)
+		} else if !tc.success && err == nil {
+			t.Fatal("Expected AddJSON to fail")
+		}
+		if tc.success && sct == nil {
+			t.Fatal("Nil SCT returned")
+		}
+	}
+}

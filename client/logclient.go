@@ -25,6 +25,7 @@ import (
 const (
 	AddChainPath    = "/ct/v1/add-chain"
 	AddPreChainPath = "/ct/v1/add-pre-chain"
+	AddJSONPath     = "/ct/v1/add-json"
 	GetSTHPath      = "/ct/v1/get-sth"
 	GetEntriesPath  = "/ct/v1/get-entries"
 )
@@ -55,6 +56,12 @@ type addChainResponse struct {
 	Timestamp  uint64     `json:"timestamp"`   // Timestamp of issuance
 	Extensions string     `json:"extensions"`  // Holder for any CT extensions
 	Signature  string     `json:"signature"`   // Log signature for this SCT
+}
+
+// addJSONRequest represents the JSON request body sent ot the add-json CT
+// method.
+type addJSONRequest struct {
+	Data interface{} `json:"data"`
 }
 
 // getSTHResponse respresents the JSON response to the get-sth CT method
@@ -275,6 +282,37 @@ func (c *LogClient) AddPreChain(chain []ct.ASN1Cert) (*ct.SignedCertificateTimes
 // fails if the provided context expires before the chain is submitted.
 func (c *LogClient) AddChainWithContext(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	return c.addChainWithRetry(ctx, AddChainPath, chain)
+}
+
+func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, error) {
+	req := addJSONRequest{
+		Data: data,
+	}
+	var resp addChainResponse
+	_, _, err := c.postAndParse(c.uri+AddJSONPath, &req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	rawLogID, err := base64.StdEncoding.DecodeString(resp.ID)
+	if err != nil {
+		return nil, err
+	}
+	rawSignature, err := base64.StdEncoding.DecodeString(resp.Signature)
+	if err != nil {
+		return nil, err
+	}
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
+	if err != nil {
+		return nil, err
+	}
+	var logID ct.SHA256Hash
+	copy(logID[:], rawLogID)
+	return &ct.SignedCertificateTimestamp{
+		SCTVersion: resp.SCTVersion,
+		LogID:      logID,
+		Timestamp:  resp.Timestamp,
+		Extensions: ct.CTExtensions(resp.Extensions),
+		Signature:  *ds}, nil
 }
 
 // GetSTH retrieves the current STH from the log.
