@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"crypto"
+	"encoding/asn1"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -82,7 +83,7 @@ func readVarBytes(r io.Reader, numLenBytes int) ([]byte, error) {
 		return nil, err
 	}
 	data := make([]byte, l)
-	if n, err := io.ReadFull(r, data);  err != nil {
+	if n, err := io.ReadFull(r, data); err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil, fmt.Errorf("short read: expected %d but got %d", l, n)
 		}
@@ -536,52 +537,26 @@ func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
 	return sctListLen, nil
 }
 
-// SerializeSCTListHere serializes the passed-in slice of SignedCertificateTimestamp into the
-// here byte slice as a SignedCertificateTimestampList (see RFC6962 Section 3.3)
-func SerializeSCTListHere(scts []SignedCertificateTimestamp, here []byte) ([]byte, error) {
-	sctListOutLen, err := SCTListSerializedLength(scts)
+// SerializeSCTList serializes the passed-in slice of SignedCertificateTimestamp into a
+// byte slice as a SignedCertificateTimestampList (see RFC6962 Section 3.3)
+func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	size, err := SCTListSerializedLength(scts)
 	if err != nil {
 		return nil, err
 	}
-
-	if here == nil {
-		here = make([]byte, sctListOutLen)
+	buf.Grow(size)
+	if err = writeUint(buf, uint64(size-2), 2); err != nil {
+		return nil, err
 	}
-
-	if len(here) < sctListOutLen {
-		return nil, ErrNotEnoughBuffer
-	}
-
-	here = here[0:sctListOutLen]
-
-	binary.BigEndian.PutUint16(here[0:2], uint16(sctListOutLen-2))
-	sctListPos := 2
-	for i, sct := range scts {
-		n, err := sct.SerializedLength()
+	for _, sct := range scts {
+		serialized, err := SerializeSCT(sct)
 		if err != nil {
-			return nil, fmt.Errorf("unable to determine length of SCT in position %d: %v", i, err)
+			return nil, err
 		}
-		if n > MaxSCTInListLength {
-			return nil, fmt.Errorf("SCT in position %d too large: %d", i, n)
+		if err = writeVarBytes(buf, serialized, 2); err != nil {
+			return nil, err
 		}
-		binary.BigEndian.PutUint16(here[sctListPos:sctListPos+2], uint16(n))
-		sctListPos += 2
-		_, err = SerializeSCTHere(sct, here[sctListPos:sctListPos+n])
-		if err != nil {
-			return nil, fmt.Errorf("unable to serialize SCT in position %d: %v", i, err)
-		}
-		sctListPos += n
 	}
-
-	if sctListPos != sctListOutLen {
-		return nil, fmt.Errorf("SCTList size expected %d got %d", sctListOutLen, sctListPos)
-	}
-	return here, nil
-}
-
-// SerializeSCTListHere serializes the passed-in slice of SignedCertificateTimestamp as a
-// SignedCertificateTimestampList (see RFC6962 Section 3.3)
-// Equivalent to SerializeSCTListHere(scts, nil)
-func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
-	return SerializeSCTListHere(scts, nil)
+	return asn1.Marshal(buf.Bytes()) // transform to Octet String
 }

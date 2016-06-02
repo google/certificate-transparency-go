@@ -235,15 +235,7 @@ const (
 		// signature, 9 bytes
 		"7369676e6174757265"
 
-	defaultSCTListHexString string =
-	// Total length, 2 bytes
-	"0074" +
-		// defaultSCTLength, 2 bytes
-		"0038" +
-		defaultSCTHexString +
-		// defaultSCTLength, 2 bytes
-		"0038" +
-		defaultSCTHexString
+	defaultSCTListHexString string = "0476007400380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e617475726500380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e6174757265"
 )
 
 func defaultSCTLogID() SHA256Hash {
@@ -447,7 +439,7 @@ func TestSerializeSCT(t *testing.T) {
 }
 
 func TestSerializeSCTList(t *testing.T) {
-	b, err := SerializeSCTListHere([]SignedCertificateTimestamp{defaultSCT(), defaultSCT()}, nil)
+	b, err := SerializeSCTList([]SignedCertificateTimestamp{defaultSCT(), defaultSCT()})
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT List: %v", err)
 	}
