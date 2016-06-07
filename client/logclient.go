@@ -161,7 +161,6 @@ func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) (
 	if err != nil {
 		return nil, "", err
 	}
-	httpReq.Header.Set("Keep-Alive", "timeout=15, max=100")
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(httpReq)
 	// Read all of the body, if there is one, so that the http.Client can do
