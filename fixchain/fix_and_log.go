@@ -17,12 +17,19 @@ type FixAndLog struct {
 	logger *Logger
 	wg     sync.WaitGroup
 
-	queued        uint32     // Whole chains queued - before checking cache.
-	done          *lockedMap // Cache of chains that QueueAllCertsInChain() has already been called on.
-	chainsQueued  uint32     // Chains queued total, including chains from intermediate certs.
-	alreadyDone   uint32
+	// Number of whole chains queued - before checking cache & adding chains for intermediate certs.
+	queued uint32
+	// Cache of chains that QueueAllCertsInChain() has already been called on.
+	done *lockedMap
+	// Number of whole chains submitted to the FixAndLog using QueueAllCertsInChain() (before adding chains for intermediate certs) that had previously been processed.
+	alreadyDone uint32
+	// Number of chains queued total, including chains from intermediate certs.
+	// Note that in each chain there is len(chain) certs.  So when calling QueueAllCertsInChain(chain), len(chain) chains will actually be added to the queue.
+	chainsQueued uint32
+	// Number of chains whose leaf cert has already been posted to the log with a valid chain.
 	alreadyPosted uint32
-	chainsSent    uint32
+	// Number of chains sent on to the Fixer to begin fixing & logging!
+	chainsSent uint32
 }
 
 // QueueAllCertsInChain adds every cert in the chain and the chain to the queue
@@ -58,6 +65,7 @@ func (fl *FixAndLog) QueueAllCertsInChain(chain []*x509.Certificate) {
 func (fl *FixAndLog) QueueChain(chain []*x509.Certificate) {
 	if chain != nil {
 		if fl.logger.IsPosted(chain[0]) {
+			atomic.AddUint32(&fl.alreadyPosted, 1)
 			return
 		}
 		fl.fixer.QueueChain(chain[0], chain, fl.logger.RootCerts())
@@ -99,7 +107,7 @@ func NewFixAndLog(fixerWorkerCount int, loggerWorkerCount int, errors chan<- *Fi
 		t := time.NewTicker(time.Second)
 		go func() {
 			for _ = range t.C {
-				log.Printf("fix-then-log: %d whole chains queued, %d whole chains already done, %d total chains queued, %d chains already posted, %d chains sent to fixer", fl.queued, fl.alreadyDone, fl.chainsQueued, fl.alreadyPosted, fl.chainsSent)
+				log.Printf("fix-then-log: %d whole chains queued, %d whole chains already done, %d total chains queued, %d chains don't need posting (cache hits), %d chains sent to fixer", fl.queued, fl.alreadyDone, fl.chainsQueued, fl.alreadyPosted, fl.chainsSent)
 			}
 		}()
 	}
