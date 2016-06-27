@@ -519,7 +519,7 @@ func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
 		return 0, fmt.Errorf("SCT List empty")
 	}
 
-	sctListLen := 2
+	sctListLen := 0
 	for i, sct := range scts {
 		n, err := sct.SerializedLength()
 		if err != nil {
@@ -531,22 +531,23 @@ func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
 		sctListLen += 2 + n
 	}
 
-	if sctListLen > MaxSCTListLength+2 {
-		return 0, fmt.Errorf("SCT List too large to serialize: %d", sctListLen)
-	}
 	return sctListLen, nil
 }
 
 // SerializeSCTList serializes the passed-in slice of SignedCertificateTimestamp into a
 // byte slice as a SignedCertificateTimestampList (see RFC6962 Section 3.3)
 func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
-	buf := new(bytes.Buffer)
 	size, err := SCTListSerializedLength(scts)
 	if err != nil {
 		return nil, err
 	}
-	buf.Grow(size)
-	if err = writeUint(buf, uint64(size-2), 2); err != nil {
+	fullSize := 2 + size // 2 bytes for length + size of SCT list
+	if fullSize > MaxSCTListLength {
+		return nil, fmt.Errorf("SCT List too large to serialize: %d", fullSize)
+	}
+	buf := new(bytes.Buffer)
+	buf.Grow(fullSize)
+	if err = writeUint(buf, uint64(size), 2); err != nil {
 		return nil, err
 	}
 	for _, sct := range scts {

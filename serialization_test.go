@@ -446,6 +446,28 @@ func TestSerializeSCTList(t *testing.T) {
 	if bytes.Compare(mustDehex(t, defaultSCTListHexString), b) != 0 {
 		t.Fatalf("Serialized SCT differs from expected KA. Expected:\n%v\nGot:\n%v", mustDehex(t, defaultSCTListHexString), b)
 	}
+
+	// Test list too large
+	d := defaultSCT()
+	len, err := d.SerializedLength()
+	if err != nil {
+		t.Fatalf("SerializedLength failed: %s", err)
+	}
+	list := []SignedCertificateTimestamp{}
+	for l := 2; l < MaxSCTListLength; {
+		list = append(list, d)
+		l += len + 2
+	}
+	_, err = SerializeSCTList(list)
+	if err == nil {
+		t.Fatal("SerializeSCTList didn't fail with too large of a serialized SCT list")
+	}
+	// Test SCT too large
+	d.Extensions = make(CTExtensions, MaxSCTInListLength-len)
+	_, err = SerializeSCTList(list)
+	if err == nil {
+		t.Fatal("SerializeSCTList didn't fail with too large of a individual SCT")
+	}
 }
 
 func TestDeserializeSCT(t *testing.T) {
