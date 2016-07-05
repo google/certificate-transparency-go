@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency/go"
-	"github.com/mreiferson/go-httpclient"
 	"golang.org/x/net/context"
 )
 
@@ -109,18 +108,9 @@ type getEntryAndProofResponse struct {
 // New constructs a new LogClient instance.
 // |uri| is the base URI of the CT log instance to interact with, e.g.
 // http://ct.googleapis.com/pilot
-func New(uri string) *LogClient {
-	var c LogClient
-	c.uri = uri
-	transport := &httpclient.Transport{
-		ConnectTimeout:        10 * time.Second,
-		RequestTimeout:        30 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		MaxIdleConnsPerHost:   10,
-		DisableKeepAlives:     false,
-	}
-	c.httpClient = &http.Client{Transport: transport}
-	return &c
+// |hc| is the underlying client to be used for HTTP requests to the CT log.
+func New(uri string, hc *http.Client) *LogClient {
+	return &LogClient{uri: uri, httpClient: hc}
 }
 
 // Makes a HTTP call to |uri|, and attempts to parse the response as a JSON
