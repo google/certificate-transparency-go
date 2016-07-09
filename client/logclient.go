@@ -110,6 +110,9 @@ type getEntryAndProofResponse struct {
 // http://ct.googleapis.com/pilot
 // |hc| is the underlying client to be used for HTTP requests to the CT log.
 func New(uri string, hc *http.Client) *LogClient {
+	if hc == nil {
+		hc = new(http.Client)
+	}
 	return &LogClient{uri: uri, httpClient: hc}
 }
 
