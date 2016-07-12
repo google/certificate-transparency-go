@@ -14,7 +14,7 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 		count := 0
 		tick := time.NewTicker(time.Second)
 		go func() {
-			for _ = range tick.C {
+			for range tick.C {
 				// Allow a count up to one more than the limit as scheduling of
 				// goroutine vs the main thread could cause this check to not be
 				// run quite in time for limit.
@@ -39,7 +39,7 @@ func TestRateLimiterGoroutines(t *testing.T) {
 		count := 0
 		tick := time.NewTicker(time.Second)
 		go func() {
-			for _ = range tick.C {
+			for range tick.C {
 				// Allow a count up to one more than the limit as scheduling of
 				// goroutine vs the main thread could cause this check to not be
 				// run quite in time for limit.

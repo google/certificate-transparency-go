@@ -106,8 +106,8 @@ func main() {
 			ResponseHeaderTimeout: 30 * time.Second,
 			MaxIdleConnsPerHost:   10,
 			DisableKeepAlives:     false,
-			},
-		})
+		},
+	})
 	matcher, err := createMatcherFromFlags()
 	if err != nil {
 		log.Fatal(err)

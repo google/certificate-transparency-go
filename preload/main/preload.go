@@ -71,15 +71,15 @@ func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, ad
 func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
 	encoder := gob.NewEncoder(sctWriter)
 
-    numAdded := 0
-    numFailed := 0
+	numAdded := 0
+	numFailed := 0
 
 	for c := range addedCerts {
-      if c.AddedOk {
-        numAdded++
-      } else {
-        numFailed++
-      }
+		if c.AddedOk {
+			numAdded++
+		} else {
+			numFailed++
+		}
 		if encoder != nil {
 			err := encoder.Encode(c)
 			if err != nil {
@@ -87,7 +87,7 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 			}
 		}
 	}
-    log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
+	log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
 	wg.Done()
 }
 
