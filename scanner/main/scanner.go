@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -9,11 +10,10 @@ import (
 	"regexp"
 	"time"
 
-	"encoding/base64"
-	"github.com/google/certificate-transparency/go"
+	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/scanner"
-	"github.com/mreiferson/go-httpclient"
+	httpclient "github.com/mreiferson/go-httpclient"
 )
 
 const (
