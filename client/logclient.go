@@ -125,20 +125,21 @@ func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
 		return err
 	}
 	resp, err := c.httpClient.Do(req)
-	var body []byte
-	if resp != nil {
-		body, err = ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return err
-		}
-	}
 	if err != nil {
 		return err
 	}
-	if err = json.Unmarshal(body, &res); err != nil {
+	defer resp.Body.Close()
+	// Make sure everything is read, so http.Client can reuse the connection.
+	defer ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("got HTTP Status %s", resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(res); err != nil {
 		return err
 	}
+
 	return nil
 }
 
