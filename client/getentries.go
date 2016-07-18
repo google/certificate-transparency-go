@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 
 	ct "github.com/google/certificate-transparency/go"
 	"golang.org/x/net/context"
@@ -20,9 +21,7 @@ type getEntriesResponse struct {
 	Entries []leafEntry `json:"entries"` // the list of returned entries
 }
 
-// GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
-// Returns a slice of LeafInputs or a non-nil error.
-func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
+func getRawEntries(ctx context.Context, httpClient *http.Client, logURL string, start, end int64) (*getEntriesResponse, error) {
 	if end < 0 {
 		return nil, errors.New("end should be >= 0")
 	}
@@ -30,7 +29,18 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 		return nil, errors.New("start should be <= end")
 	}
 	var resp getEntriesResponse
-	err := fetchAndParse(context.TODO(), c.httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", c.uri, GetEntriesPath, start, end), &resp)
+	err := fetchAndParse(context.TODO(), httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", logURL, GetEntriesPath, start, end), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
+// GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
+// Returns a slice of LeafInputs or a non-nil error.
+func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
+	resp, err := getRawEntries(context.TODO(), c.httpClient, c.uri, start, end)
 	if err != nil {
 		return nil, err
 	}
