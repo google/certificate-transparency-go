@@ -13,18 +13,20 @@ import (
 	"golang.org/x/net/context"
 )
 
-// leafEntry respresents a JSON leaf entry
-type leafEntry struct {
+// LeafEntry respresents a JSON leaf entry
+type LeafEntry struct {
 	LeafInput []byte `json:"leaf_input"`
 	ExtraData []byte `json:"extra_data"`
 }
 
 // getEntriesReponse respresents the JSON response to the CT get-entries method
 type getEntriesResponse struct {
-	Entries []leafEntry `json:"entries"` // the list of returned entries
+	Entries []LeafEntry `json:"entries"` // the list of returned entries
 }
 
-func getRawEntries(ctx context.Context, httpClient *http.Client, logURL string, start, end int64) (*getEntriesResponse, error) {
+// GetRawEntries exposes the /ct/v1/get-entries result with only the
+// JSON parsing done.
+func GetRawEntries(ctx context.Context, httpClient *http.Client, logURL string, start, end int64) (*getEntriesResponse, error) {
 	if end < 0 {
 		return nil, errors.New("end should be >= 0")
 	}
@@ -54,7 +56,7 @@ func getRawEntries(ctx context.Context, httpClient *http.Client, logURL string, 
 // GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
 // Returns a slice of LeafInputs or a non-nil error.
 func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
-	resp, err := getRawEntries(context.TODO(), c.httpClient, c.uri, start, end)
+	resp, err := GetRawEntries(context.TODO(), c.httpClient, c.uri, start, end)
 	if err != nil {
 		return nil, err
 	}
