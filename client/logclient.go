@@ -6,9 +6,7 @@ package client
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -43,7 +41,7 @@ type LogClient struct {
 // addChainRequest represents the JSON request body sent to the add-chain CT
 // method.
 type addChainRequest struct {
-	Chain []string `json:"chain"`
+	Chain [][]byte `json:"chain"`
 }
 
 // addChainResponse represents the JSON response to the add-chain CT method.
@@ -51,10 +49,10 @@ type addChainRequest struct {
 // log within a defined period of time.
 type addChainResponse struct {
 	SCTVersion ct.Version `json:"sct_version"` // SCT structure version
-	ID         string     `json:"id"`          // Log ID
+	ID         []byte     `json:"id"`          // Log ID
 	Timestamp  uint64     `json:"timestamp"`   // Timestamp of issuance
 	Extensions string     `json:"extensions"`  // Holder for any CT extensions
-	Signature  string     `json:"signature"`   // Log signature for this SCT
+	Signature  []byte     `json:"signature"`   // Log signature for this SCT
 }
 
 // addJSONRequest represents the JSON request body sent ot the add-json CT
@@ -67,8 +65,8 @@ type addJSONRequest struct {
 type getSTHResponse struct {
 	TreeSize          uint64 `json:"tree_size"`           // Number of certs in the current tree
 	Timestamp         uint64 `json:"timestamp"`           // Time that the tree was created
-	SHA256RootHash    string `json:"sha256_root_hash"`    // Root hash of the tree
-	TreeHeadSignature string `json:"tree_head_signature"` // Log signature for this STH
+	SHA256RootHash    []byte `json:"sha256_root_hash"`    // Root hash of the tree
+	TreeHeadSignature []byte `json:"tree_head_signature"` // Log signature for this STH
 }
 
 // getConsistencyProofResponse represents the JSON response to the CT get-consistency-proof method
@@ -191,7 +189,7 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []
 	var resp addChainResponse
 	var req addChainRequest
 	for _, link := range chain {
-		req.Chain = append(req.Chain, base64.StdEncoding.EncodeToString(link))
+		req.Chain = append(req.Chain, link)
 	}
 	httpStatus := "Unknown"
 	backoffSeconds := 0
@@ -231,20 +229,12 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []
 		httpStatus = httpResp.Status
 	}
 
-	rawLogID, err := base64.StdEncoding.DecodeString(resp.ID)
-	if err != nil {
-		return nil, err
-	}
-	rawSignature, err := base64.StdEncoding.DecodeString(resp.Signature)
-	if err != nil {
-		return nil, err
-	}
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.Signature))
 	if err != nil {
 		return nil, err
 	}
 	var logID ct.SHA256Hash
-	copy(logID[:], rawLogID)
+	copy(logID[:], resp.ID)
 	return &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      logID,
@@ -278,20 +268,12 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 	if err != nil {
 		return nil, err
 	}
-	rawLogID, err := base64.StdEncoding.DecodeString(resp.ID)
-	if err != nil {
-		return nil, err
-	}
-	rawSignature, err := base64.StdEncoding.DecodeString(resp.Signature)
-	if err != nil {
-		return nil, err
-	}
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.Signature))
 	if err != nil {
 		return nil, err
 	}
 	var logID ct.SHA256Hash
-	copy(logID[:], rawLogID)
+	copy(logID[:], resp.ID)
 	return &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      logID,
@@ -312,20 +294,12 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 		Timestamp: resp.Timestamp,
 	}
 
-	rawRootHash, err := base64.StdEncoding.DecodeString(resp.SHA256RootHash)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64 encoding in sha256_root_hash: %v", err)
+	if len(resp.SHA256RootHash) != sha256.Size {
+		return nil, fmt.Errorf("sha256_root_hash is invalid length, expected %d got %d", sha256.Size, len(resp.SHA256RootHash))
 	}
-	if len(rawRootHash) != sha256.Size {
-		return nil, fmt.Errorf("sha256_root_hash is invalid length, expected %d got %d", sha256.Size, len(rawRootHash))
-	}
-	copy(sth.SHA256RootHash[:], rawRootHash)
+	copy(sth.SHA256RootHash[:], resp.SHA256RootHash)
 
-	rawSignature, err := base64.StdEncoding.DecodeString(resp.TreeHeadSignature)
-	if err != nil {
-		return nil, errors.New("invalid base64 encoding in tree_head_signature")
-	}
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(rawSignature))
+	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.TreeHeadSignature))
 	if err != nil {
 		return nil, err
 	}
