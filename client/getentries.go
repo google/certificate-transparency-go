@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency/go"
+	"golang.org/x/net/context"
 )
 
 // leafEntry respresents a JSON leaf entry
@@ -29,7 +30,7 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 		return nil, errors.New("start should be <= end")
 	}
 	var resp getEntriesResponse
-	err := fetchAndParse(c.httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", c.uri, GetEntriesPath, start, end), &resp)
+	err := fetchAndParse(context.TODO(), c.httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", c.uri, GetEntriesPath, start, end), &resp)
 	if err != nil {
 		return nil, err
 	}

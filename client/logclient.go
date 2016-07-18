@@ -106,14 +106,16 @@ func New(uri string, hc *http.Client) *LogClient {
 }
 
 // Makes a HTTP call to |uri|, and attempts to parse the response as a
-// JSON representation of the structure in |res|. Uses |httpClient| to
-// make the actual HTTP call.
+// JSON representation of the structure in |res|. Uses |ctx| to
+// control the HTTP call (so it can have a timeout or be cancelled by
+// the caller), and |httpClient| to make the actual HTTP call.
 // Returns a non-nil |error| if there was a problem.
-func fetchAndParse(httpClient *http.Client, uri string, res interface{}) error {
+func fetchAndParse(ctx context.Context, httpClient *http.Client, uri string, res interface{}) error {
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
 		return err
 	}
+	req.Cancel = ctx.Done()
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
@@ -302,7 +304,7 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 // Returns a populated SignedTreeHead, or a non-nil error.
 func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	var resp getSTHResponse
-	if err = fetchAndParse(c.httpClient, c.uri+GetSTHPath, &resp); err != nil {
+	if err = fetchAndParse(context.TODO(), c.httpClient, c.uri+GetSTHPath, &resp); err != nil {
 		return
 	}
 	sth = &ct.SignedTreeHead{
