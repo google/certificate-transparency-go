@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 
 	ct "github.com/google/certificate-transparency/go"
 	"golang.org/x/net/context"
@@ -28,8 +31,19 @@ func getRawEntries(ctx context.Context, httpClient *http.Client, logURL string, 
 	if end < start {
 		return nil, errors.New("start should be <= end")
 	}
+
+	baseURL, err := url.Parse(strings.TrimRight(logURL, "/") + GetEntriesPath)
+	if err != nil {
+		return nil, err
+	}
+
+	baseURL.RawQuery = url.Values{
+		"start": []string{strconv.FormatInt(start, 10)},
+		"end":   []string{strconv.FormatInt(end, 10)},
+	}.Encode()
+
 	var resp getEntriesResponse
-	err := fetchAndParse(context.TODO(), httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", logURL, GetEntriesPath, start, end), &resp)
+	err = fetchAndParse(context.TODO(), httpClient, baseURL.String(), &resp)
 	if err != nil {
 		return nil, err
 	}
