@@ -110,7 +110,7 @@ func New(uri string, hc *http.Client) *LogClient {
 // make the actual HTTP call.
 // Returns a non-nil |error| if there was a problem.
 func fetchAndParse(httpClient *http.Client, uri string, res interface{}) error {
-	req, err := http.NewRequest("GET", uri, nil)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) (
 	if err != nil {
 		return nil, "", err
 	}
-	httpReq, err := http.NewRequest("POST", uri, bytes.NewReader(postBody))
+	httpReq, err := http.NewRequest(http.MethodPost, uri, bytes.NewReader(postBody))
 	if err != nil {
 		return nil, "", err
 	}
