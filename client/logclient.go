@@ -116,15 +116,16 @@ func New(uri string, hc *http.Client) *LogClient {
 	return &LogClient{uri: uri, httpClient: hc}
 }
 
-// Makes a HTTP call to |uri|, and attempts to parse the response as a JSON
-// representation of the structure in |res|.
+// Makes a HTTP call to |uri|, and attempts to parse the response as a
+// JSON representation of the structure in |res|. Uses |httpClient| to
+// make the actual HTTP call.
 // Returns a non-nil |error| if there was a problem.
-func (c *LogClient) fetchAndParse(uri string, res interface{}) error {
+func fetchAndParse(httpClient *http.Client, uri string, res interface{}) error {
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -312,7 +313,7 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 // Returns a populated SignedTreeHead, or a non-nil error.
 func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	var resp getSTHResponse
-	if err = c.fetchAndParse(c.uri+GetSTHPath, &resp); err != nil {
+	if err = fetchAndParse(c.httpClient, c.uri+GetSTHPath, &resp); err != nil {
 		return
 	}
 	sth = &ct.SignedTreeHead{
@@ -353,7 +354,7 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 		return nil, errors.New("start should be <= end")
 	}
 	var resp getEntriesResponse
-	err := c.fetchAndParse(fmt.Sprintf("%s%s?start=%d&end=%d", c.uri, GetEntriesPath, start, end), &resp)
+	err := fetchAndParse(c.httpClient, fmt.Sprintf("%s%s?start=%d&end=%d", c.uri, GetEntriesPath, start, end), &resp)
 	if err != nil {
 		return nil, err
 	}
