@@ -205,7 +205,7 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []
 		if backoffSeconds > 0 {
 			backoffSeconds = 0
 		}
-		httpResp, errorBody, err := c.postAndParse(c.uri+path, &req, &resp)
+		httpResp, _, err := c.postAndParse(c.uri+path, &req, &resp)
 		if err != nil {
 			backoffSeconds = 10
 			continue
@@ -224,7 +224,7 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []
 				}
 			}
 		default:
-			return nil, fmt.Errorf("got HTTP Status %s: %s", httpResp.Status, errorBody)
+			return nil, fmt.Errorf("got HTTP Status %s", httpResp.Status)
 		}
 		httpStatus = httpResp.Status
 	}
