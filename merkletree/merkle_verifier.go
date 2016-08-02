@@ -6,6 +6,7 @@ import (
 	"fmt"
 )
 
+// RootMismatchError occurs when an inclusion proof fails.
 type RootMismatchError struct {
 	ExpectedRoot   []byte
 	CalculatedRoot []byte

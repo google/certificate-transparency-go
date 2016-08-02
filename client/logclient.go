@@ -259,6 +259,7 @@ func (c *LogClient) AddChainWithContext(ctx context.Context, chain []ct.ASN1Cert
 	return c.addChainWithRetry(ctx, AddChainPath, chain)
 }
 
+// AddJSON submits arbitrary data to to XJSON server.
 func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, error) {
 	req := addJSONRequest{
 		Data: data,

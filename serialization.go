@@ -459,6 +459,7 @@ func deserializeSCTV1(r io.Reader, sct *SignedCertificateTimestamp) error {
 	return nil
 }
 
+// DeserializeSCT reads an SCT from Reader.
 func DeserializeSCT(r io.Reader) (*SignedCertificateTimestamp, error) {
 	var sct SignedCertificateTimestamp
 	if err := binary.Read(r, binary.BigEndian, &sct.SCTVersion); err != nil {
