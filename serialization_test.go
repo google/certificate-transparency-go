@@ -518,3 +518,18 @@ func TestX509MerkleTreeLeafHash(t *testing.T) {
 	}
 
 }
+
+func TestJSONMerkleTreeLeaf(t *testing.T) {
+	data := `CioaINV25GV8X4a6M6Q10avSLP9PYd5N8MwWxQvWU7E2CzZ8IgYI0KnavAUSWAoIZDc1NjMzMzMSTAgEEAMaRjBEAiBQlnp6Q3di86g8M3l5gz+9qls/Cz1+KJ+tK/jpaBtUCgIgXaJ94uLsnChA1NY7ocGwKrQwPU688hwaZ5L/DboV4mQ=2`
+	timestamp := uint64(1469664866615)
+	leaf := CreateJSONMerkleTreeLeaf(data, timestamp)
+	b := new(bytes.Buffer)
+	if err := SerializeMerkleTreeLeaf(b, leaf); err != nil {
+		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
+	}
+	leafBytes := dh("0000000001562eda313780000000c67b202264617461223a202243696f61494e563235475638583461364d365131306176534c5039505964354e384d77577851765755374532437a5a3849675949304b6e617641555357416f495a4463314e6a4d7a4d7a4d535441674545414d61526a4245416942516c6e703651336469383667384d336c35677a2b39716c735c2f437a312b4b4a2b744b5c2f6a70614274554367496758614a3934754c736e436841314e59376f6347774b72517750553638386877615a354c5c2f44626f56346d513d3222207d0000")
+
+	if !bytes.Equal(b.Bytes(), leafBytes) {
+		t.Errorf("CreateJSONMerkleTreeLeaf(): got\n%x, want\n%x", b.Bytes(), leafBytes)
+	}
+}
