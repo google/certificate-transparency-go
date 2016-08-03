@@ -20,11 +20,12 @@ import (
 
 // URI paths for CT Log endpoints
 const (
-	AddChainPath    = "/ct/v1/add-chain"
-	AddPreChainPath = "/ct/v1/add-pre-chain"
-	AddJSONPath     = "/ct/v1/add-json"
-	GetSTHPath      = "/ct/v1/get-sth"
-	GetEntriesPath  = "/ct/v1/get-entries"
+	AddChainPath          = "/ct/v1/add-chain"
+	AddPreChainPath       = "/ct/v1/add-pre-chain"
+	AddJSONPath           = "/ct/v1/add-json"
+	GetSTHPath            = "/ct/v1/get-sth"
+	GetEntriesPath        = "/ct/v1/get-entries"
+	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
 )
 
 // LogClient represents a client for a given CT Log instance
@@ -71,7 +72,7 @@ type getSTHResponse struct {
 
 // getConsistencyProofResponse represents the JSON response to the CT get-consistency-proof method
 type getConsistencyProofResponse struct {
-	Consistency []string `json:"consistency"`
+	Consistency [][]byte `json:"consistency"`
 }
 
 // getAuditProofResponse represents the JSON response to the CT get-audit-proof method
@@ -307,4 +308,12 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	// TODO(alcutter): Verify signature
 	sth.TreeHeadSignature = *ds
 	return
+}
+
+// GetSTHConsistency retrieves the consistency proof between two snapshots.
+func (c *LogClient) GetSTHConsistency(first, second uint64) ([][]byte, error) {
+	resp := new(getConsistencyProofResponse)
+	u := fmt.Sprintf("%s%s?first=%d&second=%d", c.uri, GetSTHConsistencyPath, first, second)
+	err := fetchAndParse(context.TODO(), c.httpClient, u, &resp)
+	return resp.Consistency, err
 }
