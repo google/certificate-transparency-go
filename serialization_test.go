@@ -3,11 +3,21 @@ package ct
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/pem"
+	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func dh(h string) []byte {
+	r, err := hex.DecodeString(h)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
 
 // Returns a "variable-length" byte buffer containing |dataSize| data bytes
 // along with an appropriate header.
@@ -476,4 +486,35 @@ func TestDeserializeSCT(t *testing.T) {
 		t.Fatalf("Failed to deserialize SCT: %v", err)
 	}
 	assert.Equal(t, defaultSCT(), *sct)
+}
+
+func TestX509MerkleTreeLeafHash(t *testing.T) {
+	certFile := "../test/testdata/test-cert.pem"
+	sctFile := "../test/testdata/test-cert.proof"
+	certB, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %v", certFile, err)
+	}
+	certDER, _ := pem.Decode(certB)
+
+	sctB, err := ioutil.ReadFile(sctFile)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %v", sctFile, err)
+	}
+	sct, err := DeserializeSCT(bytes.NewBuffer(sctB))
+	if err != nil {
+		t.Fatalf("Failed to deserialize sct: %v", err)
+	}
+
+	b := new(bytes.Buffer)
+	leaf := CreateX509MerkleTreeLeaf(certDER.Bytes, sct.Timestamp)
+	if err := SerializeMerkleTreeLeaf(b, leaf); err != nil {
+		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
+	}
+
+	leafBytes := dh("00000000013ddb27ded900000002ce308202ca30820233a003020102020106300d06092a864886f70d01010505003055310b300906035504061302474231243022060355040a131b4365727469666963617465205472616e73706172656e6379204341310e300c0603550408130557616c65733110300e060355040713074572772057656e301e170d3132303630313030303030305a170d3232303630313030303030305a3052310b30090603550406130247423121301f060355040a13184365727469666963617465205472616e73706172656e6379310e300c0603550408130557616c65733110300e060355040713074572772057656e30819f300d06092a864886f70d010101050003818d0030818902818100b1fa37936111f8792da2081c3fe41925008531dc7f2c657bd9e1de4704160b4c9f19d54ada4470404c1c51341b8f1f7538dddd28d9aca48369fc5646ddcc7617f8168aae5b41d43331fca2dadfc804d57208949061f9eef902ca47ce88c644e000f06eeeccabdc9dd2f68a22ccb09dc76e0dbc73527765b1a37a8c676253dcc10203010001a381ac3081a9301d0603551d0e041604146a0d982a3b62c44b6d2ef4e9bb7a01aa9cb798e2307d0603551d230476307480145f9d880dc873e654d4f80dd8e6b0c124b447c355a159a4573055310b300906035504061302474231243022060355040a131b4365727469666963617465205472616e73706172656e6379204341310e300c0603550408130557616c65733110300e060355040713074572772057656e82010030090603551d1304023000300d06092a864886f70d010105050003818100171cd84aac414a9a030f22aac8f688b081b2709b848b4e5511406cd707fed028597a9faefc2eee2978d633aaac14ed3235197da87e0f71b8875f1ac9e78b281749ddedd007e3ecf50645f8cbf667256cd6a1647b5e13203bb8582de7d6696f656d1c60b95f456b7fcf338571908f1c69727d24c4fccd249295795814d1dac0e60000")
+	if !bytes.Equal(b.Bytes(), leafBytes) {
+		t.Errorf("CreateX509MerkleTreeLeaf(): got\n %x, want\n%x", b.Bytes(), sctB)
+	}
+
 }
