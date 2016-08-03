@@ -151,6 +151,33 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	return nil
 }
 
+// SerializeTimestampedEntry writes timestamped entry to Writer.
+func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
+	if err := binary.Write(w, binary.BigEndian, t.Timestamp); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.BigEndian, t.EntryType); err != nil {
+		return err
+	}
+	switch t.EntryType {
+	case X509LogEntryType:
+		if err := writeVarBytes(w, t.X509Entry, CertificateLengthBytes); err != nil {
+			return err
+		}
+	case PrecertLogEntryType:
+		if err := binary.Write(w, binary.BigEndian, t.PrecertEntry.IssuerKeyHash); err != nil {
+			return err
+		}
+		if err := writeVarBytes(w, t.PrecertEntry.TBSCertificate, PreCertificateLengthBytes); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown EntryType: %d", t.EntryType)
+	}
+	writeVarBytes(w, t.Extensions, ExtensionsLengthBytes)
+	return nil
+}
+
 // ReadMerkleTreeLeaf parses the byte-stream representation of a MerkleTreeLeaf
 // and returns a pointer to a new MerkleTreeLeaf structure containing the
 // parsed data.
@@ -561,4 +588,37 @@ func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
 		}
 	}
 	return asn1.Marshal(buf.Bytes()) // transform to Octet String
+}
+
+// SerializeMerkleTreeLeaf writes MerkleTreeLeaf to Writer.
+func SerializeMerkleTreeLeaf(w io.Writer, m *MerkleTreeLeaf) error {
+	if m.Version != V1 {
+		return fmt.Errorf("unknown Version %d", m.Version)
+	}
+	if err := binary.Write(w, binary.BigEndian, m.Version); err != nil {
+		return err
+	}
+	if m.LeafType != TimestampedEntryLeafType {
+		return fmt.Errorf("unknown LeafType %d", m.LeafType)
+	}
+	if err := binary.Write(w, binary.BigEndian, m.LeafType); err != nil {
+		return err
+	}
+	if err := SerializeTimestampedEntry(w, &m.TimestampedEntry); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Create X509 MerkleTreeLeaf generates a MerkleTreeLeaf for an X509 cert
+func CreateX509MerkleTreeLeaf(cert ASN1Cert, timestamp uint64) *MerkleTreeLeaf {
+	return &MerkleTreeLeaf{
+		Version:  V1,
+		LeafType: TimestampedEntryLeafType,
+		TimestampedEntry: TimestampedEntry{
+			Timestamp: timestamp,
+			EntryType: X509LogEntryType,
+			X509Entry: cert,
+		},
+	}
 }
