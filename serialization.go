@@ -601,6 +601,7 @@ func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
 }
 
 // SerializeMerkleTreeLeaf writes MerkleTreeLeaf to Writer.
+// In case of error, w may contain garbage.
 func SerializeMerkleTreeLeaf(w io.Writer, m *MerkleTreeLeaf) error {
 	if m.Version != V1 {
 		return fmt.Errorf("unknown Version %d", m.Version)
