@@ -242,7 +242,7 @@ func TestGetSTHConsistency(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		proof, err := c.GetSTHConsistency(tc.first, tc.second)
+		proof, err := c.GetSTHConsistency(context.TODO(), tc.first, tc.second)
 		if err != nil {
 			t.Fatalf("Failed to get consistency proof: %v", err)
 		}

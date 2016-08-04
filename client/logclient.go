@@ -311,9 +311,11 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 }
 
 // GetSTHConsistency retrieves the consistency proof between two snapshots.
-func (c *LogClient) GetSTHConsistency(first, second uint64) ([][]byte, error) {
-	resp := new(getConsistencyProofResponse)
+func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error) {
 	u := fmt.Sprintf("%s%s?first=%d&second=%d", c.uri, GetSTHConsistencyPath, first, second)
-	err := fetchAndParse(context.TODO(), c.httpClient, u, &resp)
-	return resp.Consistency, err
+	resp := new(getConsistencyProofResponse)
+	if err := fetchAndParse(ctx, c.httpClient, u, resp); err != nil {
+		return [][]byte{}, nil
+	}
+	return resp.Consistency, nil
 }
