@@ -147,6 +147,10 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 		if t.PrecertEntry.TBSCertificate, err = readVarBytes(r, PreCertificateLengthBytes); err != nil {
 			return err
 		}
+	case XJSONLogEntryType:
+		if t.JSONData, err = readVarBytes(r, JSONLengthBytes); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown EntryType: %d", t.EntryType)
 	}
@@ -155,6 +159,7 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 }
 
 // SerializeTimestampedEntry writes timestamped entry to Writer.
+// In case of error, w may contain garbage.
 func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 	if err := binary.Write(w, binary.BigEndian, t.Timestamp); err != nil {
 		return err
