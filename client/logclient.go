@@ -6,11 +6,13 @@ package client
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -25,6 +27,7 @@ const (
 	AddJSONPath           = "/ct/v1/add-json"
 	GetSTHPath            = "/ct/v1/get-sth"
 	GetEntriesPath        = "/ct/v1/get-entries"
+	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
 	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
 )
 
@@ -91,6 +94,12 @@ type getEntryAndProofResponse struct {
 	LeafInput string   `json:"leaf_input"` // the entry itself
 	ExtraData string   `json:"extra_data"` // any chain provided when the entry was added to the log
 	AuditPath []string `json:"audit_path"` // the corresponding proof
+}
+
+// GetProofByHashResponse represents the JSON response to the CT get-proof-by-hash method.
+type GetProofByHashResponse struct {
+	LeafIndex int64    `json:"leaf_index"` // The 0-based index of the end entity corresponding to the "hash" parameter.
+	AuditPath [][]byte `json:"audit_path"` // An array of base64-encoded Merkle Tree nodes proving the inclusion of the chosen certificate.
 }
 
 // New constructs a new LogClient instance.
@@ -318,4 +327,15 @@ func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64)
 		return nil, err
 	}
 	return resp.Consistency, nil
+}
+
+// GetProofByHash returns an audit path for the hash of an SCT.
+func (c *LogClient) GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*GetProofByHashResponse, error) {
+	b64Hash := url.QueryEscape(base64.StdEncoding.EncodeToString(hash))
+	u := fmt.Sprintf("%s%s?tree_size=%d&hash=%v", c.uri, GetProofByHashPath, treeSize, b64Hash)
+	var resp GetProofByHashResponse
+	if err := fetchAndParse(ctx, c.httpClient, u, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

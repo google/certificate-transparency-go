@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"net/http"
@@ -16,6 +17,14 @@ import (
 	ct "github.com/google/certificate-transparency/go"
 	"golang.org/x/net/context"
 )
+
+func dh(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 const (
 	ValidSTHResponse = `{"tree_size":3721782,"timestamp":1396609800587,
@@ -33,6 +42,22 @@ const (
 	CertEntryExtraDataB64 = "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"
 
 	SubmissionCertB64 = "MIIEijCCA3KgAwIBAgICEk0wDQYJKoZIhvcNAQELBQAwKzEpMCcGA1UEAwwgY2Fja2xpbmcgY3J5cHRvZ3JhcGhlciBmYWtlIFJPT1QwHhcNMTUxMDIxMjAxMTUyWhcNMjAxMDE5MjAxMTUyWjAfMR0wGwYDVQQDExRoYXBweSBoYWNrZXIgZmFrZSBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMIKR3maBcUSsncXYzQT13D5Nr+Z3mLxMMh3TUdt6sACmqbJ0btRlgXfMtNLM2OU1I6a3Ju+tIZSdn2v21JBwvxUzpZQ4zy2cimIiMQDZCQHJwzC9GZn8HaW091iz9H0Go3A7WDXwYNmsdLNRi00o14UjoaVqaPsYrZWvRKaIRqaU0hHmS0AWwQSvN/93iMIXuyiwywmkwKbWnnxCQ/gsctKFUtcNrwEx9Wgj6KlhwDTyI1QWSBbxVYNyUgPFzKxrSmwMO0yNff7ho+QT9x5+Y/7XE59S4Mc4ZXxcXKew/gSlN9U5mvT+D2BhDtkCupdfsZNCQWp27A+b/DmrFI9NqsCAwEAAaOCAcIwggG+MBIGA1UdEwEB/wQIMAYBAf8CAQAwQwYDVR0eBDwwOqE4MAaCBC5taWwwCocIAAAAAAAAAAAwIocgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwDgYDVR0PAQH/BAQDAgGGMH8GCCsGAQUFBwEBBHMwcTAyBggrBgEFBQcwAYYmaHR0cDovL2lzcmcudHJ1c3RpZC5vY3NwLmlkZW50cnVzdC5jb20wOwYIKwYBBQUHMAKGL2h0dHA6Ly9hcHBzLmlkZW50cnVzdC5jb20vcm9vdHMvZHN0cm9vdGNheDMucDdjMB8GA1UdIwQYMBaAFOmkP+6epeby1dd5YDyTpi4kjpeqMFQGA1UdIARNMEswCAYGZ4EMAQIBMD8GCysGAQQBgt8TAQEBMDAwLgYIKwYBBQUHAgEWImh0dHA6Ly9jcHMucm9vdC14MS5sZXRzZW5jcnlwdC5vcmcwPAYDVR0fBDUwMzAxoC+gLYYraHR0cDovL2NybC5pZGVudHJ1c3QuY29tL0RTVFJPT1RDQVgzQ1JMLmNybDAdBgNVHQ4EFgQU+3hPEvlgFYMsnxd/NBmzLjbqQYkwDQYJKoZIhvcNAQELBQADggEBAA0YAeLXOklx4hhCikUUl+BdnFfn1g0W5AiQLVNIOL6PnqXu0wjnhNyhqdwnfhYMnoy4idRh4lB6pz8Gf9pnlLd/DnWSV3gS+/I/mAl1dCkKby6H2V790e6IHmIK2KYm3jm+U++FIdGpBdsQTSdmiX/rAyuxMDM0adMkNBwTfQmZQCz6nGHw1QcSPZMvZpsC8SkvekzxsjF1otOrMUPNPQvtTWrVx8GlR2qfx/4xbQa1v2frNvFBCmO59goz+jnWvfTtj2NjwDZ7vlMBsPm16dbKYC840uvRoZjxqsdc3ChCZjqimFqlNG/xoPA8+dTicZzCXE9ijPIcvW6y1aa3bGw="
+	AddJSONResp       = `{  
+	   "sct_version":0,
+	   "id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=",
+	   "timestamp":1337,
+	   "extensions":"",
+	   "signature":"BAMARjBEAiAIc21J5ZbdKZHw5wLxCP+MhBEsV5+nfvGyakOIv6FOvAIgWYMZb6Pw///uiNM7QTg2Of1OqmK1GbeGuEl9VJN8v8c="
+	}`
+	ProofByHashResp = `
+	{
+		"leaf_index": 3,
+		"audit_path": [
+		"pMumx96PIUB3TX543ljlpQ/RgZRqitRfykupIZrXq0Q=",
+		"5s2NQWkjmesu+Kqgp70TCwVLwq8obpHw/JyMGwN56pQ=",
+		"7VelXijfmGFSl62BWIsG8LRmxJGBq9XP8FxmszuT2Cg="
+		]
+	}`
 )
 
 func b64(s string) []byte {
@@ -41,6 +66,28 @@ func b64(s string) []byte {
 		panic(err)
 	}
 	return b
+}
+
+// Create a test CT server.
+func CtServer(t *testing.T) *httptest.Server {
+	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/ct/v1/get-sth":
+			fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
+				ValidSTHResponseTreeSize,
+				int64(ValidSTHResponseTimestamp),
+				ValidSTHResponseSHA256RootHash,
+				ValidSTHResponseTreeHeadSignature)
+
+		case r.URL.Path == "/ct/v1/add-json":
+			w.Write([]byte(AddJSONResp))
+		case r.URL.Path == "/ct/v1/get-proof-by-hash":
+			w.Write([]byte(ProofByHashResp))
+		default:
+			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
+		}
+	}))
+	return hs
 }
 
 func TestGetEntriesWorks(t *testing.T) {
@@ -248,6 +295,30 @@ func TestGetSTHConsistency(t *testing.T) {
 		}
 		if !reflect.DeepEqual(proof, tc.proof) {
 			t.Errorf("GetSTHConsistency(%d, %d): got\n%v, want\n%v", tc.first, tc.second, proof, tc.proof)
+		}
+	}
+}
+
+func TestGetProofByHash(t *testing.T) {
+	hs := CtServer(t)
+	defer hs.Close()
+
+	c := New(hs.URL, &http.Client{})
+
+	tests := []struct {
+		hash     []byte
+		treesize uint64
+	}{
+		{dh("4a9e8edbe5ce2d2da69d483edb45186675d4be37b649d40923b156a7d1277463"), 5},
+	}
+
+	for _, tc := range tests {
+		resp, err := c.GetProofByHash(context.Background(), tc.hash, tc.treesize)
+		if err != nil {
+			t.Errorf("GetProofByHash(%h, %v): %v", tc.hash, tc.treesize, err)
+		}
+		if got := len(resp.AuditPath); got < 1 {
+			t.Errorf("len(GetProofByHash(%h, %v)): %v, want > 1", tc.hash, tc.treesize, got)
 		}
 	}
 }
