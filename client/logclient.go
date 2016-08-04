@@ -70,7 +70,7 @@ type getSTHResponse struct {
 	TreeHeadSignature []byte `json:"tree_head_signature"` // Log signature for this STH
 }
 
-// getConsistencyProofResponse represents the JSON response to the CT get-consistency-proof method
+// getConsistencyProofResponse represents the JSON response to the get-consistency-proof CT method
 type getConsistencyProofResponse struct {
 	Consistency [][]byte `json:"consistency"`
 }

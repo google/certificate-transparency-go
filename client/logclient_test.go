@@ -226,10 +226,7 @@ func TestAddJSON(t *testing.T) {
 
 func TestGetSTHConsistency(t *testing.T) {
 	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(`{ "consistency": [ "IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ=", "ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl\/8=" ] }`))
-		if err != nil {
-			return
-		}
+		w.Write([]byte(`{ "consistency": [ "IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ=", "ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl\/8=" ] }`))
 	}))
 	defer hs.Close()
 
@@ -250,7 +247,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			t.Fatalf("Failed to get consistency proof: %v", err)
 		}
 		if !reflect.DeepEqual(proof, tc.proof) {
-			t.Errorf("GetSTHConsistency(): got\n%v, want\n%v", proof, tc.proof)
+			t.Errorf("GetSTHConsistency(%d, %d): got\n%v, want\n%v", tc.first, tc.second, proof, tc.proof)
 		}
 	}
 }
