@@ -313,9 +313,9 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 // GetSTHConsistency retrieves the consistency proof between two snapshots.
 func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error) {
 	u := fmt.Sprintf("%s%s?first=%d&second=%d", c.uri, GetSTHConsistencyPath, first, second)
-	resp := new(getConsistencyProofResponse)
-	if err := fetchAndParse(ctx, c.httpClient, u, resp); err != nil {
-		return [][]byte{}, nil
+	var resp getConsistencyProofResponse
+	if err := fetchAndParse(ctx, c.httpClient, u, &resp); err != nil {
+		return nil, err
 	}
 	return resp.Consistency, nil
 }
