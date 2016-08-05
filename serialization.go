@@ -341,6 +341,29 @@ func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExt
 	return buf.Bytes(), nil
 }
 
+func serializeV1JSONSCTSignatureInput(timestamp uint64, j []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, XJSONLogEntryType); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, j, JSONLengthBytes); err != nil {
+		return nil, err
+	}
+	if err := writeVarBytes(&buf, nil, ExtensionsLengthBytes); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [issuerKeyHashLength]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
 	if err := checkCertificateFormat(tbs); err != nil {
 		return nil, err
@@ -387,6 +410,8 @@ func serializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry
 		return serializeV1PrecertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
 			entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
 			entry.Leaf.TimestampedEntry.Extensions)
+	case XJSONLogEntryType:
+		return serializeV1JSONSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.JSONData)
 	default:
 		return nil, fmt.Errorf("unknown TimestampedEntryLeafType %s", entry.Leaf.TimestampedEntry.EntryType)
 	}

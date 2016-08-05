@@ -377,6 +377,34 @@ func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
 	}
 }
 
+func TestSerializeV1SCTJSONSignature(t *testing.T) {
+	entry := LogEntry{Leaf: *CreateJSONMerkleTreeLeaf("data", defaultSCT().Timestamp)}
+	expected := dh(
+		// version, 1 byte
+		"00" +
+			// signature type, 1 byte
+			"00" +
+			// timestamp, 8 bytes
+			"00000000000004d2" +
+			// entry type, 2 bytes
+			"8000" +
+			// tbs certificate length, 18 bytes
+			"000012" +
+			// { "data": "data" }, 3 bytes
+			"7b202264617461223a20226461746122207d" +
+			// extensions length, 2 bytes
+			"0000" +
+			// extensions, 0 bytes
+			"")
+	serialized, err := SerializeSCTSignatureInput(defaultSCT(), entry)
+	if err != nil {
+		t.Fatalf("Failed to serialize SCT for signing: %v", err)
+	}
+	if !bytes.Equal(serialized, expected) {
+		t.Fatalf("Serialized JSON signature :\n%x, want\n%x", serialized, expected)
+	}
+}
+
 func TestSerializeV1STHSignatureKAT(t *testing.T) {
 	b, err := SerializeSTHSignatureInput(defaultSTH())
 	if err != nil {
