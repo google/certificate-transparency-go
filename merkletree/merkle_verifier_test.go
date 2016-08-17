@@ -6,9 +6,10 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	ct "github.com/google/certificate-transparency/go"
 	"io/ioutil"
 	"testing"
+
+	ct "github.com/google/certificate-transparency/go"
 )
 
 const (
