@@ -315,10 +315,10 @@ func TestGetProofByHash(t *testing.T) {
 	for _, tc := range tests {
 		resp, err := c.GetProofByHash(context.Background(), tc.hash, tc.treesize)
 		if err != nil {
-			t.Errorf("GetProofByHash(%h, %v): %v", tc.hash, tc.treesize, err)
+			t.Errorf("GetProofByHash(%v, %v): %v", tc.hash, tc.treesize, err)
 		}
 		if got := len(resp.AuditPath); got < 1 {
-			t.Errorf("len(GetProofByHash(%h, %v)): %v, want > 1", tc.hash, tc.treesize, got)
+			t.Errorf("len(GetProofByHash(%v, %v)): %v, want > 1", tc.hash, tc.treesize, got)
 		}
 	}
 }
