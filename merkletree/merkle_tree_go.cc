@@ -46,7 +46,7 @@ size_t LeafHash(TREE tree, size_t leaf, void* buf, size_t buf_len) {
   const MerkleTree* t(MT(tree));
   const size_t nodesize(t->NodeSize());
   if (buf == NULL || buf_len < nodesize) {
-    return false;
+    return 0;
   }
   const std::string& hash = t->LeafHash(leaf);
   assert(nodesize == hash.size());
@@ -74,7 +74,7 @@ size_t CurrentRoot(TREE tree, void* buf, size_t buf_len) {
   MerkleTree* t(MT(tree));
   const size_t nodesize(t->NodeSize());
   if (buf == NULL || buf_len < nodesize) {
-    return false;
+    return 0;
   }
   const std::string& hash = t->CurrentRoot();
   assert(nodesize == hash.size());
@@ -92,7 +92,6 @@ size_t RootAtSnapshot(TREE tree, size_t snapshot, void* buf, size_t buf_len) {
   assert(nodesize == hash.size());
   memcpy(buf, hash.data(), nodesize);
   return nodesize;
-  return true;
 }
 
 // Copies the fixed-length entries from |path| into the GoSlice
