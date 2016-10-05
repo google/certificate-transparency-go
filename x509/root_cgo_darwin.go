@@ -16,11 +16,11 @@ package x509
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
-// FetchPEMRoots_MountainLion is the version of FetchPEMRoots from Go 1.6
+// FetchPEMRootsCTX509_MountainLion is the version of FetchPEMRoots from Go 1.6
 // which still works on OS X 10.8 (Mountain Lion).
 // It lacks support for admin & user cert domains.
 // See golang.org/issue/16473
-int FetchPEMRoots_MountainLion(CFDataRef *pemRoots) {
+int FetchPEMRootsCTX509_MountainLion(CFDataRef *pemRoots) {
 	if (pemRoots == NULL) {
 		return -1;
 	}
@@ -54,12 +54,12 @@ int FetchPEMRoots_MountainLion(CFDataRef *pemRoots) {
 	return 0;
 }
 
-// useOldCode reports whether the running machine is OS X 10.8 Mountain Lion
+// useOldCodeCTX509 reports whether the running machine is OS X 10.8 Mountain Lion
 // or older. We only support Mountain Lion and higher, but we'll at least try our
 // best on older machines and continue to use the old code path.
 //
 // See golang.org/issue/16473
-int useOldCode() {
+int useOldCodeCTX509() {
 	char str[256];
 	size_t size = sizeof(str);
 	memset(str, 0, size);
@@ -77,8 +77,8 @@ int useOldCode() {
 // Note: The CFDataRef returned in pemRoots must be released (using CFRelease) after
 // we've consumed its content.
 int FetchPEMRootsCTX509(CFDataRef *pemRoots) {
-	if (useOldCode()) {
-		return FetchPEMRoots_MountainLion(pemRoots);
+	if (useOldCodeCTX509()) {
+		return FetchPEMRootsCTX509_MountainLion(pemRoots);
 	}
 
 	// Get certificates from all domains, not just System, this lets
