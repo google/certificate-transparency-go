@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package ct_mapper;
-
-message EntryList {
-  string domain = 1;
-  repeated int64 cert_index = 2;
-  repeated int64 precert_index = 3;
-}
