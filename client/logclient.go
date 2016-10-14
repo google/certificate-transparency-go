@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -33,8 +34,9 @@ const (
 
 // LogClient represents a client for a given CT Log instance
 type LogClient struct {
-	uri        string       // the base URI of the log. e.g. http://ct.googleapis/pilot
-	httpClient *http.Client // used to interact with the log via HTTP
+	uri        string                // the base URI of the log. e.g. http://ct.googleapis/pilot
+	httpClient *http.Client          // used to interact with the log via HTTP
+	verifier   *ct.SignatureVerifier // nil if no public key for log available
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +61,7 @@ type addChainResponse struct {
 	Signature  []byte     `json:"signature"`   // Log signature for this SCT
 }
 
-// addJSONRequest represents the JSON request body sent ot the add-json CT
+// addJSONRequest represents the JSON request body sent to the add-json CT
 // method.
 type addJSONRequest struct {
 	Data interface{} `json:"data"`
@@ -111,6 +113,29 @@ func New(uri string, hc *http.Client) *LogClient {
 		hc = new(http.Client)
 	}
 	return &LogClient{uri: uri, httpClient: hc}
+}
+
+// NewWithPubKey constructs a new LogClient instance that includes public
+// key information for the log; this instance will check signatures on
+// responses from the log.
+func NewWithPubKey(uri string, hc *http.Client, pemEncodedKey string) (*LogClient, error) {
+	pubkey, _, rest, err := ct.PublicKeyFromPEM([]byte(pemEncodedKey))
+	if err != nil {
+		return nil, err
+	}
+	if len(rest) > 0 {
+		return nil, errors.New("extra data found after PEM key decoded")
+	}
+
+	verifier, err := ct.NewSignatureVerifier(pubkey)
+	if err != nil {
+		return nil, err
+	}
+
+	if hc == nil {
+		hc = new(http.Client)
+	}
+	return &LogClient{uri: uri, httpClient: hc, verifier: verifier}, nil
 }
 
 // Makes a HTTP call to |uri|, and attempts to parse the response as a
@@ -195,7 +220,7 @@ func backoffForRetry(ctx context.Context, d time.Duration) error {
 // Attempts to add |chain| to the log, using the api end-point specified by
 // |path|. If provided context expires before submission is complete an
 // error will be returned.
-func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType, path string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	var resp addChainResponse
 	var req addChainRequest
 	for _, link := range chain {
@@ -243,30 +268,36 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, path string, chain []
 	if err != nil {
 		return nil, err
 	}
+
 	var logID ct.SHA256Hash
 	copy(logID[:], resp.ID)
-	return &ct.SignedCertificateTimestamp{
+	sct := &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      logID,
 		Timestamp:  resp.Timestamp,
 		Extensions: ct.CTExtensions(resp.Extensions),
-		Signature:  *ds}, nil
+		Signature:  *ds}
+	err = c.VerifySCTSignature(*sct, ctype, chain)
+	if err != nil {
+		return nil, err
+	}
+	return sct, nil
 }
 
 // AddChain adds the (DER represented) X509 |chain| to the log.
 func (c *LogClient) AddChain(chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return c.addChainWithRetry(nil, AddChainPath, chain)
+	return c.addChainWithRetry(nil, ct.X509LogEntryType, AddChainPath, chain)
 }
 
 // AddPreChain adds the (DER represented) Precertificate |chain| to the log.
 func (c *LogClient) AddPreChain(chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return c.addChainWithRetry(nil, AddPreChainPath, chain)
+	return c.addChainWithRetry(nil, ct.PrecertLogEntryType, AddPreChainPath, chain)
 }
 
 // AddChainWithContext adds the (DER represented) X509 |chain| to the log and
 // fails if the provided context expires before the chain is submitted.
 func (c *LogClient) AddChainWithContext(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return c.addChainWithRetry(ctx, AddChainPath, chain)
+	return c.addChainWithRetry(ctx, ct.X509LogEntryType, AddChainPath, chain)
 }
 
 // AddJSON submits arbitrary data to to XJSON server.
@@ -314,9 +345,49 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO(alcutter): Verify signature
 	sth.TreeHeadSignature = *ds
+	err = c.VerifySTHSignature(*sth)
+	if err != nil {
+		return nil, err
+	}
 	return
+}
+
+// VerifySTHSignature checks the signature in sth, returning any error encountered or nil if verification is
+// successful.
+func (c *LogClient) VerifySTHSignature(sth ct.SignedTreeHead) error {
+	if c.verifier == nil {
+		// Can't verify signatures without a verifier
+		return nil
+	}
+	return c.verifier.VerifySTHSignature(sth)
+}
+
+// VerifySCTSignature checks the signature in sct for the given LogEntryType, with associated certificate chain.
+func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype ct.LogEntryType, certData []ct.ASN1Cert) error {
+	if c.verifier == nil {
+		// Can't verify signatures without a verifier
+		return nil
+	}
+
+	if ctype == ct.PrecertLogEntryType {
+		// TODO(drysdale): cope with pre-certs, which need to have the
+		// following fields set:
+		//    leaf.PrecertEntry.TBSCertificate
+		//    leaf.PrecertEntry.IssuerKeyHash  (SHA-256 of issuer's public key)
+		return errors.New("SCT verification for pre-certificates unimplemented")
+	}
+	// Build enough of a Merkle tree leaf for the verifier to work on.
+	leaf := ct.MerkleTreeLeaf{
+		Version:  sct.SCTVersion,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: ct.TimestampedEntry{
+			Timestamp:  sct.Timestamp,
+			EntryType:  ctype,
+			X509Entry:  certData[0],
+			Extensions: sct.Extensions}}
+	entry := ct.LogEntry{Leaf: leaf}
+	return c.verifier.VerifySCTSignature(sct, entry)
 }
 
 // GetSTHConsistency retrieves the consistency proof between two snapshots.
