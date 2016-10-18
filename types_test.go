@@ -1,10 +1,17 @@
 package ct
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/google/certificate-transparency/go/asn1"
+	"github.com/google/certificate-transparency/go/testdata"
 	"github.com/google/certificate-transparency/go/tls"
 )
 
@@ -49,4 +56,380 @@ func TestUnmarshalMerkleTreeLeaf(t *testing.T) {
 			t.Errorf("tls.Unmarshal(%s, &MerkleTreeLeaf)=EntryType=%v,nil; want LeafType=%v", test.in, got.TimestampedEntry.EntryType, test.want)
 		}
 	}
+}
+
+func newVersionedTransType(v VersionedTransType) *VersionedTransType { return &v }
+
+var aHash = []byte{
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+	0x10, 0x01, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+}
+
+func TestUnmarshalMarshalRoundTrip(t *testing.T) {
+	var tests = []struct {
+		data   string // hex encoded
+		params string
+		item   interface{}
+	}{
+		{"00000401020304", "", &ASN1Cert{[]byte{1, 2, 3, 4}}},
+		{"00000401020304" + "00000a" + "0000020506" + "0000020708", "",
+			&X509ChainEntry{
+				LeafCertificate: ASN1Cert{[]byte{1, 2, 3, 4}},
+				CertificateChain: []ASN1Cert{
+					ASN1Cert{[]byte{5, 6}},
+					ASN1Cert{[]byte{7, 8}},
+				},
+			},
+		},
+		{"00000401020304" + "000000", "",
+			&X509ChainEntry{
+				LeafCertificate:  ASN1Cert{[]byte{1, 2, 3, 4}},
+				CertificateChain: []ASN1Cert{},
+			},
+		},
+		{"00000401020304", "minlen:1,maxlen:16777215", &CMSPrecert{1, 2, 3, 4}},
+		{"00000401020304" + "00000a" + "0000020506" + "0000020708", "",
+			&PrecertChainEntryV2{
+				PreCertificate: CMSPrecert{1, 2, 3, 4},
+				PrecertificateChain: []ASN1Cert{
+					ASN1Cert{[]byte{5, 6}},
+					ASN1Cert{[]byte{7, 8}},
+				},
+			},
+		},
+		{"0009", "maxval:65535", newVersionedTransType(PrecertSCTWithProofV2)},
+		{"040a0b0c0d", "minlen:2,maxlen:127", &LogIDV2{0x0a, 0x0b, 0x0c, 0x0d}},
+		{"0000000000001001" + "20" + hex.EncodeToString(aHash) + "00000410101111" + "0000", "",
+			&TimestampedCertificateEntryDataV2{
+				Timestamp:      0x1001,
+				IssuerKeyHash:  aHash,
+				TBSCertificate: TBSCertificate{16, 16, 17, 17},
+				SCTExtensions:  []SCTExtension{},
+			},
+		},
+		{"0001" + "0000000000001001" + "20" + hex.EncodeToString(aHash) + "00000410101111" + "0000", "",
+			&TransItem{
+				VersionedType: X509EntryV2,
+				X509EntryV2Data: &TimestampedCertificateEntryDataV2{
+					Timestamp:      0x1001,
+					IssuerKeyHash:  aHash,
+					TBSCertificate: TBSCertificate{16, 16, 17, 17},
+					SCTExtensions:  []SCTExtension{},
+				},
+			},
+		},
+		{"0001" + "000401020304", "",
+			&SCTExtension{
+				SCTExtensionType: 1,
+				SCTExtensionData: []byte{1, 2, 3, 4}}},
+		{"022a03" + "0000000022112233" + "0000" + "04030001ee", "",
+			&SignedCertificateTimestampDataV2{
+				LogID:         LogIDV2{0x2a, 0x03},
+				Timestamp:     0x22112233,
+				SCTExtensions: []SCTExtension{},
+				Signature: tls.DigitallySigned{
+					Algorithm: tls.SignatureAndHashAlgorithm{
+						Hash:      tls.SHA256,
+						Signature: tls.ECDSA},
+					Signature: []byte{0xee},
+				},
+			},
+		},
+		{"0001" + "000401020304", "",
+			&STHExtension{
+				STHExtensionType: 1,
+				STHExtensionData: []byte{1, 2, 3, 4},
+			},
+		},
+		{"1122334455667788" + "0000000000000100" + "02cafe" + "0000", "",
+			&TreeHeadDataV2{
+				Timestamp:     0x1122334455667788,
+				TreeSize:      0x0100,
+				RootHash:      NodeHash{Value: []byte{0xca, 0xfe}},
+				STHExtensions: []STHExtension{},
+			},
+		},
+		{"022a03" + ("1122334455667788" + "0000000000000100" + "02cafe" + "0000") + "04030001ee", "",
+			&SignedTreeHeadDataV2{
+				LogID: LogIDV2{0x2a, 0x03},
+				TreeHead: TreeHeadDataV2{
+					Timestamp:     0x1122334455667788,
+					TreeSize:      0x0100,
+					RootHash:      NodeHash{Value: []byte{0xca, 0xfe}},
+					STHExtensions: []STHExtension{},
+				},
+				Signature: tls.DigitallySigned{
+					Algorithm: tls.SignatureAndHashAlgorithm{
+						Hash:      tls.SHA256,
+						Signature: tls.ECDSA},
+					Signature: []byte{0xee},
+				},
+			},
+		},
+		{"0005" + "022a03" + ("1122334455667788" + "0000000000000100" + "02cafe" + "0000") + "04030047" + testdata.EcdsaSignedAbcdHex, "",
+			&TransItem{
+				VersionedType: SignedTreeHeadV2,
+				SignedTreeHeadV2Data: &SignedTreeHeadDataV2{
+					LogID: LogIDV2{0x2a, 0x03},
+					TreeHead: TreeHeadDataV2{
+						Timestamp:     0x1122334455667788,
+						TreeSize:      0x0100,
+						RootHash:      NodeHash{Value: []byte{0xca, 0xfe}},
+						STHExtensions: []STHExtension{},
+					},
+					Signature: tls.DigitallySigned{
+						Algorithm: tls.SignatureAndHashAlgorithm{
+							Hash:      tls.SHA256,
+							Signature: tls.ECDSA},
+						Signature: testdata.FromHex(testdata.EcdsaSignedAbcdHex),
+					},
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		inVal := reflect.ValueOf(test.item).Elem()
+		pv := reflect.New(reflect.TypeOf(test.item).Elem())
+		val := pv.Interface()
+		inData, _ := hex.DecodeString(test.data)
+		if _, err := tls.UnmarshalWithParams(inData, val, test.params); err != nil {
+			t.Errorf("Unmarshal(%s)=nil,%q; want %+v", test.data, err.Error(), inVal)
+		} else if !reflect.DeepEqual(val, test.item) {
+			t.Errorf("Unmarshal(%s)=%+v,nil; want %+v", test.data, reflect.ValueOf(val).Elem(), inVal)
+		}
+
+		if data, err := tls.MarshalWithParams(inVal.Interface(), test.params); err != nil {
+			t.Errorf("Marshal(%+v)=nil,%q; want %s", inVal, err.Error(), test.data)
+		} else if !bytes.Equal(data, inData) {
+			t.Errorf("Marshal(%+v)=%s,nil; want %s", inVal, hex.EncodeToString(data), test.data)
+		}
+	}
+}
+
+func TestLogIDV2FromOID(t *testing.T) {
+	var tests = []struct {
+		oid    asn1.ObjectIdentifier
+		want   string // hex encoded
+		errstr string
+	}{
+		{asn1.ObjectIdentifier{}, "", "invalid object identifier"},
+		{asn1.ObjectIdentifier{1, 2, 3}, "2a03", ""},
+		{asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, 7, 8, 9}, "2a03040506070809", ""},
+		// 128 values, first 2 get squished into a single byte => len=127, which is OK
+		{asn1.ObjectIdentifier{
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8},
+			"2a030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708", ""},
+		{asn1.ObjectIdentifier{
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+			1, 2, 3, 4, 5, 6, 7, 8, 9}, "", "too long"},
+	}
+	for _, test := range tests {
+		got, err := LogIDV2FromOID(test.oid)
+		if test.errstr != "" {
+			if err == nil {
+				t.Errorf("LogIDV2FromOID(%v)=%v,nil; want error %q", test.oid, got, test.errstr)
+			} else if !strings.Contains(err.Error(), test.errstr) {
+				t.Errorf("LogIDV2FromOID(%v)=nil,%q; want error %q", test.oid, err.Error(), test.errstr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("LogIDV2FromOID(%v)=nil,%q; want %v", test.oid, err.Error(), test.want)
+		} else if hex.EncodeToString(got) != test.want {
+			t.Errorf("LogIDV2FromOID(%v)=%q,nil; want %v", test.oid, hex.EncodeToString(got), test.want)
+		}
+	}
+}
+
+func TestOIDFromLogIDV2(t *testing.T) {
+	var tests = []struct {
+		logID  LogIDV2
+		want   asn1.ObjectIdentifier
+		errstr string
+	}{
+		{logID: dehex("2a03"), want: asn1.ObjectIdentifier{1, 2, 3}},
+		{
+			logID: dehex("2a030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708"),
+			want: asn1.ObjectIdentifier{
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
+				1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			logID: dehex("2a030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"0102030405060708090001020304050607080900" +
+				"010203040506070809"),
+			errstr: "log ID too long",
+		},
+		{logID: dehex(""), errstr: "malformed LogIDV2"},
+	}
+	for _, test := range tests {
+		got, err := OIDFromLogIDV2(test.logID)
+		if test.errstr != "" {
+			if err == nil {
+				t.Errorf("OIDFromLogIDV2(%v)=%v,nil; want error %q", test.logID, got, test.errstr)
+			} else if !strings.Contains(err.Error(), test.errstr) {
+				t.Errorf("OIDFromLogIDV2(%v)=nil,%q; want error %q", test.logID, err.Error(), test.errstr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("OIDFromLogIDV2(%v)=nil,%q; want %q", test.logID, err.Error(), test.want)
+		} else if !test.want.Equal(got) {
+			t.Errorf("OIDFromLogIDV2(%v)=%q,nil; want %q", test.logID, got, test.want)
+		}
+	}
+}
+
+type testTransItemHolder struct {
+	Val TransItem `json:"val"`
+}
+
+func TestJSONUnmarshalTransItem(t *testing.T) {
+	var tests = []struct {
+		json   string
+		item   TransItem
+		errstr string
+	}{
+		{json: bv64("0001" + "0000000000001001" + "20" + hex.EncodeToString(aHash) + "00000410101111" + "0000"),
+			item: TransItem{
+				VersionedType: X509EntryV2,
+				X509EntryV2Data: &TimestampedCertificateEntryDataV2{
+					Timestamp:      0x1001,
+					IssuerKeyHash:  aHash,
+					TBSCertificate: TBSCertificate{16, 16, 17, 17},
+					SCTExtensions:  []SCTExtension{},
+				},
+			},
+		},
+		// Extra keys can be present in the JSON but are ignored.
+		{json: fmt.Sprintf("{\"val\":\"%s\",\"extra\":\"%s\"}",
+			b64("0001"+"0000000000001001"+"20"+hex.EncodeToString(aHash)+"00000410101111"+"0000"),
+			b64("01020304")),
+			item: TransItem{
+				VersionedType: X509EntryV2,
+				X509EntryV2Data: &TimestampedCertificateEntryDataV2{
+					Timestamp:      0x1001,
+					IssuerKeyHash:  aHash,
+					TBSCertificate: TBSCertificate{16, 16, 17, 17},
+					SCTExtensions:  []SCTExtension{},
+				},
+			},
+		},
+		{json: `{"val": "not base 64 encoded"}`, errstr: "failed to unbase64"},
+		{json: `{"val": 99}`, errstr: "failed to json.Unmarshal"},
+		{json: `{"val": "abcd"}`, errstr: "failed to tls.Unmarshal"},
+		{json: bv64("0001" + "0000000000001001" + "20" + hex.EncodeToString(aHash) + "00000410101111" + "0000eeff"), errstr: "trailing data"},
+	}
+	for _, test := range tests {
+		var item testTransItemHolder
+		err := json.Unmarshal([]byte(test.json), &item)
+		if test.errstr != "" {
+			if err == nil {
+				t.Errorf("json.Unmarshal('%s')=%+v,nil; want error %q", test.json, item, test.errstr)
+			} else if !strings.Contains(err.Error(), test.errstr) {
+				t.Errorf("json.Unmarshal('%s')=nil,%q; want error %q", test.json, err.Error(), test.errstr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("json.Unmarshal('%s')=nil,%q; want %v", test.json, err.Error, test.item)
+		} else if !reflect.DeepEqual(item.Val, test.item) {
+			t.Errorf("json.Unmarshal('%s')=%v,nil; want %v", test.json, item, test.item)
+		}
+	}
+}
+
+func TestJSONMarshalTransItem(t *testing.T) {
+	var tests = []struct {
+		item   TransItem
+		json   string
+		errstr string
+	}{
+		{
+			item: TransItem{
+				VersionedType: X509EntryV2,
+				X509EntryV2Data: &TimestampedCertificateEntryDataV2{
+					Timestamp:      0x1001,
+					IssuerKeyHash:  aHash,
+					TBSCertificate: TBSCertificate{16, 16, 17, 17},
+					SCTExtensions:  []SCTExtension{},
+				},
+			},
+			json: bv64("0001" + "0000000000001001" + "20" + hex.EncodeToString(aHash) + "00000410101111" + "0000"),
+		},
+		{
+			item: TransItem{
+				VersionedType: 99,
+				X509EntryV2Data: &TimestampedCertificateEntryDataV2{
+					Timestamp:      0x1001,
+					IssuerKeyHash:  aHash,
+					TBSCertificate: TBSCertificate{16, 16, 17, 17},
+					SCTExtensions:  []SCTExtension{},
+				},
+			},
+			errstr: "unchosen field is non-nil",
+		},
+		{item: TransItem{VersionedType: 99}, errstr: "unhandled value for selector"},
+		{item: TransItem{VersionedType: X509EntryV2}, errstr: "chosen field is nil"},
+	}
+	for _, test := range tests {
+		var item testTransItemHolder
+		item.Val = test.item
+		data, err := json.Marshal(item)
+		if test.errstr != "" {
+			if err == nil {
+				t.Errorf("json.Marshal(%+v)=%s,nil; want error %q", test.item, hex.EncodeToString(data), test.errstr)
+			} else if !strings.Contains(err.Error(), test.errstr) {
+				t.Errorf("json.Marshal(%+v)=nil,%q; want error %q", test.item, err.Error(), test.errstr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("json.Marshal(%+v)=nil,%q; want %s", test.item, err.Error(), test.json)
+		} else if string(data) != test.json {
+			t.Errorf("json.Marshal(%+v)=%s,nil; want %s", test.item, data, test.json)
+		}
+	}
+}
+
+var dehex = testdata.FromHex
+
+func b64(hexData string) string {
+	return base64.StdEncoding.EncodeToString(dehex(hexData))
+}
+
+func bv64(hexData string) string {
+	return fmt.Sprintf(`{"val":"%s"}`, b64(hexData))
 }

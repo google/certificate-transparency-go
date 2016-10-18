@@ -4,8 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/google/certificate-transparency/go/asn1"
 	"github.com/google/certificate-transparency/go/tls"
 	"github.com/google/certificate-transparency/go/x509"
 )
@@ -94,8 +96,10 @@ func (st SignatureType) String() string {
 	}
 }
 
-// ASN1Cert type for holding the raw DER bytes of an ASN.1 Certificate
-// (section 3.1).
+// ASN1Cert holds an ASN.1 DER-encoded X.509 certificate; it represents the
+// ASN.1Cert TLS type from section 3.1; the same type is also described in
+// RFC6962-bis in section 5.2.  (The struct wrapper is needed so that
+// Data becomes a field and can have a field tag.)
 type ASN1Cert struct {
 	Data []byte `tls:"minlen:1,maxlen:16777215"`
 }
@@ -418,4 +422,387 @@ type GetEntryAndProofResponse struct {
 	LeafInput []byte   `json:"leaf_input"` // the entry itself
 	ExtraData []byte   `json:"extra_data"` // any chain provided when the entry was added to the log
 	AuditPath [][]byte `json:"audit_path"` // the corresponding proof
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// The following structures are for Certificate Transparency V2.
+// This is based on draft-ietf-trans-rfc6962-bis-19.txt; below here, any
+// references to a section number on its own refer to this document.
+///////////////////////////////////////////////////////////////////////////////
+
+// The first section holds TLS types needed for Certificate Transparency V2.
+
+// X509ChainEntry holds a leaf certificate together with a chain of 0 or more
+// entries that are needed to verify the leaf. Each entry in the chain
+// verifies the preceding entry, and the first entry in the chain verifies the
+// leaf.  This represents the X509ChainEntry TLS type from section 5.2.
+// (The same type is also described in section 3.1 of RFC 6962 but is not
+// directly used there.)
+type X509ChainEntry struct {
+	LeafCertificate  ASN1Cert   `tls:"minlen:1,maxlen:16777215"`
+	CertificateChain []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
+}
+
+// CMSPrecert holds the ASN.1 DER encoding of a CMS-encoded pre-certificate,
+// where the CMS encoding is described in section 3.2.  This represents the
+// CMSPrecert TLS type from section 5.2.
+type CMSPrecert []byte // tls:"minlen:1,maxlen:16777215"
+
+// PrecertChainEntryV2 holds a pre-certificate together with a chain of 0 or
+// more entries that are needed to verify it.  Each entry in the chain
+// verifies the preceding entry, and the first entry in the chain verifies the
+// pre-certificate.  This represents the PrecertChainEntryV2 TLS type from
+// section 5.2.
+type PrecertChainEntryV2 struct {
+	PreCertificate      CMSPrecert `tls:"minlen:1,maxlen:16777215"`
+	PrecertificateChain []ASN1Cert `tls:"minlen:1,maxlen:16777215"`
+}
+
+// LogIDV2 identifies a particular Log, as the contents of an ASN.1 DER-encoded
+// OBJECT IDENTIFIER.
+//
+// This OID is required to be less than 127 bytes, which means the TLS and
+// ASN.1 encodings are compatible by adding a prefix byte 0x06:
+//  TLS encoding:  1-byte length, plus L bytes of DER-encoded OID.
+//  DER encoding:  1-byte 0x06 (universal/primitive/OBJECT IDENTIFIER), then
+//                 1-byte length, plus L bytes of DER-encoded OID.
+//
+// This represents the LogID TLS type from section 5.3; it has the ..V2 suffix
+// to distinguish it from the RFC 6962 LogID type.
+type LogIDV2 []byte // tls:"minlen:2,maxlen:127"
+
+// LogIDV2FromOID creates a LogIDV2 object from an asn1.ObjectIdentifier.
+func LogIDV2FromOID(oid asn1.ObjectIdentifier) (LogIDV2, error) {
+	der, err := asn1.Marshal(oid)
+	if err != nil {
+		return nil, err
+	}
+	// Unmarshal back again so we can extract the gooey centre.
+	var val asn1.RawValue
+	if _, err = asn1.Unmarshal(der, &val); err != nil {
+		return nil, err
+	}
+	data := val.Bytes
+	if len(data) > 127 {
+		return nil, fmt.Errorf("ObjectIdentifier %v too long for LogIDV2", oid)
+	}
+	return data, nil
+}
+
+// OIDFromLogIDV2 returns the OID associated with a LogIDV2.
+func OIDFromLogIDV2(logID LogIDV2) (asn1.ObjectIdentifier, error) {
+	if len(logID) > 127 {
+		return nil, fmt.Errorf("log ID too long")
+	}
+	der := make([]byte, len(logID)+2)
+	der[0] = asn1.TagOID // and asn1.ClassUniversal
+	der[1] = byte(len(logID))
+	copy(der[2:], logID)
+	var oid asn1.ObjectIdentifier
+	if _, err := asn1.Unmarshal(der, &oid); err != nil {
+		return nil, fmt.Errorf("malformed LogIDV2: %q", err.Error())
+	}
+	return oid, nil
+}
+
+// VersionedTransType indicates the variant content of a TransItem; it
+// represents the VersionedTransType TLS enum from section 5.4.
+type VersionedTransType tls.Enum // tls:"maxval:65535"
+
+// VersionedTransType constants from section 5.4.
+const (
+	X509EntryV2           VersionedTransType = 1
+	PrecertEntryV2        VersionedTransType = 2
+	X509SCTV2             VersionedTransType = 3
+	PrecertSCTV2          VersionedTransType = 4
+	SignedTreeHeadV2      VersionedTransType = 5
+	ConsistencyProofV2    VersionedTransType = 6
+	InclusionProofV2      VersionedTransType = 7
+	X509SCTWithProofV2    VersionedTransType = 8
+	PrecertSCTWithProofV2 VersionedTransType = 9
+)
+
+// TransItem encapsulates various pieces of CT information; it represents the
+// TransItem TLS type from section 5.4.
+type TransItem struct {
+	VersionedType             VersionedTransType                 `tls:"maxval:65535"`
+	X509EntryV2Data           *TimestampedCertificateEntryDataV2 `tls:"selector:VersionedType,val:1"`
+	PrecertEntryV2Data        *TimestampedCertificateEntryDataV2 `tls:"selector:VersionedType,val:2"`
+	X509SCTV2Data             *SignedCertificateTimestampDataV2  `tls:"selector:VersionedType,val:3"`
+	PrecertSCTV2Data          *SignedCertificateTimestampDataV2  `tls:"selector:VersionedType,val:4"`
+	SignedTreeHeadV2Data      *SignedTreeHeadDataV2              `tls:"selector:VersionedType,val:5"`
+	ConsistencyProofV2Data    *ConsistencyProofDataV2            `tls:"selector:VersionedType,val:6"`
+	InclusionProofV2Data      *InclusionProofDataV2              `tls:"selector:VersionedType,val:7"`
+	X509SCTWithProofV2Data    *SCTWithProofDataV2                `tls:"selector:VersionedType,val:8"`
+	PrecertSCTWithProofV2Data *SCTWithProofDataV2                `tls:"selector:VersionedType,val:9"`
+}
+
+// MarshalJSON implements the json.Marshaller interface, so that fields of type TransItem
+// are JSON encoded as base64(TLS-encode(contents)).
+func (item TransItem) MarshalJSON() ([]byte, error) {
+	data, err := tls.Marshal(item)
+	if err != nil {
+		return []byte{}, err
+	}
+	data64 := base64.StdEncoding.EncodeToString(data)
+	return []byte(`"` + data64 + `"`), nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface, so that fields of type TransItem
+// can be decoded from JSON values that hold base64(TLS-encode(contents)).
+func (item *TransItem) UnmarshalJSON(b []byte) error {
+	var data64 string
+	if err := json.Unmarshal(b, &data64); err != nil {
+		return fmt.Errorf("failed to json.Unmarshal TransItem: %v", err)
+	}
+	data, err := base64.StdEncoding.DecodeString(data64)
+	if err != nil {
+		return fmt.Errorf("failed to unbase64 TransItem: %v", err)
+	}
+	rest, err := tls.Unmarshal(data, item)
+	if err != nil {
+		return fmt.Errorf("failed to tls.Unmarshal TransItem: %v", err)
+	} else if len(rest) > 0 {
+		return errors.New("trailing data in TransItem")
+	}
+	return nil
+}
+
+// TBSCertificate holds an ASN.1 DER-encoded TBSCertificate, as defined in RFC
+// 5280 section 4.1.  It represents the TBSCertificate TLS type from section
+// 5.5.
+type TBSCertificate []byte // tls:"minlen:1,maxlen:16777215"
+
+// TimestampedCertificateEntryDataV2 describes a Log entry; it represents the
+// TimestampedCertificateEntryDataV2 TLS type from section 5.5.
+type TimestampedCertificateEntryDataV2 struct {
+	Timestamp      uint64
+	IssuerKeyHash  []byte         `tls:"minlen:32,maxlen:255"`
+	TBSCertificate TBSCertificate `tls:"minlen:1,maxlen:16777215"`
+	// Entries in the following MUST be ordered in increasing order
+	// according to their SCTExtensionType values.
+	SCTExtensions []SCTExtension `tls:"minlen:0,maxlen:65535"`
+}
+
+// SCTExtensionType indicates the type of extension data associated with an
+// SCT; it represents the SctExtensionType enum from section 5.6.
+type SCTExtensionType tls.Enum // tls:"maxval:65535"
+
+// SCTExtension provides extended information about an SCT; it represents the
+// SCTExtension TLS type from section 5.6.
+type SCTExtension struct {
+	SCTExtensionType SCTExtensionType `tls:"maxval:65535"`
+	SCTExtensionData []byte           `tls:"minlen:0,maxlen:65535"`
+}
+
+// SignedCertificateTimestampDataV2 holds an SCT generated by the Log.  This
+// represents the SignedCertificateTimestampDataV2 TLS type from section 5.6.
+type SignedCertificateTimestampDataV2 struct {
+	LogID     LogIDV2 `tls:"minlen:2,maxlen:127"`
+	Timestamp uint64
+	// Entries in the following MUST be ordered in increasing order
+	// according to their SCTExtensionType values.
+	SCTExtensions []SCTExtension `tls:"minlen:0,maxlen:65535"`
+	// The following signature is over a TransItem that MUST have
+	// VersionedType of X509EntryV2 or PrecertEntryV2.
+	Signature tls.DigitallySigned
+}
+
+// NodeHash holds a hash value generated by the Log; it represents the
+// NodeHash TLS type from section 5.7.  (The struct wrapper is needed so
+// that Value becomes a field and can have a field tag.)
+type NodeHash struct {
+	Value []byte `tls:"minval:32,maxval:255"`
+}
+
+// STHExtensionType indicates the type of extension data associated with an
+// STH; it represents the SthExtensionType enum from section 5.7.
+type STHExtensionType tls.Enum // tls:"maxval:65535"
+
+// STHExtension provides extended information about an STH; it represents the
+// STHExtension TLS type from section 5.6.
+type STHExtension struct {
+	STHExtensionType STHExtensionType `tls:"maxval:65535"`
+	STHExtensionData []byte           `tls:"minlen:0,maxlen:65535"`
+}
+
+// TreeHeadDataV2 holds information about a Log's Merkle tree head; it
+// represents the TreeHeadDataV2 TLS type from section 5.7.
+type TreeHeadDataV2 struct {
+	Timestamp uint64
+	TreeSize  uint64
+	RootHash  NodeHash `tls:"minval:32,maxval:255"`
+	// Entries in the following MUST be ordered in increasing order
+	// according to their STHExtensionType values.
+	STHExtensions []STHExtension `tls:"minlen:0,maxlen:65535"`
+}
+
+// SignedTreeHeadDataV2 gives signed information about a Log's Merkle tree
+// head; it represents the SignedTreeHeadDataV2 TLS type from section 5.8.
+type SignedTreeHeadDataV2 struct {
+	LogID    LogIDV2 `tls:"minlen:2,maxlen:127"`
+	TreeHead TreeHeadDataV2
+	// The following signature is over the TLS encoding of the TreeHead value.
+	Signature tls.DigitallySigned
+}
+
+// ConsistencyProofDataV2 holds hash values that prove the consistency of the
+// Merkle tree between two tree sizes; it represents the
+// ConsistencyProofDataV2 TLS type from section 5.9.
+type ConsistencyProofDataV2 struct {
+	LogID           LogIDV2 `tls:"minlen:2,maxlen:127"`
+	TreeSize1       uint64
+	TreeSize2       uint64
+	ConsistencyPath []NodeHash `tls:"minlen:1,maxlen:65535"`
+}
+
+// InclusionProofDataV2 holds hash values that prove the inclusion of a given
+// entry in the Log; it represents the InclusionProofDataV2 TLS structure from
+// section 5.10.
+type InclusionProofDataV2 struct {
+	LogID         LogIDV2 `tls:"minlen:2,maxlen:127"`
+	TreeSize      uint64
+	LeafIndex     uint64
+	InclusionPath []NodeHash `tls:"minlen:1,maxlen:65535"`
+}
+
+// SerializedTransItem holds a TLS-encoded TransItem structure; it represents
+// the SerializedTransItem TLS type from section 8.2. (The struct wrapper is
+// needed so that Data becomes a field and can have a field tag.)
+type SerializedTransItem struct {
+	Data []byte `tls:"minlen:1,maxlen:65535"`
+}
+
+// TransItemList holds multiple pieces of information from the same Log; it
+// represents the TransItemList TLS type from section 8.2.
+type TransItemList struct {
+	TransItemList []SerializedTransItem `tls:"minlen:1,maxlen:65535"`
+}
+
+// SCTWithProofDataV2 provides combined information about an entry in the Log,
+// including leaf and root information together.  This represents the
+// SCTWithProofDataV2 structure from section 8.3.
+type SCTWithProofDataV2 struct {
+	SCT            SignedCertificateTimestampDataV2
+	STH            SignedTreeHeadDataV2
+	InclusionProof InclusionProofDataV2
+}
+
+// The second section holds code related to the web API for Certificate Transparency V2.
+
+// URI paths for client messages, from section 6.
+const (
+	// POST methods
+	AddChainPathV2    = "/ct/v2/add-chain"
+	AddPreChainPathV2 = "/ct/v2/add-pre-chain"
+	// GET methods
+	GetSTHPathV2            = "/ct/v2/get-sth"
+	GetSTHConsistencyPathV2 = "/ct/v2/get-sth-consistency"
+	GetProofByHashPathV2    = "/ct/v2/get-proof-by-hash"
+	GetAllByHashPathV2      = "/ct/v2/get-all-by-hash"
+	GetEntriesPathV2        = "/ct/v2/get-entries"
+	GetAnchorsPathV2        = "/ct/v2/get-anchors"
+	// Optional GET methods
+	GetEntryForSCTPathV2            = "/ct/v2/get-entry-for-sct"
+	GetEntryForTBSCertificatePathV2 = "/ct/v2/get-entry-for-tbscertificate"
+)
+
+// Requests and responses are encoded as JSON objects (section 6) and so are
+// represented here by structures with encoding/json field tags.
+
+// ErrorV2Response holds a general error response (when HTTP response code is 4xx/5xx).
+type ErrorV2Response struct {
+	ErrorMessage string `json:"error_message"`
+	ErrorCode    string `json:"error_code"` // One of validErrors
+}
+
+// AddChainV2Request is used to add a chain to a Log (section 6.1).
+type AddChainV2Request struct {
+	Chain []ASN1Cert `json:"chain"`
+}
+
+// AddChainV2Response is the corresponding response contents.
+type AddChainV2Response struct {
+	SCT TransItem `json:"sct"` // SCT.VersionedType == X509SCTV2
+}
+
+// AddPreChainV2Request is used to a pre-certificate to a Log (section 6.2).
+type AddPreChainV2Request struct {
+	Precertificate CMSPrecert `json:"precertificate"`
+	Chain          []ASN1Cert `json:"chain"`
+}
+
+// AddPreChainV2Response is the corresponding response.
+type AddPreChainV2Response struct {
+	SCT TransItem `json:"sct"` // SCT.VersionedType == PrecertSCTV2
+}
+
+// GetSTHV2Response is the data retrieved for the latest Signed Tree Head (section 6.3).
+type GetSTHV2Response struct {
+	STH TransItem `json:"sth"` // STH.VersionedType == SignedTreeHeadV2
+}
+
+// GetSTHConsistencyV2Response holds the Merkle consistency proof between two signed tree
+// heads (section 6.4).
+type GetSTHConsistencyV2Response struct {
+	Consistency TransItem `json:"consistency"` // Consistency.VersionedType == ConsistencyProofV2
+	STH         TransItem `json:"sth"`         // STH.VersionedType == SignedTreeHeadV2
+}
+
+// GetProofByHashV2Response holds the Merkle inclusion proof for a leaf hash (section 6.5).
+type GetProofByHashV2Response struct {
+	Inclusion TransItem `json:"inclusion"` // Inclusion.VersionedType == InclusionProofV2
+	STH       TransItem `json:"sth"`       // STH.VersionedType == SignedTreeHeadV2
+}
+
+// GetAllByHashV2Response holds a Merkle inclusion proof, STH and consistency proof for a
+// leaf hash (section 6.6).
+type GetAllByHashV2Response struct {
+	Inclusion   TransItem `json:"inclusion"`   // Inclusion.VersionedType == InclusionProofV2
+	STH         TransItem `json:"sth"`         // STH.VersionedType == SignedTreeHeadV2
+	Consistency TransItem `json:"consistency"` // Consistency.VersionedType == ConsistencyProofV2
+}
+
+// LogEntryDetail holds the details of an individual log entry (section 6.7).
+type LogEntryDetail struct {
+	LeafInput TransItem `json:"leaf_input"` // LeafInput.VersionedType == X509EntryV2 or PrecertEntryV2
+	LogEntry  []byte    `json:"log_entry"`  // Either X509ChainEntry or PrecertChainEntryV2, TLS-encoded.
+	SCT       TransItem `json:"sct"`        // SCT.VersionedType == X509SCTV2 or PrecertSCTV2
+}
+
+// GetEntriesV2Response holds a collection of entries from a Log (section 6.7).
+type GetEntriesV2Response struct {
+	Entries []LogEntryDetail `json:"entries"`
+	STH     TransItem        `json:"sth"` // STH.VersionedType == SignedTreeHeadV2
+}
+
+// GetAnchorsV2Response holds the accepted trust anchors for a Log (section 6.8).
+type GetAnchorsV2Response struct {
+	Certificates [][]byte `json:"certificates"`
+	MaxChain     uint64   `json:"max_chain,omitempty"`
+}
+
+// GetEntryForSCTV2Response holds the entry number for an SCT (section 7.1).
+type GetEntryForSCTV2Response struct {
+	Entry uint64 `json:"entry"`
+}
+
+// GetEntriesForTBSCertificateV2Response holds a collection of log entries for a
+// TBSCertificate (section 7.2).
+type GetEntriesForTBSCertificateV2Response struct {
+	Entries []uint64 `json:"entries"`
+}
+
+// ValidV2Errors holds the valid error codes for each client request.
+var ValidV2Errors = map[string][]string{
+	AddChainPathV2:                  []string{"not compliant", "unknown anchor", "bad chain", "bad certificate", "shutdown"},
+	AddPreChainPathV2:               []string{"not compliant", "unknown anchor", "bad chain", "bad certificate", "shutdown"},
+	GetSTHPathV2:                    []string{"not compliant"},
+	GetSTHConsistencyPathV2:         []string{"not compliant", "first unknown", "second unknown"},
+	GetProofByHashPathV2:            []string{"not compliant", "hash unknown", "tree_size unknown"},
+	GetAllByHashPathV2:              []string{"not compliant", "hash unknown", "tree_size unknown"},
+	GetEntriesPathV2:                []string{"not compliant"},
+	GetAnchorsPathV2:                []string{"not compliant"},
+	GetEntryForSCTPathV2:            []string{"not compliant", "bad signature", "not found"},
+	GetEntryForTBSCertificatePathV2: []string{"not compliant", "bad hash", "not found"},
 }
