@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/certificate-transparency/go/tls"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -346,9 +347,10 @@ func defaultSTH() SignedTreeHead {
 		Timestamp:      2345,
 		SHA256RootHash: root,
 		TreeHeadSignature: DigitallySigned{
-			HashAlgorithm:      SHA256,
-			SignatureAlgorithm: ECDSA,
-			Signature:          []byte("tree_signature"),
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA256,
+				Signature: tls.ECDSA},
+			Signature: []byte("tree_signature"),
 		},
 	}
 }
@@ -418,17 +420,18 @@ func TestSerializeV1STHSignatureKAT(t *testing.T) {
 func TestMarshalDigitallySigned(t *testing.T) {
 	b, err := MarshalDigitallySigned(
 		DigitallySigned{
-			HashAlgorithm:      SHA512,
-			SignatureAlgorithm: ECDSA,
-			Signature:          []byte("signature")})
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA512,
+				Signature: tls.ECDSA},
+			Signature: []byte("signature")})
 	if err != nil {
 		t.Fatalf("Failed to marshal DigitallySigned struct: %v", err)
 	}
-	if b[0] != byte(SHA512) {
-		t.Fatalf("Expected b[0] == SHA512, but found %v", HashAlgorithm(b[0]))
+	if b[0] != byte(tls.SHA512) {
+		t.Fatalf("Expected b[0] == SHA512, but found %v", tls.HashAlgorithm(b[0]))
 	}
-	if b[1] != byte(ECDSA) {
-		t.Fatalf("Expected b[1] == ECDSA, but found %v", SignatureAlgorithm(b[1]))
+	if b[1] != byte(tls.ECDSA) {
+		t.Fatalf("Expected b[1] == ECDSA, but found %v", tls.SignatureAlgorithm(b[1]))
 	}
 	if b[2] != 0x00 || b[3] != 0x09 {
 		t.Fatalf("Found incorrect length bytes, expected (0x00, 0x09) found %v", b[2:3])
@@ -443,11 +446,11 @@ func TestUnmarshalDigitallySigned(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to unmarshal DigitallySigned: %v", err)
 	}
-	if ds.HashAlgorithm != MD5 {
-		t.Fatalf("Expected HashAlgorithm %v, but got %v", MD5, ds.HashAlgorithm)
+	if ds.Algorithm.Hash != tls.MD5 {
+		t.Fatalf("Expected HashAlgorithm %v, but got %v", tls.MD5, ds.Algorithm.Hash)
 	}
-	if ds.SignatureAlgorithm != DSA {
-		t.Fatalf("Expected SignatureAlgorithm %v, but got %v", DSA, ds.SignatureAlgorithm)
+	if ds.Algorithm.Signature != tls.DSA {
+		t.Fatalf("Expected SignatureAlgorithm %v, but got %v", tls.DSA, ds.Algorithm.Signature)
 	}
 	if string(ds.Signature) != "SiGnAtUrE!" {
 		t.Fatalf("Expected Signature %v, but got %v", []byte("SiGnAtUrE!"), ds.Signature)

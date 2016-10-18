@@ -26,7 +26,7 @@ func ctTimestampToTime(ts uint64) time.Time {
 }
 
 func signatureToString(signed *ct.DigitallySigned) string {
-	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.HashAlgorithm, signed.SignatureAlgorithm, signed.Signature)
+	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
 }
 
 func getSTH(logClient *client.LogClient) {

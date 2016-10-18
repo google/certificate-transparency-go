@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/certificate-transparency/go/tls"
 	"github.com/google/certificate-transparency/go/x509"
 )
 
@@ -125,73 +126,9 @@ type AuditPath []MerkleTreeNode
 // LeafInput represents a serialized MerkleTreeLeaf structure
 type LeafInput []byte
 
-// HashAlgorithm from the DigitallySigned struct
-type HashAlgorithm byte
-
-// HashAlgorithm constants
-const (
-	None   HashAlgorithm = 0
-	MD5    HashAlgorithm = 1
-	SHA1   HashAlgorithm = 2
-	SHA224 HashAlgorithm = 3
-	SHA256 HashAlgorithm = 4
-	SHA384 HashAlgorithm = 5
-	SHA512 HashAlgorithm = 6
-)
-
-func (h HashAlgorithm) String() string {
-	switch h {
-	case None:
-		return "None"
-	case MD5:
-		return "MD5"
-	case SHA1:
-		return "SHA1"
-	case SHA224:
-		return "SHA224"
-	case SHA256:
-		return "SHA256"
-	case SHA384:
-		return "SHA384"
-	case SHA512:
-		return "SHA512"
-	default:
-		return fmt.Sprintf("UNKNOWN(%d)", h)
-	}
-}
-
-// SignatureAlgorithm from the the DigitallySigned struct
-type SignatureAlgorithm byte
-
-// SignatureAlgorithm constants
-const (
-	Anonymous SignatureAlgorithm = 0
-	RSA       SignatureAlgorithm = 1
-	DSA       SignatureAlgorithm = 2
-	ECDSA     SignatureAlgorithm = 3
-)
-
-func (s SignatureAlgorithm) String() string {
-	switch s {
-	case Anonymous:
-		return "Anonymous"
-	case RSA:
-		return "RSA"
-	case DSA:
-		return "DSA"
-	case ECDSA:
-		return "ECDSA"
-	default:
-		return fmt.Sprintf("UNKNOWN(%d)", s)
-	}
-}
-
-// DigitallySigned represents an RFC5246 DigitallySigned structure
-type DigitallySigned struct {
-	HashAlgorithm      HashAlgorithm
-	SignatureAlgorithm SignatureAlgorithm
-	Signature          []byte
-}
+// DigitallySigned is a local alias for tls.DigitallySigned so that we can
+// attach a MarshalJSON method.
+type DigitallySigned tls.DigitallySigned
 
 // FromBase64String populates the DigitallySigned structure from the base64 data passed in.
 // Returns an error if the base64 data is invalid.

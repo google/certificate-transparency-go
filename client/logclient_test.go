@@ -156,11 +156,11 @@ func TestGetSTHWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't unmarshal DigitallySigned: %v", err)
 	}
-	if sth.TreeHeadSignature.HashAlgorithm != expectedDS.HashAlgorithm {
-		t.Fatalf("Invalid TreeHeadSignature.HashAlgorithm: expected %v, got %v", sth.TreeHeadSignature.HashAlgorithm, expectedDS.HashAlgorithm)
+	if sth.TreeHeadSignature.Algorithm.Hash != expectedDS.Algorithm.Hash {
+		t.Fatalf("Invalid TreeHeadSignature.Algorithm.Hash: expected %v, got %v", sth.TreeHeadSignature.Algorithm.Hash, expectedDS.Algorithm.Hash)
 	}
-	if sth.TreeHeadSignature.SignatureAlgorithm != expectedDS.SignatureAlgorithm {
-		t.Fatalf("Invalid TreeHeadSignature.SignatureAlgorithm: expected %v, got %v", sth.TreeHeadSignature.SignatureAlgorithm, expectedDS.SignatureAlgorithm)
+	if sth.TreeHeadSignature.Algorithm.Signature != expectedDS.Algorithm.Signature {
+		t.Fatalf("Invalid TreeHeadSignature.Algorithm.Signature: expected %v, got %v", sth.TreeHeadSignature.Algorithm.Signature, expectedDS.Algorithm.Signature)
 	}
 	if bytes.Compare(sth.TreeHeadSignature.Signature, expectedDS.Signature) != 0 {
 		t.Fatalf("Invalid TreeHeadSignature.Signature: expected %v, got %v", sth.TreeHeadSignature.Signature, expectedDS.Signature)

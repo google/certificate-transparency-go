@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/google/certificate-transparency/go/tls"
 )
 
 // Variable size structure prefix-header byte lengths
@@ -265,9 +267,10 @@ func UnmarshalDigitallySigned(r io.Reader) (*DigitallySigned, error) {
 	}
 
 	return &DigitallySigned{
-		HashAlgorithm:      HashAlgorithm(h),
-		SignatureAlgorithm: SignatureAlgorithm(s),
-		Signature:          sig,
+		Algorithm: tls.SignatureAndHashAlgorithm{
+			Hash:      tls.HashAlgorithm(h),
+			Signature: tls.SignatureAlgorithm(s)},
+		Signature: sig,
 	}, nil
 }
 
@@ -282,8 +285,8 @@ func marshalDigitallySignedHere(ds DigitallySigned, here []byte) ([]byte, error)
 	}
 	here = here[0:dsOutLen]
 
-	here[0] = byte(ds.HashAlgorithm)
-	here[1] = byte(ds.SignatureAlgorithm)
+	here[0] = byte(ds.Algorithm.Hash)
+	here[1] = byte(ds.Algorithm.Signature)
 	binary.BigEndian.PutUint16(here[2:4], uint16(sigLen))
 	copy(here[4:], ds.Signature)
 
