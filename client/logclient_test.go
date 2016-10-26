@@ -174,8 +174,10 @@ func TestAddChainWithContext(t *testing.T) {
 	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if failuresBeforeSuccess > 0 && currentFailures < failuresBeforeSuccess {
 			currentFailures++
-			if retryAfter > 0 {
-				w.Header().Add("Retry-After", strconv.Itoa(retryAfter))
+			if retryAfter != 0 {
+				if retryAfter > 0 {
+					w.Header().Add("Retry-After", strconv.Itoa(retryAfter))
+				}
 				w.WriteHeader(503)
 				return
 			}
@@ -199,22 +201,24 @@ func TestAddChainWithContext(t *testing.T) {
 	leeway := time.Millisecond * 100
 	instant := time.Millisecond
 	fiveSeconds := time.Second * 5
+	sevenSeconds := time.Second * 7 // = 1 + 2 + 4
 
 	testCases := []struct {
 		deadlineLength        int
 		expected              time.Duration
-		retryAfter            int
+		retryAfter            int // -1 indicates: generate 503 with no Retry-After
 		failuresBeforeSuccess int
 		success               bool
 	}{
 		{-1, instant, 0, 0, true},
+		{-1, sevenSeconds, -1, 3, true},
 		{6, fiveSeconds, 5, 1, true},
 		{5, fiveSeconds, 10, 1, false},
 		{10, fiveSeconds, 1, 5, true},
 		{1, instant * 10, 0, 10, true},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		var deadline context.Context
 		if tc.deadlineLength >= 0 {
 			deadline, _ = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(tc.deadlineLength)*time.Second))
@@ -227,15 +231,15 @@ func TestAddChainWithContext(t *testing.T) {
 		sct, err := c.AddChainWithContext(deadline, chain)
 		took := time.Since(started)
 		if math.Abs(float64(took-tc.expected)) > float64(leeway) {
-			t.Fatalf("Submission took an unexpected length of time: %s, expected ~%s", took, tc.expected)
+			t.Errorf("#%d Submission took an unexpected length of time: %s, expected ~%s", i, took, tc.expected)
 		}
 		if tc.success && err != nil {
-			t.Fatalf("Failed to submit chain: %s", err)
+			t.Errorf("#%d Failed to submit chain: %s", i, err)
 		} else if !tc.success && err == nil {
-			t.Fatal("Expected AddChainWithContext to fail")
+			t.Errorf("#%d Expected AddChainWithContext to fail", i)
 		}
 		if tc.success && sct == nil {
-			t.Fatal("Nil SCT returned")
+			t.Errorf("#%d Nil SCT returned", i)
 		}
 	}
 }
