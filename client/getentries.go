@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strconv"
-	"strings"
 
 	ct "github.com/google/certificate-transparency/go"
 	"golang.org/x/net/context"
@@ -25,7 +22,7 @@ type GetEntriesResponse struct {
 }
 
 // GetRawEntries exposes the /ct/v1/get-entries result with only the JSON parsing done.
-func GetRawEntries(ctx context.Context, httpClient *http.Client, logURL string, start, end int64) (*GetEntriesResponse, error) {
+func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*GetEntriesResponse, error) {
 	if end < 0 {
 		return nil, errors.New("end should be >= 0")
 	}
@@ -33,18 +30,16 @@ func GetRawEntries(ctx context.Context, httpClient *http.Client, logURL string, 
 		return nil, errors.New("start should be <= end")
 	}
 
-	baseURL, err := url.Parse(strings.TrimRight(logURL, "/") + GetEntriesPath)
-	if err != nil {
-		return nil, err
+	params := map[string]string{
+		"start": strconv.FormatInt(start, 10),
+		"end":   strconv.FormatInt(end, 10),
+	}
+	if ctx == nil {
+		ctx = context.TODO()
 	}
 
-	baseURL.RawQuery = url.Values{
-		"start": []string{strconv.FormatInt(start, 10)},
-		"end":   []string{strconv.FormatInt(end, 10)},
-	}.Encode()
-
 	var resp GetEntriesResponse
-	err = fetchAndParse(context.TODO(), httpClient, baseURL.String(), &resp)
+	_, err := c.GetAndParse(ctx, GetEntriesPath, params, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +50,7 @@ func GetRawEntries(ctx context.Context, httpClient *http.Client, logURL string, 
 // GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
 // Returns a slice of LeafInputs or a non-nil error.
 func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
-	resp, err := GetRawEntries(context.TODO(), c.httpClient, c.uri, start, end)
+	resp, err := c.GetRawEntries(context.TODO(), start, end)
 	if err != nil {
 		return nil, err
 	}

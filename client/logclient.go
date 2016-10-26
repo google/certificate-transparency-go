@@ -7,17 +7,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	ct "github.com/google/certificate-transparency/go"
+	"github.com/google/certificate-transparency/go/jsonclient"
 	"golang.org/x/net/context"
 )
 
@@ -34,9 +31,7 @@ const (
 
 // LogClient represents a client for a given CT Log instance
 type LogClient struct {
-	uri        string                // the base URI of the log. e.g. http://ct.googleapis/pilot
-	httpClient *http.Client          // used to interact with the log via HTTP
-	verifier   *ct.SignatureVerifier // nil if no public key for log available
+	jsonclient.JSONClient
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +86,7 @@ type getAcceptedRootsResponse struct {
 	Certificates []string `json:"certificates"`
 }
 
-// getEntryAndProodReponse represents the JSON response to the CT get-entry-and-proof method
+// getEntryAndProofReponse represents the JSON response to the CT get-entry-and-proof method
 type getEntryAndProofResponse struct {
 	LeafInput string   `json:"leaf_input"` // the entry itself
 	ExtraData string   `json:"extra_data"` // any chain provided when the entry was added to the log
@@ -109,168 +104,37 @@ type GetProofByHashResponse struct {
 // http://ct.googleapis.com/pilot
 // |hc| is the underlying client to be used for HTTP requests to the CT log.
 func New(uri string, hc *http.Client) *LogClient {
-	if hc == nil {
-		hc = new(http.Client)
+	logClient, err := jsonclient.NewWithoutVerification(uri, hc)
+	if err != nil {
+		panic(fmt.Sprintf("JSONClient creation failed: %v" + err.Error()))
 	}
-	return &LogClient{uri: uri, httpClient: hc}
+	return &LogClient{*logClient}
 }
 
 // NewWithPubKey constructs a new LogClient instance that includes public
 // key information for the log; this instance will check signatures on
 // responses from the log.
 func NewWithPubKey(uri string, hc *http.Client, pemEncodedKey string) (*LogClient, error) {
-	pubkey, _, rest, err := ct.PublicKeyFromPEM([]byte(pemEncodedKey))
-	if err != nil {
-		return nil, err
-	}
-	if len(rest) > 0 {
-		return nil, errors.New("extra data found after PEM key decoded")
-	}
-
-	verifier, err := ct.NewSignatureVerifier(pubkey)
-	if err != nil {
-		return nil, err
-	}
-
-	if hc == nil {
-		hc = new(http.Client)
-	}
-	return &LogClient{uri: uri, httpClient: hc, verifier: verifier}, nil
-}
-
-// Makes a HTTP call to |uri|, and attempts to parse the response as a
-// JSON representation of the structure in |res|. Uses |ctx| to
-// control the HTTP call (so it can have a timeout or be cancelled by
-// the caller), and |httpClient| to make the actual HTTP call.
-// Returns a non-nil |error| if there was a problem.
-func fetchAndParse(ctx context.Context, httpClient *http.Client, uri string, res interface{}) error {
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		return err
-	}
-	req.Cancel = ctx.Done()
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	// Make sure everything is read, so http.Client can reuse the connection.
-	defer ioutil.ReadAll(resp.Body)
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("got HTTP Status %s", resp.Status)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(res); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Makes a HTTP POST call to |uri|, and attempts to parse the response as a JSON
-// representation of the structure in |res|.
-// Returns a non-nil |error| if there was a problem.
-func (c *LogClient) postAndParse(uri string, req interface{}, res interface{}) (*http.Response, string, error) {
-	postBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, "", err
-	}
-	httpReq, err := http.NewRequest(http.MethodPost, uri, bytes.NewReader(postBody))
-	if err != nil {
-		return nil, "", err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := c.httpClient.Do(httpReq)
-	// Read all of the body, if there is one, so that the http.Client can do
-	// Keep-Alive:
-	var body []byte
-	if resp != nil {
-		body, err = ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-	}
-	if err != nil {
-		return resp, string(body), err
-	}
-	if resp.StatusCode == 200 {
-		if err != nil {
-			return resp, string(body), err
-		}
-		if err = json.Unmarshal(body, &res); err != nil {
-			return resp, string(body), err
-		}
-	}
-	return resp, string(body), nil
-}
-
-func backoffForRetry(ctx context.Context, d time.Duration) error {
-	backoffTimer := time.NewTimer(d)
-	if ctx != nil {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-backoffTimer.C:
-		}
-	} else {
-		<-backoffTimer.C
-	}
-	return nil
+	logClient, err := jsonclient.New(uri, hc, pemEncodedKey)
+	return &LogClient{*logClient}, err
 }
 
 // Attempts to add |chain| to the log, using the api end-point specified by
 // |path|. If provided context expires before submission is complete an
 // error will be returned.
 func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType, path string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+	if ctx == nil {
+		ctx = context.TODO()
+	}
 	var resp addChainResponse
 	var req addChainRequest
 	for _, link := range chain {
 		req.Chain = append(req.Chain, link)
 	}
-	httpStatus := "Unknown"
-	// Retry after 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 128s, ....
-	maxInterval := 128.0
-	backoffInterval := 1.0
-	backoffSeconds := 0
-loop:
-	for {
-		if backoffSeconds > 0 {
-			log.Printf("Got %s, backing-off %d seconds", httpStatus, backoffSeconds)
-		}
-		err := backoffForRetry(ctx, time.Second*time.Duration(backoffSeconds))
-		if err != nil {
-			return nil, err
-		}
-		if backoffSeconds > 0 {
-			backoffSeconds = 0
-		}
-		httpResp, _, err := c.postAndParse(c.uri+path, &req, &resp)
-		if err != nil {
-			backoffSeconds = int(backoffInterval)
-			if backoffInterval < maxInterval {
-				backoffInterval *= 2.0
-			}
-			continue
-		}
-		switch {
-		case httpResp.StatusCode == 200:
-			break loop
-		case httpResp.StatusCode == 408:
-			// request timeout, retry immediately
-		case httpResp.StatusCode == 503:
-			// Retry
-			backoffSeconds = int(backoffInterval)
-			if backoffInterval < maxInterval {
-				backoffInterval *= 2.0
-			}
-			if retryAfter := httpResp.Header.Get("Retry-After"); retryAfter != "" {
-				if seconds, err := strconv.Atoi(retryAfter); err == nil {
-					backoffSeconds = seconds
-				}
-			}
-		default:
-			return nil, fmt.Errorf("got HTTP Status %s", httpResp.Status)
-		}
-		httpStatus = httpResp.Status
+
+	_, err := c.PostAndParseWithRetry(ctx, path, &req, &resp)
+	if err != nil {
+		return nil, err
 	}
 
 	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.Signature))
@@ -315,7 +179,7 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 		Data: data,
 	}
 	var resp addChainResponse
-	_, _, err := c.postAndParse(c.uri+AddJSONPath, &req, &resp)
+	_, err := c.PostAndParse(context.TODO(), AddJSONPath, &req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +201,8 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 // Returns a populated SignedTreeHead, or a non-nil error.
 func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 	var resp getSTHResponse
-	if err = fetchAndParse(context.TODO(), c.httpClient, c.uri+GetSTHPath, &resp); err != nil {
+	_, err = c.GetAndParse(context.TODO(), GetSTHPath, nil, &resp)
+	if err != nil {
 		return
 	}
 	sth = &ct.SignedTreeHead{
@@ -365,16 +230,16 @@ func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
 // VerifySTHSignature checks the signature in sth, returning any error encountered or nil if verification is
 // successful.
 func (c *LogClient) VerifySTHSignature(sth ct.SignedTreeHead) error {
-	if c.verifier == nil {
+	if c.Verifier == nil {
 		// Can't verify signatures without a verifier
 		return nil
 	}
-	return c.verifier.VerifySTHSignature(sth)
+	return c.Verifier.VerifySTHSignature(sth)
 }
 
 // VerifySCTSignature checks the signature in sct for the given LogEntryType, with associated certificate chain.
 func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype ct.LogEntryType, certData []ct.ASN1Cert) error {
-	if c.verifier == nil {
+	if c.Verifier == nil {
 		// Can't verify signatures without a verifier
 		return nil
 	}
@@ -396,14 +261,19 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 			X509Entry:  certData[0],
 			Extensions: sct.Extensions}}
 	entry := ct.LogEntry{Leaf: leaf}
-	return c.verifier.VerifySCTSignature(sct, entry)
+	return c.Verifier.VerifySCTSignature(sct, entry)
 }
 
 // GetSTHConsistency retrieves the consistency proof between two snapshots.
 func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error) {
-	u := fmt.Sprintf("%s%s?first=%d&second=%d", c.uri, GetSTHConsistencyPath, first, second)
+	base10 := 10
+	params := map[string]string{
+		"first":  strconv.FormatUint(first, base10),
+		"second": strconv.FormatUint(second, base10),
+	}
 	var resp getConsistencyProofResponse
-	if err := fetchAndParse(ctx, c.httpClient, u, &resp); err != nil {
+	_, err := c.GetAndParse(ctx, GetSTHConsistencyPath, params, &resp)
+	if err != nil {
 		return nil, err
 	}
 	return resp.Consistency, nil
@@ -412,9 +282,14 @@ func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64)
 // GetProofByHash returns an audit path for the hash of an SCT.
 func (c *LogClient) GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*GetProofByHashResponse, error) {
 	b64Hash := url.QueryEscape(base64.StdEncoding.EncodeToString(hash))
-	u := fmt.Sprintf("%s%s?tree_size=%d&hash=%v", c.uri, GetProofByHashPath, treeSize, b64Hash)
+	base10 := 10
+	params := map[string]string{
+		"tree_size": strconv.FormatUint(treeSize, base10),
+		"hash":      b64Hash,
+	}
 	var resp GetProofByHashResponse
-	if err := fetchAndParse(ctx, c.httpClient, u, &resp); err != nil {
+	_, err := c.GetAndParse(ctx, GetProofByHashPath, params, &resp)
+	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
