@@ -1,0 +1,97 @@
+SEQUENCE {  # SignedData
+  INTEGER { 3 }  # version = v3(3)
+  SET {  # DigestAlgorithmIdentifiers
+    SEQUENCE {  # AlgorithmIdentifier
+      # sha256WithRSAEncryption
+      OBJECT_IDENTIFIER { 1.2.840.113549.1.1.11 }  # algorithm
+    }
+  }  # digestAlgorithms
+  SEQUENCE {  # EncapsulatedContentInfo
+    OBJECT_IDENTIFIER { 1.3.101.78 }  # eContentType
+    [0] {
+      OCTET_STRING { "abcd" }
+    }
+  }  # encapContentInfo
+  # no certificates
+  # no crls
+  SET {  # SignerInfos
+    SEQUENCE {  # SignerInfo
+      INTEGER { 3 }  # version = v3(3)
+      SEQUENCE {  # IssuerAndSerialNumber
+        SEQUENCE {  # Name
+          SET {
+            SEQUENCE {
+              # countryName
+              OBJECT_IDENTIFIER { 2.5.4.6 }
+              PrintableString { "GB" }
+            }
+          }
+          SET {
+            SEQUENCE {
+              # stateOrProvinceName
+              OBJECT_IDENTIFIER { 2.5.4.8 }
+              PrintableString { "London" }
+            }
+          }
+          SET {
+            SEQUENCE {
+              # localityName
+              OBJECT_IDENTIFIER { 2.5.4.7 }
+              PrintableString { "London" }
+            }
+          }
+          SET {
+            SEQUENCE {
+              # organizationName
+              OBJECT_IDENTIFIER { 2.5.4.10 }
+              PrintableString { "Google" }
+            }
+          }
+          SET {
+            SEQUENCE {
+              # organizationUnitName
+              OBJECT_IDENTIFIER { 2.5.4.11 }
+              PrintableString { "Eng" }
+            }
+          }
+          SET {
+            SEQUENCE {
+              # commonName
+              OBJECT_IDENTIFIER { 2.5.4.3 }
+              PrintableString { "FakeCertificateAuthority" }
+            }
+          }
+        }  # issuer
+        INTEGER { `0406cafe` }  # serialNumber
+      }  # sid
+      SEQUENCE {  # AlgorithmIdentifier
+        # sha256
+        OBJECT_IDENTIFIER { 2.16.840.1.101.3.4.2.1 }  # algorithm
+      } # digestAlgorithm
+      [0] {  # SignedAttributes
+        SEQUENCE {  # Attribute
+          OBJECT_IDENTIFIER { 1.2.840.113549.1.9.3 }
+          SET {
+            OBJECT_IDENTIFIER { 1.3.101.78 }
+          }
+        }
+        SEQUENCE {  # Attribute
+          OBJECT_IDENTIFIER { 1.2.840.113549.1.9.4 }
+          SET {
+            OCTET_STRING { `88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589` }
+          }
+        }
+      }  # signedAttrs
+      # no signedAttrs
+      SEQUENCE {  # AlgorithmIdentifier
+        # sha256WithRSAEncryption
+        OBJECT_IDENTIFIER { 1.2.840.113549.1.1.11 }  # algorithm
+      }  # signatureAlgorithm
+      OCTET_STRING {  # SignatureValue
+        `abcd`  # data here
+      }  # signature
+      # no unsignedAttrs
+    }
+  }  # signerInfos
+}
+
