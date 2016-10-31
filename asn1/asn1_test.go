@@ -483,6 +483,11 @@ type TestAuthKeyID struct {
 	SerialNumber *big.Int `asn1:"optional,tag:2"`
 }
 
+type TestSetOfAny struct {
+	Values anySET
+}
+type anySET []RawValue
+
 var unmarshalTestData = []struct {
 	in  []byte
 	out interface{}
@@ -526,6 +531,13 @@ var unmarshalTestData = []struct {
 			SerialNumber: big.NewInt(0x12233445566),
 		}},
 	{[]byte{0x30, 0x06, 0x80, 0x04, 0x01, 0x02, 0x03, 0x04}, &TestAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}}},
+	{[]byte{0x30, 0x05, 0x31, 0x03, 0x02, 0x01, 0x42},
+		&TestSetOfAny{
+			Values: []RawValue{
+				RawValue{Class: 0, Tag: 2, Bytes: []byte{0x42}, FullBytes: []byte{0x02, 0x01, 0x42}},
+			},
+		},
+	},
 }
 
 func TestUnmarshal(t *testing.T) {
