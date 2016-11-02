@@ -27,6 +27,7 @@ const (
 	GetEntriesPath        = "/ct/v1/get-entries"
 	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
 	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
+	GetRootsPath          = "/ct/v1/get-roots"
 )
 
 // LogClient represents a client for a given CT Log instance
@@ -272,8 +273,7 @@ func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64)
 		"second": strconv.FormatUint(second, base10),
 	}
 	var resp getConsistencyProofResponse
-	_, err := c.GetAndParse(ctx, GetSTHConsistencyPath, params, &resp)
-	if err != nil {
+	if _, err := c.GetAndParse(ctx, GetSTHConsistencyPath, params, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Consistency, nil
@@ -288,9 +288,25 @@ func (c *LogClient) GetProofByHash(ctx context.Context, hash []byte, treeSize ui
 		"hash":      b64Hash,
 	}
 	var resp GetProofByHashResponse
-	_, err := c.GetAndParse(ctx, GetProofByHashPath, params, &resp)
-	if err != nil {
+	if _, err := c.GetAndParse(ctx, GetProofByHashPath, params, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// GetAcceptedRoots retrieves the set of acceptable root certificates for a log.
+func (c *LogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
+	var resp getAcceptedRootsResponse
+	if _, err := c.GetAndParse(ctx, GetRootsPath, nil, &resp); err != nil {
+		return nil, err
+	}
+	var roots []ct.ASN1Cert
+	for _, cert64 := range resp.Certificates {
+		cert, err := base64.StdEncoding.DecodeString(cert64)
+		if err != nil {
+			return nil, err
+		}
+		roots = append(roots, cert)
+	}
+	return roots, nil
 }
