@@ -81,6 +81,7 @@ type fieldParameters struct {
 	timeType     int    // the time tag to use when marshaling.
 	set          bool   // true iff this should be encoded as a SET
 	omitEmpty    bool   // true iff this should be omitted if empty when marshaling.
+	lax          bool   // true iff unmarshalling should skip some error checks
 	name         string // name of field for better diagnostics
 
 	// Invariants:
@@ -133,6 +134,8 @@ func parseFieldParameters(str string) (ret fieldParameters) {
 			}
 		case part == "omitempty":
 			ret.omitEmpty = true
+		case part == "lax":
+			ret.lax = true
 		}
 	}
 	return
