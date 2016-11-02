@@ -71,6 +71,12 @@ type defaultTest struct {
 	A int `asn1:"optional,default:1"`
 }
 
+type testAuthKeyID struct {
+	ID           []byte   `asn1:"optional,tag:0"`
+	Issuer       RawValue `asn1:"optional,tag:1"`
+	SerialNumber *big.Int `asn1:"optional,tag:2"`
+}
+
 type testSET []int
 
 var PST = time.FixedZone("PST", -8*60*60)
@@ -152,6 +158,8 @@ var marshalTests = []marshalTest{
 	{defaultTest{0}, "3003020100"},
 	{defaultTest{1}, "3000"},
 	{defaultTest{2}, "3003020102"},
+	{testAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}, SerialNumber: big.NewInt(0x12233445566)}, "300e8004010203048206012233445566"},
+	{testAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}}, "3006800401020304"},
 }
 
 func TestMarshal(t *testing.T) {

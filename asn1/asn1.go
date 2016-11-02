@@ -660,6 +660,17 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 	offset = initOffset
 	fieldType := v.Type()
 
+	expectedClass := -1
+	expectedTag := -1
+	if !params.explicit && params.tag != nil {
+		if params.application {
+			expectedClass = ClassApplication
+		} else {
+			expectedClass = ClassContextSpecific
+		}
+		expectedTag = *params.tag
+	}
+
 	// If we have run out of data, it may be that there are optional elements at the end.
 	if offset == len(bytes) {
 		if !setDefaultValue(v, params) {
@@ -677,6 +688,12 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 		}
 		if invalidLength(offset, t.length, len(bytes)) {
 			err = SyntaxError{"data truncated"}
+			return
+		}
+		if expectedTag != -1 && t.tag != expectedTag && params.optional {
+			// We didn't find the tag associated with the RawValue but it's optional so
+			// reset to where we were and move on.
+			offset = initOffset
 			return
 		}
 		result := RawValue{t.class, t.tag, t.isCompound, bytes[offset : offset+t.length], bytes[initOffset : offset+t.length]}
@@ -818,17 +835,11 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 		universalTag = TagSet
 	}
 
-	expectedClass := ClassUniversal
-	expectedTag := universalTag
-
-	if !params.explicit && params.tag != nil {
-		expectedClass = ClassContextSpecific
-		expectedTag = *params.tag
+	if expectedClass == -1 {
+		expectedClass = ClassUniversal
 	}
-
-	if !params.explicit && params.application && params.tag != nil {
-		expectedClass = ClassApplication
-		expectedTag = *params.tag
+	if expectedTag == -1 {
+		expectedTag = universalTag
 	}
 
 	// We have unwrapped any explicit tagging at this point.
