@@ -8,12 +8,10 @@
 // See also ``A Layman's Guide to a Subset of ASN.1, BER, and DER,''
 // http://luca.ntop.org/Teaching/Appunti/asn1.html.
 //
-// START CT CHANGES
 // This is a fork of the Go standard library ASN.1 implementation
 // (encoding/asn1).  The main difference is that this version tries to correct
 // for errors (e.g. use of tagPrintableString when the string data is really
 // ISO8859-1 - a common error present in many x509 certificates in the wild.)
-// END CT CHANGES
 package asn1
 
 // ASN.1 is a syntax for specifying abstract objects and BER, DER, PER, XER etc
@@ -27,17 +25,13 @@ package asn1
 // everything by any means.
 
 import (
-	// START CT CHANGES
 	"errors"
-	"math"
-	// END CT CHANGES
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
-	// START CT CHANGES
-	"strings"
-	// END CT CHANGES
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -614,8 +608,6 @@ func invalidLength(offset, length, sliceLength int) bool {
 	return offset+length < offset || offset+length > sliceLength
 }
 
-// START CT CHANGES
-
 // Tests whether the data in |bytes| would be a valid ISO8859-1 string.
 // Clearly, a sequence of bytes comprised solely of valid ISO8859-1
 // codepoints does not imply that the encoding MUST be ISO8859-1, rather that
@@ -660,8 +652,6 @@ func iso8859_1ToUTF8(bytes []byte) string {
 	}
 	return string(buf)
 }
-
-// END CT CHANGES
 
 // parseField is the main parsing function. Given a byte slice and an offset
 // into the array, it will try to parse a suitable ASN.1 value out and store it
@@ -712,7 +702,6 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 			switch t.tag {
 			case TagPrintableString:
 				result, err = parsePrintableString(innerBytes)
-				// START CT CHANGES
 				if err != nil && strings.Contains(err.Error(), "PrintableString contains invalid character") {
 					// Probably an ISO8859-1 string stuffed in, check if it
 					// would be valid and assume that's what's happened if so,
@@ -728,7 +717,6 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 						err = errors.New("PrintableString contains invalid character, but couldn't determine correct String type.")
 					}
 				}
-				// END CT CHANGES
 			case TagIA5String:
 				result, err = parseIA5String(innerBytes)
 			case TagT61String:
