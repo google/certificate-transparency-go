@@ -130,7 +130,7 @@ func TestFieldTagToFieldInfo(t *testing.T) {
 			if err == nil {
 				t.Errorf("fieldTagToFieldInfo('%v')=%+v,nil; want error %q", test.tag, got, test.errstr)
 			} else if !strings.Contains(err.Error(), test.errstr) {
-				t.Errorf("fieldTagToFieldInfo('%v')=nil,%q; want error %q", test.tag, test.errstr, err.Error())
+				t.Errorf("fieldTagToFieldInfo('%v')=nil,%q; want error %q", test.tag, err.Error(), test.errstr)
 			}
 			continue
 		}
