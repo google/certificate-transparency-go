@@ -417,7 +417,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 				},
 				// This extension should override the SubjectKeyId, above.
 				{
-					Id:       oidExtensionSubjectKeyId,
+					Id:       OIDExtensionSubjectKeyId,
 					Critical: false,
 					Value:    []byte{0x04, 0x04, 4, 3, 2, 1},
 				},
@@ -1227,7 +1227,7 @@ func TestCertificateRequestOverrides(t *testing.T) {
 		// template.
 		ExtraExtensions: []pkix.Extension{
 			{
-				Id:    oidExtensionSubjectAltName,
+				Id:    OIDExtensionSubjectAltName,
 				Value: sanContents,
 			},
 		},
@@ -1249,7 +1249,7 @@ func TestCertificateRequestOverrides(t *testing.T) {
 			Value: [][]pkix.AttributeTypeAndValue{
 				{
 					{
-						Type:  oidExtensionAuthorityInfoAccess,
+						Type:  OIDExtensionAuthorityInfoAccess,
 						Value: []byte("foo"),
 					},
 				},
@@ -1275,7 +1275,7 @@ func TestCertificateRequestOverrides(t *testing.T) {
 
 	// Extensions in Attributes should override those in ExtraExtensions.
 	template.Attributes[0].Value[0] = append(template.Attributes[0].Value[0], pkix.AttributeTypeAndValue{
-		Type:  oidExtensionSubjectAltName,
+		Type:  OIDExtensionSubjectAltName,
 		Value: sanContents2,
 	})
 
@@ -1308,7 +1308,7 @@ func TestParseCertificateRequest(t *testing.T) {
 
 		found := false
 		for _, e := range csr.Extensions {
-			if e.Id.Equal(oidExtensionBasicConstraints) {
+			if e.Id.Equal(OIDExtensionBasicConstraints) {
 				found = true
 				break
 			}
@@ -1334,8 +1334,8 @@ func TestCriticalFlagInCSRRequestedExtensions(t *testing.T) {
 		Id    asn1.ObjectIdentifier
 		Value []byte
 	}{
-		{oidExtensionBasicConstraints, fromBase64("MAYBAf8CAQA=")},
-		{oidExtensionKeyUsage, fromBase64("AwIChA==")},
+		{OIDExtensionBasicConstraints, fromBase64("MAYBAf8CAQA=")},
+		{OIDExtensionKeyUsage, fromBase64("AwIChA==")},
 	}
 
 	if n := len(csr.Extensions); n != len(expected) {
