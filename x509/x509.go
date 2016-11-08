@@ -75,7 +75,7 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		if err != nil {
 			return nil, pkix.AlgorithmIdentifier{}, err
 		}
-		publicKeyAlgorithm.Algorithm = oidPublicKeyRSA
+		publicKeyAlgorithm.Algorithm = OIDPublicKeyRSA
 		// This is a NULL parameters value which is required by
 		// https://tools.ietf.org/html/rfc3279#section-2.3.1.
 		publicKeyAlgorithm.Parameters = asn1.NullRawValue
@@ -85,7 +85,7 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		if !ok {
 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
 		}
-		publicKeyAlgorithm.Algorithm = oidPublicKeyECDSA
+		publicKeyAlgorithm.Algorithm = OIDPublicKeyECDSA
 		var paramBytes []byte
 		paramBytes, err = asn1.Marshal(oid)
 		if err != nil {
@@ -460,18 +460,19 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm
 // id-ecPublicKey OBJECT IDENTIFIER ::= {
 //       iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 var (
-	oidPublicKeyRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
-	oidPublicKeyDSA   = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
-	oidPublicKeyECDSA = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
+	OIDPublicKeyRSA         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+	OIDPublicKeyDSA         = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
+	OIDPublicKeyECDSA       = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
+	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
 )
 
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
 	switch {
-	case oid.Equal(oidPublicKeyRSA):
+	case oid.Equal(OIDPublicKeyRSA):
 		return RSA
-	case oid.Equal(oidPublicKeyDSA):
+	case oid.Equal(OIDPublicKeyDSA):
 		return DSA
-	case oid.Equal(oidPublicKeyECDSA):
+	case oid.Equal(OIDPublicKeyECDSA):
 		return ECDSA
 	}
 	return UnknownPublicKeyAlgorithm
@@ -494,21 +495,21 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 //
 // NB: secp256r1 is equivalent to prime256v1
 var (
-	oidNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
-	oidNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
-	oidNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
-	oidNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+	OIDNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
+	OIDNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
+	OIDNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
+	OIDNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
 )
 
 func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	switch {
-	case oid.Equal(oidNamedCurveP224):
+	case oid.Equal(OIDNamedCurveP224):
 		return elliptic.P224()
-	case oid.Equal(oidNamedCurveP256):
+	case oid.Equal(OIDNamedCurveP256):
 		return elliptic.P256()
-	case oid.Equal(oidNamedCurveP384):
+	case oid.Equal(OIDNamedCurveP384):
 		return elliptic.P384()
-	case oid.Equal(oidNamedCurveP521):
+	case oid.Equal(OIDNamedCurveP521):
 		return elliptic.P521()
 	}
 	return nil
@@ -517,13 +518,13 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 	switch curve {
 	case elliptic.P224():
-		return oidNamedCurveP224, true
+		return OIDNamedCurveP224, true
 	case elliptic.P256():
-		return oidNamedCurveP256, true
+		return OIDNamedCurveP256, true
 	case elliptic.P384():
-		return oidNamedCurveP384, true
+		return OIDNamedCurveP384, true
 	case elliptic.P521():
-		return oidNamedCurveP521, true
+		return OIDNamedCurveP521, true
 	}
 
 	return nil, false
@@ -755,7 +756,7 @@ func (c *Certificate) Equal(other *Certificate) bool {
 }
 
 func (c *Certificate) hasSANExtension() bool {
-	return oidInExtensions(oidExtensionSubjectAltName, c.Extensions)
+	return oidInExtensions(OIDExtensionSubjectAltName, c.Extensions)
 }
 
 // Entrust have a broken root certificate (CN=Entrust.net Certification
@@ -980,7 +981,7 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 		// to that of the preIssuer.
 		var issuerKeyID []byte
 		for _, ext := range preIssuer.Extensions {
-			if ext.Id.Equal(oidExtensionAuthorityKeyId) {
+			if ext.Id.Equal(OIDExtensionAuthorityKeyId) {
 				issuerKeyID = ext.Value
 				break
 			}
@@ -1003,7 +1004,7 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 
 		keyAt := -1
 		for i, ext := range tbs.Extensions {
-			if ext.Id.Equal(oidExtensionAuthorityKeyId) {
+			if ext.Id.Equal(OIDExtensionAuthorityKeyId) {
 				keyAt = i
 				break
 			}
@@ -1283,9 +1284,9 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 		out.Extensions = append(out.Extensions, e)
 		unhandled := false
 
-		if len(e.Id) == 4 && e.Id[0] == 2 && e.Id[1] == 5 && e.Id[2] == 29 {
+		if len(e.Id) == 4 && e.Id[0] == OIDExtensionArc[0] && e.Id[1] == OIDExtensionArc[1] && e.Id[2] == OIDExtensionArc[2] {
 			switch e.Id[3] {
-			case 15:
+			case OIDExtensionKeyUsage[3]:
 				// RFC 5280, 4.2.1.3
 				var usageBits asn1.BitString
 				if rest, err := asn1.Unmarshal(e.Value, &usageBits); err != nil {
@@ -1302,7 +1303,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				}
 				out.KeyUsage = KeyUsage(usage)
 
-			case 19:
+			case OIDExtensionBasicConstraints[3]:
 				// RFC 5280, 4.2.1.9
 				var constraints basicConstraints
 				if rest, err := asn1.Unmarshal(e.Value, &constraints); err != nil {
@@ -1316,7 +1317,8 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				out.MaxPathLen = constraints.MaxPathLen
 				out.MaxPathLenZero = out.MaxPathLen == 0
 				// TODO: map out.MaxPathLen to 0 if it has the -1 default value? (Issue 19285)
-			case 17:
+
+			case OIDExtensionSubjectAltName[3]:
 				out.DNSNames, out.EmailAddresses, out.IPAddresses, err = parseSANExtension(e.Value, &nfe)
 				if err != nil {
 					return nil, err
@@ -1327,7 +1329,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					unhandled = true
 				}
 
-			case 30:
+			case OIDExtensionNameConstraints[3]:
 				// RFC 5280, 4.2.1.10
 
 				// NameConstraints ::= SEQUENCE {
@@ -1372,7 +1374,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				}
 				out.PermittedDNSDomainsCritical = e.Critical
 
-			case 31:
+			case OIDExtensionCRLDistributionPoints[3]:
 				// RFC 5280, 4.2.1.13
 
 				// CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
@@ -1412,7 +1414,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					}
 				}
 
-			case 35:
+			case OIDExtensionAuthorityKeyId[3]:
 				// RFC 5280, 4.2.1.1
 				var a authKeyId
 				if rest, err := asn1.Unmarshal(e.Value, &a); err != nil {
@@ -1422,7 +1424,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				}
 				out.AuthorityKeyId = a.Id
 
-			case 37:
+			case OIDExtensionExtendedKeyUsage[3]:
 				// RFC 5280, 4.2.1.12.  Extended Key Usage
 
 				// id-ce-extKeyUsage OBJECT IDENTIFIER ::= { id-ce 37 }
@@ -1446,7 +1448,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					}
 				}
 
-			case 14:
+			case OIDExtensionSubjectKeyId[3]:
 				// RFC 5280, 4.2.1.2
 				var keyid []byte
 				if rest, err := asn1.Unmarshal(e.Value, &keyid); err != nil {
@@ -1456,7 +1458,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				}
 				out.SubjectKeyId = keyid
 
-			case 32:
+			case OIDExtensionCertificatePolicies[3]:
 				// RFC 5280 4.2.1.4: Certificate Policies
 				var policies []policyInformation
 				if rest, err := asn1.Unmarshal(e.Value, &policies); err != nil {
@@ -1473,7 +1475,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				// Unknown extensions are recorded if critical.
 				unhandled = true
 			}
-		} else if e.Id.Equal(oidExtensionAuthorityInfoAccess) {
+		} else if e.Id.Equal(OIDExtensionAuthorityInfoAccess) {
 			// RFC 5280 4.2.2.1: Authority Information Access
 			var aia []authorityInfoAccess
 			if rest, err := asn1.Unmarshal(e.Value, &aia); err != nil {
@@ -1487,9 +1489,9 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				if v.Location.Tag != 6 {
 					continue
 				}
-				if v.Method.Equal(oidAuthorityInfoAccessOcsp) {
+				if v.Method.Equal(OIDAuthorityInfoAccessOCSP) {
 					out.OCSPServer = append(out.OCSPServer, string(v.Location.Bytes))
-				} else if v.Method.Equal(oidAuthorityInfoAccessIssuers) {
+				} else if v.Method.Equal(OIDAuthorityInfoAccessIssuers) {
 					out.IssuingCertificateURL = append(out.IssuingCertificateURL, string(v.Location.Bytes))
 				}
 			}
@@ -1592,24 +1594,34 @@ func asn1BitLength(bitString []byte) int {
 	return 0
 }
 
+// OID values for standard extensions from RFC 5280.
 var (
-	oidExtensionSubjectKeyId          = []int{2, 5, 29, 14}
-	oidExtensionKeyUsage              = []int{2, 5, 29, 15}
-	oidExtensionExtendedKeyUsage      = []int{2, 5, 29, 37}
-	oidExtensionAuthorityKeyId        = []int{2, 5, 29, 35}
-	oidExtensionBasicConstraints      = []int{2, 5, 29, 19}
-	oidExtensionSubjectAltName        = []int{2, 5, 29, 17}
-	oidExtensionCertificatePolicies   = []int{2, 5, 29, 32}
-	oidExtensionNameConstraints       = []int{2, 5, 29, 30}
-	oidExtensionCRLDistributionPoints = []int{2, 5, 29, 31}
-	oidExtensionAuthorityInfoAccess   = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	OIDExtensionArc                        = asn1.ObjectIdentifier{2, 5, 29} // id-ce RFC5280 s4.2.1
+	OIDExtensionSubjectKeyId               = asn1.ObjectIdentifier{2, 5, 29, 14}
+	OIDExtensionKeyUsage                   = asn1.ObjectIdentifier{2, 5, 29, 15}
+	OIDExtensionExtendedKeyUsage           = asn1.ObjectIdentifier{2, 5, 29, 37}
+	OIDExtensionAuthorityKeyId             = asn1.ObjectIdentifier{2, 5, 29, 35}
+	OIDExtensionBasicConstraints           = asn1.ObjectIdentifier{2, 5, 29, 19}
+	OIDExtensionSubjectAltName             = asn1.ObjectIdentifier{2, 5, 29, 17}
+	OIDExtensionCertificatePolicies        = asn1.ObjectIdentifier{2, 5, 29, 32}
+	OIDExtensionNameConstraints            = asn1.ObjectIdentifier{2, 5, 29, 30}
+	OIDExtensionCRLDistributionPoints      = asn1.ObjectIdentifier{2, 5, 29, 31}
+	OIDExtensionIssuerAltName              = asn1.ObjectIdentifier{2, 5, 29, 18}
+	OIDExtensionSubjectDirectoryAttributes = asn1.ObjectIdentifier{2, 5, 29, 9}
+	OIDExtensionInhibitAnyPolicy           = asn1.ObjectIdentifier{2, 5, 29, 54}
+	OIDExtensionPolicyConstraints          = asn1.ObjectIdentifier{2, 5, 29, 36}
+	OIDExtensionPolicyMappings             = asn1.ObjectIdentifier{2, 5, 29, 33}
+	OIDExtensionFreshestCRL                = asn1.ObjectIdentifier{2, 5, 29, 46}
+
+	OIDExtensionAuthorityInfoAccess = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	OIDExtensionSubjectInfoAccess   = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 11}
 	// OIDExtensionCTPoison is defined in RFC 6962 s3.1.
 	OIDExtensionCTPoison = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}
 )
 
 var (
-	oidAuthorityInfoAccessOcsp    = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1}
-	oidAuthorityInfoAccessIssuers = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 2}
+	OIDAuthorityInfoAccessOCSP    = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1}
+	OIDAuthorityInfoAccessIssuers = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 2}
 )
 
 // oidInExtensions returns whether an extension with the given oid exists in
@@ -1649,8 +1661,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	n := 0
 
 	if template.KeyUsage != 0 &&
-		!oidInExtensions(oidExtensionKeyUsage, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionKeyUsage
+		!oidInExtensions(OIDExtensionKeyUsage, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionKeyUsage
 		ret[n].Critical = true
 
 		var a [2]byte
@@ -1671,8 +1683,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if (len(template.ExtKeyUsage) > 0 || len(template.UnknownExtKeyUsage) > 0) &&
-		!oidInExtensions(oidExtensionExtendedKeyUsage, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionExtendedKeyUsage
+		!oidInExtensions(OIDExtensionExtendedKeyUsage, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionExtendedKeyUsage
 
 		var oids []asn1.ObjectIdentifier
 		for _, u := range template.ExtKeyUsage {
@@ -1692,7 +1704,7 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		n++
 	}
 
-	if template.BasicConstraintsValid && !oidInExtensions(oidExtensionBasicConstraints, template.ExtraExtensions) {
+	if template.BasicConstraintsValid && !oidInExtensions(OIDExtensionBasicConstraints, template.ExtraExtensions) {
 		// Leaving MaxPathLen as zero indicates that no maximum path
 		// length is desired, unless MaxPathLenZero is set. A value of
 		// -1 causes encoding/asn1 to omit the value as desired.
@@ -1700,7 +1712,7 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		if maxPathLen == 0 && !template.MaxPathLenZero {
 			maxPathLen = -1
 		}
-		ret[n].Id = oidExtensionBasicConstraints
+		ret[n].Id = OIDExtensionBasicConstraints
 		ret[n].Value, err = asn1.Marshal(basicConstraints{template.IsCA, maxPathLen})
 		ret[n].Critical = true
 		if err != nil {
@@ -1709,8 +1721,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		n++
 	}
 
-	if len(template.SubjectKeyId) > 0 && !oidInExtensions(oidExtensionSubjectKeyId, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionSubjectKeyId
+	if len(template.SubjectKeyId) > 0 && !oidInExtensions(OIDExtensionSubjectKeyId, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionSubjectKeyId
 		ret[n].Value, err = asn1.Marshal(template.SubjectKeyId)
 		if err != nil {
 			return
@@ -1718,8 +1730,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		n++
 	}
 
-	if len(authorityKeyId) > 0 && !oidInExtensions(oidExtensionAuthorityKeyId, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionAuthorityKeyId
+	if len(authorityKeyId) > 0 && !oidInExtensions(OIDExtensionAuthorityKeyId, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionAuthorityKeyId
 		ret[n].Value, err = asn1.Marshal(authKeyId{authorityKeyId})
 		if err != nil {
 			return
@@ -1728,18 +1740,18 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if (len(template.OCSPServer) > 0 || len(template.IssuingCertificateURL) > 0) &&
-		!oidInExtensions(oidExtensionAuthorityInfoAccess, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionAuthorityInfoAccess
+		!oidInExtensions(OIDExtensionAuthorityInfoAccess, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionAuthorityInfoAccess
 		var aiaValues []authorityInfoAccess
 		for _, name := range template.OCSPServer {
 			aiaValues = append(aiaValues, authorityInfoAccess{
-				Method:   oidAuthorityInfoAccessOcsp,
+				Method:   OIDAuthorityInfoAccessOCSP,
 				Location: asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(name)},
 			})
 		}
 		for _, name := range template.IssuingCertificateURL {
 			aiaValues = append(aiaValues, authorityInfoAccess{
-				Method:   oidAuthorityInfoAccessIssuers,
+				Method:   OIDAuthorityInfoAccessIssuers,
 				Location: asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(name)},
 			})
 		}
@@ -1751,8 +1763,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if (len(template.DNSNames) > 0 || len(template.EmailAddresses) > 0 || len(template.IPAddresses) > 0) &&
-		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionSubjectAltName
+		!oidInExtensions(OIDExtensionSubjectAltName, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionSubjectAltName
 		ret[n].Value, err = marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses)
 		if err != nil {
 			return
@@ -1761,8 +1773,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if len(template.PolicyIdentifiers) > 0 &&
-		!oidInExtensions(oidExtensionCertificatePolicies, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionCertificatePolicies
+		!oidInExtensions(OIDExtensionCertificatePolicies, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionCertificatePolicies
 		policies := make([]policyInformation, len(template.PolicyIdentifiers))
 		for i, policy := range template.PolicyIdentifiers {
 			policies[i].Policy = policy
@@ -1775,8 +1787,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if (len(template.PermittedDNSDomains) > 0 || len(template.ExcludedDNSDomains) > 0) &&
-		!oidInExtensions(oidExtensionNameConstraints, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionNameConstraints
+		!oidInExtensions(OIDExtensionNameConstraints, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionNameConstraints
 		ret[n].Critical = template.PermittedDNSDomainsCritical
 
 		var out nameConstraints
@@ -1798,8 +1810,8 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 	}
 
 	if len(template.CRLDistributionPoints) > 0 &&
-		!oidInExtensions(oidExtensionCRLDistributionPoints, template.ExtraExtensions) {
-		ret[n].Id = oidExtensionCRLDistributionPoints
+		!oidInExtensions(OIDExtensionCRLDistributionPoints, template.ExtraExtensions) {
+		ret[n].Id = OIDExtensionCRLDistributionPoints
 
 		var crlDp []distributionPoint
 		for _, name := range template.CRLDistributionPoints {
@@ -2072,7 +2084,7 @@ func (c *Certificate) CreateCRL(rand io.Reader, priv interface{}, revokedCerts [
 	// Authority Key Id
 	if len(c.SubjectKeyId) > 0 {
 		var aki pkix.Extension
-		aki.Id = oidExtensionAuthorityKeyId
+		aki.Id = OIDExtensionAuthorityKeyId
 		aki.Value, err = asn1.Marshal(authKeyId{Id: c.SubjectKeyId})
 		if err != nil {
 			return
@@ -2260,14 +2272,14 @@ func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv
 	var extensions []pkix.Extension
 
 	if (len(template.DNSNames) > 0 || len(template.EmailAddresses) > 0 || len(template.IPAddresses) > 0) &&
-		!oidInExtensions(oidExtensionSubjectAltName, template.ExtraExtensions) {
+		!oidInExtensions(OIDExtensionSubjectAltName, template.ExtraExtensions) {
 		sanBytes, err := marshalSANs(template.DNSNames, template.EmailAddresses, template.IPAddresses)
 		if err != nil {
 			return nil, err
 		}
 
 		extensions = append(extensions, pkix.Extension{
-			Id:    oidExtensionSubjectAltName,
+			Id:    OIDExtensionSubjectAltName,
 			Value: sanBytes,
 		})
 	}
@@ -2436,7 +2448,7 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 
 	var nfe NonFatalErrors
 	for _, extension := range out.Extensions {
-		if extension.Id.Equal(oidExtensionSubjectAltName) {
+		if extension.Id.Equal(OIDExtensionSubjectAltName) {
 			out.DNSNames, out.EmailAddresses, out.IPAddresses, err = parseSANExtension(extension.Value, &nfe)
 			if err != nil {
 				return nil, err
