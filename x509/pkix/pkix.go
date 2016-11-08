@@ -7,14 +7,12 @@
 package pkix
 
 import (
-	// START CT CHANGES
 	"encoding/hex"
 	"fmt"
-
-	"github.com/google/certificate-transparency-go/asn1"
-	// END CT CHANGES
 	"math/big"
 	"time"
+
+	"github.com/google/certificate-transparency-go/asn1"
 )
 
 // AlgorithmIdentifier represents the ASN.1 structure of the same name. See RFC
