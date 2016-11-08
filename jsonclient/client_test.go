@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -113,16 +114,17 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 }
 
 func TestGetAndParse(t *testing.T) {
+	rc := regexp.MustCompile
 	tests := []struct {
 		uri    string
 		params map[string]string
 		status int
 		result TestStruct
-		errstr string
+		errstr *regexp.Regexp
 	}{
-		{uri: "[invalid-uri]", errstr: "too many colons"},
-		{uri: "/short%", errstr: "invalid URL escape"},
-		{uri: "/malformed", status: http.StatusOK, errstr: "unexpected EOF"},
+		{uri: "[invalid-uri]", errstr: rc("too many colons|unexpected .* in address")},
+		{uri: "/short%", errstr: rc("invalid URL escape")},
+		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected EOF")},
 		{uri: "/error", params: map[string]string{"rc": "404"}, status: http.StatusNotFound},
 		{uri: "/error", params: map[string]string{"rc": "403"}, status: http.StatusForbidden},
 		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}},
@@ -146,11 +148,11 @@ func TestGetAndParse(t *testing.T) {
 	for _, test := range tests {
 		var result TestStruct
 		httpRsp, err := logClient.GetAndParse(ctx, test.uri, test.params, &result)
-		if test.errstr != "" {
+		if test.errstr != nil {
 			if err == nil {
-				t.Errorf("GetAndParse(%q)=%+v,nil; want error %q", test.uri, result, test.errstr)
-			} else if !strings.Contains(err.Error(), test.errstr) {
-				t.Errorf("GetAndParse(%q)=nil,%q; want error %q", test.uri, err.Error(), test.errstr)
+				t.Errorf("GetAndParse(%q)=%+v,nil; want error matching %q", test.uri, result, test.errstr)
+			} else if !test.errstr.MatchString(err.Error()) {
+				t.Errorf("GetAndParse(%q)=nil,%q; want error matching %q", test.uri, err.Error(), test.errstr)
 			}
 			continue
 		}
@@ -169,17 +171,18 @@ func TestGetAndParse(t *testing.T) {
 }
 
 func TestPostAndParse(t *testing.T) {
+	rc := regexp.MustCompile
 	tests := []struct {
 		uri     string
 		request interface{}
 		status  int
 		result  TestStruct
-		errstr  string
+		errstr  *regexp.Regexp
 	}{
-		{uri: "[invalid-uri]", errstr: "too many colons"},
-		{uri: "/short%", errstr: "invalid URL escape"},
-		{uri: "/struct/params", request: json.Number(`invalid`), errstr: "invalid number literal"},
-		{uri: "/malformed", status: http.StatusOK, errstr: "unexpected end of JSON"},
+		{uri: "[invalid-uri]", errstr: rc("too many colons|unexpected .* in address")},
+		{uri: "/short%", errstr: rc("invalid URL escape")},
+		{uri: "/struct/params", request: json.Number(`invalid`), errstr: rc("invalid number literal")},
+		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected end of JSON")},
 		{uri: "/error", request: TestParams{RespCode: 404}, status: http.StatusNotFound},
 		{uri: "/error", request: TestParams{RespCode: 403}, status: http.StatusForbidden},
 		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}},
@@ -203,11 +206,11 @@ func TestPostAndParse(t *testing.T) {
 	for _, test := range tests {
 		var result TestStruct
 		httpRsp, err := logClient.PostAndParse(ctx, test.uri, test.request, &result)
-		if test.errstr != "" {
+		if test.errstr != nil {
 			if err == nil {
-				t.Errorf("PostAndParse(%q)=%+v,nil; want %q", test.uri, result, test.errstr)
-			} else if !strings.Contains(err.Error(), test.errstr) {
-				t.Errorf("PostAndParse(%q)=nil,%q; want error %q", test.uri, err.Error(), test.errstr)
+				t.Errorf("PostAndParse(%q)=%+v,nil; want error matching %q", test.uri, result, test.errstr)
+			} else if !test.errstr.MatchString(err.Error()) {
+				t.Errorf("PostAndParse(%q)=nil,%q; want error matching %q", test.uri, err.Error(), test.errstr)
 			}
 			continue
 		}
