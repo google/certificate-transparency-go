@@ -81,7 +81,7 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		publicKeyAlgorithm.Parameters = asn1.NullRawValue
 	case *ecdsa.PublicKey:
 		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
-		oid, ok := oidFromNamedCurve(pub.Curve)
+		oid, ok := OIDFromNamedCurve(pub.Curve)
 		if !ok {
 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
 		}
@@ -515,7 +515,9 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 	return nil
 }
 
-func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
+// OIDFromNamedCurve returns the OID used to specify the use of the given
+// elliptic curve.
+func OIDFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 	switch curve {
 	case elliptic.P224():
 		return OIDNamedCurveP224, true
