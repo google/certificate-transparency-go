@@ -14,7 +14,7 @@ func checkTicker(t *testing.T, tick *time.Ticker, count *int64, i, limit int) {
 		// Allow a count up to slightly more than the limit as scheduling of
 		// goroutine vs the main thread could cause this check to not be
 		// run quite in time for limit.
-		allowed := int(float64(limit)*1.005) + 1
+		allowed := int(float64(limit)*1.05) + 1
 		v := atomic.LoadInt64(count)
 		if v > int64(allowed) {
 			t.Errorf("#%d: Too many operations per second. Expected ~%d, got %d", i, limit, v)
