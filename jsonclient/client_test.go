@@ -258,7 +258,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		{"/retry", nil, 5, 5 * time.Second, shortLeeway, 10, 1, "deadline exceeded"},
 		{"/retry", nil, 10, 5 * time.Second, shortLeeway, 1, 5, ""},
 		{"/retry", nil, 1, 10 * jiffy, shortLeeway, 0, 10, ""},
-		{"/retry-rfc1123", nil, -1, 2 * time.Second, time.Millisecond * 750, 2, 1, ""},
+		{"/retry-rfc1123", nil, -1, 2 * time.Second, 1 * time.Second, 2, 1, ""},
 	}
 	for _, test := range tests {
 		ts := MockServer(t, test.failCount, test.retryAfter)
