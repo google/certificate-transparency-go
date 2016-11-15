@@ -42,6 +42,11 @@ type testNonByteSlice struct {
 	Vals []uint16 `tls:"minlen:2,maxlen:6"`
 }
 
+type testNoSlices struct {
+	// Each entry is size >= 2, but there can be zero entries.
+	Entries []testNonByteSlice `tls:"minlen:0,maxlen:12"`
+}
+
 type testSliceOfStructs struct {
 	Vals []testVariant `tls:"minlen:0,maxlen:100"`
 }
@@ -195,6 +200,7 @@ func TestUnmarshalMarshalWithParamsRoundTrip(t *testing.T) {
 				},
 			},
 		},
+		{"00", "", &testNoSlices{Entries: []testNonByteSlice{}}},
 		{"011011", "", &testAliasEnum{Val: 1, Val16: newUint16(0x1011)}},
 		{"0403", "", &SignatureAndHashAlgorithm{Hash: SHA256, Signature: ECDSA}},
 		{"04030003010203", "",
@@ -282,6 +288,7 @@ func TestUnmarshalWithParamsFailures(t *testing.T) {
 		{"0102", "", &testMissingSelector{Val: newUint16(1)}, "selector not seen"},
 		{"000007", "", &testChoiceNotPointer{Which: 0, Val: 7}, "choice field not a pointer type"},
 		{"05010102020303", "", &testNonByteSlice{Vals: []uint16{0x101, 0x202, 0x303}}, "truncated"},
+		{"0100", "", &testNoSlices{}, "value 0 too small"},
 		{"0101", "size:2", newNonEnumAlias(0x0102), "unsupported type"},
 		{"0403010203", "",
 			&DigitallySigned{
