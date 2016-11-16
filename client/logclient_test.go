@@ -15,6 +15,7 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency/go"
+	"github.com/google/certificate-transparency/go/jsonclient"
 	"golang.org/x/net/context"
 )
 
@@ -121,7 +122,10 @@ func TestGetEntriesWorks(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client := New(ts.URL, &http.Client{})
+	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	leaves, err := client.GetEntries(0, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +146,10 @@ func TestGetSTHWorks(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client := New(ts.URL, &http.Client{})
+	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	sth, err := client.GetSTH()
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +212,10 @@ func TestAddChainWithContext(t *testing.T) {
 	}
 	chain := []ct.ASN1Cert{certBytes}
 
-	c := New(hs.URL, &http.Client{})
+	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	leeway := time.Millisecond * 100
 	instant := time.Millisecond
 	fiveSeconds := time.Second * 5
@@ -261,7 +271,10 @@ func TestAddJSON(t *testing.T) {
 	}))
 	defer hs.Close()
 
-	c := New(hs.URL, &http.Client{})
+	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		success bool
@@ -289,7 +302,10 @@ func TestGetSTHConsistency(t *testing.T) {
 	}))
 	defer hs.Close()
 
-	c := New(hs.URL, &http.Client{})
+	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		first  uint64
@@ -315,7 +331,10 @@ func TestGetProofByHash(t *testing.T) {
 	hs := CtServer(t)
 	defer hs.Close()
 
-	c := New(hs.URL, &http.Client{})
+	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		hash     []byte
@@ -338,7 +357,10 @@ func TestGetProofByHash(t *testing.T) {
 func TestGetAcceptedRoots(t *testing.T) {
 	hs := CtServer(t)
 	defer hs.Close()
-	c := New(hs.URL, &http.Client{})
+	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	certs, err := c.GetAcceptedRoots(context.Background())
 	if err != nil {

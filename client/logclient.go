@@ -104,19 +104,13 @@ type GetProofByHashResponse struct {
 // |uri| is the base URI of the CT log instance to interact with, e.g.
 // http://ct.googleapis.com/pilot
 // |hc| is the underlying client to be used for HTTP requests to the CT log.
-func New(uri string, hc *http.Client) *LogClient {
-	logClient, err := jsonclient.NewWithoutVerification(uri, hc)
+// |opts| can be used to provide a customer logger interface and a public key
+// for signature verification.
+func New(uri string, hc *http.Client, opts jsonclient.Options) (*LogClient, error) {
+	logClient, err := jsonclient.New(uri, hc, opts)
 	if err != nil {
-		panic(fmt.Sprintf("JSONClient creation failed: %v" + err.Error()))
+		return nil, err
 	}
-	return &LogClient{*logClient}
-}
-
-// NewWithPubKey constructs a new LogClient instance that includes public
-// key information for the log; this instance will check signatures on
-// responses from the log.
-func NewWithPubKey(uri string, hc *http.Client, pemEncodedKey string) (*LogClient, error) {
-	logClient, err := jsonclient.New(uri, hc, pemEncodedKey)
 	return &LogClient{*logClient}, err
 }
 

@@ -14,6 +14,7 @@ import (
 
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
+	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/x509"
 	"github.com/google/certificate-transparency/go/x509util"
 	httpclient "github.com/mreiferson/go-httpclient"
@@ -115,18 +116,17 @@ func main() {
 			MaxIdleConnsPerHost:   10,
 			DisableKeepAlives:     false,
 		}}
-	var logClient *client.LogClient
-	if *pubKey == "" {
-		logClient = client.New(*logURI, httpClient)
-	} else {
+	var opts jsonclient.Options
+	if *pubKey != "" {
 		pubkey, err := ioutil.ReadFile(*pubKey)
 		if err != nil {
 			log.Fatal(err)
 		}
-		logClient, err = client.NewWithPubKey(*logURI, httpClient, string(pubkey))
-		if err != nil {
-			log.Fatal(err)
-		}
+		opts.PublicKey = string(pubkey)
+	}
+	logClient, err := client.New(*logURI, httpClient, opts)
+	if err != nil {
+		log.Fatal(err)
 	}
 	args := flag.Args()
 	if len(args) != 1 {

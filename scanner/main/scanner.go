@@ -12,6 +12,7 @@ import (
 
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
+	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/scanner"
 	httpclient "github.com/mreiferson/go-httpclient"
 )
@@ -99,7 +100,7 @@ func createMatcherFromFlags() (scanner.Matcher, error) {
 
 func main() {
 	flag.Parse()
-	logClient := client.New(*logUri, &http.Client{
+	logClient, err := client.New(*logUri, &http.Client{
 		Transport: &httpclient.Transport{
 			ConnectTimeout:        10 * time.Second,
 			RequestTimeout:        30 * time.Second,
@@ -107,7 +108,10 @@ func main() {
 			MaxIdleConnsPerHost:   10,
 			DisableKeepAlives:     false,
 		},
-	})
+	}, jsonclient.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
 	matcher, err := createMatcherFromFlags()
 	if err != nil {
 		log.Fatal(err)

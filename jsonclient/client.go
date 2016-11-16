@@ -24,42 +24,61 @@ type JSONClient struct {
 	uri        string                // the base URI of the server. e.g. http://ct.googleapis/pilot
 	httpClient *http.Client          // used to interact with the server via HTTP
 	Verifier   *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
+	logger     Logger                // interface to use for logging warnings and errors
+}
+
+// Logger is a simple logging interface used to log internal errors and warnings
+type Logger interface {
+	// Printf formats and logs a message
+	Printf(string, ...interface{})
+}
+
+// Options are the options for creating a new JSONClient.
+type Options struct {
+	// Interface to use for logging warnings and errors, if nil the
+	// standard library log package will be used.
+	Logger Logger
+	// PEM format public key to use for signature verification, if
+	// empty signatures will not be verified.
+	PublicKey string
+}
+
+type basicLogger struct{}
+
+func (bl *basicLogger) Printf(msg string, args ...interface{}) {
+	log.Printf(msg, args...)
 }
 
 // New constructs a new JSONClient instance, for the given base URI, using the
-// given http.Client object (if provided) and (PEM encoded) public key.
-func New(uri string, hc *http.Client, pemKey string) (*JSONClient, error) {
+// given http.Client object (if provided) and the Options object.
+func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 	var verifier *ct.SignatureVerifier
-	pubkey, _ /* keyhash */, rest, err := ct.PublicKeyFromPEM([]byte(pemKey))
-	if err != nil {
-		return nil, err
-	}
-	if len(rest) > 0 {
-		return nil, errors.New("extra data found after PEM key decoded")
-	}
-
-	verifier, err = ct.NewSignatureVerifier(pubkey)
-	if err != nil {
-		return nil, err
+	if opts.PublicKey != "" {
+		pubkey, _ /* keyhash */, rest, err := ct.PublicKeyFromPEM([]byte(opts.PublicKey))
+		if err != nil {
+			return nil, err
+		}
+		if len(rest) > 0 {
+			return nil, errors.New("extra data found after PEM key decoded")
+		}
+		verifier, err = ct.NewSignatureVerifier(pubkey)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if hc == nil {
 		hc = new(http.Client)
 	}
-	client := &JSONClient{
+	logger := opts.Logger
+	if logger == nil {
+		logger = &basicLogger{}
+	}
+	return &JSONClient{
 		uri:        strings.TrimRight(uri, "/"),
 		httpClient: hc,
-		Verifier:   verifier}
-	return client, nil
-}
-
-// NewWithoutVerification constructs a new JSONClient instance, for the given
-// base URI, using the given http.Client object (if provided); however, this
-// client will not perform verification of signed responses from the server.
-func NewWithoutVerification(uri string, hc *http.Client) (*JSONClient, error) {
-	if hc == nil {
-		hc = new(http.Client)
-	}
-	return &JSONClient{uri: strings.TrimRight(uri, "/"), httpClient: hc}, nil
+		Verifier:   verifier,
+		logger:     logger,
+	}, nil
 }
 
 // GetAndParse makes a HTTP GET call to the given path, and attempt to parse
@@ -154,14 +173,10 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 	if ctx == nil {
 		return nil, errors.New("context.Context required")
 	}
-	httpStatus := "Unknown"
 	// Retry after 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 128s, ....
 	backoffInterval := 1 * time.Second
 	backoffSeconds := time.Duration(0)
 	for {
-		if backoffSeconds > 0 {
-			log.Printf("Got %q, backing-off %v", httpStatus, backoffSeconds)
-		}
 		err := backoffForRetry(ctx, backoffSeconds)
 		if err != nil {
 			return nil, err
@@ -172,6 +187,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		httpRsp, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
 			backoffSeconds, backoffInterval = calculateBackoff(backoffInterval)
+			c.logger.Printf("Request failed, backing-off for %d seconds: %s", backoffSeconds, err)
 			continue
 		}
 		switch {
@@ -179,6 +195,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 			return httpRsp, nil
 		case httpRsp.StatusCode == http.StatusRequestTimeout:
 			// Request timeout, retry immediately
+			c.logger.Printf("Request timed out, retrying immediately")
 		case httpRsp.StatusCode == http.StatusServiceUnavailable:
 			// Retry
 			backoffSeconds, backoffInterval = calculateBackoff(backoffInterval)
@@ -191,10 +208,10 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 					backoffSeconds = date.Sub(time.Now())
 				}
 			}
+			c.logger.Printf("Request failed, backing-off for %d seconds: got HTTP status %s", backoffSeconds, httpRsp.Status)
 		default:
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
-		httpStatus = httpRsp.Status
 	}
 }
 
