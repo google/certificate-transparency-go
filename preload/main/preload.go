@@ -19,6 +19,7 @@ import (
 	"github.com/google/certificate-transparency/go/preload"
 	"github.com/google/certificate-transparency/go/scanner"
 	httpclient "github.com/mreiferson/go-httpclient"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -92,13 +93,13 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 	wg.Done()
 }
 
-func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *ct.LogEntry,
+func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
 		chain[0] = c.X509Cert.Raw
 		copy(chain[1:], c.Chain)
-		sct, err := log_client.AddChain(chain)
+		sct, err := log_client.AddChain(ctx, chain)
 		if err != nil {
 			log.Printf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
@@ -112,11 +113,11 @@ func certSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.L
 	wg.Done()
 }
 
-func precertSubmitterJob(addedCerts chan<- *preload.AddedCert, log_client *client.LogClient,
+func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, log_client *client.LogClient,
 	precerts <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
-		sct, err := log_client.AddPreChain(c.Chain)
+		sct, err := log_client.AddPreChain(ctx, c.Chain)
 		if err != nil {
 			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
 			recordFailure(addedCerts, c.Chain[0], err)
@@ -196,11 +197,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	backgroundCtx := context.Background()
 	var submitterWG sync.WaitGroup
 	for w := 0; w < *parallelSubmit; w++ {
 		submitterWG.Add(2)
-		go certSubmitterJob(addedCerts, submitLogClient, certs, &submitterWG)
-		go precertSubmitterJob(addedCerts, submitLogClient, precerts, &submitterWG)
+		go certSubmitterJob(backgroundCtx, addedCerts, submitLogClient, certs, &submitterWG)
+		go precertSubmitterJob(backgroundCtx, addedCerts, submitLogClient, precerts, &submitterWG)
 	}
 
 	addChainFunc := func(entry *ct.LogEntry) {

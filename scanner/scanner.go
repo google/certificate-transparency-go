@@ -13,6 +13,7 @@ import (
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/x509"
+	"golang.org/x/net/context"
 )
 
 // Clients wishing to implement their own Matchers should implement this interface:
@@ -342,7 +343,7 @@ func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
 
-	latestSth, err := s.logClient.GetSTH()
+	latestSth, err := s.logClient.GetSTH(context.Background())
 	if err != nil {
 		return err
 	}

@@ -10,14 +10,13 @@ import (
 	"os"
 	"time"
 
-	"golang.org/x/net/context"
-
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/client"
 	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/x509"
 	"github.com/google/certificate-transparency/go/x509util"
 	httpclient "github.com/mreiferson/go-httpclient"
+	"golang.org/x/net/context"
 )
 
 var logURI = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log base URI")
@@ -36,7 +35,7 @@ func signatureToString(signed *ct.DigitallySigned) string {
 }
 
 func getSTH(ctx context.Context, logClient *client.LogClient) {
-	sth, err := logClient.GetSTH()
+	sth, err := logClient.GetSTH(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +65,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 		}
 	}
 
-	sct, err := logClient.AddChainWithContext(ctx, chain)
+	sct, err := logClient.AddChain(ctx, chain)
 	if err != nil {
 		log.Fatal(err)
 	}

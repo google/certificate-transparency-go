@@ -118,9 +118,6 @@ func New(uri string, hc *http.Client, opts jsonclient.Options) (*LogClient, erro
 // |path|. If provided context expires before submission is complete an
 // error will be returned.
 func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType, path string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	if ctx == nil {
-		ctx = context.TODO()
-	}
 	var resp addChainResponse
 	var req addChainRequest
 	for _, link := range chain {
@@ -153,28 +150,22 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType
 }
 
 // AddChain adds the (DER represented) X509 |chain| to the log.
-func (c *LogClient) AddChain(chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return c.addChainWithRetry(nil, ct.X509LogEntryType, AddChainPath, chain)
-}
-
-// AddPreChain adds the (DER represented) Precertificate |chain| to the log.
-func (c *LogClient) AddPreChain(chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return c.addChainWithRetry(nil, ct.PrecertLogEntryType, AddPreChainPath, chain)
-}
-
-// AddChainWithContext adds the (DER represented) X509 |chain| to the log and
-// fails if the provided context expires before the chain is submitted.
-func (c *LogClient) AddChainWithContext(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+func (c *LogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	return c.addChainWithRetry(ctx, ct.X509LogEntryType, AddChainPath, chain)
 }
 
+// AddPreChain adds the (DER represented) Precertificate |chain| to the log.
+func (c *LogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+	return c.addChainWithRetry(ctx, ct.PrecertLogEntryType, AddPreChainPath, chain)
+}
+
 // AddJSON submits arbitrary data to to XJSON server.
-func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, error) {
+func (c *LogClient) AddJSON(ctx context.Context, data interface{}) (*ct.SignedCertificateTimestamp, error) {
 	req := addJSONRequest{
 		Data: data,
 	}
 	var resp addChainResponse
-	_, err := c.PostAndParse(context.TODO(), AddJSONPath, &req, &resp)
+	_, err := c.PostAndParse(ctx, AddJSONPath, &req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -194,9 +185,9 @@ func (c *LogClient) AddJSON(data interface{}) (*ct.SignedCertificateTimestamp, e
 
 // GetSTH retrieves the current STH from the log.
 // Returns a populated SignedTreeHead, or a non-nil error.
-func (c *LogClient) GetSTH() (sth *ct.SignedTreeHead, err error) {
+func (c *LogClient) GetSTH(ctx context.Context) (sth *ct.SignedTreeHead, err error) {
 	var resp getSTHResponse
-	_, err = c.GetAndParse(context.TODO(), GetSTHPath, nil, &resp)
+	_, err = c.GetAndParse(ctx, GetSTHPath, nil, &resp)
 	if err != nil {
 		return
 	}
