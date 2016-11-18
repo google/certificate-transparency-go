@@ -187,7 +187,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		httpRsp, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
 			backoffSeconds, backoffInterval = calculateBackoff(backoffInterval)
-			c.logger.Printf("Request failed, backing-off for %d seconds: %s", backoffSeconds, err)
+			c.logger.Printf("Request failed, backing-off for %s: %s", backoffSeconds, err)
 			continue
 		}
 		switch {
@@ -208,7 +208,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 					backoffSeconds = date.Sub(time.Now())
 				}
 			}
-			c.logger.Printf("Request failed, backing-off for %d seconds: got HTTP status %s", backoffSeconds, httpRsp.Status)
+			c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", backoffSeconds, httpRsp.Status)
 		default:
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
