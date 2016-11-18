@@ -16,10 +16,11 @@ const (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// The following structures represent those outlined in the RFC6962 document:
+// The following structures represent those outlined in RFC6962; any section
+// numbers mentioned refer to that RFC.
 ///////////////////////////////////////////////////////////////////////////////
 
-// LogEntryType represents the LogEntryType enum from section 3.1 of the RFC:
+// LogEntryType represents the LogEntryType enum from section 3.1:
 //   enum { x509_entry(0), precert_entry(1), (65535) } LogEntryType;
 type LogEntryType uint16
 
@@ -35,15 +36,15 @@ func (e LogEntryType) String() string {
 	panic(fmt.Sprintf("No string defined for LogEntryType constant value %d", e))
 }
 
-// LogEntryType constants, see section 3.1 of RFC6962.
+// LogEntryType constants from section 3.1.
 const (
 	X509LogEntryType    LogEntryType = 0
 	PrecertLogEntryType LogEntryType = 1
 	XJSONLogEntryType   LogEntryType = 0x8000 // Experimental.  Don't rely on this!
 )
 
-// MerkleLeafType represents the MerkleLeafType enum from section 3.4 of the
-// RFC: enum { timestamped_entry(0), (255) } MerkleLeafType;
+// MerkleLeafType represents the MerkleLeafType enum from section 3.4:
+//   enum { timestamped_entry(0), (255) } MerkleLeafType;
 type MerkleLeafType uint8
 
 func (m MerkleLeafType) String() string {
@@ -55,13 +56,13 @@ func (m MerkleLeafType) String() string {
 	}
 }
 
-// MerkleLeafType constants, see section 3.4 of the RFC.
+// MerkleLeafType constants from section 3.4.
 const (
 	TimestampedEntryLeafType MerkleLeafType = 0 // Entry type for an SCT
 )
 
-// Version represents the Version enum from section 3.2 of the RFC:
-// enum { v1(0), (255) } Version;
+// Version represents the Version enum from section 3.2:
+//   enum { v1(0), (255) } Version;
 type Version uint8
 
 func (v Version) String() string {
@@ -73,13 +74,12 @@ func (v Version) String() string {
 	}
 }
 
-// CT Version constants, see section 3.2 of the RFC.
+// CT Version constants from section 3.2.
 const (
 	V1 Version = 0
 )
 
-// SignatureType differentiates STH signatures from SCT signatures, see RFC
-// section 3.2
+// SignatureType differentiates STH signatures from SCT signatures, see section 3.2.
 type SignatureType uint8
 
 func (st SignatureType) String() string {
@@ -93,37 +93,37 @@ func (st SignatureType) String() string {
 	}
 }
 
-// SignatureType constants, see RFC section 3.2
+// SignatureType constants from section 3.2.
 const (
 	CertificateTimestampSignatureType SignatureType = 0
 	TreeHashSignatureType             SignatureType = 1
 )
 
 // ASN1Cert type for holding the raw DER bytes of an ASN.1 Certificate
-// (section 3.1)
+// (section 3.1).
 type ASN1Cert []byte
 
-// PreCert represents a Precertificate (section 3.2)
+// PreCert represents a Precertificate (section 3.2).
 type PreCert struct {
 	IssuerKeyHash  [issuerKeyHashLength]byte
 	TBSCertificate []byte
 }
 
 // CTExtensions is a representation of the raw bytes of any CtExtension
-// structure (see section 3.2)
+// structure (see section 3.2).
 type CTExtensions []byte
 
-// MerkleTreeNode represents an internal node in the CT tree
+// MerkleTreeNode represents an internal node in the CT tree.
 type MerkleTreeNode []byte
 
 // ConsistencyProof represents a CT consistency proof (see sections 2.1.2 and
-// 4.4)
+// 4.4).
 type ConsistencyProof []MerkleTreeNode
 
-// AuditPath represents a CT inclusion proof (see sections 2.1.1 and 4.5)
+// AuditPath represents a CT inclusion proof (see sections 2.1.1 and 4.5).
 type AuditPath []MerkleTreeNode
 
-// LeafInput represents a serialized MerkleTreeLeaf structure
+// LeafInput represents a serialized MerkleTreeLeaf structure.
 type LeafInput []byte
 
 // DigitallySigned is a local alias for tls.DigitallySigned so that we can
@@ -218,7 +218,7 @@ func (s *SHA256Hash) UnmarshalJSON(b []byte) error {
 }
 
 // SignedTreeHead represents the structure returned by the get-sth CT method
-// after base64 decoding. See sections 3.5 and 4.3 in the RFC)
+// after base64 decoding; see sections 3.5 and 4.3.
 type SignedTreeHead struct {
 	Version           Version         `json:"sth_version"`         // The version of the protocol to which the STH conforms
 	TreeSize          uint64          `json:"tree_size"`           // The number of entries in the new tree
@@ -229,13 +229,12 @@ type SignedTreeHead struct {
 }
 
 // SignedCertificateTimestamp represents the structure returned by the
-// add-chain and add-pre-chain methods after base64 decoding. (see RFC sections
-// 3.2 ,4.1 and 4.2)
+// add-chain and add-pre-chain methods after base64 decoding; see sections
+// 3.2, 4.1 and 4.2.
 type SignedCertificateTimestamp struct {
-	SCTVersion Version    // The version of the protocol to which the SCT conforms
-	LogID      SHA256Hash // the SHA-256 hash of the log's public key, calculated over
-	// the DER encoding of the key represented as SubjectPublicKeyInfo.
-	Timestamp  uint64          // Timestamp (in ms since unix epoc) at which the SCT was issued
+	SCTVersion Version         // The version of the protocol to which the SCT conforms
+	LogID      SHA256Hash      // The SHA-256 hash of the (DER-encoded) public key for the Log
+	Timestamp  uint64          // Timestamp (in ms since unix epoch) at which the SCT was issued
 	Extensions CTExtensions    // For future extensions to the protocol
 	Signature  DigitallySigned // The Log's signature for this SCT
 }
@@ -248,8 +247,7 @@ func (s SignedCertificateTimestamp) String() string {
 		s.Signature)
 }
 
-// TimestampedEntry is part of the MerkleTreeLeaf structure.
-// See RFC section 3.4
+// TimestampedEntry is part of the MerkleTreeLeaf structure; see section 3.4.
 type TimestampedEntry struct {
 	Timestamp    uint64
 	EntryType    LogEntryType
@@ -259,10 +257,10 @@ type TimestampedEntry struct {
 	Extensions   CTExtensions
 }
 
-// MerkleTreeLeaf represents the deserialized sructure of the hash input for the
-// leaves of a log's Merkle tree. See RFC section 3.4
+// MerkleTreeLeaf represents the deserialized structure of the hash input for the
+// leaves of a log's Merkle tree; see section 3.4.
 type MerkleTreeLeaf struct {
-	Version          Version          // the version of the protocol to which the MerkleTreeLeaf corresponds
+	Version          Version          // The version of the protocol to which the MerkleTreeLeaf corresponds
 	LeafType         MerkleLeafType   // The type of the leaf input, currently only TimestampedEntry can exist
 	TimestampedEntry TimestampedEntry // The entry data itself
 }
@@ -273,21 +271,18 @@ type Precertificate struct {
 	Raw []byte
 	// SHA256 hash of the issuing key
 	IssuerKeyHash [issuerKeyHashLength]byte
-	// Parsed TBSCertificate structure (held in an x509.Certificate for ease of
-	// access.
+	// Parsed TBSCertificate structure, held in an x509.Certificate for convenience.
 	TBSCertificate x509.Certificate
 }
 
 // X509Certificate returns the X.509 Certificate contained within the
 // MerkleTreeLeaf.
-// Returns a pointer to an x509.Certificate or a non-nil error.
 func (m *MerkleTreeLeaf) X509Certificate() (*x509.Certificate, error) {
 	return x509.ParseCertificate(m.TimestampedEntry.X509Entry)
 }
 
 type sctError int
 
-// Preallocate errors for performance
 var (
 	ErrInvalidVersion  error = sctError(1)
 	ErrNotEnoughBuffer error = sctError(2)
@@ -304,8 +299,92 @@ func (e sctError) Error() string {
 	}
 }
 
-// AddJSONRequest represents the JSON request body sent ot the add-json CT
-// method.
+// URI paths for Log requests; see section 4.
+const (
+	AddChainPath          = "/ct/v1/add-chain"
+	AddPreChainPath       = "/ct/v1/add-pre-chain"
+	GetSTHPath            = "/ct/v1/get-sth"
+	GetEntriesPath        = "/ct/v1/get-entries"
+	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
+	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
+	GetRootsPath          = "/ct/v1/get-roots"
+	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
+
+	AddJSONPath = "/ct/v1/add-json" // Experimental addition
+)
+
+// AddChainRequest represents the JSON request body sent to the add-chain and
+// add-pre-chain POST methods from sections 4.1 and 4.2.
+type AddChainRequest struct {
+	Chain [][]byte `json:"chain"`
+}
+
+// AddChainResponse represents the JSON response to the add-chain and
+// add-pre-chain POST methods.
+// An SCT represents a Log's promise to integrate a [pre-]certificate into the
+// log within a defined period of time.
+type AddChainResponse struct {
+	SCTVersion Version `json:"sct_version"` // SCT structure version
+	ID         []byte  `json:"id"`          // Log ID
+	Timestamp  uint64  `json:"timestamp"`   // Timestamp of issuance
+	Extensions string  `json:"extensions"`  // Holder for any CT extensions
+	Signature  []byte  `json:"signature"`   // Log signature for this SCT
+}
+
+// AddJSONRequest represents the JSON request body sent to the add-json POST method.
+// The corresponding response re-uses AddChainResponse.
+// This is an experimental addition not covered by RFC6962.
 type AddJSONRequest struct {
 	Data interface{} `json:"data"`
+}
+
+// GetSTHResponse respresents the JSON response to the get-sth GET method from section 4.3.
+type GetSTHResponse struct {
+	TreeSize          uint64 `json:"tree_size"`           // Number of certs in the current tree
+	Timestamp         uint64 `json:"timestamp"`           // Time that the tree was created
+	SHA256RootHash    []byte `json:"sha256_root_hash"`    // Root hash of the tree
+	TreeHeadSignature []byte `json:"tree_head_signature"` // Log signature for this STH
+}
+
+// GetSTHConsistencyResponse represents the JSON response to the get-sth-consistency
+// GET method from section 4.4.  (The corresponding GET request has parameters 'first' and
+// 'second'.)
+type GetSTHConsistencyResponse struct {
+	Consistency [][]byte `json:"consistency"`
+}
+
+// GetProofByHashResponse represents the JSON response to the get-proof-by-hash GET
+// method from section 4.5.  (The corresponding GET request has parameters 'hash'
+// and 'tree_size'.)
+type GetProofByHashResponse struct {
+	LeafIndex int64    `json:"leaf_index"` // The 0-based index of the end entity corresponding to the "hash" parameter.
+	AuditPath [][]byte `json:"audit_path"` // An array of base64-encoded Merkle Tree nodes proving the inclusion of the chosen certificate.
+}
+
+// LeafEntry represents a leaf in the Log's Merkle tree
+type LeafEntry struct {
+	// LeafInput is a TLS-encoded MerkleTreeLead
+	LeafInput []byte `json:"leaf_input"`
+	// ExtraData holds (unsigned) extra data, normally the cert validation chain.
+	ExtraData []byte `json:"extra_data"`
+}
+
+// GetEntriesResponse respresents the JSON response to the get-entries GET method
+// from section 4.6.
+type GetEntriesResponse struct {
+	Entries []LeafEntry `json:"entries"` // the list of returned entries
+}
+
+// GetRootsResponse represents the JSON response to the get-roots GET method from section 4.7.
+type GetRootsResponse struct {
+	Certificates []string `json:"certificates"`
+}
+
+// GetEntryAndProofResponse represents the JSON response to the get-entry-and-proof
+// GET method from section 4.8. (The corresponding GET request has parameters 'leaf_index'
+// and 'tree_size'.)
+type GetEntryAndProofResponse struct {
+	LeafInput []byte   `json:"leaf_input"` // the entry itself
+	ExtraData []byte   `json:"extra_data"` // any chain provided when the entry was added to the log
+	AuditPath [][]byte `json:"audit_path"` // the corresponding proof
 }

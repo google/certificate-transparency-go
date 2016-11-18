@@ -10,19 +10,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// LeafEntry respresents a JSON leaf entry.
-type LeafEntry struct {
-	LeafInput []byte `json:"leaf_input"`
-	ExtraData []byte `json:"extra_data"`
-}
-
-// GetEntriesResponse respresents the JSON response to the CT get-entries method.
-type GetEntriesResponse struct {
-	Entries []LeafEntry `json:"entries"` // the list of returned entries
-}
-
 // GetRawEntries exposes the /ct/v1/get-entries result with only the JSON parsing done.
-func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*GetEntriesResponse, error) {
+func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*ct.GetEntriesResponse, error) {
 	if end < 0 {
 		return nil, errors.New("end should be >= 0")
 	}
@@ -38,8 +27,8 @@ func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*GetEn
 		ctx = context.TODO()
 	}
 
-	var resp GetEntriesResponse
-	_, err := c.GetAndParse(ctx, GetEntriesPath, params, &resp)
+	var resp ct.GetEntriesResponse
+	_, err := c.GetAndParse(ctx, ct.GetEntriesPath, params, &resp)
 	if err != nil {
 		return nil, err
 	}
