@@ -394,7 +394,7 @@ type GetProofByHashResponse struct {
 
 // LeafEntry represents a leaf in the Log's Merkle tree
 type LeafEntry struct {
-	// LeafInput is a TLS-encoded MerkleTreeLead
+	// LeafInput is a TLS-encoded MerkleTreeLeaf
 	LeafInput []byte `json:"leaf_input"`
 	// ExtraData holds (unsigned) extra data, normally the cert validation chain.
 	ExtraData []byte `json:"extra_data"`

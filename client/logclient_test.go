@@ -127,7 +127,7 @@ func TestGetEntriesWorks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	leaves, err := client.GetEntries(0, 1)
+	leaves, err := client.GetEntries(context.Background(), 0, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

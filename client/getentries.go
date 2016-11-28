@@ -38,8 +38,8 @@ func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*ct.Ge
 
 // GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
 // Returns a slice of LeafInputs or a non-nil error.
-func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
-	resp, err := c.GetRawEntries(context.TODO(), start, end)
+func (c *LogClient) GetEntries(ctx context.Context, start, end int64) ([]ct.LogEntry, error) {
+	resp, err := c.GetRawEntries(ctx, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 	for index, entry := range resp.Entries {
 		var leaf ct.MerkleTreeLeaf
 		if rest, err := tls.Unmarshal(entry.LeafInput, &leaf); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf: %v", err)
 		} else if len(rest) > 0 {
 			return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf", len(rest))
 		}
@@ -58,18 +58,18 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 		case ct.X509LogEntryType:
 			var certChain ct.CertificateChain
 			if rest, err := tls.Unmarshal(entry.ExtraData, &certChain); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal ExtraData for index %d: %v", index, err)
 			} else if len(rest) > 0 {
-				return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain", len(rest))
+				return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain for index %d", len(rest), index)
 			}
 			chain = certChain.Entries
 
 		case ct.PrecertLogEntryType:
 			var precertChain ct.PrecertChainEntry
 			if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry: %v", err)
 			} else if len(rest) > 0 {
-				return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry", len(rest))
+				return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry for index %d", len(rest), index)
 			}
 			chain = append(chain, precertChain.PreCertificate)
 			chain = append(chain, precertChain.CertificateChain...)

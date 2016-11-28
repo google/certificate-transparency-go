@@ -23,6 +23,8 @@ var logURI = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log 
 var pubKey = flag.String("pub_key", "", "Name of file containing log's public key")
 var certChain = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 var textOut = flag.Bool("text", true, "Display certificates as text")
+var getFirst = flag.Int64("first", -1, "First entry to get")
+var getLast = flag.Int64("last", -1, "Last entry to get")
 
 func ctTimestampToTime(ts uint64) time.Time {
 	secs := int64(ts / 1000)
@@ -81,27 +83,74 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 		log.Fatal(err)
 	}
 	for _, root := range roots {
-		if *textOut {
-			cert, err := x509.ParseCertificate(root.Data)
-			if err != nil {
-				log.Printf("Error parsing certificate: %q", err.Error())
-				continue
-			}
-			fmt.Printf("%s\n", x509util.CertificateToString(cert))
-		} else {
-			if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: root.Data}); err != nil {
-				log.Printf("Failed to PEM encode cert: %q", err.Error())
-			}
+		showCert(root)
+	}
+}
+
+func getEntries(ctx context.Context, logClient *client.LogClient) {
+	if *getFirst == -1 {
+		log.Fatal("No -first option supplied")
+	}
+	if *getLast == -1 {
+		log.Fatal("No -last option supplied")
+	}
+	entries, err := logClient.GetEntries(ctx, *getFirst, *getLast)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, entry := range entries {
+		ts := entry.Leaf.TimestampedEntry
+		when := ctTimestampToTime(ts.Timestamp)
+		fmt.Printf("Index=%d Timestamp=%v ", entry.Index, when)
+		switch ts.EntryType {
+		case ct.X509LogEntryType:
+			fmt.Printf("X.509 certificate:\n")
+			showCert(*ts.X509Entry)
+		case ct.PrecertLogEntryType:
+			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
+			showTBSCert(ts.PrecertEntry.TBSCertificate)
+		default:
+			log.Fatalf("Unhandled log entry type %d", entry.Leaf.TimestampedEntry.EntryType)
 		}
 	}
 }
+
+func showCert(cert ct.ASN1Cert) {
+	if *textOut {
+		c, err := x509.ParseCertificate(cert.Data)
+		if err != nil {
+			log.Printf("Error parsing certificate: %q", err.Error())
+			return
+		}
+		fmt.Printf("%s\n", x509util.CertificateToString(c))
+	} else {
+		if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Data}); err != nil {
+			log.Printf("Failed to PEM encode cert: %q", err.Error())
+		}
+	}
+}
+
+func showTBSCert(tbs []byte) {
+	if *textOut {
+		c, err := x509.ParseTBSCertificate(tbs)
+		if err != nil {
+			log.Printf("Error parsing certificate: %q", err.Error())
+			return
+		}
+		fmt.Printf("%s\n", x509util.CertificateToString(c))
+	} else {
+		fmt.Printf("%x\n", tbs)
+	}
+}
+
 func dieWithUsage(msg string) {
 	fmt.Fprintf(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
 		"where cmd is one of:\n"+
 		"   sth       retrieve signed tree head\n"+
 		"   upload    upload cert chain and show SCT (requires -cert_chain)\n"+
-		"   getroots  show accepted roots\n")
+		"   getroots  show accepted roots\n"+
+		"   getentries  show accepted roots\n")
 	os.Exit(1)
 }
 
@@ -140,6 +189,8 @@ func main() {
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
 		getRoots(ctx, logClient)
+	case "getentries", "get_entries":
+		getEntries(ctx, logClient)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
 	}
