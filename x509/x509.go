@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
@@ -639,6 +640,16 @@ func oidFromExtKeyUsage(eku ExtKeyUsage) (oid asn1.ObjectIdentifier, ok bool) {
 	return
 }
 
+// SerializedSCT represents a single TLS-encoded signed certificate timestamp, from RFC6962 s3.3.
+type SerializedSCT struct {
+	Val []byte `tls:"minlen:1,maxlen:65535"`
+}
+
+// SignedCertificateTimestampList is a list of signed certificate timestamps, from RFC6962 s3.3.
+type SignedCertificateTimestampList struct {
+	SCTList []SerializedSCT `tls:"minlen:1,maxlen:65335"`
+}
+
 // A Certificate represents an X.509 certificate.
 type Certificate struct {
 	Raw                     []byte // Complete ASN.1 DER content (certificate, signature algorithm and signature).
@@ -730,6 +741,11 @@ type Certificate struct {
 	CRLDistributionPoints []string
 
 	PolicyIdentifiers []asn1.ObjectIdentifier
+
+	// Certificate Transparency SCT extension contents; this is a TLS-encoded
+	// SignedCertificateTimestampList (RFC 6962 s3.3).
+	RawSCT  []byte
+	SCTList SignedCertificateTimestampList
 }
 
 // ErrUnsupportedAlgorithm results from attempting to perform an operation that
@@ -1504,6 +1520,18 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					out.IssuingCertificateURL = append(out.IssuingCertificateURL, string(v.Location.Bytes))
 				}
 			}
+		} else if e.Id.Equal(OIDExtensionCTSCT) {
+			if rest, err := asn1.Unmarshal(e.Value, &out.RawSCT); err != nil {
+				nfe.AddError(fmt.Errorf("failed to asn1.Unmarshal SCT list extension: %v", err))
+			} else if len(rest) != 0 {
+				nfe.AddError(errors.New("trailing data after ASN1-encoded SCT list"))
+			} else {
+				if rest, err := tls.Unmarshal(out.RawSCT, &out.SCTList); err != nil {
+					nfe.AddError(fmt.Errorf("failed to tls.Unmarshal SCT list: %v", err))
+				} else if len(rest) != 0 {
+					nfe.AddError(errors.New("trailing data after TLS-encoded SCT list"))
+				}
+			}
 		} else {
 			// Unknown extensions are recorded if critical.
 			unhandled = true
@@ -1668,7 +1696,7 @@ func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP) (derBy
 }
 
 func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.Extension, err error) {
-	ret = make([]pkix.Extension, 10 /* maximum number of elements. */)
+	ret = make([]pkix.Extension, 11 /* maximum number of elements. */)
 	n := 0
 
 	if template.KeyUsage != 0 &&
@@ -1843,6 +1871,22 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		n++
 	}
 
+	if (len(template.RawSCT) > 0 || len(template.SCTList.SCTList) > 0) && !oidInExtensions(OIDExtensionCTSCT, template.ExtraExtensions) {
+		rawSCT := template.RawSCT
+		if len(template.SCTList.SCTList) > 0 {
+			rawSCT, err = tls.Marshal(template.SCTList)
+			if err != nil {
+				return
+			}
+		}
+		ret[n].Id = OIDExtensionCTSCT
+		ret[n].Value, err = asn1.Marshal(rawSCT)
+		if err != nil {
+			return
+		}
+		n++
+	}
+
 	// Adding another extension here? Remember to update the maximum number
 	// of elements in the make() at the top of the function.
 
@@ -1931,7 +1975,8 @@ func signingParamsForPublicKey(pub interface{}, requestedSigAlgo SignatureAlgori
 // BasicConstraintsValid, DNSNames, ExcludedDNSDomains, ExtKeyUsage,
 // IsCA, KeyUsage, MaxPathLen, MaxPathLenZero, NotAfter, NotBefore,
 // PermittedDNSDomains, PermittedDNSDomainsCritical, SerialNumber,
-// SignatureAlgorithm, Subject, SubjectKeyId, and UnknownExtKeyUsage.
+// SignatureAlgorithm, Subject, SubjectKeyId, UnknownExtKeyUsage,
+// and RawSCT.
 //
 // The certificate is signed by parent. If parent is equal to template then the
 // certificate is self-signed. The parameter pub is the public key of the
