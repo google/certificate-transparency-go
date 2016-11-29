@@ -332,6 +332,116 @@ var certBytes = "308203223082028ba00302010202106edf0d9499fd4533dd1297fc42a93be13
 	"9048084225c53e8acb7feb6f04d16dc574a2f7a27c7b603c77cd0ece48027f012fb69b37e02a2a" +
 	"36dcd585d6ace53f546f961e05af"
 
+var certWithSCTListPEM = `
+-----BEGIN CERTIFICATE-----
+MIIHkzCCBnugAwIBAgIUHz6ZOwEjk6zhU9v3n2Jo3qeucqYwDQYJKoZIhvcNAQEL
+BQAwSTELMAkGA1UEBhMCQk0xGTAXBgNVBAoTEFF1b1ZhZGlzIExpbWl0ZWQxHzAd
+BgNVBAMTFlF1b1ZhZGlzIEVWIFNTTCBJQ0EgRzEwHhcNMTcwMjA4MTQxNTU3WhcN
+MTgwMjA4MTQyNTAwWjCByzETMBEGCysGAQQBgjc8AgEDEwJHQjEYMBYGA1UEDwwP
+QnVzaW5lc3MgRW50aXR5MREwDwYDVQQFEwhTQzA5NTAwMDELMAkGA1UEBhMCR0Ix
+EjAQBgNVBAgMCUVkaW5idXJnaDESMBAGA1UEBwwJRWRpbmJ1cmdoMSEwHwYDVQQK
+DBhMbG95ZHMgQmFua2luZyBHcm91cCBQTEMxEjAQBgNVBAsMCUdST1VQIElUMjEb
+MBkGA1UEAwwSd3d3Lmxsb3lkc2JhbmsuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOC
+AQ8AMIIBCgKCAQEAyRkzN3UmnYbuIW7V4P5qyF/3iCdJwaw/avb0tpOJTa/svtM2
+9KxtVtgwqAPCSuWgjHh6lx+OzXBOh0cM1+gOvjscIJ7k6J0UKouhxrZ02G6CHiNS
+0P3ztsW1CVYAnEQqnhC+hBSl+Ut7DdcsReOUaUrIbO8T0psfsBnez6VtcLB74Hi0
+y6s2AOwPKG7zRjMcMEylOYyGMrUI4ooGsf7IBzMOdMZpkAMUEe6KZ/8AssZOH7F9
+OacCBcGHwN3qp/AG02+tXGaS9DWCS9/seMWqyhE8YPk+iGV3sFZEueBMxixVObFZ
+0Ezwv3cCel6v2mlA5OweteDI57VG4/7OI45CawIDAQABo4ID7jCCA+owdwYIKwYB
+BQUHAQEEazBpMDgGCCsGAQUFBzAChixodHRwOi8vdHJ1c3QucXVvdmFkaXNnbG9i
+YWwuY29tL3F2ZXZzc2wxLmNydDAtBggrBgEFBQcwAYYhaHR0cDovL2V2Lm9jc3Au
+cXVvdmFkaXNnbG9iYWwuY29tMB0GA1UdDgQWBBSIASoK0Cmqs5B06CJUUzq5nQ6c
+IDAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFFVYhs66fHZOmROpD9Nsn8L10zzj
+MFEGA1UdIARKMEgwRgYMKwYBBAG+WAACZAECMDYwNAYIKwYBBQUHAgEWKGh0dHA6
+Ly93d3cucXVvdmFkaXNnbG9iYWwuY29tL3JlcG9zaXRvcnkwOwYDVR0fBDQwMjAw
+oC6gLIYqaHR0cDovL2NybC5xdW92YWRpc2dsb2JhbC5jb20vcXZldnNzbDEuY3Js
+MA4GA1UdDwEB/wQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEw
+gd8GA1UdEQSB1zCB1IISd3d3Lmxsb3lkc2JhbmsuY29tghRzdGF0aWMuaGFsaWZh
+eC5jby51a4IUd3d3Lmxsb3lkc2JhbmsuY28udWuCFGltYWdlcy5oYWxpZmF4LmNv
+LnVrghh3d3cuYmFua29mc2NvdGxhbmQuY28udWuCD3d3dy5oYWxpZmF4LmNvbYIT
+d3d3Lmxsb3lkc3RzYi5jby51a4IRd3d3Lmxsb3lkc3RzYi5jb22CEXd3dy5oYWxp
+ZmF4LmNvLnVrghZ3d3cuYmFua29mc2NvdGxhbmQuY29tMIIBfgYKKwYBBAHWeQIE
+AgSCAW4EggFqAWgAdgC72d+8H4pxtZOUI5eqkntHOFeVCqtS6BqQlmQ2jh7RhQAA
+AVoeHdwIAAAEAwBHMEUCIQD3fh/6Cp3I44poKfhA7IkhjInvl8qC9JkooycB7NfE
+lgIgMihc8F0Ap1gIU7WUCxWgV0nUxeWp34mp+g0IPnNJ1KcAdgCkuQmQtBhYFIe7
+E6LMZ3AKPDWYBPkb37jjd80OyA3cEAAAAVoeHdwaAAAEAwBHMEUCIA45u9pfeirN
+Hn8K0xHDCUfCihQSFJo0YYmFxYEgO8GEAiEAwDXdmIkkv3lJ1td+RjTzXMBIjp9R
+3Ii1GumOGKe8IqcAdgBWFAaaL9fC7NP14b1Esj7HRna5vJkRXMDvlJhV1onQ3QAA
+AVoeHdxAAAAEAwBHMEUCIEfe5grRiTvaHZJ4e4glbGftZ87n1pQf2lVeyBMUq0Xa
+AiEA/+W+qCcVd3hHVaYJryO67SYCbUBinU5/6je8eDLOEM4wDQYJKoZIhvcNAQEL
+BQADggEBADGdRf8XpQRPzxv+NeUr5i4q49JI8M/umbwSEXkHJmaDD4CDiUGkFUNR
+Tte0HDRvjbu5y9xub09MgdMl84qvfjsph54rUVK7LWVphi6CC21XbRP5gEwKBeA2
+wAZU1IhhWBy6DaW4CjpTu1Ji3FJqHqKklFrZTMSS+xoqfYbbN96q1mJHQhyDdRlC
+JvNuS1lDM0u3+g/MHNpQM1aGZVKtwpzRABIYhydSJrO14TzWJjbKm1UTnKiwvHbt
+p1ATnYNDZKj3Ec8EASXGTHHoorX0jZpMiNxHv4p4BUinsNFttkhudMGbCfbjjqef
+UfUJESblkeQVpcnndMfnsHSahCVd96k=
+-----END CERTIFICATE-----
+`
+
+// The cert above contains the following SCTs, each of which is a TLS-encoded
+// SignedCertificateTimestamp structure from RFC6962 s3.2.
+/*
+   struct {
+       Version sct_version;
+       LogID id;
+       uint64 timestamp;
+       CtExtensions extensions;
+       digitally-signed struct {
+           Version sct_version;
+           SignatureType signature_type = certificate_timestamp;
+           uint64 timestamp;
+           LogEntryType entry_type;
+           select(entry_type) {
+               case x509_entry: ASN.1Cert;
+               case precert_entry: PreCert;
+           } signed_entry;
+          CtExtensions extensions;
+       };
+   } SignedCertificateTimestamp;
+*/
+
+var wantSCTs = []string{
+	("00" + // Version: v1(0)
+		"bbd9dfbc1f8a71b593942397aa927b473857950aab52e81a909664368e1ed185" + // LogID: Google Skydiver
+		"0000015a1e1ddc08" + // Timestamp
+		"0000" + // No Extensions
+		("04" + "03" + // SHA-256, ECDSA
+			("0047" +
+				"3045022100f77e1ffa0a9dc8e38a6829f840ec89218c89ef97ca82f49928a32701ecd7c496022032285cf05d00a7580853b5940b15a05749d4c5e5a9df89a9fa0d083e7349d4a7"))),
+
+	("00" + // Version: v1(0)
+		"a4b90990b418581487bb13a2cc67700a3c359804f91bdfb8e377cd0ec80ddc10" + // LogID: Google Pilot
+		"0000015a1e1ddc1a" +
+		"0000" + // No Extensions
+		("04" + "03" + // SHA-256, ECDSA
+			("0047" +
+				"304502200e39bbda5f7a2acd1e7f0ad311c30947c28a1412149a34618985c581203bc184022100c035dd988924bf7949d6d77e4634f35cc0488e9f51dc88b51ae98e18a7bc22a7"))),
+	("00" + // Version: v1(0)
+		"5614069a2fd7c2ecd3f5e1bd44b23ec74676b9bc99115cc0ef949855d689d0dd" + // LogID: Digicert Log Server
+		"0000015a1e1ddc40" + // Timestamp
+		"0000" + // No Extensions
+		("04" + "03" + // SHA-256, ECDSA
+			("0047" +
+				"3045022047dee60ad1893bda1d92787b88256c67ed67cee7d6941fda555ec81314ab45da022100ffe5bea8271577784755a609af23baed26026d40629d4e7fea37bc7832ce10ce"))),
+}
+
+func TestParseCertificateSCTs(t *testing.T) {
+	pemBlock, _ := pem.Decode([]byte(certWithSCTListPEM))
+	cert, err := ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		t.Fatalf("ParseCertificate()=_,%v; want _, nil", err)
+	}
+	if len(cert.RawSCT) == 0 {
+		t.Errorf("len(cert.RawSCT)=0, want >0")
+	}
+	for i, got := range cert.SCTList.SCTList {
+		want, _ := hex.DecodeString(wantSCTs[i])
+		if !bytes.Equal(got.Val, want) {
+			t.Errorf("SCT[%d]=%x; want %x", i, got.Val, want)
+		}
+	}
+}
+
 func TestCreateSelfSignedCertificate(t *testing.T) {
 	random := rand.Reader
 
@@ -409,6 +519,14 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			ExcludedDNSDomains:  []string{"bar.example.com"},
 
 			CRLDistributionPoints: []string{"http://crl1.example.com/ca1.crl", "http://crl2.example.com/ca1.crl"},
+
+			RawSCT: []byte{0xde, 0xad}, // Ignored because SCTList provided.
+			SCTList: SignedCertificateTimestampList{
+				SCTList: []SerializedSCT{
+					{Val: []byte{0x01, 0x02, 0x03}},
+					{Val: []byte{0x04, 0x05, 0x06}},
+				},
+			},
 
 			ExtraExtensions: []pkix.Extension{
 				{
@@ -505,6 +623,10 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 
 		if !reflect.DeepEqual(cert.CRLDistributionPoints, template.CRLDistributionPoints) {
 			t.Errorf("%s: CRL distribution points differ from template. Got %v, want %v", test.name, cert.CRLDistributionPoints, template.CRLDistributionPoints)
+		}
+
+		if !reflect.DeepEqual(cert.SCTList, template.SCTList) {
+			t.Errorf("%s: SCTList differs from template. Got %v, want %v", test.name, cert.SCTList, template.SCTList)
 		}
 
 		if !bytes.Equal(cert.SubjectKeyId, []byte{4, 3, 2, 1}) {
