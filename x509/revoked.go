@@ -238,7 +238,7 @@ func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
 			}
 		case e.Id.Equal(OIDExtensionAuthorityInfoAccess):
 			// RFC 5280 s5.2.7
-			var aia []authorityInfoAccess
+			var aia []accessDescription
 			if rest, err := asn1.Unmarshal(e.Value, &aia); err != nil {
 				errs.AddID(ErrInvalidCertListAuthInfoAccess, err)
 			} else if len(rest) != 0 {

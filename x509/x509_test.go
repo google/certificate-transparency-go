@@ -18,6 +18,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"net/url"
@@ -2425,5 +2426,31 @@ func TestMultipleURLsInCRLDP(t *testing.T) {
 	}
 	if got := cert.CRLDistributionPoints; !reflect.DeepEqual(got, want) {
 		t.Errorf("CRL distribution points = %#v, want #%v", got, want)
+	}
+}
+
+func TestParseCertificateFail(t *testing.T) {
+	var tests = []struct {
+		desc    string
+		in      string
+		wantErr string
+	}{
+		{desc: "SubjectInfoEmpty", in: "testdata/invalid/xf-ext-subject-info-empty.pem", wantErr: "empty SubjectInfoAccess"},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			data, err := ioutil.ReadFile(test.in)
+			if err != nil {
+				t.Fatalf("failed to read test data: %v", err)
+			}
+			block, _ := pem.Decode(data)
+			got, err := ParseCertificate(block.Bytes)
+			if err == nil {
+				t.Fatalf("ParseCertificate()=%+v,nil; want nil, err containing %q", got, test.wantErr)
+			}
+			if !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("ParseCertificate()=_,%v; want nil, err containing %q", err, test.wantErr)
+			}
+		})
 	}
 }
