@@ -103,6 +103,11 @@ func (st SignatureType) String() string {
 // (section 3.1).
 type ASN1Cert []byte
 
+// LogID holds the hash of the Log's public key (section 3.2).
+type LogID struct {
+	KeyID [32]byte
+}
+
 // PreCert represents a Precertificate (section 3.2).
 type PreCert struct {
 	IssuerKeyHash  [issuerKeyHashLength]byte
@@ -237,7 +242,7 @@ type SignedTreeHead struct {
 // 3.2, 4.1 and 4.2.
 type SignedCertificateTimestamp struct {
 	SCTVersion Version         // The version of the protocol to which the SCT conforms
-	LogID      SHA256Hash      // The SHA-256 hash of the (DER-encoded) public key for the Log
+	LogID      LogID           // The SHA-256 hash of the (DER-encoded) public key for the Log
 	Timestamp  uint64          // Timestamp (in ms since unix epoch) at which the SCT was issued
 	Extensions CTExtensions    // For future extensions to the protocol
 	Signature  DigitallySigned // The Log's signature for this SCT
@@ -245,7 +250,7 @@ type SignedCertificateTimestamp struct {
 
 func (s SignedCertificateTimestamp) String() string {
 	return fmt.Sprintf("{Version:%d LogId:%s Timestamp:%d Extensions:'%s' Signature:%v}", s.SCTVersion,
-		base64.StdEncoding.EncodeToString(s.LogID[:]),
+		base64.StdEncoding.EncodeToString(s.LogID.KeyID[:]),
 		s.Timestamp,
 		s.Extensions,
 		s.Signature)

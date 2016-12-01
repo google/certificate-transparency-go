@@ -143,8 +143,8 @@ func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateT
 	if err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
-	var id SHA256Hash
-	copy(id[:], mustDehex(t, keyID))
+	var id LogID
+	copy(id.KeyID[:], mustDehex(t, keyID))
 	return SignedCertificateTimestamp{
 		SCTVersion: V1,
 		LogID:      id,

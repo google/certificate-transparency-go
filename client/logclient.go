@@ -57,8 +57,8 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType
 		return nil, err
 	}
 
-	var logID ct.SHA256Hash
-	copy(logID[:], resp.ID)
+	var logID ct.LogID
+	copy(logID.KeyID[:], resp.ID)
 	sct := &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      logID,
@@ -94,8 +94,8 @@ func (c *LogClient) AddJSON(ctx context.Context, data interface{}) (*ct.SignedCe
 	if err != nil {
 		return nil, err
 	}
-	var logID ct.SHA256Hash
-	copy(logID[:], resp.ID)
+	var logID ct.LogID
+	copy(logID.KeyID[:], resp.ID)
 	return &ct.SignedCertificateTimestamp{
 		SCTVersion: resp.SCTVersion,
 		LogID:      logID,

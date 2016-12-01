@@ -467,7 +467,7 @@ func serializeV1SCTHere(sct SignedCertificateTimestamp, here []byte) ([]byte, er
 	here[0] = byte(sct.SCTVersion)
 
 	// Write LogID
-	copy(here[1:33], sct.LogID[:])
+	copy(here[1:33], sct.LogID.KeyID[:])
 
 	// Write Timestamp
 	binary.BigEndian.PutUint64(here[33:41], sct.Timestamp)
