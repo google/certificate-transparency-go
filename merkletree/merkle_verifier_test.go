@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency/go"
+	"github.com/google/certificate-transparency/go/tls"
 )
 
 const (
@@ -318,18 +319,18 @@ func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", sctFile, err)
 	}
-	sct, err := ct.DeserializeSCT(bytes.NewBuffer(sctB))
-	if err != nil {
+	var sct ct.SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(sctB, &sct); err != nil {
 		t.Fatalf("Failed to deserialize sct: %v", err)
 	}
 
-	b := new(bytes.Buffer)
 	leaf := ct.CreateX509MerkleTreeLeaf(ct.ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
-	if err := ct.SerializeMerkleTreeLeaf(b, leaf); err != nil {
-		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
+	data, err := tls.Marshal(*leaf)
+	if err != nil {
+		t.Fatalf("Failed to serialize x509 leaf: %v", err)
 	}
 	// Test output from a real CT instance.
-	if err := verifierCheck(&v, 0, 1, [][]byte{}, dh("04a64b64631b0270d6d204168cd24d0b24b6220c1e5a7efa616ded165bb702e6"), b.Bytes()); err != nil {
+	if err := verifierCheck(&v, 0, 1, [][]byte{}, dh("04a64b64631b0270d6d204168cd24d0b24b6220c1e5a7efa616ded165bb702e6"), data); err != nil {
 		t.Fatalf("i=%s: %s", "test-cert", err)
 	}
 }
