@@ -153,16 +153,6 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	return chain, nil
 }
 
-func checkCertificateFormat(cert ASN1Cert) error {
-	if len(cert.Data) == 0 {
-		return errors.New("certificate is zero length")
-	}
-	if len(cert.Data) > MaxCertificateLength {
-		return errors.New("certificate too large")
-	}
-	return nil
-}
-
 func checkExtensionsFormat(ext CTExtensions) error {
 	if len(ext) > MaxExtensionsLength {
 		return errors.New("extensions too large")

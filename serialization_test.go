@@ -129,25 +129,6 @@ func TestReadVarBytesShortRead(t *testing.T) {
 	}
 }
 
-func TestCheckCertificateFormatOk(t *testing.T) {
-	if err := checkCertificateFormat(ASN1Cert{Data: []byte("I'm a cert, honest.")}); err != nil {
-		t.Fatalf("checkCertificateFormat objected to valid format: %v", err)
-	}
-}
-
-func TestCheckCertificateFormatZeroSize(t *testing.T) {
-	if checkCertificateFormat(ASN1Cert{Data: []byte("")}) == nil {
-		t.Fatalf("checkCertificateFormat failed to object to zero length cert")
-	}
-}
-
-func TestCheckCertificateFormatTooBig(t *testing.T) {
-	big := make([]byte, MaxCertificateLength+1)
-	if checkCertificateFormat(ASN1Cert{Data: big}) == nil {
-		t.Fatalf("checkCertificateFormat failed to object to cert of length %d (max %d)", len(big), MaxCertificateLength)
-	}
-}
-
 func TestCheckExtensionsFormatOk(t *testing.T) {
 	if err := checkExtensionsFormat([]byte("I'm an extension, honest.")); err != nil {
 		t.Fatalf("checkExtensionsFormat objected to valid format: %v", err)
