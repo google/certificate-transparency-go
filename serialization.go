@@ -202,37 +202,6 @@ func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 	return nil
 }
 
-// ReadMerkleTreeLeaf parses the byte-stream representation of a MerkleTreeLeaf
-// and returns a pointer to a new MerkleTreeLeaf structure containing the
-// parsed data.
-// See RFC section 3.4 for details on the format.
-// Returns a pointer to a new MerkleTreeLeaf or non-nil error if there was a
-// problem
-func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
-	var m MerkleTreeLeaf
-	var ver uint8
-	if err := binary.Read(r, binary.BigEndian, &ver); err != nil {
-		return nil, err
-	}
-	m.Version = Version(ver)
-	if m.Version != V1 {
-		return nil, fmt.Errorf("unknown Version %d", m.Version)
-	}
-	var lt uint8
-	if err := binary.Read(r, binary.BigEndian, &lt); err != nil {
-		return nil, err
-	}
-	m.LeafType = MerkleLeafType(lt)
-	if m.LeafType != TimestampedEntryLeafType {
-		return nil, fmt.Errorf("unknown LeafType %d", m.LeafType)
-	}
-	m.TimestampedEntry = new(TimestampedEntry)
-	if err := ReadTimestampedEntryInto(r, m.TimestampedEntry); err != nil {
-		return nil, err
-	}
-	return &m, nil
-}
-
 // UnmarshalX509ChainArray unmarshalls the contents of the "chain:" entry in a
 // GetEntries response in the case where the entry refers to an X509 leaf.
 func UnmarshalX509ChainArray(b []byte) ([]ASN1Cert, error) {
