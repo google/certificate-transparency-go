@@ -210,7 +210,7 @@ func TestAddChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to decode chain array B64: %s", err)
 	}
-	chain := []ct.ASN1Cert{certBytes}
+	chain := []ct.ASN1Cert{{Data: certBytes}}
 
 	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {

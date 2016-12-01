@@ -194,7 +194,7 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 			TimestampedEntry: TimestampedEntry{
 				Timestamp: sigTestSCTTimestamp,
 				EntryType: X509LogEntryType,
-				X509Entry: mustDehex(t, sigTestDERCertString),
+				X509Entry: ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},
 			},
 		},
 	}
@@ -273,13 +273,13 @@ func TestVerifySCTSignatureFailsForUnknownHashAlgorithm(t *testing.T) {
 
 func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
 	entry := sigTestCertLogEntry(t)
-	for i := range entry.Leaf.TimestampedEntry.X509Entry {
-		old := entry.Leaf.TimestampedEntry.X509Entry[i]
-		corruptByteAt(entry.Leaf.TimestampedEntry.X509Entry, i)
+	for i := range entry.Leaf.TimestampedEntry.X509Entry.Data {
+		old := entry.Leaf.TimestampedEntry.X509Entry.Data[i]
+		corruptByteAt(entry.Leaf.TimestampedEntry.X509Entry.Data, i)
 		if err := sv.VerifySCTSignature(sct, entry); err == nil {
 			t.Fatalf("Incorrectly verfied signature over corrupted leaf data, uncovered byte at %d?", i)
 		}
-		entry.Leaf.TimestampedEntry.X509Entry[i] = old
+		entry.Leaf.TimestampedEntry.X509Entry.Data[i] = old
 	}
 	// Ensure we were only corrupting one byte at a time, should be correct again now.
 	if err := sv.VerifySCTSignature(sct, entry); err != nil {

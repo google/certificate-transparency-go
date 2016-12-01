@@ -324,7 +324,7 @@ func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
 	}
 
 	b := new(bytes.Buffer)
-	leaf := ct.CreateX509MerkleTreeLeaf(certDER.Bytes, sct.Timestamp)
+	leaf := ct.CreateX509MerkleTreeLeaf(ct.ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
 	if err := ct.SerializeMerkleTreeLeaf(b, leaf); err != nil {
 		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
 	}

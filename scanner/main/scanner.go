@@ -51,7 +51,7 @@ func chainToString(certs []ct.ASN1Cert) string {
 	var output []byte
 
 	for _, cert := range certs {
-		output = append(output, cert...)
+		output = append(output, cert.Data...)
 	}
 
 	return base64.StdEncoding.EncodeToString(output)

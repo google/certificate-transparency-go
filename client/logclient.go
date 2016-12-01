@@ -44,7 +44,7 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType
 	var resp ct.AddChainResponse
 	var req ct.AddChainRequest
 	for _, link := range chain {
-		req.Chain = append(req.Chain, link)
+		req.Chain = append(req.Chain, link.Data)
 	}
 
 	_, err := c.PostAndParseWithRetry(ctx, path, &req, &resp)
@@ -212,7 +212,7 @@ func (c *LogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error)
 		if err != nil {
 			return nil, err
 		}
-		roots = append(roots, cert)
+		roots = append(roots, ct.ASN1Cert{Data: cert})
 	}
 	return roots, nil
 }

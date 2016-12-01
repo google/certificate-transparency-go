@@ -119,7 +119,7 @@ func readASN1CertList(r io.Reader, totalLenBytes int, elementLenBytes int) ([]AS
 	ret := make([]ASN1Cert, list.Len())
 	i := 0
 	for e := list.Front(); e != nil; e = e.Next() {
-		ret[i] = e.Value.([]byte)
+		ret[i] = ASN1Cert{Data: e.Value.([]byte)}
 		i++
 	}
 	return ret, nil
@@ -139,7 +139,7 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	}
 	switch t.EntryType {
 	case X509LogEntryType:
-		if t.X509Entry, err = readVarBytes(r, CertificateLengthBytes); err != nil {
+		if t.X509Entry.Data, err = readVarBytes(r, CertificateLengthBytes); err != nil {
 			return err
 		}
 	case PrecertLogEntryType:
@@ -171,7 +171,7 @@ func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 	}
 	switch t.EntryType {
 	case X509LogEntryType:
-		if err := writeVarBytes(w, t.X509Entry, CertificateLengthBytes); err != nil {
+		if err := writeVarBytes(w, t.X509Entry.Data, CertificateLengthBytes); err != nil {
 			return err
 		}
 	case PrecertLogEntryType:
@@ -239,7 +239,7 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	if err != nil {
 		return chain, err
 	}
-	chain = append(chain, precert)
+	chain = append(chain, ASN1Cert{Data: precert})
 	// and then read and return the chain up to the root:
 	remainingChain, err := readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
 	if err != nil {
@@ -299,10 +299,10 @@ func MarshalDigitallySigned(ds DigitallySigned) ([]byte, error) {
 }
 
 func checkCertificateFormat(cert ASN1Cert) error {
-	if len(cert) == 0 {
+	if len(cert.Data) == 0 {
 		return errors.New("certificate is zero length")
 	}
-	if len(cert) > MaxCertificateLength {
+	if len(cert.Data) > MaxCertificateLength {
 		return errors.New("certificate too large")
 	}
 	return nil
@@ -335,7 +335,7 @@ func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExt
 	if err := binary.Write(&buf, binary.BigEndian, X509LogEntryType); err != nil {
 		return nil, err
 	}
-	if err := writeVarBytes(&buf, cert, CertificateLengthBytes); err != nil {
+	if err := writeVarBytes(&buf, cert.Data, CertificateLengthBytes); err != nil {
 		return nil, err
 	}
 	if err := writeVarBytes(&buf, ext, ExtensionsLengthBytes); err != nil {
@@ -368,7 +368,7 @@ func serializeV1JSONSCTSignatureInput(timestamp uint64, j []byte) ([]byte, error
 }
 
 func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [32]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
-	if err := checkCertificateFormat(tbs); err != nil {
+	if err := checkCertificateFormat(ASN1Cert{Data: tbs}); err != nil {
 		return nil, err
 	}
 	if err := checkExtensionsFormat(ext); err != nil {

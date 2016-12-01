@@ -139,20 +139,20 @@ func TestReadTimestampedEntryIntoChecksEntryType(t *testing.T) {
 }
 
 func TestCheckCertificateFormatOk(t *testing.T) {
-	if err := checkCertificateFormat([]byte("I'm a cert, honest.")); err != nil {
+	if err := checkCertificateFormat(ASN1Cert{Data: []byte("I'm a cert, honest.")}); err != nil {
 		t.Fatalf("checkCertificateFormat objected to valid format: %v", err)
 	}
 }
 
 func TestCheckCertificateFormatZeroSize(t *testing.T) {
-	if checkCertificateFormat([]byte("")) == nil {
+	if checkCertificateFormat(ASN1Cert{Data: []byte("")}) == nil {
 		t.Fatalf("checkCertificateFormat failed to object to zero length cert")
 	}
 }
 
 func TestCheckCertificateFormatTooBig(t *testing.T) {
 	big := make([]byte, MaxCertificateLength+1)
-	if checkCertificateFormat(big) == nil {
+	if checkCertificateFormat(ASN1Cert{Data: big}) == nil {
 		t.Fatalf("checkCertificateFormat failed to object to cert of length %d (max %d)", len(big), MaxCertificateLength)
 	}
 }
@@ -297,7 +297,7 @@ func defaultCertificateLogEntry() LogEntry {
 			TimestampedEntry: TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
 				EntryType: X509LogEntryType,
-				X509Entry: defaultCertificate(),
+				X509Entry: ASN1Cert{Data: defaultCertificate()},
 			},
 		},
 	}
@@ -538,7 +538,7 @@ func TestX509MerkleTreeLeafHash(t *testing.T) {
 	}
 
 	b := new(bytes.Buffer)
-	leaf := CreateX509MerkleTreeLeaf(certDER.Bytes, sct.Timestamp)
+	leaf := CreateX509MerkleTreeLeaf(ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
 	if err := SerializeMerkleTreeLeaf(b, leaf); err != nil {
 		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
 	}

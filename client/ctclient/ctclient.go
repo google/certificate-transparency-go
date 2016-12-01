@@ -61,7 +61,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 			break
 		}
 		if block.Type == "CERTIFICATE" {
-			chain = append(chain, ct.ASN1Cert(block.Bytes))
+			chain = append(chain, ct.ASN1Cert{Data: block.Bytes})
 		}
 	}
 
@@ -82,14 +82,14 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 	}
 	for _, root := range roots {
 		if *textOut {
-			cert, err := x509.ParseCertificate(root)
+			cert, err := x509.ParseCertificate(root.Data)
 			if err != nil {
 				log.Printf("Error parsing certificate: %q", err.Error())
 				continue
 			}
 			fmt.Printf("%s\n", x509util.CertificateToString(cert))
 		} else {
-			if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: root}); err != nil {
+			if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: root.Data}); err != nil {
 				log.Printf("Failed to PEM encode cert: %q", err.Error())
 			}
 		}

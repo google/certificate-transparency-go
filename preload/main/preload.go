@@ -97,7 +97,7 @@ func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 	wg *sync.WaitGroup) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
-		chain[0] = c.X509Cert.Raw
+		chain[0] = ct.ASN1Cert{Data: c.X509Cert.Raw}
 		copy(chain[1:], c.Chain)
 		sct, err := log_client.AddChain(ctx, chain)
 		if err != nil {

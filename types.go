@@ -97,7 +97,9 @@ func (st SignatureType) String() string {
 
 // ASN1Cert type for holding the raw DER bytes of an ASN.1 Certificate
 // (section 3.1).
-type ASN1Cert []byte
+type ASN1Cert struct {
+	Data []byte `tls:"minlen:1,maxlen:16777215"`
+}
 
 // LogID holds the hash of the Log's public key (section 3.2).
 type LogID struct {
@@ -325,7 +327,7 @@ type Precertificate struct {
 // X509Certificate returns the X.509 Certificate contained within the
 // MerkleTreeLeaf.
 func (m *MerkleTreeLeaf) X509Certificate() (*x509.Certificate, error) {
-	return x509.ParseCertificate(m.TimestampedEntry.X509Entry)
+	return x509.ParseCertificate(m.TimestampedEntry.X509Entry.Data)
 }
 
 type sctError int

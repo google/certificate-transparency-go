@@ -217,7 +217,7 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return
 		}
-		cert, err := x509.ParseCertificate(entry.Leaf.TimestampedEntry.X509Entry)
+		cert, err := x509.ParseCertificate(entry.Leaf.TimestampedEntry.X509Entry.Data)
 		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
 			// We hit an unparseable entry, already logged inside handleParseEntryError()
 			return
@@ -233,7 +233,7 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 			return
 		}
 		precert := &ct.Precertificate{
-			Raw:            entry.Chain[0],
+			Raw:            entry.Chain[0].Data,
 			TBSCertificate: *c,
 			IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
 		if s.opts.Matcher.PrecertificateMatches(precert) {
