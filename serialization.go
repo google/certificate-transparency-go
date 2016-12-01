@@ -170,117 +170,32 @@ func checkExtensionsFormat(ext CTExtensions) error {
 	return nil
 }
 
-func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExtensions) ([]byte, error) {
-	if err := checkCertificateFormat(cert); err != nil {
-		return nil, err
-	}
-	if err := checkExtensionsFormat(ext); err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint16(X509LogEntryType)); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, cert.Data, CertificateLengthBytes); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, ext, ExtensionsLengthBytes); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func serializeV1JSONSCTSignatureInput(timestamp uint64, j []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint16(XJSONLogEntryType)); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, j, JSONLengthBytes); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, nil, ExtensionsLengthBytes); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [32]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
-	if err := checkCertificateFormat(ASN1Cert{Data: tbs}); err != nil {
-		return nil, err
-	}
-	if err := checkExtensionsFormat(ext); err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint16(PrecertLogEntryType)); err != nil {
-		return nil, err
-	}
-	if _, err := buf.Write(issuerKeyHash[:]); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, tbs, CertificateLengthBytes); err != nil {
-		return nil, err
-	}
-	if err := writeVarBytes(&buf, ext, ExtensionsLengthBytes); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func serializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
-	if sct.SCTVersion != V1 {
-		return nil, fmt.Errorf("unsupported SCT version, expected V1, but got %s", sct.SCTVersion)
-	}
-	if entry.Leaf.LeafType != TimestampedEntryLeafType {
-		return nil, fmt.Errorf("Unsupported leaf type %s", entry.Leaf.LeafType)
-	}
-	switch entry.Leaf.TimestampedEntry.EntryType {
-	case X509LogEntryType:
-		return serializeV1CertSCTSignatureInput(sct.Timestamp, *entry.Leaf.TimestampedEntry.X509Entry, entry.Leaf.TimestampedEntry.Extensions)
-	case PrecertLogEntryType:
-		return serializeV1PrecertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
-			entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
-			entry.Leaf.TimestampedEntry.Extensions)
-	case XJSONLogEntryType:
-		return serializeV1JSONSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.JSONEntry.Data)
-	default:
-		return nil, fmt.Errorf("unknown TimestampedEntryLeafType %s", entry.Leaf.TimestampedEntry.EntryType)
-	}
-}
-
 // SerializeSCTSignatureInput serializes the passed in sct and log entry into
 // the correct format for signing.
 func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
 	switch sct.SCTVersion {
 	case V1:
-		return serializeV1SCTSignatureInput(sct, entry)
+		input := CertificateTimestamp{
+			SCTVersion:    sct.SCTVersion,
+			SignatureType: CertificateTimestampSignatureType,
+			Timestamp:     sct.Timestamp,
+			EntryType:     entry.Leaf.TimestampedEntry.EntryType,
+			Extensions:    sct.Extensions,
+		}
+		switch entry.Leaf.TimestampedEntry.EntryType {
+		case X509LogEntryType:
+			input.X509Entry = entry.Leaf.TimestampedEntry.X509Entry
+		case PrecertLogEntryType:
+			input.PrecertEntry = &PreCert{
+				IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
+				TBSCertificate: entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
+			}
+		case XJSONLogEntryType:
+			input.JSONEntry = entry.Leaf.TimestampedEntry.JSONEntry
+		default:
+			return nil, fmt.Errorf("unsupported entry type %s", entry.Leaf.TimestampedEntry.EntryType)
+		}
+		return tls.Marshal(input)
 	default:
 		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
 	}
