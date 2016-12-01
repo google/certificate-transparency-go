@@ -140,10 +140,12 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	}
 	switch t.EntryType {
 	case X509LogEntryType:
+		t.X509Entry = &ASN1Cert{}
 		if t.X509Entry.Data, err = readVarBytes(r, CertificateLengthBytes); err != nil {
 			return err
 		}
 	case PrecertLogEntryType:
+		t.PrecertEntry = &PreCert{}
 		if err := binary.Read(r, binary.BigEndian, &t.PrecertEntry.IssuerKeyHash); err != nil {
 			return err
 		}
@@ -151,7 +153,8 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 			return err
 		}
 	case XJSONLogEntryType:
-		if t.JSONData, err = readVarBytes(r, JSONLengthBytes); err != nil {
+		t.JSONEntry = &JSONDataEntry{}
+		if t.JSONEntry.Data, err = readVarBytes(r, JSONLengthBytes); err != nil {
 			return err
 		}
 	default:
@@ -186,7 +189,7 @@ func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 		// TODO: Pending google/certificate-transparency#1243, replace
 		// with ObjectHash once supported by CT server.
 		//jsonhash := objecthash.CommonJSONHash(string(t.JSONData))
-		if err := writeVarBytes(w, []byte(t.JSONData), JSONLengthBytes); err != nil {
+		if err := writeVarBytes(w, []byte(t.JSONEntry.Data), JSONLengthBytes); err != nil {
 			return err
 		}
 	default:
@@ -360,13 +363,13 @@ func serializeV1SCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry
 	}
 	switch entry.Leaf.TimestampedEntry.EntryType {
 	case X509LogEntryType:
-		return serializeV1CertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.X509Entry, entry.Leaf.TimestampedEntry.Extensions)
+		return serializeV1CertSCTSignatureInput(sct.Timestamp, *entry.Leaf.TimestampedEntry.X509Entry, entry.Leaf.TimestampedEntry.Extensions)
 	case PrecertLogEntryType:
 		return serializeV1PrecertSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
 			entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
 			entry.Leaf.TimestampedEntry.Extensions)
 	case XJSONLogEntryType:
-		return serializeV1JSONSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.JSONData)
+		return serializeV1JSONSCTSignatureInput(sct.Timestamp, entry.Leaf.TimestampedEntry.JSONEntry.Data)
 	default:
 		return nil, fmt.Errorf("unknown TimestampedEntryLeafType %s", entry.Leaf.TimestampedEntry.EntryType)
 	}
@@ -617,7 +620,7 @@ func CreateX509MerkleTreeLeaf(cert ASN1Cert, timestamp uint64) *MerkleTreeLeaf {
 		TimestampedEntry: TimestampedEntry{
 			Timestamp: timestamp,
 			EntryType: X509LogEntryType,
-			X509Entry: cert,
+			X509Entry: &cert,
 		},
 	}
 }
@@ -643,7 +646,7 @@ func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *MerkleTreeLea
 		TimestampedEntry: TimestampedEntry{
 			Timestamp: timestamp,
 			EntryType: XJSONLogEntryType,
-			JSONData:  []byte(jsonStr),
+			JSONEntry: &JSONDataEntry{Data: []byte(jsonStr)},
 		},
 	}
 }

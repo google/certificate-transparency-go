@@ -297,7 +297,7 @@ func defaultCertificateLogEntry() LogEntry {
 			TimestampedEntry: TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
 				EntryType: X509LogEntryType,
-				X509Entry: ASN1Cert{Data: defaultCertificate()},
+				X509Entry: &ASN1Cert{Data: defaultCertificate()},
 			},
 		},
 	}
@@ -330,7 +330,7 @@ func defaultPrecertLogEntry() LogEntry {
 			TimestampedEntry: TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
 				EntryType: PrecertLogEntryType,
-				PrecertEntry: PreCert{
+				PrecertEntry: &PreCert{
 					IssuerKeyHash:  defaultPrecertIssuerHash(),
 					TBSCertificate: defaultPrecertTBS(),
 				},

@@ -173,7 +173,7 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 		TimestampedEntry: ct.TimestampedEntry{
 			Timestamp:  sct.Timestamp,
 			EntryType:  ctype,
-			X509Entry:  certData[0],
+			X509Entry:  &certData[0],
 			Extensions: sct.Extensions}}
 	entry := ct.LogEntry{Leaf: leaf}
 	return c.Verifier.VerifySCTSignature(sct, entry)

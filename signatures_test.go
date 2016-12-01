@@ -195,7 +195,7 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 			TimestampedEntry: TimestampedEntry{
 				Timestamp: sigTestSCTTimestamp,
 				EntryType: X509LogEntryType,
-				X509Entry: ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},
+				X509Entry: &ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},
 			},
 		},
 	}

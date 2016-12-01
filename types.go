@@ -300,11 +300,11 @@ func (s SignedCertificateTimestamp) String() string {
 // TimestampedEntry is part of the MerkleTreeLeaf structure; see section 3.4.
 type TimestampedEntry struct {
 	Timestamp    uint64
-	EntryType    LogEntryType
-	X509Entry    ASN1Cert
-	JSONData     []byte
-	PrecertEntry PreCert
-	Extensions   CTExtensions
+	EntryType    LogEntryType   `tls:"maxval:65535"`
+	X509Entry    *ASN1Cert      `tls:"selector:EntryType,val:0"`
+	PrecertEntry *PreCert       `tls:"selector:EntryType,val:1"`
+	JSONEntry    *JSONDataEntry `tls:"selector:EntryType,val:32768"`
+	Extensions   CTExtensions   `tls:"minlen:0,maxlen:65535"`
 }
 
 // MerkleTreeLeaf represents the deserialized structure of the hash input for the
