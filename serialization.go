@@ -190,18 +190,6 @@ func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) 
 	}
 }
 
-// SerializedLength will return the space (in bytes)
-func (sct SignedCertificateTimestamp) SerializedLength() (int, error) {
-	switch sct.SCTVersion {
-	case V1:
-		extLen := len(sct.Extensions)
-		sigLen := len(sct.Signature.Signature)
-		return 1 + 32 + 8 + 2 + extLen + 2 + 2 + sigLen, nil
-	default:
-		return 0, ErrInvalidVersion
-	}
-}
-
 // SerializeSTHSignatureInput serializes the passed in STH into the correct
 // format for signing.
 func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
@@ -222,27 +210,6 @@ func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported STH version %d", sth.Version)
 	}
-}
-
-// SCTListSerializedLength determines the length of the required buffer should a SCT List need to be serialized
-func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
-	if len(scts) == 0 {
-		return 0, fmt.Errorf("SCT List empty")
-	}
-
-	sctListLen := 0
-	for i, sct := range scts {
-		n, err := sct.SerializedLength()
-		if err != nil {
-			return 0, fmt.Errorf("unable to determine length of SCT in position %d: %v", i, err)
-		}
-		if n > MaxSCTInListLength {
-			return 0, fmt.Errorf("SCT in position %d too large: %d", i, n)
-		}
-		sctListLen += 2 + n
-	}
-
-	return sctListLen, nil
 }
 
 // CreateX509MerkleTreeLeaf generates a MerkleTreeLeaf for an X509 cert
