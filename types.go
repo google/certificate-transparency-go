@@ -330,24 +330,6 @@ func (m *MerkleTreeLeaf) X509Certificate() (*x509.Certificate, error) {
 	return x509.ParseCertificate(m.TimestampedEntry.X509Entry.Data)
 }
 
-type sctError int
-
-var (
-	ErrInvalidVersion  error = sctError(1)
-	ErrNotEnoughBuffer error = sctError(2)
-)
-
-func (e sctError) Error() string {
-	switch e {
-	case ErrInvalidVersion:
-		return "invalid SCT version detected"
-	case ErrNotEnoughBuffer:
-		return "provided buffer was too small"
-	default:
-		return "unknown error"
-	}
-}
-
 // URI paths for Log requests; see section 4.
 const (
 	AddChainPath          = "/ct/v1/add-chain"
