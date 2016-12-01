@@ -1,12 +1,12 @@
 package client
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency/go"
+	"github.com/google/certificate-transparency/go/tls"
 	"golang.org/x/net/context"
 )
 
@@ -45,25 +45,37 @@ func (c *LogClient) GetEntries(start, end int64) ([]ct.LogEntry, error) {
 	}
 	entries := make([]ct.LogEntry, len(resp.Entries))
 	for index, entry := range resp.Entries {
-		leaf, err := ct.ReadMerkleTreeLeaf(bytes.NewBuffer(entry.LeafInput))
-		if err != nil {
+		var leaf ct.MerkleTreeLeaf
+		if rest, err := tls.Unmarshal(entry.LeafInput, &leaf); err != nil {
 			return nil, err
+		} else if len(rest) > 0 {
+			return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf", len(rest))
 		}
-		entries[index].Leaf = *leaf
+		entries[index].Leaf = leaf
 
 		var chain []ct.ASN1Cert
 		switch leaf.TimestampedEntry.EntryType {
 		case ct.X509LogEntryType:
-			chain, err = ct.UnmarshalX509ChainArray(entry.ExtraData)
+			var certChain ct.CertificateChain
+			if rest, err := tls.Unmarshal(entry.ExtraData, &certChain); err != nil {
+				return nil, err
+			} else if len(rest) > 0 {
+				return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain", len(rest))
+			}
+			chain = certChain.Entries
 
 		case ct.PrecertLogEntryType:
-			chain, err = ct.UnmarshalPrecertChainArray(entry.ExtraData)
+			var precertChain ct.PrecertChainEntry
+			if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
+				return nil, err
+			} else if len(rest) > 0 {
+				return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry", len(rest))
+			}
+			chain = append(chain, precertChain.PreCertificate)
+			chain = append(chain, precertChain.CertificateChain...)
 
 		default:
 			return nil, fmt.Errorf("saw unknown entry type: %v", leaf.TimestampedEntry.EntryType)
-		}
-		if err != nil {
-			return nil, err
 		}
 		entries[index].Chain = chain
 		entries[index].Index = start + int64(index)
