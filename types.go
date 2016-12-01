@@ -79,6 +79,7 @@ func (v Version) String() string {
 }
 
 // SignatureType differentiates STH signatures from SCT signatures, see section 3.2.
+//   enum { certificate_timestamp(0), tree_hash(1), (255) } SignatureType;
 type SignatureType uint8
 
 // SignatureType constants from section 3.2.
@@ -171,14 +172,18 @@ func (d *DigitallySigned) UnmarshalJSON(b []byte) error {
 	return d.FromBase64String(content)
 }
 
-// LogEntry represents the contents of an entry in a CT log, see section 3.1.
+// LogEntry represents the contents of an entry in a CT log.  This is described in
+// section 3.1, but note that this structure does *not* match the TLS structure defined
+// there (the TLS structure is never used directly in RFC6962).
 type LogEntry struct {
-	Index    int64
-	Leaf     MerkleTreeLeaf
-	X509Cert *x509.Certificate
-	Precert  *Precertificate
+	Index int64
+	Leaf  MerkleTreeLeaf
+	// Exactly one of the following three fields should be non-empty.
+	X509Cert *x509.Certificate // Parsed X.509 certificate
+	Precert  *Precertificate   // Extracted precertificate
 	JSONData []byte
-	Chain    []ASN1Cert
+
+	Chain []ASN1Cert
 }
 
 // SHA256Hash represents the output from the SHA256 hash function.
