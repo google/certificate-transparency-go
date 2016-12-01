@@ -367,7 +367,7 @@ func serializeV1JSONSCTSignatureInput(timestamp uint64, j []byte) ([]byte, error
 	return buf.Bytes(), nil
 }
 
-func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [issuerKeyHashLength]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
+func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [32]byte, tbs []byte, ext CTExtensions) ([]byte, error) {
 	if err := checkCertificateFormat(tbs); err != nil {
 		return nil, err
 	}

@@ -11,10 +11,6 @@ import (
 	"github.com/google/certificate-transparency/go/x509"
 )
 
-const (
-	issuerKeyHashLength = 32
-)
-
 ///////////////////////////////////////////////////////////////////////////////
 // The following structures represent those outlined in RFC6962; any section
 // numbers mentioned refer to that RFC.
@@ -110,7 +106,8 @@ type LogID struct {
 
 // PreCert represents a Precertificate (section 3.2).
 type PreCert struct {
-	IssuerKeyHash  [issuerKeyHashLength]byte
+	IssuerKeyHash [32]byte
+	// DER-encoded TBSCertificate
 	TBSCertificate []byte
 }
 
@@ -279,7 +276,7 @@ type Precertificate struct {
 	// Raw DER bytes of the precert
 	Raw []byte
 	// SHA256 hash of the issuing key
-	IssuerKeyHash [issuerKeyHashLength]byte
+	IssuerKeyHash [32]byte
 	// Parsed TBSCertificate structure, held in an x509.Certificate for convenience.
 	TBSCertificate x509.Certificate
 }

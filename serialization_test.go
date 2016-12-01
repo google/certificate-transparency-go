@@ -315,8 +315,8 @@ func defaultPrecertTBS() []byte {
 	return []byte(defaultPrecertTBSString)
 }
 
-func defaultPrecertIssuerHash() [issuerKeyHashLength]byte {
-	var b [issuerKeyHashLength]byte
+func defaultPrecertIssuerHash() [32]byte {
+	var b [32]byte
 	copy(b[:], []byte(defaultPrecertIssuerHashString))
 	return b
 }
