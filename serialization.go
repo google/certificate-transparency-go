@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/google/certificate-transparency/go/tls"
@@ -200,44 +199,6 @@ func (sct SignedCertificateTimestamp) SerializedLength() (int, error) {
 		return 1 + 32 + 8 + 2 + extLen + 2 + 2 + sigLen, nil
 	default:
 		return 0, ErrInvalidVersion
-	}
-}
-
-func deserializeSCTV1(r io.Reader, sct *SignedCertificateTimestamp) error {
-	if err := binary.Read(r, binary.BigEndian, &sct.LogID); err != nil {
-		return err
-	}
-	if err := binary.Read(r, binary.BigEndian, &sct.Timestamp); err != nil {
-		return err
-	}
-	ext, err := readVarBytes(r, ExtensionsLengthBytes)
-	if err != nil {
-		return err
-	}
-	sct.Extensions = ext
-	rest, err := ioutil.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	if _, err := tls.Unmarshal(rest, &sct.Signature); err != nil {
-		return err
-	}
-	return nil
-}
-
-// DeserializeSCT reads an SCT from Reader.
-func DeserializeSCT(r io.Reader) (*SignedCertificateTimestamp, error) {
-	var sct SignedCertificateTimestamp
-	var ver uint8
-	if err := binary.Read(r, binary.BigEndian, &ver); err != nil {
-		return nil, err
-	}
-	sct.SCTVersion = Version(ver)
-	switch sct.SCTVersion {
-	case V1:
-		return &sct, deserializeSCTV1(r, &sct)
-	default:
-		return nil, fmt.Errorf("unknown SCT version %d", sct.SCTVersion)
 	}
 }
 

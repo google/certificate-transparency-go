@@ -452,11 +452,11 @@ func TestSerializeSCT(t *testing.T) {
 }
 
 func TestDeserializeSCT(t *testing.T) {
-	sct, err := DeserializeSCT(bytes.NewReader(mustDehex(t, defaultSCTHexString)))
-	if err != nil {
+	var sct SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(dh(defaultSCTHexString), &sct); err != nil {
 		t.Fatalf("Failed to deserialize SCT: %v", err)
 	}
-	assert.Equal(t, defaultSCT(), *sct)
+	assert.Equal(t, defaultSCT(), sct)
 }
 
 func TestX509MerkleTreeLeafHash(t *testing.T) {
@@ -472,9 +472,9 @@ func TestX509MerkleTreeLeafHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", sctFile, err)
 	}
-	sct, err := DeserializeSCT(bytes.NewBuffer(sctB))
-	if err != nil {
-		t.Fatalf("Failed to deserialize sct: %v", err)
+	var sct SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(sctB, &sct); err != nil {
+		t.Fatalf("Failed to deserialize SCT: %v", err)
 	}
 
 	leaf := CreateX509MerkleTreeLeaf(ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
