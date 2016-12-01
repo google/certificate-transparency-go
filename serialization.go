@@ -1,8 +1,6 @@
 package ct
 
 import (
-	"bytes"
-	"container/list"
 	"crypto"
 	"encoding/binary"
 	"encoding/json"
@@ -94,62 +92,6 @@ func readVarBytes(r io.Reader, numLenBytes int) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
-}
-
-// Reads a list of ASN1Cert types from |r|
-func readASN1CertList(r io.Reader, totalLenBytes int, elementLenBytes int) ([]ASN1Cert, error) {
-	listBytes, err := readVarBytes(r, totalLenBytes)
-	if err != nil {
-		return []ASN1Cert{}, err
-	}
-	list := list.New()
-	listReader := bytes.NewReader(listBytes)
-	var entry []byte
-	for err == nil {
-		entry, err = readVarBytes(listReader, elementLenBytes)
-		if err != nil {
-			if err != io.EOF {
-				return []ASN1Cert{}, err
-			}
-		} else {
-			list.PushBack(entry)
-		}
-	}
-	ret := make([]ASN1Cert, list.Len())
-	i := 0
-	for e := list.Front(); e != nil; e = e.Next() {
-		ret[i] = ASN1Cert{Data: e.Value.([]byte)}
-		i++
-	}
-	return ret, nil
-}
-
-// UnmarshalX509ChainArray unmarshalls the contents of the "chain:" entry in a
-// GetEntries response in the case where the entry refers to an X509 leaf.
-func UnmarshalX509ChainArray(b []byte) ([]ASN1Cert, error) {
-	return readASN1CertList(bytes.NewReader(b), CertificateChainLengthBytes, CertificateLengthBytes)
-}
-
-// UnmarshalPrecertChainArray unmarshalls the contents of the "chain:" entry in
-// a GetEntries response in the case where the entry refers to a Precertificate
-// leaf.
-func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
-	var chain []ASN1Cert
-
-	reader := bytes.NewReader(b)
-	// read the pre-cert entry:
-	precert, err := readVarBytes(reader, CertificateLengthBytes)
-	if err != nil {
-		return chain, err
-	}
-	chain = append(chain, ASN1Cert{Data: precert})
-	// and then read and return the chain up to the root:
-	remainingChain, err := readASN1CertList(reader, CertificateChainLengthBytes, CertificateLengthBytes)
-	if err != nil {
-		return chain, err
-	}
-	chain = append(chain, remainingChain...)
-	return chain, nil
 }
 
 func checkExtensionsFormat(ext CTExtensions) error {
