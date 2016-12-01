@@ -430,19 +430,19 @@ func TestUnmarshalDigitallySigned(t *testing.T) {
 }
 
 func TestSCTSerializationRoundTrip(t *testing.T) {
-	b, err := SerializeSCT(defaultSCT())
+	b, err := tls.Marshal(defaultSCT())
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT: %v", err)
 	}
-	sct, err := DeserializeSCT(bytes.NewReader(b))
-	if err != nil {
+	var sct SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(b, &sct); err != nil {
 		t.Fatalf("Failed to deserialize SCT: %v", err)
 	}
-	assert.Equal(t, defaultSCT(), *sct)
+	assert.Equal(t, defaultSCT(), sct)
 }
 
 func TestSerializeSCT(t *testing.T) {
-	b, err := SerializeSCT(defaultSCT())
+	b, err := tls.Marshal(defaultSCT())
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT: %v", err)
 	}
