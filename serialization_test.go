@@ -294,7 +294,7 @@ func defaultCertificateLogEntry() LogEntry {
 		Leaf: MerkleTreeLeaf{
 			Version:  V1,
 			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: TimestampedEntry{
+			TimestampedEntry: &TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
 				EntryType: X509LogEntryType,
 				X509Entry: &ASN1Cert{Data: defaultCertificate()},
@@ -327,7 +327,7 @@ func defaultPrecertLogEntry() LogEntry {
 		Leaf: MerkleTreeLeaf{
 			Version:  V1,
 			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: TimestampedEntry{
+			TimestampedEntry: &TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
 				EntryType: PrecertLogEntryType,
 				PrecertEntry: &PreCert{

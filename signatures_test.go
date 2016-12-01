@@ -192,7 +192,7 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 		Leaf: MerkleTreeLeaf{
 			Version:  V1,
 			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: TimestampedEntry{
+			TimestampedEntry: &TimestampedEntry{
 				Timestamp: sigTestSCTTimestamp,
 				EntryType: X509LogEntryType,
 				X509Entry: &ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},

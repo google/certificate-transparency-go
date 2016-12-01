@@ -107,14 +107,13 @@ type LogID struct {
 
 // PreCert represents a Precertificate (section 3.2).
 type PreCert struct {
-	IssuerKeyHash [32]byte
-	// DER-encoded TBSCertificate
-	TBSCertificate []byte
+	IssuerKeyHash  [32]byte
+	TBSCertificate []byte `tls:"minlen:1,maxlen:16777215"` // DER-encoded TBSCertificate
 }
 
 // CTExtensions is a representation of the raw bytes of any CtExtension
 // structure (see section 3.2).
-type CTExtensions []byte
+type CTExtensions []byte // tls:"minlen:0,maxlen:65535"`
 
 // MerkleTreeNode represents an internal node in the CT tree.
 type MerkleTreeNode []byte
@@ -269,10 +268,10 @@ type TreeHeadSignature struct {
 // add-chain and add-pre-chain methods after base64 decoding; see sections
 // 3.2, 4.1 and 4.2.
 type SignedCertificateTimestamp struct {
-	SCTVersion Version         // The version of the protocol to which the SCT conforms
-	LogID      LogID           // The SHA-256 hash of the (DER-encoded) public key for the Log
-	Timestamp  uint64          // Timestamp (in ms since unix epoch) at which the SCT was issued
-	Extensions CTExtensions    // For future extensions to the protocol
+	SCTVersion Version `tls:"maxval:255"`
+	LogID      LogID
+	Timestamp  uint64
+	Extensions CTExtensions    `tls:"minlen:0,maxlen:65535"`
 	Signature  DigitallySigned // Signature over TLS-encoded CertificateTimestamp
 }
 
@@ -310,9 +309,9 @@ type TimestampedEntry struct {
 // MerkleTreeLeaf represents the deserialized structure of the hash input for the
 // leaves of a log's Merkle tree; see section 3.4.
 type MerkleTreeLeaf struct {
-	Version          Version          // The version of the protocol to which the MerkleTreeLeaf corresponds
-	LeafType         MerkleLeafType   // The type of the leaf input, currently only TimestampedEntry can exist
-	TimestampedEntry TimestampedEntry // The entry data itself
+	Version          Version           `tls:"maxval:255"`
+	LeafType         MerkleLeafType    `tls:"maxval:255"`
+	TimestampedEntry *TimestampedEntry `tls:"selector:LeafType,val:0"`
 }
 
 // Precertificate represents the parsed CT Precertificate structure.

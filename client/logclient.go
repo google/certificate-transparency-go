@@ -170,11 +170,13 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 	leaf := ct.MerkleTreeLeaf{
 		Version:  sct.SCTVersion,
 		LeafType: ct.TimestampedEntryLeafType,
-		TimestampedEntry: ct.TimestampedEntry{
+		TimestampedEntry: &ct.TimestampedEntry{
 			Timestamp:  sct.Timestamp,
 			EntryType:  ctype,
 			X509Entry:  &certData[0],
-			Extensions: sct.Extensions}}
+			Extensions: sct.Extensions,
+		},
+	}
 	entry := ct.LogEntry{Leaf: leaf}
 	return c.Verifier.VerifySCTSignature(sct, entry)
 }

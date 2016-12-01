@@ -219,7 +219,8 @@ func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
 	if m.LeafType != TimestampedEntryLeafType {
 		return nil, fmt.Errorf("unknown LeafType %d", m.LeafType)
 	}
-	if err := ReadTimestampedEntryInto(r, &m.TimestampedEntry); err != nil {
+	m.TimestampedEntry = new(TimestampedEntry)
+	if err := ReadTimestampedEntryInto(r, m.TimestampedEntry); err != nil {
 		return nil, err
 	}
 	return &m, nil
@@ -606,7 +607,7 @@ func SerializeMerkleTreeLeaf(w io.Writer, m *MerkleTreeLeaf) error {
 	if err := binary.Write(w, binary.BigEndian, m.LeafType); err != nil {
 		return err
 	}
-	if err := SerializeTimestampedEntry(w, &m.TimestampedEntry); err != nil {
+	if err := SerializeTimestampedEntry(w, m.TimestampedEntry); err != nil {
 		return err
 	}
 	return nil
@@ -617,7 +618,7 @@ func CreateX509MerkleTreeLeaf(cert ASN1Cert, timestamp uint64) *MerkleTreeLeaf {
 	return &MerkleTreeLeaf{
 		Version:  V1,
 		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: TimestampedEntry{
+		TimestampedEntry: &TimestampedEntry{
 			Timestamp: timestamp,
 			EntryType: X509LogEntryType,
 			X509Entry: &cert,
@@ -643,7 +644,7 @@ func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *MerkleTreeLea
 	return &MerkleTreeLeaf{
 		Version:  V1,
 		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: TimestampedEntry{
+		TimestampedEntry: &TimestampedEntry{
 			Timestamp: timestamp,
 			EntryType: XJSONLogEntryType,
 			JSONEntry: &JSONDataEntry{Data: []byte(jsonStr)},
