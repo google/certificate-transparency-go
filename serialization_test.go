@@ -256,11 +256,11 @@ func defaultSCTLogID() LogID {
 }
 
 func defaultSCTSignature() DigitallySigned {
-	ds, err := UnmarshalDigitallySigned(bytes.NewReader([]byte(defaultSCTSignatureString)))
-	if err != nil {
+	var ds DigitallySigned
+	if _, err := tls.Unmarshal([]byte(defaultSCTSignatureString), &ds); err != nil {
 		panic(err)
 	}
-	return *ds
+	return ds
 }
 
 func defaultSCT() SignedCertificateTimestamp {
@@ -418,7 +418,7 @@ func TestSerializeV1STHSignatureKAT(t *testing.T) {
 }
 
 func TestMarshalDigitallySigned(t *testing.T) {
-	b, err := MarshalDigitallySigned(
+	b, err := tls.Marshal(
 		DigitallySigned{
 			Algorithm: tls.SignatureAndHashAlgorithm{
 				Hash:      tls.SHA512,
@@ -442,8 +442,8 @@ func TestMarshalDigitallySigned(t *testing.T) {
 }
 
 func TestUnmarshalDigitallySigned(t *testing.T) {
-	ds, err := UnmarshalDigitallySigned(bytes.NewReader([]byte("\x01\x02\x00\x0aSiGnAtUrE!")))
-	if err != nil {
+	var ds DigitallySigned
+	if _, err := tls.Unmarshal([]byte("\x01\x02\x00\x0aSiGnAtUrE!"), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal DigitallySigned: %v", err)
 	}
 	if ds.Algorithm.Hash != tls.MD5 {

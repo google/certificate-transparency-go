@@ -1,7 +1,6 @@
 package ct
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -141,17 +140,19 @@ func (d *DigitallySigned) FromBase64String(b64 string) error {
 	if err != nil {
 		return fmt.Errorf("failed to unbase64 DigitallySigned: %v", err)
 	}
-	ds, err := UnmarshalDigitallySigned(bytes.NewReader(raw))
-	if err != nil {
+	var ds tls.DigitallySigned
+	if rest, err := tls.Unmarshal(raw, &ds); err != nil {
 		return fmt.Errorf("failed to unmarshal DigitallySigned: %v", err)
+	} else if len(rest) > 0 {
+		return fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
 	}
-	*d = *ds
+	*d = DigitallySigned(ds)
 	return nil
 }
 
 // Base64String returns the base64 representation of the DigitallySigned struct.
 func (d DigitallySigned) Base64String() (string, error) {
-	b, err := MarshalDigitallySigned(d)
+	b, err := tls.Marshal(d)
 	if err != nil {
 		return "", err
 	}

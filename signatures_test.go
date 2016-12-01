@@ -1,7 +1,6 @@
 package ct
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
@@ -11,6 +10,8 @@ import (
 	"encoding/hex"
 	mrand "math/rand"
 	"testing"
+
+	"github.com/google/certificate-transparency/go/tls"
 )
 
 const (
@@ -139,8 +140,8 @@ func mustDehex(t *testing.T, h string) []byte {
 }
 
 func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateTimestamp {
-	ds, err := UnmarshalDigitallySigned(bytes.NewReader(mustDehex(t, sig)))
-	if err != nil {
+	var ds DigitallySigned
+	if _, err := tls.Unmarshal(mustDehex(t, sig), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
 	var id LogID
@@ -149,7 +150,7 @@ func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateT
 		SCTVersion: V1,
 		LogID:      id,
 		Timestamp:  sigTestSCTTimestamp,
-		Signature:  *ds,
+		Signature:  ds,
 	}
 }
 
@@ -201,8 +202,8 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 }
 
 func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
-	ds, err := UnmarshalDigitallySigned(bytes.NewReader(mustDehex(t, sigTestDefaultSTHSignature)))
-	if err != nil {
+	var ds DigitallySigned
+	if _, err := tls.Unmarshal(mustDehex(t, sigTestDefaultSTHSignature), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
 	var rootHash SHA256Hash
@@ -212,7 +213,7 @@ func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
 		Timestamp:         sigTestDefaultSTHTimestamp,
 		TreeSize:          sigTestDefaultTreeSize,
 		SHA256RootHash:    rootHash,
-		TreeHeadSignature: *ds,
+		TreeHeadSignature: ds,
 	}
 }
 

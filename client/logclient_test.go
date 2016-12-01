@@ -16,6 +16,7 @@ import (
 
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/jsonclient"
+	"github.com/google/certificate-transparency/go/tls"
 	"golang.org/x/net/context"
 )
 
@@ -167,8 +168,8 @@ func TestGetSTHWorks(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't b64 decode 'correct' STH signature!")
 	}
-	expectedDS, err := ct.UnmarshalDigitallySigned(bytes.NewReader(expectedRawSignature))
-	if err != nil {
+	var expectedDS ct.DigitallySigned
+	if _, err := tls.Unmarshal(expectedRawSignature, &expectedDS); err != nil {
 		t.Fatalf("Couldn't unmarshal DigitallySigned: %v", err)
 	}
 	if sth.TreeHeadSignature.Algorithm.Hash != expectedDS.Algorithm.Hash {

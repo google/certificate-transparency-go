@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/google/certificate-transparency/go/tls"
@@ -249,55 +250,6 @@ func UnmarshalPrecertChainArray(b []byte) ([]ASN1Cert, error) {
 	return chain, nil
 }
 
-// UnmarshalDigitallySigned reconstructs a DigitallySigned structure from a Reader
-func UnmarshalDigitallySigned(r io.Reader) (*DigitallySigned, error) {
-	var h byte
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		return nil, fmt.Errorf("failed to read HashAlgorithm: %v", err)
-	}
-
-	var s byte
-	if err := binary.Read(r, binary.BigEndian, &s); err != nil {
-		return nil, fmt.Errorf("failed to read SignatureAlgorithm: %v", err)
-	}
-
-	sig, err := readVarBytes(r, SignatureLengthBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read Signature bytes: %v", err)
-	}
-
-	return &DigitallySigned{
-		Algorithm: tls.SignatureAndHashAlgorithm{
-			Hash:      tls.HashAlgorithm(h),
-			Signature: tls.SignatureAlgorithm(s)},
-		Signature: sig,
-	}, nil
-}
-
-func marshalDigitallySignedHere(ds DigitallySigned, here []byte) ([]byte, error) {
-	sigLen := len(ds.Signature)
-	dsOutLen := 2 + SignatureLengthBytes + sigLen
-	if here == nil {
-		here = make([]byte, dsOutLen)
-	}
-	if len(here) < dsOutLen {
-		return nil, ErrNotEnoughBuffer
-	}
-	here = here[0:dsOutLen]
-
-	here[0] = byte(ds.Algorithm.Hash)
-	here[1] = byte(ds.Algorithm.Signature)
-	binary.BigEndian.PutUint16(here[2:4], uint16(sigLen))
-	copy(here[4:], ds.Signature)
-
-	return here, nil
-}
-
-// MarshalDigitallySigned marshalls a DigitallySigned structure into a byte array
-func MarshalDigitallySigned(ds DigitallySigned) ([]byte, error) {
-	return marshalDigitallySignedHere(ds, nil)
-}
-
 func checkCertificateFormat(cert ASN1Cert) error {
 	if len(cert.Data) == 0 {
 		return errors.New("certificate is zero length")
@@ -479,10 +431,11 @@ func serializeV1SCTHere(sct SignedCertificateTimestamp, here []byte) ([]byte, er
 	copy(here[43:n], sct.Extensions)
 
 	// Write Signature
-	_, err = marshalDigitallySignedHere(sct.Signature, here[n:])
+	sig, err := tls.Marshal(sct.Signature)
 	if err != nil {
 		return nil, err
 	}
+	copy(here[n:], sig)
 	return here, nil
 }
 
@@ -521,11 +474,13 @@ func deserializeSCTV1(r io.Reader, sct *SignedCertificateTimestamp) error {
 		return err
 	}
 	sct.Extensions = ext
-	ds, err := UnmarshalDigitallySigned(r)
+	rest, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
-	sct.Signature = *ds
+	if _, err := tls.Unmarshal(rest, &sct.Signature); err != nil {
+		return err
+	}
 	return nil
 }
 

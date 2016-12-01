@@ -4,7 +4,6 @@
 package client
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -15,6 +14,7 @@ import (
 
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/jsonclient"
+	"github.com/google/certificate-transparency/go/tls"
 	"golang.org/x/net/context"
 )
 
@@ -52,9 +52,11 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType
 		return nil, err
 	}
 
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.Signature))
-	if err != nil {
+	var ds ct.DigitallySigned
+	if rest, err := tls.Unmarshal(resp.Signature, &ds); err != nil {
 		return nil, err
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
 	}
 
 	var logID ct.LogID
@@ -64,7 +66,8 @@ func (c *LogClient) addChainWithRetry(ctx context.Context, ctype ct.LogEntryType
 		LogID:      logID,
 		Timestamp:  resp.Timestamp,
 		Extensions: ct.CTExtensions(resp.Extensions),
-		Signature:  *ds}
+		Signature:  ds,
+	}
 	err = c.VerifySCTSignature(*sct, ctype, chain)
 	if err != nil {
 		return nil, err
@@ -90,9 +93,11 @@ func (c *LogClient) AddJSON(ctx context.Context, data interface{}) (*ct.SignedCe
 	if err != nil {
 		return nil, err
 	}
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.Signature))
-	if err != nil {
+	var ds ct.DigitallySigned
+	if rest, err := tls.Unmarshal(resp.Signature, &ds); err != nil {
 		return nil, err
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
 	}
 	var logID ct.LogID
 	copy(logID.KeyID[:], resp.ID)
@@ -101,7 +106,8 @@ func (c *LogClient) AddJSON(ctx context.Context, data interface{}) (*ct.SignedCe
 		LogID:      logID,
 		Timestamp:  resp.Timestamp,
 		Extensions: ct.CTExtensions(resp.Extensions),
-		Signature:  *ds}, nil
+		Signature:  ds,
+	}, nil
 }
 
 // GetSTH retrieves the current STH from the log.
@@ -122,11 +128,13 @@ func (c *LogClient) GetSTH(ctx context.Context) (sth *ct.SignedTreeHead, err err
 	}
 	copy(sth.SHA256RootHash[:], resp.SHA256RootHash)
 
-	ds, err := ct.UnmarshalDigitallySigned(bytes.NewReader(resp.TreeHeadSignature))
-	if err != nil {
+	var ds ct.DigitallySigned
+	if rest, err := tls.Unmarshal(resp.TreeHeadSignature, &ds); err != nil {
 		return nil, err
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
 	}
-	sth.TreeHeadSignature = *ds
+	sth.TreeHeadSignature = ds
 	err = c.VerifySTHSignature(*sth)
 	if err != nil {
 		return nil, err
