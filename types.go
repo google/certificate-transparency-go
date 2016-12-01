@@ -17,7 +17,7 @@ import (
 
 // LogEntryType represents the LogEntryType enum from section 3.1:
 //   enum { x509_entry(0), precert_entry(1), (65535) } LogEntryType;
-type LogEntryType uint16
+type LogEntryType tls.Enum // tls:"maxval:65535"
 
 // LogEntryType constants from section 3.1.
 const (
@@ -41,7 +41,7 @@ func (e LogEntryType) String() string {
 
 // MerkleLeafType represents the MerkleLeafType enum from section 3.4:
 //   enum { timestamped_entry(0), (255) } MerkleLeafType;
-type MerkleLeafType uint8
+type MerkleLeafType tls.Enum // tls:"maxval:255"
 
 // MerkleLeafType constants from section 3.4.
 const TimestampedEntryLeafType MerkleLeafType = 0 // Entry type for an SCT
@@ -57,7 +57,7 @@ func (m MerkleLeafType) String() string {
 
 // Version represents the Version enum from section 3.2:
 //   enum { v1(0), (255) } Version;
-type Version uint8
+type Version tls.Enum // tls:"maxval:255"
 
 // CT Version constants from section 3.2.
 const (
@@ -75,7 +75,7 @@ func (v Version) String() string {
 
 // SignatureType differentiates STH signatures from SCT signatures, see section 3.2.
 //   enum { certificate_timestamp(0), tree_hash(1), (255) } SignatureType;
-type SignatureType uint8
+type SignatureType tls.Enum // tls:"maxval:255"
 
 // SignatureType constants from section 3.2.
 const (

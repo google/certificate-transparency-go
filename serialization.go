@@ -135,9 +135,11 @@ func ReadTimestampedEntryInto(r io.Reader, t *TimestampedEntry) error {
 	if err = binary.Read(r, binary.BigEndian, &t.Timestamp); err != nil {
 		return err
 	}
-	if err = binary.Read(r, binary.BigEndian, &t.EntryType); err != nil {
+	var et uint16
+	if err = binary.Read(r, binary.BigEndian, &et); err != nil {
 		return err
 	}
+	t.EntryType = LogEntryType(et)
 	switch t.EntryType {
 	case X509LogEntryType:
 		t.X509Entry = &ASN1Cert{}
@@ -170,7 +172,8 @@ func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 	if err := binary.Write(w, binary.BigEndian, t.Timestamp); err != nil {
 		return err
 	}
-	if err := binary.Write(w, binary.BigEndian, t.EntryType); err != nil {
+	et := uint16(t.EntryType)
+	if err := binary.Write(w, binary.BigEndian, et); err != nil {
 		return err
 	}
 	switch t.EntryType {
@@ -207,15 +210,19 @@ func SerializeTimestampedEntry(w io.Writer, t *TimestampedEntry) error {
 // problem
 func ReadMerkleTreeLeaf(r io.Reader) (*MerkleTreeLeaf, error) {
 	var m MerkleTreeLeaf
-	if err := binary.Read(r, binary.BigEndian, &m.Version); err != nil {
+	var ver uint8
+	if err := binary.Read(r, binary.BigEndian, &ver); err != nil {
 		return nil, err
 	}
+	m.Version = Version(ver)
 	if m.Version != V1 {
 		return nil, fmt.Errorf("unknown Version %d", m.Version)
 	}
-	if err := binary.Read(r, binary.BigEndian, &m.LeafType); err != nil {
+	var lt uint8
+	if err := binary.Read(r, binary.BigEndian, &lt); err != nil {
 		return nil, err
 	}
+	m.LeafType = MerkleLeafType(lt)
 	if m.LeafType != TimestampedEntryLeafType {
 		return nil, fmt.Errorf("unknown LeafType %d", m.LeafType)
 	}
@@ -279,16 +286,16 @@ func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExt
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, X509LogEntryType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint16(X509LogEntryType)); err != nil {
 		return nil, err
 	}
 	if err := writeVarBytes(&buf, cert.Data, CertificateLengthBytes); err != nil {
@@ -302,16 +309,16 @@ func serializeV1CertSCTSignatureInput(timestamp uint64, cert ASN1Cert, ext CTExt
 
 func serializeV1JSONSCTSignatureInput(timestamp uint64, j []byte) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, XJSONLogEntryType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint16(XJSONLogEntryType)); err != nil {
 		return nil, err
 	}
 	if err := writeVarBytes(&buf, j, JSONLengthBytes); err != nil {
@@ -331,16 +338,16 @@ func serializeV1PrecertSCTSignatureInput(timestamp uint64, issuerKeyHash [32]byt
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, CertificateTimestampSignatureType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(CertificateTimestampSignatureType)); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(&buf, binary.BigEndian, timestamp); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, PrecertLogEntryType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint16(PrecertLogEntryType)); err != nil {
 		return nil, err
 	}
 	if _, err := buf.Write(issuerKeyHash[:]); err != nil {
@@ -491,9 +498,11 @@ func deserializeSCTV1(r io.Reader, sct *SignedCertificateTimestamp) error {
 // DeserializeSCT reads an SCT from Reader.
 func DeserializeSCT(r io.Reader) (*SignedCertificateTimestamp, error) {
 	var sct SignedCertificateTimestamp
-	if err := binary.Read(r, binary.BigEndian, &sct.SCTVersion); err != nil {
+	var ver uint8
+	if err := binary.Read(r, binary.BigEndian, &ver); err != nil {
 		return nil, err
 	}
+	sct.SCTVersion = Version(ver)
 	switch sct.SCTVersion {
 	case V1:
 		return &sct, deserializeSCTV1(r, &sct)
@@ -514,10 +523,10 @@ func serializeV1STHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, V1); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(&buf, binary.BigEndian, TreeHashSignatureType); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint8(TreeHashSignatureType)); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(&buf, binary.BigEndian, sth.Timestamp); err != nil {
@@ -598,13 +607,13 @@ func SerializeMerkleTreeLeaf(w io.Writer, m *MerkleTreeLeaf) error {
 	if m.Version != V1 {
 		return fmt.Errorf("unknown Version %d", m.Version)
 	}
-	if err := binary.Write(w, binary.BigEndian, m.Version); err != nil {
+	if err := binary.Write(w, binary.BigEndian, uint8(m.Version)); err != nil {
 		return err
 	}
 	if m.LeafType != TimestampedEntryLeafType {
 		return fmt.Errorf("unknown LeafType %d", m.LeafType)
 	}
-	if err := binary.Write(w, binary.BigEndian, m.LeafType); err != nil {
+	if err := binary.Write(w, binary.BigEndian, uint8(m.LeafType)); err != nil {
 		return err
 	}
 	if err := SerializeTimestampedEntry(w, m.TimestampedEntry); err != nil {
