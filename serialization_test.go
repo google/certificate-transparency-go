@@ -129,15 +129,6 @@ func TestReadVarBytesShortRead(t *testing.T) {
 	}
 }
 
-func TestReadTimestampedEntryIntoChecksEntryType(t *testing.T) {
-	buffer := []byte{0, 1, 2, 3, 4, 5, 6, 7, 0x45, 0x45}
-	var tse TimestampedEntry
-	err := ReadTimestampedEntryInto(bytes.NewReader(buffer), &tse)
-	if err == nil || !strings.Contains(err.Error(), "unknown EntryType") {
-		t.Fatal("Failed to check EntryType - accepted 0x4545")
-	}
-}
-
 func TestCheckCertificateFormatOk(t *testing.T) {
 	if err := checkCertificateFormat(ASN1Cert{Data: []byte("I'm a cert, honest.")}); err != nil {
 		t.Fatalf("checkCertificateFormat objected to valid format: %v", err)
