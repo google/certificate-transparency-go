@@ -188,6 +188,24 @@ type LogEntry struct {
 	Chain []ASN1Cert
 }
 
+// PrecertChainEntry holds an precertificate together with a validation chain
+// for it; see section 3.1.
+type PrecertChainEntry struct {
+	PreCertificate   ASN1Cert   `tls:"minlen:1,maxlen:16777215"`
+	CertificateChain []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
+}
+
+// CertificateChain holds a chain of certificates, as returned as extra data
+// for get-entries (section 4.6).
+type CertificateChain struct {
+	Entries []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
+}
+
+// JSONDataEntry holds arbitrary data.
+type JSONDataEntry struct {
+	Data []byte `tls:"minlen:0,maxlen:1677215"`
+}
+
 // SHA256Hash represents the output from the SHA256 hash function.
 type SHA256Hash [sha256.Size]byte
 
@@ -230,8 +248,18 @@ type SignedTreeHead struct {
 	TreeSize          uint64          `json:"tree_size"`           // The number of entries in the new tree
 	Timestamp         uint64          `json:"timestamp"`           // The time at which the STH was created
 	SHA256RootHash    SHA256Hash      `json:"sha256_root_hash"`    // The root hash of the log's Merkle tree
-	TreeHeadSignature DigitallySigned `json:"tree_head_signature"` // The Log's signature for this STH (see RFC section 3.5)
+	TreeHeadSignature DigitallySigned `json:"tree_head_signature"` // Log's signature over a TLS-encoded TreeHeadSignature
 	LogID             SHA256Hash      `json:"log_id"`              // The SHA256 hash of the log's public key
+}
+
+// TreeHeadSignature holds the data over which the signature in an STH is
+// generated; see section 3.5
+type TreeHeadSignature struct {
+	Version        Version       `tls:"maxval:255"`
+	SignatureType  SignatureType `tls:"maxval:255"` // == TreeHashSignatureType
+	Timestamp      uint64
+	TreeSize       uint64
+	SHA256RootHash SHA256Hash
 }
 
 // SignedCertificateTimestamp represents the structure returned by the
@@ -242,7 +270,20 @@ type SignedCertificateTimestamp struct {
 	LogID      LogID           // The SHA-256 hash of the (DER-encoded) public key for the Log
 	Timestamp  uint64          // Timestamp (in ms since unix epoch) at which the SCT was issued
 	Extensions CTExtensions    // For future extensions to the protocol
-	Signature  DigitallySigned // The Log's signature for this SCT
+	Signature  DigitallySigned // Signature over TLS-encoded CertificateTimestamp
+}
+
+// CertificateTimestamp is the collection of data that the signature in an
+// SCT is over; see section 3.2.
+type CertificateTimestamp struct {
+	SCTVersion    Version       `tls:"maxval:255"`
+	SignatureType SignatureType `tls:"maxval:255"`
+	Timestamp     uint64
+	EntryType     LogEntryType   `tls:"maxval:65535"`
+	X509Entry     *ASN1Cert      `tls:"selector:EntryType,val:0"`
+	PrecertEntry  *PreCert       `tls:"selector:EntryType,val:1"`
+	JSONEntry     *JSONDataEntry `tls:"selector:EntryType,val:32768"`
+	Extensions    CTExtensions   `tls:"minlen:0,maxlen:65535"`
 }
 
 func (s SignedCertificateTimestamp) String() string {
