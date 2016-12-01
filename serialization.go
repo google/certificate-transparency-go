@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"container/list"
 	"crypto"
-	"encoding/asn1"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -540,34 +539,6 @@ func SCTListSerializedLength(scts []SignedCertificateTimestamp) (int, error) {
 	}
 
 	return sctListLen, nil
-}
-
-// SerializeSCTList serializes the passed-in slice of SignedCertificateTimestamp into a
-// byte slice as a SignedCertificateTimestampList (see RFC6962 Section 3.3)
-func SerializeSCTList(scts []SignedCertificateTimestamp) ([]byte, error) {
-	size, err := SCTListSerializedLength(scts)
-	if err != nil {
-		return nil, err
-	}
-	fullSize := 2 + size // 2 bytes for length + size of SCT list
-	if fullSize > MaxSCTListLength {
-		return nil, fmt.Errorf("SCT List too large to serialize: %d", fullSize)
-	}
-	buf := new(bytes.Buffer)
-	buf.Grow(fullSize)
-	if err = writeUint(buf, uint64(size), 2); err != nil {
-		return nil, err
-	}
-	for _, sct := range scts {
-		serialized, err := SerializeSCT(sct)
-		if err != nil {
-			return nil, err
-		}
-		if err = writeVarBytes(buf, serialized, 2); err != nil {
-			return nil, err
-		}
-	}
-	return asn1.Marshal(buf.Bytes()) // transform to Octet String
 }
 
 // CreateX509MerkleTreeLeaf generates a MerkleTreeLeaf for an X509 cert
