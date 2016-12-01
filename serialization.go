@@ -403,42 +403,23 @@ func DeserializeSCT(r io.Reader) (*SignedCertificateTimestamp, error) {
 	}
 }
 
-func serializeV1STHSignatureInput(sth SignedTreeHead) ([]byte, error) {
-	if sth.Version != V1 {
-		return nil, fmt.Errorf("invalid STH version %d", sth.Version)
-	}
-	if sth.TreeSize < 0 {
-		return nil, fmt.Errorf("invalid tree size %d", sth.TreeSize)
-	}
-	if len(sth.SHA256RootHash) != crypto.SHA256.Size() {
-		return nil, fmt.Errorf("invalid TreeHash length, got %d expected %d", len(sth.SHA256RootHash), crypto.SHA256.Size())
-	}
-
-	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.BigEndian, uint8(V1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, uint8(TreeHashSignatureType)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, sth.Timestamp); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, sth.TreeSize); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&buf, binary.BigEndian, sth.SHA256RootHash); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// SerializeSTHSignatureInput serializes the passed in sth into the correct
+// SerializeSTHSignatureInput serializes the passed in STH into the correct
 // format for signing.
 func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 	switch sth.Version {
 	case V1:
-		return serializeV1STHSignatureInput(sth)
+		if len(sth.SHA256RootHash) != crypto.SHA256.Size() {
+			return nil, fmt.Errorf("invalid TreeHash length, got %d expected %d", len(sth.SHA256RootHash), crypto.SHA256.Size())
+		}
+
+		input := TreeHeadSignature{
+			Version:        sth.Version,
+			SignatureType:  TreeHashSignatureType,
+			Timestamp:      sth.Timestamp,
+			TreeSize:       sth.TreeSize,
+			SHA256RootHash: sth.SHA256RootHash,
+		}
+		return tls.Marshal(input)
 	default:
 		return nil, fmt.Errorf("unsupported STH version %d", sth.Version)
 	}
