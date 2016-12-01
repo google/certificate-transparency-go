@@ -24,6 +24,13 @@ const (
 //   enum { x509_entry(0), precert_entry(1), (65535) } LogEntryType;
 type LogEntryType uint16
 
+// LogEntryType constants from section 3.1.
+const (
+	X509LogEntryType    LogEntryType = 0
+	PrecertLogEntryType LogEntryType = 1
+	XJSONLogEntryType   LogEntryType = 0x8000 // Experimental.  Don't rely on this!
+)
+
 func (e LogEntryType) String() string {
 	switch e {
 	case X509LogEntryType:
@@ -32,20 +39,17 @@ func (e LogEntryType) String() string {
 		return "PrecertLogEntryType"
 	case XJSONLogEntryType:
 		return "XJSONLogEntryType"
+	default:
+		return fmt.Sprintf("UnknownEntryType(%d)", e)
 	}
-	panic(fmt.Sprintf("No string defined for LogEntryType constant value %d", e))
 }
-
-// LogEntryType constants from section 3.1.
-const (
-	X509LogEntryType    LogEntryType = 0
-	PrecertLogEntryType LogEntryType = 1
-	XJSONLogEntryType   LogEntryType = 0x8000 // Experimental.  Don't rely on this!
-)
 
 // MerkleLeafType represents the MerkleLeafType enum from section 3.4:
 //   enum { timestamped_entry(0), (255) } MerkleLeafType;
 type MerkleLeafType uint8
+
+// MerkleLeafType constants from section 3.4.
+const TimestampedEntryLeafType MerkleLeafType = 0 // Entry type for an SCT
 
 func (m MerkleLeafType) String() string {
 	switch m {
@@ -56,14 +60,14 @@ func (m MerkleLeafType) String() string {
 	}
 }
 
-// MerkleLeafType constants from section 3.4.
-const (
-	TimestampedEntryLeafType MerkleLeafType = 0 // Entry type for an SCT
-)
-
 // Version represents the Version enum from section 3.2:
 //   enum { v1(0), (255) } Version;
 type Version uint8
+
+// CT Version constants from section 3.2.
+const (
+	V1 Version = 0
+)
 
 func (v Version) String() string {
 	switch v {
@@ -74,13 +78,14 @@ func (v Version) String() string {
 	}
 }
 
-// CT Version constants from section 3.2.
-const (
-	V1 Version = 0
-)
-
 // SignatureType differentiates STH signatures from SCT signatures, see section 3.2.
 type SignatureType uint8
+
+// SignatureType constants from section 3.2.
+const (
+	CertificateTimestampSignatureType SignatureType = 0
+	TreeHashSignatureType             SignatureType = 1
+)
 
 func (st SignatureType) String() string {
 	switch st {
@@ -92,12 +97,6 @@ func (st SignatureType) String() string {
 		return fmt.Sprintf("UnknownSignatureType(%d)", st)
 	}
 }
-
-// SignatureType constants from section 3.2.
-const (
-	CertificateTimestampSignatureType SignatureType = 0
-	TreeHashSignatureType             SignatureType = 1
-)
 
 // ASN1Cert type for holding the raw DER bytes of an ASN.1 Certificate
 // (section 3.1).
