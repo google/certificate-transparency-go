@@ -6,7 +6,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +14,7 @@ import (
 	ct "github.com/google/certificate-transparency/go"
 	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/tls"
+	"github.com/google/certificate-transparency/go/x509"
 	"golang.org/x/net/context"
 )
 
@@ -159,13 +159,6 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 		return nil
 	}
 
-	if ctype == ct.PrecertLogEntryType {
-		// TODO(drysdale): cope with pre-certs, which need to have the
-		// following fields set:
-		//    leaf.PrecertEntry.TBSCertificate
-		//    leaf.PrecertEntry.IssuerKeyHash  (SHA-256 of issuer's public key)
-		return errors.New("SCT verification for pre-certificates unimplemented")
-	}
 	// Build enough of a Merkle tree leaf for the verifier to work on.
 	leaf := ct.MerkleTreeLeaf{
 		Version:  sct.SCTVersion,
@@ -173,9 +166,39 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 		TimestampedEntry: &ct.TimestampedEntry{
 			Timestamp:  sct.Timestamp,
 			EntryType:  ctype,
-			X509Entry:  &certData[0],
 			Extensions: sct.Extensions,
 		},
+	}
+	if ctype == ct.X509LogEntryType {
+		leaf.TimestampedEntry.X509Entry = &certData[0]
+	} else {
+		// Pre-certs are more complicated; we need the issuer key hash and the
+		// DER-encoded TBSCertificate.  First, parse the issuer to get its
+		// public key hash.
+		if len(certData) < 2 {
+			return fmt.Errorf("no issuer cert available for precert SCT validation")
+		}
+		issuer, err := x509.ParseCertificate(certData[1].Data)
+		if err != nil {
+			return fmt.Errorf("failed to parse issuer cert: %v", err)
+		}
+		issuerKeyHash := sha256.Sum256(issuer.RawSubjectPublicKeyInfo)
+
+		// Second, parse the pre-certificate to extract its DER-encoded
+		// TBSCertificate, then post-process this to remove the CT poison
+		// extension.
+		cert, err := x509.ParseCertificate(certData[0].Data)
+		if err != nil {
+			return fmt.Errorf("failed to parse leaf pre-cert: %v", err)
+		}
+		defangedTBS, err := x509.RemoveCTPoison(cert.RawTBSCertificate)
+		if err != nil {
+			return fmt.Errorf("failed to remove poison extension: %v", err)
+		}
+		leaf.TimestampedEntry.PrecertEntry = &ct.PreCert{
+			IssuerKeyHash:  issuerKeyHash,
+			TBSCertificate: defangedTBS,
+		}
 	}
 	entry := ct.LogEntry{Leaf: leaf}
 	return c.Verifier.VerifySCTSignature(sct, entry)
