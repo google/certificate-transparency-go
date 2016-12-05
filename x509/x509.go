@@ -759,6 +759,38 @@ func (h UnhandledCriticalExtension) Error() string {
 	return fmt.Sprintf("x509: unhandled critical extension (%v)", h.ID)
 }
 
+// RemoveCTPoison takes a DER-encoded TBSCertificate and removes the CT poison extension,
+// and returns the result, still as a DER-encoded TBSCertificate.  This function will
+// fail if there is not exactly 1 CT poison extension present.
+func RemoveCTPoison(tbsData []byte) ([]byte, error) {
+	var tbs tbsCertificate
+	rest, err := asn1.Unmarshal(tbsData, &tbs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse TBSCertificate: %v", err)
+	} else if rLen := len(rest); rLen > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after TBSCertificate", rLen)
+	}
+	poisonAt := -1
+	for i, ext := range tbs.Extensions {
+		if ext.Id.Equal(OIDExtensionCTPoison) {
+			if poisonAt != -1 {
+				return nil, errors.New("multiple CT poison extensions present")
+			}
+			poisonAt = i
+		}
+	}
+	if poisonAt == -1 {
+		return nil, errors.New("no CT poison extension present")
+	}
+	tbs.Extensions = append(tbs.Extensions[:poisonAt], tbs.Extensions[poisonAt+1:]...)
+	tbs.Raw = nil
+	data, err := asn1.Marshal(tbs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-marshal TBSCertificate: %v", err)
+	}
+	return data, nil
+}
+
 // END CT CHANGES
 
 type basicConstraints struct {
@@ -1344,6 +1376,8 @@ var (
 	oidExtensionNameConstraints       = []int{2, 5, 29, 30}
 	oidExtensionCRLDistributionPoints = []int{2, 5, 29, 31}
 	oidExtensionAuthorityInfoAccess   = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	// RFC 6962 s3.1
+	OIDExtensionCTPoison = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}
 )
 
 var (
