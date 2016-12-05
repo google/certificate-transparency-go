@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"io/ioutil"
+	"reflect"
 	"testing"
 
 	"github.com/google/certificate-transparency/go/tls"
-	"github.com/stretchr/testify/assert"
 )
 
 func dh(h string) []byte {
@@ -306,34 +306,37 @@ func TestUnmarshalDigitallySigned(t *testing.T) {
 	}
 }
 
-func TestSCTSerializationRoundTrip(t *testing.T) {
-	b, err := tls.Marshal(defaultSCT())
+func TestMarshalUnmarshalSCTRoundTrip(t *testing.T) {
+	sctIn := defaultSCT()
+	b, err := tls.Marshal(sctIn)
 	if err != nil {
-		t.Fatalf("Failed to serialize SCT: %v", err)
+		t.Fatalf("tls.Marshal(SCT)=nil,%v; want no error", err)
 	}
-	var sct SignedCertificateTimestamp
-	if _, err := tls.Unmarshal(b, &sct); err != nil {
-		t.Fatalf("Failed to deserialize SCT: %v", err)
-	}
-	assert.Equal(t, defaultSCT(), sct)
-}
-
-func TestSerializeSCT(t *testing.T) {
-	b, err := tls.Marshal(defaultSCT())
-	if err != nil {
-		t.Fatalf("Failed to serialize SCT: %v", err)
-	}
-	if bytes.Compare(mustDehex(t, defaultSCTHexString), b) != 0 {
-		t.Fatalf("Serialized SCT differs from expected KA. Expected:\n%v\nGot:\n%v", mustDehex(t, defaultSCTHexString), b)
+	var sctOut SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(b, &sctOut); err != nil {
+		t.Errorf("tls.Unmarshal(%s)=nil,%v; want %+v,nil", hex.EncodeToString(b), err, sctIn)
+	} else if !reflect.DeepEqual(sctIn, sctOut) {
+		t.Errorf("tls.Unmarshal(%s)=%v,nil; want %+v,nil", hex.EncodeToString(b), sctOut, sctIn)
 	}
 }
 
-func TestDeserializeSCT(t *testing.T) {
-	var sct SignedCertificateTimestamp
-	if _, err := tls.Unmarshal(dh(defaultSCTHexString), &sct); err != nil {
-		t.Fatalf("Failed to deserialize SCT: %v", err)
+func TestMarshalSCT(t *testing.T) {
+	b, err := tls.Marshal(defaultSCT())
+	if err != nil {
+		t.Errorf("tls.Marshal(defaultSCT)=nil,%v; want %s", err, defaultSCTHexString)
+	} else if !bytes.Equal(dh(defaultSCTHexString), b) {
+		t.Errorf("tls.Marshal(defaultSCT)=%s,nil; want %s", err, hex.EncodeToString(b), defaultSCTHexString)
 	}
-	assert.Equal(t, defaultSCT(), sct)
+}
+
+func TestUnmarshalSCT(t *testing.T) {
+	want := defaultSCT()
+	var got SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(dh(defaultSCTHexString), &got); err != nil {
+		t.Errorf("tls.Unmarshal(%s)=nil,%v; want %+v,nil", defaultSCTHexString, err, want)
+	} else if !reflect.DeepEqual(got, want) {
+		t.Errorf("tls.Unmarshal(%s)=%+v,nil; want %+v,nil", defaultSCTHexString, got, want)
+	}
 }
 
 func TestX509MerkleTreeLeafHash(t *testing.T) {
