@@ -102,12 +102,12 @@ type ASN1Cert struct {
 
 // LogID holds the hash of the Log's public key (section 3.2).
 type LogID struct {
-	KeyID [32]byte
+	KeyID [sha256.Size]byte
 }
 
 // PreCert represents a Precertificate (section 3.2).
 type PreCert struct {
-	IssuerKeyHash  [32]byte
+	IssuerKeyHash  [sha256.Size]byte
 	TBSCertificate []byte `tls:"minlen:1,maxlen:16777215"` // DER-encoded TBSCertificate
 }
 
@@ -319,7 +319,7 @@ type Precertificate struct {
 	// Raw DER bytes of the precert
 	Raw []byte
 	// SHA256 hash of the issuing key
-	IssuerKeyHash [32]byte
+	IssuerKeyHash [sha256.Size]byte
 	// Parsed TBSCertificate structure, held in an x509.Certificate for convenience.
 	TBSCertificate x509.Certificate
 }
