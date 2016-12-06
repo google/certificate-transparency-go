@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -15,7 +16,9 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency/go"
+	"github.com/google/certificate-transparency/go/fixchain"
 	"github.com/google/certificate-transparency/go/jsonclient"
+	"github.com/google/certificate-transparency/go/testdata"
 	"github.com/google/certificate-transparency/go/tls"
 	"golang.org/x/net/context"
 )
@@ -104,6 +107,28 @@ func ctServer(t *testing.T) *httptest.Server {
 			w.Write([]byte(ProofByHashResp))
 		case r.URL.Path == "/ct/v1/get-roots":
 			w.Write([]byte(GetRootsResp))
+		case r.URL.Path == "/ct/v1/add-chain":
+			var sct ct.SignedCertificateTimestamp
+			_, err := tls.Unmarshal(testdata.TestCertProof, &sct)
+			if err != nil {
+				t.Fatalf("Failed to tls-unmarshal test certificate proof: %v", err)
+			}
+			data, err := json.Marshal(sct)
+			if err != nil {
+				t.Fatalf("Failed to json-marshal test certificate proof: %v", err)
+			}
+			w.Write(data)
+		case r.URL.Path == "/ct/v1/add-pre-chain":
+			var sct ct.SignedCertificateTimestamp
+			_, err := tls.Unmarshal(testdata.TestPreCertProof, &sct)
+			if err != nil {
+				t.Fatalf("Failed to tls-unmarshal test precertificate proof: %v", err)
+			}
+			data, err := json.Marshal(sct)
+			if err != nil {
+				t.Fatalf("Failed to json-marshal test precertificate proof: %v", err)
+			}
+			w.Write(data)
 		case r.URL.Path == "/ct/v1/add-json":
 			w.Write([]byte(AddJSONResp))
 		default:
@@ -244,6 +269,52 @@ func TestAddChainRetries(t *testing.T) {
 		if test.success && sct == nil {
 			t.Errorf("#%d Nil SCT returned", i)
 		}
+	}
+}
+
+func TestAddChain(t *testing.T) {
+	hs := ctServer(t)
+	defer hs.Close()
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	cert, err := fixchain.CertificateFromPEM(testdata.TestCertPEM)
+	if err != nil {
+		t.Fatalf("Failed to parse certificate from PEM: %v", err)
+	}
+
+	// AddChain will verify the signature because the client has a public key.
+	chain := []ct.ASN1Cert{{Data: cert.Raw}}
+	_, err = client.AddChain(context.Background(), chain)
+	if err != nil {
+		t.Errorf("AddChain()=nil,%v; want sct,nil", err)
+	}
+}
+
+func TestAddPreChain(t *testing.T) {
+	hs := ctServer(t)
+	defer hs.Close()
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	cert, err := fixchain.CertificateFromPEM(testdata.TestPreCertPEM)
+	if err != nil {
+		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
+	}
+	issuer, err := fixchain.CertificateFromPEM(testdata.CACertPEM)
+	if err != nil {
+		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
+	}
+
+	// AddPreChain will verify the signature because the client has a public key.
+	chain := []ct.ASN1Cert{{Data: cert.Raw}, {Data: issuer.Raw}}
+	_, err = client.AddPreChain(context.Background(), chain)
+	if err != nil {
+		t.Errorf("AddChain()=nil,%v; want sct,nil", err)
 	}
 }
 
