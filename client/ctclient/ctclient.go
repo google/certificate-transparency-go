@@ -66,8 +66,27 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 			chain = append(chain, ct.ASN1Cert{Data: block.Bytes})
 		}
 	}
+	if len(chain) == 0 {
+		log.Fatalf("No certificates found in %s", *certChain)
+	}
 
-	sct, err := logClient.AddChain(ctx, chain)
+	// Examine the leaf to see if it looks like a pre-certificate.
+	isPrecert := false
+	leaf, err := x509.ParseCertificate(chain[0].Data)
+	if err == nil {
+		count, _ := x509util.OidInExtensions(x509.OIDExtensionCTPoison, leaf.Extensions)
+		if count > 0 {
+			isPrecert = true
+			fmt.Print("Uploading pre-certificate to log\n")
+		}
+	}
+
+	var sct *ct.SignedCertificateTimestamp
+	if isPrecert {
+		sct, err = logClient.AddPreChain(ctx, chain)
+	} else {
+		sct, err = logClient.AddChain(ctx, chain)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
