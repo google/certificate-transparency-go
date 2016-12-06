@@ -44,7 +44,7 @@ const (
 	CertEntryExtraDataB64 = "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"
 
 	SubmissionCertB64 = "MIIEijCCA3KgAwIBAgICEk0wDQYJKoZIhvcNAQELBQAwKzEpMCcGA1UEAwwgY2Fja2xpbmcgY3J5cHRvZ3JhcGhlciBmYWtlIFJPT1QwHhcNMTUxMDIxMjAxMTUyWhcNMjAxMDE5MjAxMTUyWjAfMR0wGwYDVQQDExRoYXBweSBoYWNrZXIgZmFrZSBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMIKR3maBcUSsncXYzQT13D5Nr+Z3mLxMMh3TUdt6sACmqbJ0btRlgXfMtNLM2OU1I6a3Ju+tIZSdn2v21JBwvxUzpZQ4zy2cimIiMQDZCQHJwzC9GZn8HaW091iz9H0Go3A7WDXwYNmsdLNRi00o14UjoaVqaPsYrZWvRKaIRqaU0hHmS0AWwQSvN/93iMIXuyiwywmkwKbWnnxCQ/gsctKFUtcNrwEx9Wgj6KlhwDTyI1QWSBbxVYNyUgPFzKxrSmwMO0yNff7ho+QT9x5+Y/7XE59S4Mc4ZXxcXKew/gSlN9U5mvT+D2BhDtkCupdfsZNCQWp27A+b/DmrFI9NqsCAwEAAaOCAcIwggG+MBIGA1UdEwEB/wQIMAYBAf8CAQAwQwYDVR0eBDwwOqE4MAaCBC5taWwwCocIAAAAAAAAAAAwIocgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwDgYDVR0PAQH/BAQDAgGGMH8GCCsGAQUFBwEBBHMwcTAyBggrBgEFBQcwAYYmaHR0cDovL2lzcmcudHJ1c3RpZC5vY3NwLmlkZW50cnVzdC5jb20wOwYIKwYBBQUHMAKGL2h0dHA6Ly9hcHBzLmlkZW50cnVzdC5jb20vcm9vdHMvZHN0cm9vdGNheDMucDdjMB8GA1UdIwQYMBaAFOmkP+6epeby1dd5YDyTpi4kjpeqMFQGA1UdIARNMEswCAYGZ4EMAQIBMD8GCysGAQQBgt8TAQEBMDAwLgYIKwYBBQUHAgEWImh0dHA6Ly9jcHMucm9vdC14MS5sZXRzZW5jcnlwdC5vcmcwPAYDVR0fBDUwMzAxoC+gLYYraHR0cDovL2NybC5pZGVudHJ1c3QuY29tL0RTVFJPT1RDQVgzQ1JMLmNybDAdBgNVHQ4EFgQU+3hPEvlgFYMsnxd/NBmzLjbqQYkwDQYJKoZIhvcNAQELBQADggEBAA0YAeLXOklx4hhCikUUl+BdnFfn1g0W5AiQLVNIOL6PnqXu0wjnhNyhqdwnfhYMnoy4idRh4lB6pz8Gf9pnlLd/DnWSV3gS+/I/mAl1dCkKby6H2V790e6IHmIK2KYm3jm+U++FIdGpBdsQTSdmiX/rAyuxMDM0adMkNBwTfQmZQCz6nGHw1QcSPZMvZpsC8SkvekzxsjF1otOrMUPNPQvtTWrVx8GlR2qfx/4xbQa1v2frNvFBCmO59goz+jnWvfTtj2NjwDZ7vlMBsPm16dbKYC840uvRoZjxqsdc3ChCZjqimFqlNG/xoPA8+dTicZzCXE9ijPIcvW6y1aa3bGw="
-	AddJSONResp       = `{  
+	AddJSONResp       = `{
 	   "sct_version":0,
 	   "id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=",
 	   "timestamp":1337,
@@ -66,6 +66,7 @@ const (
 		"MIIFLjCCAxagAwIBAgIQNgEiBHAkH6lLUWKp42Ob1DANBgkqhkiG9w0BAQ0FADAWMRQwEgYDVQQDEwtlc2lnbml0Lm9yZzAeFw0xNDA2MjAxODM3NTRaFw0zMDA2MjAxODQ3NDZaMBYxFDASBgNVBAMTC2VzaWduaXQub3JnMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAtylZx/zTLxRDsok14XO0Z3PvWMIY4HWro0YLgCF8dYv3tUaNkmN3ghlQvY8UcByH2LMOBGiQAcMHxgEJ53cnWRyc2DjoGhkDkiPdS2JttNEB0B/XTaGvaHwJh2CSgIBbpZpWTaqGywbe7AgJQ81L8h7tZ4E6W8ZM0vt4mnzqkPBT+BmyjTXG/McGhYTQAsmdsYZDBAdB2Y4X1/RAyL0e9MHdSboRofhg+8d5MeC0VEIgHXU/R4f4wz/pSw0FI9xxWJR3UUK/qOWqNsVYZfmCu6+ksDQtezxSTAuymoL094Dwn+hnXb8RS6dEbIQ+b0bIHxxpypcxH7rBMIpQcbZ8JSqNVDZPI9QahKNPQMQiuBE66KlqbnLOj7lGBxsbpU2Dx8QL8W96op6dTGtniFyXqhuYN2UxDMNI+fb1j9G7ENpoqvTVfjxa4RUU6uZ9ZygOiiOZD4P54vEQFteiu4OM+mWOm5Vll9yPXqHPc5oiCfyvCNVzfapqPoGbaCM6oQtcHdAca9VpE2eDTo36zfdFo31YYBOEjWNsfXwp8frNduS/L6gmWYrd91HeEoOVX2ZQKqBLp5ydW72xDSeCIr5kugqdY6whW80ugjLlc9mDd8/LEGQQKnrxzeeWdjiQG/WwcOse9GRktOzH2gvmkJ+vY82z1jhrZP4REoA6T+aYGR8CAwEAAaN4MHYwCwYDVR0PBAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFPOGsFKraD+/FoPAUXSf77qYfZHRMBIGCSsGAQQBgjcVAQQFAgMBAAEwIwYJKwYBBAGCNxUCBBYEFEq/BT//OC3eNeJ4wEfNqJXdZRNpMA0GCSqGSIb3DQEBDQUAA4ICAQBEvh2kzI+1uoUx/emM654QvpM6WtgQSJMubKwKeBY5UNgwwNpwmtswiEKzdZwBiGb1xEehPrAKz0d7aiIIEOonYEohIV6szl0+F56nN16813n1lPsCjdLSA8fjgf28jvlTKcrLRqeyCn4APadh6g7/FRiGcmIxEFPf/VNTUBZ7l4e2zzb06PxCq8oDaOsbAVYXQz8A0KX50KURZrdC2knUg1HX0J/orVpdaQ9UZYVNp2WAbe9vYTCCF5FdtzNU+nJDojpDxF5guMe9bifL3YTvd87YQwsH7+o+UbtHX4lG8VsSfmvvJulNBY6RtzZEpZvyRWIvQahM9qTrzFpsxl4wyPSBDPLDZ6YvVWsXvU4PqLOWTbPdq4BB24P9kFxeYjEe/rDQ8bd1/V/OFZTEM0rxdZDDN9vWnybzl8xL5VmNLDGl1u6JrOVvCzVAWP++L9l5UTusQI/BPSMebz6msd8vhTluD4jQIba1/6zOwfBraFgCIktCT3GEIiyt59x3rdSirLyjzmeQA9NkwoG/GqlFlSdWmQCK/sCL+z050rqjL0kEwIl/D6ncCXfBvhCpCmcrIlZFruyeOlsISZ410T1w/pLK8OXhbCr13Gb7A5jhv1nn811cQaR7XUXhcn6Wq/VV/oQZLunBYvoYOs3dc8wpBabPrrRhkdNmN6Rib6TvMg=="
 		]
 	}`
+	GetSTHConsistencyResp = `{ "consistency": [ "IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ=", "ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl\/8=" ] }`
 )
 
 func b64(s string) []byte {
@@ -76,8 +77,8 @@ func b64(s string) []byte {
 	return b
 }
 
-// Create a test CT server.
-func CtServer(t *testing.T) *httptest.Server {
+// Create a test CT server that returns canned responses for the various CT entrypoints.
+func ctServer(t *testing.T) *httptest.Server {
 	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/ct/v1/get-sth":
@@ -86,13 +87,25 @@ func CtServer(t *testing.T) *httptest.Server {
 				int64(ValidSTHResponseTimestamp),
 				ValidSTHResponseSHA256RootHash,
 				ValidSTHResponseTreeHeadSignature)
-
-		case r.URL.Path == "/ct/v1/add-json":
-			w.Write([]byte(AddJSONResp))
+		case r.URL.Path == "/ct/v1/get-entries":
+			q := r.URL.Query()
+			numRE := regexp.MustCompile("[0-9]+")
+			if !numRE.MatchString(q["start"][0]) || !numRE.MatchString(q["end"][0]) {
+				t.Fatalf("Invalid parameter: start=%q, end=%q", q["start"][0], q["end"][0])
+			}
+			fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`,
+				PrecertEntryB64,
+				PrecertEntryExtraDataB64,
+				CertEntryB64,
+				CertEntryExtraDataB64)
+		case r.URL.Path == "/ct/v1/get-sth-consistency":
+			w.Write([]byte(GetSTHConsistencyResp))
 		case r.URL.Path == "/ct/v1/get-proof-by-hash":
 			w.Write([]byte(ProofByHashResp))
 		case r.URL.Path == "/ct/v1/get-roots":
 			w.Write([]byte(GetRootsResp))
+		case r.URL.Path == "/ct/v1/add-json":
+			w.Write([]byte(AddJSONResp))
 		default:
 			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
 		}
@@ -100,90 +113,61 @@ func CtServer(t *testing.T) *httptest.Server {
 	return hs
 }
 
-func TestGetEntriesWorks(t *testing.T) {
-	positiveDecimalNumber := regexp.MustCompile("[0-9]+")
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/ct/v1/get-entries" {
-			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
-		}
-		q := r.URL.Query()
-		if q["start"] == nil {
-			t.Fatal("Missing 'start' parameter")
-		}
-		if !positiveDecimalNumber.MatchString(q["start"][0]) {
-			t.Fatal("Invalid 'start' parameter: " + q["start"][0])
-		}
-		if q["end"] == nil {
-			t.Fatal("Missing 'end' parameter")
-		}
-		if !positiveDecimalNumber.MatchString(q["end"][0]) {
-			t.Fatal("Invalid 'end' parameter: " + q["end"][0])
-		}
-		fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`, PrecertEntryB64, PrecertEntryExtraDataB64, CertEntryB64, CertEntryExtraDataB64)
-	}))
+func TestGetEntries(t *testing.T) {
+	ts := ctServer(t)
 	defer ts.Close()
-
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 	leaves, err := client.GetEntries(context.Background(), 0, 1)
 	if err != nil {
-		t.Fatal(err)
-	}
-	if len(leaves) != 2 {
-		t.Fatal("Incorrect number of leaves returned")
+		t.Errorf("GetEntries(0,1)=nil,%v; want 2 leaves,nil", err)
+	} else if len(leaves) != 2 {
+		t.Errorf("GetEntries(0,1)=%d leaves,nil; want 2 leaves,nil", len(leaves))
 	}
 }
 
-func TestGetSTHWorks(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/ct/v1/get-sth" {
-			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
-		}
-		fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
-			ValidSTHResponseTreeSize, int64(ValidSTHResponseTimestamp), ValidSTHResponseSHA256RootHash,
-			ValidSTHResponseTreeHeadSignature)
-	}))
+func TestGetSTH(t *testing.T) {
+	ts := ctServer(t)
 	defer ts.Close()
-
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 	sth, err := client.GetSTH(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if sth.TreeSize != ValidSTHResponseTreeSize {
-		t.Fatal("Invalid tree size")
+		t.Errorf("GetSTH().TreeSize=%d; want %d", sth.TreeSize, ValidSTHResponseTreeSize)
 	}
 	if sth.Timestamp != ValidSTHResponseTimestamp {
-		t.Fatal("Invalid Timestamp")
+		t.Errorf("GetSTH().Timestamp=%v; want %v", sth.Timestamp, ValidSTHResponseTimestamp)
 	}
 	if sth.SHA256RootHash.Base64String() != ValidSTHResponseSHA256RootHash {
-		t.Fatal("Invalid SHA256RootHash")
+		t.Errorf("GetSTH().SHA256RootHash=%v; want %v", sth.SHA256RootHash.Base64String(), ValidSTHResponseSHA256RootHash)
 	}
-	expectedRawSignature, err := base64.StdEncoding.DecodeString(ValidSTHResponseTreeHeadSignature)
+	wantRawSignature, err := base64.StdEncoding.DecodeString(ValidSTHResponseTreeHeadSignature)
 	if err != nil {
-		t.Fatal("Couldn't b64 decode 'correct' STH signature!")
+		t.Fatalf("Couldn't b64 decode 'correct' STH signature: %v", err)
 	}
-	var expectedDS ct.DigitallySigned
-	if _, err := tls.Unmarshal(expectedRawSignature, &expectedDS); err != nil {
+	var wantDS ct.DigitallySigned
+	if _, err := tls.Unmarshal(wantRawSignature, &wantDS); err != nil {
 		t.Fatalf("Couldn't unmarshal DigitallySigned: %v", err)
 	}
-	if sth.TreeHeadSignature.Algorithm.Hash != expectedDS.Algorithm.Hash {
-		t.Fatalf("Invalid TreeHeadSignature.Algorithm.Hash: expected %v, got %v", sth.TreeHeadSignature.Algorithm.Hash, expectedDS.Algorithm.Hash)
+	if sth.TreeHeadSignature.Algorithm.Hash != wantDS.Algorithm.Hash {
+		t.Errorf("GetSTH().TreeHeadSignature.Algorithm.Hash=%v; %v", wantDS.Algorithm.Hash, sth.TreeHeadSignature.Algorithm.Hash)
 	}
-	if sth.TreeHeadSignature.Algorithm.Signature != expectedDS.Algorithm.Signature {
-		t.Fatalf("Invalid TreeHeadSignature.Algorithm.Signature: expected %v, got %v", sth.TreeHeadSignature.Algorithm.Signature, expectedDS.Algorithm.Signature)
+	if sth.TreeHeadSignature.Algorithm.Signature != wantDS.Algorithm.Signature {
+		t.Errorf("GetSTH().TreeHeadSignature.Algorithm.Signature=%v; want %v", wantDS.Algorithm.Signature, sth.TreeHeadSignature.Algorithm.Signature)
 	}
-	if bytes.Compare(sth.TreeHeadSignature.Signature, expectedDS.Signature) != 0 {
-		t.Fatalf("Invalid TreeHeadSignature.Signature: expected %v, got %v", sth.TreeHeadSignature.Signature, expectedDS.Signature)
+	if bytes.Compare(sth.TreeHeadSignature.Signature, wantDS.Signature) != 0 {
+		t.Errorf("GetSTH().TreeHeadSignature.Signature=%v; want %v", wantDS.Signature, sth.TreeHeadSignature.Signature)
 	}
 }
 
-func TestAddChain(t *testing.T) {
+func TestAddChainRetries(t *testing.T) {
 	retryAfter := 0
 	currentFailures := 0
 	failuresBeforeSuccess := 0
@@ -200,7 +184,7 @@ func TestAddChain(t *testing.T) {
 			w.WriteHeader(408)
 			return
 		}
-		_, err := w.Write([]byte(`{"sct_version":0,"id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=","timestamp":1337,"extensions":"","signature":"BAMARjBEAiAIc21J5ZbdKZHw5wLxCP+MhBEsV5+nfvGyakOIv6FOvAIgWYMZb6Pw///uiNM7QTg2Of1OqmK1GbeGuEl9VJN8v8c="}`))
+		_, err := w.Write([]byte(AddJSONResp))
 		if err != nil {
 			return
 		}
@@ -213,16 +197,16 @@ func TestAddChain(t *testing.T) {
 	}
 	chain := []ct.ASN1Cert{{Data: certBytes}}
 
-	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 	leeway := time.Millisecond * 100
 	instant := time.Millisecond
 	fiveSeconds := time.Second * 5
 	sevenSeconds := time.Second * 7 // = 1 + 2 + 4
 
-	testCases := []struct {
+	tests := []struct {
 		deadlineLength        int
 		expected              time.Duration
 		retryAfter            int // -1 indicates: generate 503 with no Retry-After
@@ -237,44 +221,38 @@ func TestAddChain(t *testing.T) {
 		{1, instant * 10, 0, 10, true},
 	}
 
-	for i, tc := range testCases {
+	for i, test := range tests {
 		deadline := context.Background()
-		if tc.deadlineLength >= 0 {
-			deadline, _ = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(tc.deadlineLength)*time.Second))
+		if test.deadlineLength >= 0 {
+			deadline, _ = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(test.deadlineLength)*time.Second))
 		}
-		retryAfter = tc.retryAfter
-		failuresBeforeSuccess = tc.failuresBeforeSuccess
+		retryAfter = test.retryAfter
+		failuresBeforeSuccess = test.failuresBeforeSuccess
 		currentFailures = 0
 
 		started := time.Now()
-		sct, err := c.AddChain(deadline, chain)
+		sct, err := client.AddChain(deadline, chain)
 		took := time.Since(started)
-		if math.Abs(float64(took-tc.expected)) > float64(leeway) {
-			t.Errorf("#%d Submission took an unexpected length of time: %s, expected ~%s", i, took, tc.expected)
+		if math.Abs(float64(took-test.expected)) > float64(leeway) {
+			t.Errorf("#%d Submission took an unexpected length of time: %s, expected ~%s", i, took, test.expected)
 		}
-		if tc.success && err != nil {
+		if test.success && err != nil {
 			t.Errorf("#%d Failed to submit chain: %s", i, err)
-		} else if !tc.success && err == nil {
+		} else if !test.success && err == nil {
 			t.Errorf("#%d Expected AddChain to fail", i)
 		}
-		if tc.success && sct == nil {
+		if test.success && sct == nil {
 			t.Errorf("#%d Nil SCT returned", i)
 		}
 	}
 }
 
 func TestAddJSON(t *testing.T) {
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte(`{"sct_version":0,"id":"KHYaGJAn++880NYaAY12sFBXKcenQRvMvfYE9F1CYVM=","timestamp":1337,"extensions":"","signature":"BAMARjBEAiAIc21J5ZbdKZHw5wLxCP+MhBEsV5+nfvGyakOIv6FOvAIgWYMZb6Pw///uiNM7QTg2Of1OqmK1GbeGuEl9VJN8v8c="}`))
-		if err != nil {
-			return
-		}
-	}))
+	hs := ctServer(t)
 	defer hs.Close()
-
-	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	tests := []struct {
@@ -284,28 +262,25 @@ func TestAddJSON(t *testing.T) {
 		{true, struct{ hi string }{"bob"}},
 	}
 
-	for _, tc := range tests {
-		sct, err := c.AddJSON(context.Background(), tc.data)
-		if tc.success && err != nil {
-			t.Fatalf("Failed to submit json: %s", err)
-		} else if !tc.success && err == nil {
-			t.Fatal("Expected AddJSON to fail")
+	for _, test := range tests {
+		sct, err := client.AddJSON(context.Background(), test.data)
+		if test.success && err != nil {
+			t.Errorf("AddJSON(%v)=nil,%v; want sct,nil", test.data, err)
+		} else if !test.success && err == nil {
+			t.Errorf("AddJSON(%v)=sct,nil; want nil,error", test.data)
 		}
-		if tc.success && sct == nil {
-			t.Fatal("Nil SCT returned")
+		if test.success && sct == nil {
+			t.Errorf("AddJSON(%v)=nil,%v; want sct,nil", test.data, err)
 		}
 	}
 }
 
 func TestGetSTHConsistency(t *testing.T) {
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{ "consistency": [ "IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ=", "ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl\/8=" ] }`))
-	}))
+	hs := ctServer(t)
 	defer hs.Close()
-
-	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	tests := []struct {
@@ -313,28 +288,28 @@ func TestGetSTHConsistency(t *testing.T) {
 		second uint64
 		proof  [][]byte
 	}{
-		{1, 3, [][]byte{b64("IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ="),
-			b64("ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl/8=")}},
+		{1, 3, [][]byte{
+			b64("IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ="),
+			b64("ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl/8="),
+		}},
 	}
 
-	for _, tc := range tests {
-		proof, err := c.GetSTHConsistency(context.Background(), tc.first, tc.second)
+	for _, test := range tests {
+		proof, err := client.GetSTHConsistency(context.Background(), test.first, test.second)
 		if err != nil {
-			t.Fatalf("Failed to get consistency proof: %v", err)
-		}
-		if !reflect.DeepEqual(proof, tc.proof) {
-			t.Errorf("GetSTHConsistency(%d, %d): got\n%v, want\n%v", tc.first, tc.second, proof, tc.proof)
+			t.Errorf("GetSTHConsistency(%d, %d)=nil,%v; want proof,nil", test.first, test.second, err)
+		} else if !reflect.DeepEqual(proof, test.proof) {
+			t.Errorf("GetSTHConsistency(%d, %d)=%v,nil; want %v,nil", test.first, test.second, proof, test.proof)
 		}
 	}
 }
 
 func TestGetProofByHash(t *testing.T) {
-	hs := CtServer(t)
+	hs := ctServer(t)
 	defer hs.Close()
-
-	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	tests := []struct {
@@ -344,30 +319,28 @@ func TestGetProofByHash(t *testing.T) {
 		{dh("4a9e8edbe5ce2d2da69d483edb45186675d4be37b649d40923b156a7d1277463"), 5},
 	}
 
-	for _, tc := range tests {
-		resp, err := c.GetProofByHash(context.Background(), tc.hash, tc.treesize)
+	for _, test := range tests {
+		resp, err := client.GetProofByHash(context.Background(), test.hash, test.treesize)
 		if err != nil {
-			t.Errorf("GetProofByHash(%v, %v): %v", tc.hash, tc.treesize, err)
-		}
-		if got := len(resp.AuditPath); got < 1 {
-			t.Errorf("len(GetProofByHash(%v, %v)): %v, want > 1", tc.hash, tc.treesize, got)
+			t.Errorf("GetProofByHash(%v, %v)=nil,%v; want proof,nil", test.hash, test.treesize, err)
+		} else if got := len(resp.AuditPath); got < 1 {
+			t.Errorf("len(GetProofByHash(%v, %v)): %v; want > 1", test.hash, test.treesize, got)
 		}
 	}
 }
 
 func TestGetAcceptedRoots(t *testing.T) {
-	hs := CtServer(t)
+	hs := ctServer(t)
 	defer hs.Close()
-	c, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	certs, err := c.GetAcceptedRoots(context.Background())
+	certs, err := client.GetAcceptedRoots(context.Background())
 	if err != nil {
-		t.Errorf("GetAcceptedRoots()=nil,%q", err.Error())
-	}
-	if len(certs) < 1 {
-		t.Errorf("len(GetAcceptedRoots())=0, want > 1")
+		t.Errorf("GetAcceptedRoots()=nil,%q; want roots,nil", err.Error())
+	} else if len(certs) < 1 {
+		t.Errorf("len(GetAcceptedRoots())=0; want > 1")
 	}
 }
