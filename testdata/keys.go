@@ -20,6 +20,12 @@ const (
 )
 
 const (
+	// LogPublicKeyPEM is an ECDSA key copied from test/testdata/ct-server-key-public.pem
+	LogPublicKeyPEM = "-----BEGIN PUBLIC KEY-----\n" +
+		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmXg8sUUzwBYaWrRb+V0IopzQ6o3U\n" +
+		"yEJ04r5ZrRXGdpYM8K+hB0pXrGRLI0eeWz+3skXrS0IO83AhA3GpRL6s6w==\n" +
+		"-----END PUBLIC KEY-----\n"
+
 	// RsaPrivateKeyPEM was generated with:
 	//    openssl genpkey -algorithm RSA -out rsa.privkey.pem -pkeyopt rsa_keygen_bits:2048
 	RsaPrivateKeyPEM = "-----BEGIN PRIVATE KEY-----\n" +
