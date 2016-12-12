@@ -43,7 +43,7 @@ func (e LogEntryType) String() string {
 //   enum { timestamped_entry(0), (255) } MerkleLeafType;
 type MerkleLeafType tls.Enum // tls:"maxval:255"
 
-// MerkleLeafType constants from section 3.4.
+// TimestampedEntryLeafType is the only defined MerkleLeafType constant from section 3.4.
 const TimestampedEntryLeafType MerkleLeafType = 0 // Entry type for an SCT
 
 func (m MerkleLeafType) String() string {

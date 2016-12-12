@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	// A regex which cannot match any input
+	// MatchesNothingRegex is a regex which cannot match any input.
 	MatchesNothingRegex = "a^"
 )
 
-var sourceLogUri = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-var targetLogUri = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
+var sourceLogURI = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+var targetLogURI = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
 var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
 var numWorkers = flag.Int("num_workers", 2, "Number of concurrent matchers")
 var parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
@@ -93,13 +93,13 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 	wg.Done()
 }
 
-func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, log_client *client.LogClient, certs <-chan *ct.LogEntry,
+func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
 		chain[0] = ct.ASN1Cert{Data: c.X509Cert.Raw}
 		copy(chain[1:], c.Chain)
-		sct, err := log_client.AddChain(ctx, chain)
+		sct, err := logClient.AddChain(ctx, chain)
 		if err != nil {
 			log.Printf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
@@ -113,11 +113,11 @@ func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 	wg.Done()
 }
 
-func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, log_client *client.LogClient,
+func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient,
 	precerts <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
-		sct, err := log_client.AddPreChain(ctx, c.Chain)
+		sct, err := logClient.AddPreChain(ctx, c.Chain)
 		if err != nil {
 			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
 			recordFailure(addedCerts, c.Chain[0], err)
@@ -160,7 +160,7 @@ func main() {
 		DisableKeepAlives:     false,
 	}
 
-	fetchLogClient, err := client.New(*sourceLogUri, &http.Client{
+	fetchLogClient, err := client.New(*sourceLogURI, &http.Client{
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
@@ -190,7 +190,7 @@ func main() {
 	sctWriterWG.Add(1)
 	go sctWriterJob(addedCerts, sctWriter, &sctWriterWG)
 
-	submitLogClient, err := client.New(*targetLogUri, &http.Client{
+	submitLogClient, err := client.New(*targetLogURI, &http.Client{
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {

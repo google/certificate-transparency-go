@@ -325,7 +325,7 @@ func TestMarshalSCT(t *testing.T) {
 	if err != nil {
 		t.Errorf("tls.Marshal(defaultSCT)=nil,%v; want %s", err, defaultSCTHexString)
 	} else if !bytes.Equal(dh(defaultSCTHexString), b) {
-		t.Errorf("tls.Marshal(defaultSCT)=%s,nil; want %s", err, hex.EncodeToString(b), defaultSCTHexString)
+		t.Errorf("tls.Marshal(defaultSCT)=%s,nil; want %s", hex.EncodeToString(b), defaultSCTHexString)
 	}
 }
 

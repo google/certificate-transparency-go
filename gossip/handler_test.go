@@ -194,7 +194,7 @@ func expectStorageHasFeedback(t *testing.T, s *Storage, chain []string, sct stri
 func mustGet(t *testing.T, f func() (int64, error)) int64 {
 	v, err := f()
 	if err != nil {
-		t.Fatalf("Got error while calling %v: %v", f, err)
+		t.Fatalf("Got error while calling %p: %v", f, err)
 	}
 	return v
 }
