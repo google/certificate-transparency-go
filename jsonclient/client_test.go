@@ -129,7 +129,6 @@ func TestGetAndParse(t *testing.T) {
 		result TestStruct
 		errstr *regexp.Regexp
 	}{
-		{uri: "[invalid-uri]", errstr: rc("too many colons|unexpected .* in address")},
 		{uri: "/short%", errstr: rc("invalid URL escape")},
 		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected EOF")},
 		{uri: "/error", params: map[string]string{"rc": "404"}, status: http.StatusNotFound},
@@ -186,7 +185,6 @@ func TestPostAndParse(t *testing.T) {
 		result  TestStruct
 		errstr  *regexp.Regexp
 	}{
-		{uri: "[invalid-uri]", errstr: rc("too many colons|unexpected .* in address")},
 		{uri: "/short%", errstr: rc("invalid URL escape")},
 		{uri: "/struct/params", request: json.Number(`invalid`), errstr: rc("invalid number literal")},
 		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected end of JSON")},
