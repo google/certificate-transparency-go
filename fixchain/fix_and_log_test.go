@@ -82,9 +82,6 @@ var newFixAndLogTests = []fixAndLogTest{
 	},
 	// Tests that add chains to the FixAndLog using QueueAllCertsInChain()
 	{ // Full chain successfully logged.
-		// Note:  Verifying a root to itself results in an error.
-		// This is not an issue as the root will already be known to the log, and chains
-		// aren't required to contain the root.
 		url:   "https://ct.googleapis.com/pilot",
 		chain: []string{googleLeaf, thawteIntermediate, verisignRoot},
 
@@ -92,8 +89,8 @@ var newFixAndLogTests = []fixAndLogTest{
 		expLoggedChains: [][]string{
 			{"Google", "Thawte", "VeriSign"},
 			{"Thawte", "VeriSign"},
+			{"VeriSign"},
 		},
-		expectedErrs: []errorType{VerifyFailed, FixFailed},
 	},
 	{
 		url:   "https://ct.googleapis.com/pilot",
@@ -155,9 +152,9 @@ var newFixAndLogTests = []fixAndLogTest{
 		expLoggedChains: [][]string{
 			{"Google", "Thawte", "VeriSign"},
 			{"Thawte", "VeriSign"},
+			{"VeriSign"},
 		},
 		expectedErrs: []errorType{
-			VerifyFailed, FixFailed,
 			VerifyFailed, FixFailed,
 		},
 	},
