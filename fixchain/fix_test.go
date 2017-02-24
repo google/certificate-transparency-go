@@ -27,7 +27,6 @@ var constructChainTests = []fixTest{
 		function: "constructChain",
 		expectedChains: [][]string{
 			{"Leaf", "Intermediate2", "Intermediate1", "CA"},
-			{"Leaf", "Intermediate2", "Intermediate1", "CA", "CA"},
 		},
 	},
 	{ // No roots results in an error
