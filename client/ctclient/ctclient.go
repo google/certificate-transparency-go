@@ -166,10 +166,10 @@ func dieWithUsage(msg string) {
 	fmt.Fprintf(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
 		"where cmd is one of:\n"+
-		"   sth       retrieve signed tree head\n"+
-		"   upload    upload cert chain and show SCT (requires -cert_chain)\n"+
-		"   getroots  show accepted roots\n"+
-		"   getentries  show accepted roots\n")
+		"   sth         retrieve signed tree head\n"+
+		"   upload      upload cert chain and show SCT (needs -cert_chain)\n"+
+		"   getroots    show accepted roots\n"+
+		"   getentries  get log entries (needs -first and -last)\n")
 	os.Exit(1)
 }
 
