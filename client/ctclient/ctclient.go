@@ -15,7 +15,6 @@ import (
 	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/x509"
 	"github.com/google/certificate-transparency/go/x509util"
-	httpclient "github.com/mreiferson/go-httpclient"
 	"golang.org/x/net/context"
 )
 
@@ -176,13 +175,17 @@ func dieWithUsage(msg string) {
 func main() {
 	flag.Parse()
 	httpClient := &http.Client{
-		Transport: &httpclient.Transport{
-			ConnectTimeout:        10 * time.Second,
-			RequestTimeout:        30 * time.Second,
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSHandshakeTimeout:   30 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
 			MaxIdleConnsPerHost:   10,
 			DisableKeepAlives:     false,
-		}}
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
 	var opts jsonclient.Options
 	if *pubKey != "" {
 		pubkey, err := ioutil.ReadFile(*pubKey)

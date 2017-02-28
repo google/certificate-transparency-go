@@ -18,7 +18,6 @@ import (
 	"github.com/google/certificate-transparency/go/jsonclient"
 	"github.com/google/certificate-transparency/go/preload"
 	"github.com/google/certificate-transparency/go/scanner"
-	httpclient "github.com/mreiferson/go-httpclient"
 	"golang.org/x/net/context"
 )
 
@@ -152,15 +151,18 @@ func main() {
 		}
 	}()
 
-	transport := &httpclient.Transport{
-		ConnectTimeout:        10 * time.Second,
-		RequestTimeout:        30 * time.Second,
+	transport := &http.Transport{
+		TLSHandshakeTimeout:   30 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
 		MaxIdleConnsPerHost:   10,
 		DisableKeepAlives:     false,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
 	}
 
 	fetchLogClient, err := client.New(*sourceLogURI, &http.Client{
+		Timeout:   10 * time.Second,
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
