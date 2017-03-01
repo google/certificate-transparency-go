@@ -267,7 +267,9 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		}
 		ctx := context.Background()
 		if test.deadlineSecs >= 0 {
-			ctx, _ = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(test.deadlineSecs)*time.Second))
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(test.deadlineSecs)*time.Second))
+			defer cancel()
 		}
 
 		var result TestStruct

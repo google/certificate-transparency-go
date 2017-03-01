@@ -40,9 +40,7 @@ var (
 	OidGivenName           = asn1.ObjectIdentifier{2, 5, 4, 42}
 	OidInitials            = asn1.ObjectIdentifier{2, 5, 4, 43}
 	OidGenerationQualifier = asn1.ObjectIdentifier{2, 5, 4, 44}
-)
 
-var (
 	OidNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
 	OidNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
 	OidNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
@@ -65,6 +63,7 @@ func OidFromNamedCurve(curve elliptic.Curve) asn1.ObjectIdentifier {
 	return nil
 }
 
+// OID values for X.509 extensions.
 var (
 	OidExtensionArc                        = asn1.ObjectIdentifier{2, 5, 29} // id-ce RFC5280 s4.2.1
 	OidExtensionSubjectKeyId               = asn1.ObjectIdentifier{2, 5, 29, 14}

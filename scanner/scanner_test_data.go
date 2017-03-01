@@ -7,9 +7,11 @@ import (
 )
 
 const (
+	// FourEntrySTH is an STH for size 4.
 	// TODO(alcutter): this signature is syntactically correct, but invalid.
 	FourEntrySTH = "{" +
 		"\"tree_size\":4,\"timestamp\":1396877652123,\"sha256_root_hash\":\"0JBu0CkZnKXc1niEndDaqqgCRHucCfVt1/WBAXs/5T8=\",\"tree_head_signature\":\"AAAACXNpZ25hdHVyZQ==\"}"
+	// FourEntries holds 4 entries.
 	FourEntries = "{\"entries\":[{\"leaf_input\":\"AAAAAAE9pCDoYwAAAAOGMIIDgjCCAuu" +
 		"gAwIBAgIKFIT5BQAAAAB9PDANBgkqhkiG9w0BAQUFADBGMQswCQYDVQQGEwJVUzETMBEGA1UEChMKR29" +
 		"vZ2xlIEluYzEiMCAGA1UEAxMZR29vZ2xlIEludGVybmV0IEF1dGhvcml0eTAeFw0xMzAyMjAxMzM0NTF" +
@@ -247,6 +249,7 @@ const (
 		"YxdAfvDbbnvRG15RjF+Cv6pgsH/76tuIMRQyV+dTZsXjAzlAcmgQWpzU/qlULRuJQ/7TBj0/VLZjmmx6" +
 		"BEP3ojY+x1J96relc8geMJgEtslQIxq/H5COEBkEveegeGTLg==\"}]}"
 
+	// Entry0 is first entry.
 	Entry0 = "AAAAAAE9pCDoYwAAAAOGMIIDgjCCAuugAwIBAgIKFIT5BQAA" +
 		"AAB9PDANBgkqhkiG9w0BAQUFADBGMQswCQYDVQQGEwJVUzETMBEGA1UEChMKR29vZ2xlIEluYzEiMCAG" +
 		"A1UEAxMZR29vZ2xlIEludGVybmV0IEF1dGhvcml0eTAeFw0xMzAyMjAxMzM0NTFaFw0xMzA2MDcxOTQz" +
@@ -264,6 +267,7 @@ const (
 		"aMlO5wj2wf8qPWABDRwHdb4mdSmRMuwhzCJhE3PceXLNf3pOlR/Prt18mDY/r6cLwfldIXgTOYkw/uck" +
 		"Gwvb0BwMsEi2FDE/T3d3SOo+lHvqPX9sOVa2uyA0wmIYnbT+5uQY6m0AAA=="
 
+	// Entry1 is second entry.
 	Entry1 = "AAAAAAE9pe0GcwAAAATWMIIE0jCCA7qgAwIBAgIDAPY6MA0GCS" +
 		"qGSIb3DQEBBQUAMEAxCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5HZW9UcnVzdCwgSW5jLjEYMBYGA1UEAx" +
 		"MPR2VvVHJ1c3QgU1NMIENBMB4XDTExMTAyMTExMDUwNloXDTEzMTEyMjA0MzI0N1owgc4xKTAnBgNVBA" +
@@ -287,6 +291,7 @@ const (
 		"/OcZJtsiGhtu2s9F910OBpoU+lhnPylwxOf4k35JcLaqHJ3BbLUtybbduNqtf3+sYhkvp5IcCypoJy/R" +
 		"k4fHgD8VTNiNWj7KGuHRYAAA=="
 
+	// Entry2 is third entry.
 	Entry2 = "AAAAAAE9pe0GcwAAAATjMIIE3zCCA8egAwIBAgIUCimKXmNJ+wiDS2zJvg6LC2cvr" +
 		"vQwDQYJKoZIhvcNAQEFBQAwWjELMAkGA1UEBhMCSlAxIzAhBgNVBAoMGkN5YmVydHJ1c3QgSmFwYW4gQ" +
 		"28uLCBMdGQuMSYwJAYDVQQDDB1DeWJlcnRydXN0IEphcGFuIFB1YmxpYyBDQSBHMjAeFw0xMjAzMTkwM" +
@@ -310,6 +315,7 @@ const (
 		"gcnk0a7ZVy3d4yTjdhKpocToFklhHtHg0AINghPXIqU0njjUsy3ujNYIYo1TaZ3835Bo0lDwdvKK68Jk" +
 		"a24Cfcm+vfUfHKB56sIzquxAAA="
 
+	// Entry3 is fourth entry.
 	Entry3 = "AAAAAAE9pe0GdAAAAAWmMIIFojCCBIqgAwIBAgISESE1Pz3s7WxTnxbUXmwjh7Q" +
 		"hMA0GCSqGSIb3DQEBBQUAMFkxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMS8" +
 		"wLQYDVQQDEyZHbG9iYWxTaWduIEV4dGVuZGVkIFZhbGlkYXRpb24gQ0EgLSBHMjAeFw0xMTEwMTAxNDE" +
@@ -350,6 +356,7 @@ func makeParent(a []byte, b []byte) [sha256.Size]byte {
 	return sha256.Sum256(r[:])
 }
 
+// CalcRootHash calculates the root hash for the test data.
 func CalcRootHash() {
 	e0, err := base64.StdEncoding.DecodeString(Entry0)
 	if err != nil {

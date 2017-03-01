@@ -16,24 +16,27 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Clients wishing to implement their own Matchers should implement this interface:
+// Matcher describes how to match certificates and precertificates; clients should implement this interface
+// to perform their own match criteria.
 type Matcher interface {
 	// CertificateMatches is called by the scanner for each X509 Certificate found in the log.
-	// The implementation should return |true| if the passed Certificate is interesting, and |false| otherwise.
+	// The implementation should return true if the passed Certificate is interesting, and false otherwise.
 	CertificateMatches(*x509.Certificate) bool
 
 	// PrecertificateMatches is called by the scanner for each CT Precertificate found in the log.
-	// The implementation should return |true| if the passed Precertificate is interesting, and |false| otherwise.
+	// The implementation should return true if the passed Precertificate is interesting, and false otherwise.
 	PrecertificateMatches(*ct.Precertificate) bool
 }
 
 // MatchAll is a Matcher which will match every possible Certificate and Precertificate.
 type MatchAll struct{}
 
+// CertificateMatches returns true if the given cert should match; in this case, always.
 func (m MatchAll) CertificateMatches(_ *x509.Certificate) bool {
 	return true
 }
 
+// PrecertificateMatches returns true if the given precert should match, in this case, always.
 func (m MatchAll) PrecertificateMatches(_ *ct.Precertificate) bool {
 	return true
 }
@@ -41,36 +44,43 @@ func (m MatchAll) PrecertificateMatches(_ *ct.Precertificate) bool {
 // MatchNone is a Matcher which will never match any Certificate or Precertificate.
 type MatchNone struct{}
 
+// CertificateMatches returns true if the given cert should match; in this case, never.
 func (m MatchNone) CertificateMatches(_ *x509.Certificate) bool {
 	return false
 }
 
+// PrecertificateMatches returns true if the given cert should match; in this case, never.
 func (m MatchNone) PrecertificateMatches(_ *ct.Precertificate) bool {
 	return false
 }
 
+// MatchSerialNumber performs a match for a specific serial number.
 type MatchSerialNumber struct {
 	SerialNumber big.Int
 }
 
+// CertificateMatches returns true if the given cert should match; in this
+// case, only if the serial number matches.
 func (m MatchSerialNumber) CertificateMatches(c *x509.Certificate) bool {
 	return c.SerialNumber.String() == m.SerialNumber.String()
 }
 
+// PrecertificateMatches returns true if the given cert should match; in this
+// case, only if the serial number matches.
 func (m MatchSerialNumber) PrecertificateMatches(p *ct.Precertificate) bool {
 	return p.TBSCertificate.SerialNumber.String() == m.SerialNumber.String()
 }
 
-// MatchSubjectRegex is a Matcher which will use |CertificateSubjectRegex| and |PrecertificateSubjectRegex|
+// MatchSubjectRegex is a Matcher which will use CertificateSubjectRegex and PrecertificateSubjectRegex
 // to determine whether Certificates and Precertificates are interesting.
-// The two regexes are tested against Subject Common Name as well as all
+// The two regexes are tested against Subject CN (Common Name) as well as all
 // Subject Alternative Names
 type MatchSubjectRegex struct {
 	CertificateSubjectRegex    *regexp.Regexp
 	PrecertificateSubjectRegex *regexp.Regexp
 }
 
-// Returns true if either CN or any SAN of |c| matches |CertificateSubjectRegex|.
+// CertificateMatches returns true if either CN or any SAN of c matches m.CertificateSubjectRegex.
 func (m MatchSubjectRegex) CertificateMatches(c *x509.Certificate) bool {
 	if m.CertificateSubjectRegex.FindStringIndex(c.Subject.CommonName) != nil {
 		return true
@@ -83,7 +93,7 @@ func (m MatchSubjectRegex) CertificateMatches(c *x509.Certificate) bool {
 	return false
 }
 
-// Returns true if either CN or any SAN of |p| matches |PrecertificatesubjectRegex|.
+// PrecertificateMatches returns true if either CN or any SAN of p matches m.PrecertificateSubjectRegex.
 func (m MatchSubjectRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	if m.PrecertificateSubjectRegex.FindStringIndex(p.TBSCertificate.Subject.CommonName) != nil {
 		return true
@@ -96,16 +106,18 @@ func (m MatchSubjectRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	return false
 }
 
-// Matches on issuer cn by regex
+// MatchIssuerRegex matches on issuer CN (common name) by regex
 type MatchIssuerRegex struct {
 	CertificateIssuerRegex    *regexp.Regexp
 	PrecertificateIssuerRegex *regexp.Regexp
 }
 
+// CertificateMatches returns true if the given cert's CN matches.
 func (m MatchIssuerRegex) CertificateMatches(c *x509.Certificate) bool {
 	return m.CertificateIssuerRegex.FindStringIndex(c.Issuer.CommonName) != nil
 }
 
+// PrecertificateMatches returns true if the given precert's CN matches.
 func (m MatchIssuerRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	return m.PrecertificateIssuerRegex.FindStringIndex(p.TBSCertificate.Issuer.CommonName) != nil
 }
@@ -135,7 +147,7 @@ type ScannerOptions struct {
 	Quiet bool
 }
 
-// Creates a new ScannerOptions struct with sensible defaults
+// DefaultScannerOptions creates a new ScannerOptions struct with sensible defaults.
 func DefaultScannerOptions() *ScannerOptions {
 	return &ScannerOptions{
 		Matcher:       &MatchAll{},
@@ -189,7 +201,7 @@ type fetchRange struct {
 // nil.
 // Fatal errors will be logged, unparsableEntires will be incremented, and the
 // fatal error itself will be returned.
-// When |err| is nil, this method does nothing.
+// When err is nil, this method does nothing.
 func (s *Scanner) handleParseEntryError(err error, entryType ct.LogEntryType, index int64) error {
 	if err == nil {
 		// No error to handle
@@ -208,7 +220,7 @@ func (s *Scanner) handleParseEntryError(err error, entryType ct.LogEntryType, in
 	return nil
 }
 
-// Processes the given |entry| in the specified log.
+// Processes the given entry in the specified log.
 func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	atomic.AddInt64(&s.certsProcessed, 1)
 	switch entry.Leaf.TimestampedEntry.EntryType {
@@ -245,8 +257,8 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 }
 
 // Worker function to match certs.
-// Accepts MatcherJobs over the |entries| channel, and processes them.
-// Returns true over the |done| channel when the |entries| channel is closed.
+// Accepts MatcherJobs over the entries channel, and processes them.
+// Returns true over the done channel when the entries channel is closed.
 func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry), wg *sync.WaitGroup) {
 	for e := range entries {
 		s.processEntry(e.entry, foundCert, foundPrecert)
@@ -256,11 +268,11 @@ func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*
 }
 
 // Worker function for fetcher jobs.
-// Accepts cert ranges to fetch over the |ranges| channel, and if the fetch is
+// Accepts cert ranges to fetch over the ranges channel, and if the fetch is
 // successful sends the individual LeafInputs out (as MatcherJobs) into the
-// |entries| channel for the matchers to chew on.
+// entries channel for the matchers to chew on.
 // Will retry failed attempts to retrieve ranges indefinitely.
-// Sends true over the |done| channel when the |ranges| channel is closed.
+// Sends true over the done channel when the ranges channel is closed.
 func (s *Scanner) fetcherJob(id int, ranges <-chan fetchRange, entries chan<- matcherJob, wg *sync.WaitGroup) {
 	for r := range ranges {
 		success := false
@@ -288,25 +300,21 @@ func (s *Scanner) fetcherJob(id int, ranges <-chan fetchRange, entries chan<- ma
 	wg.Done()
 }
 
-// Returns the smaller of |a| and |b|
 func min(a int64, b int64) int64 {
 	if a < b {
 		return a
-	} else {
-		return b
 	}
+	return b
 }
 
-// Returns the larger of |a| and |b|
 func max(a int64, b int64) int64 {
 	if a > b {
 		return a
-	} else {
-		return b
 	}
+	return b
 }
 
-// Pretty prints the passed in number of |seconds| into a more human readable
+// Pretty prints the passed in number of seconds into a more human readable
 // string.
 func humanTime(seconds int) string {
 	nanos := time.Duration(seconds) * time.Second
@@ -328,10 +336,10 @@ func humanTime(seconds int) string {
 	return s
 }
 
-// Performs a scan against the Log.
-// For each x509 certificate found, |foundCert| will be called with the
+// Scan performs a scan against the Log.
+// For each x509 certificate found, foundCert will be called with the
 // index of the entry and certificate itself as arguments.  For each precert
-// found, |foundPrecert| will be called with the index of the entry and the raw
+// found, foundPrecert will be called with the index of the entry and the raw
 // precert string as the arguments.
 //
 // This method blocks until the scan is complete.
@@ -397,8 +405,8 @@ func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
 	return nil
 }
 
-// Creates a new Scanner instance using |client| to talk to the log, and taking
-// configuration options from |opts|.
+// NewScanner creates a new Scanner instance using client to talk to the log,
+// taking configuration options from opts.
 func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
 	scanner.logClient = client
