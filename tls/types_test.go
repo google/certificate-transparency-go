@@ -40,3 +40,24 @@ func TestSignatureAlgorithmString(t *testing.T) {
 		}
 	}
 }
+
+func TestDigitallySignedString(t *testing.T) {
+	var tests = []struct {
+		ds   DigitallySigned
+		want string
+	}{
+		{
+			ds:   DigitallySigned{Algorithm: SignatureAndHashAlgorithm{Hash: SHA1, Signature: RSA}, Signature: []byte{0x01, 0x02}},
+			want: "Signature: HashAlgo=SHA1 SignAlgo=RSA Value=0102",
+		},
+		{
+			ds:   DigitallySigned{Algorithm: SignatureAndHashAlgorithm{Hash: 99, Signature: 99}, Signature: []byte{0x03, 0x04}},
+			want: "Signature: HashAlgo=UNKNOWN(99) SignAlgo=UNKNOWN(99) Value=0304",
+		},
+	}
+	for _, test := range tests {
+		if got := test.ds.String(); got != test.want {
+			t.Errorf("%v.String()=%q; want %q", test.ds, got, test.want)
+		}
+	}
+}

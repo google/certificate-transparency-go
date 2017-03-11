@@ -9,6 +9,10 @@ type DigitallySigned struct {
 	Signature []byte `tls:"minlen:0,maxlen:65535"`
 }
 
+func (d DigitallySigned) String() string {
+	return fmt.Sprintf("Signature: HashAlgo=%v SignAlgo=%v Value=%x", d.Algorithm.Hash, d.Algorithm.Signature, d.Signature)
+}
+
 // SignatureAndHashAlgorithm gives information about the algorithms used for a
 // signature.  Defined in RFC 5246 s7.4.1.4.1.
 type SignatureAndHashAlgorithm struct {
