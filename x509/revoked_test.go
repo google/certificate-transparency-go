@@ -1852,12 +1852,14 @@ func TestParseIssuingDistributionPoint(t *testing.T) {
 						"8203" + "777777"))), // CHOICE [2] = dNSName
 			want: IssuingDistributionPoint{
 				DistributionPoint: distributionPointName{
-					FullName: asn1.RawValue{
-						Class:      asn1.ClassContextSpecific,
-						Tag:        0,
-						IsCompound: true,
-						Bytes:      fromHex("8203777777"),
-						FullBytes:  fromHex("a0058203777777"),
+					FullName: []asn1.RawValue{
+						{
+							Class:      asn1.ClassContextSpecific,
+							Tag:        2,
+							IsCompound: false,
+							Bytes:      fromHex("777777"),
+							FullBytes:  fromHex("8203777777"),
+						},
 					},
 				},
 			},
@@ -1900,7 +1902,7 @@ func TestParseIssuingDistributionPoint(t *testing.T) {
 				("a007" + // tag [0] = distributionPoint / DistributionPointName
 					("a005" + // CHOICE [0] = fullName / GeneralNames
 						"8903" + "777777"))), // INVALID: choice 9 not allowed
-			wantErr: "failed to parse GeneralName",
+			wantErr: "failed to unmarshal GeneralName",
 		},
 	}
 	for _, test := range tests {
