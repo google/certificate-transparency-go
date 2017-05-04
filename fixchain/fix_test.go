@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 var constructChainTests = []fixTest{

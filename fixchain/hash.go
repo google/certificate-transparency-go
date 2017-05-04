@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"sort"
 
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const hashSize = sha256.Size

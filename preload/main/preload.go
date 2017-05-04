@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	ct "github.com/google/certificate-transparency/go"
-	"github.com/google/certificate-transparency/go/client"
-	"github.com/google/certificate-transparency/go/jsonclient"
-	"github.com/google/certificate-transparency/go/preload"
-	"github.com/google/certificate-transparency/go/scanner"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/preload"
+	"github.com/google/certificate-transparency-go/scanner"
 	"golang.org/x/net/context"
 )
 

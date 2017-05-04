@@ -3,7 +3,7 @@ package fixchain
 import (
 	"sync"
 
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 type dedupedChain struct {

@@ -9,7 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	// START CT CHANGES
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 	// END CT CHANGES
 	"encoding/pem"
 	"fmt"

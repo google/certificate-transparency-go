@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	ct "github.com/google/certificate-transparency/go"
+	ct "github.com/google/certificate-transparency-go"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 )

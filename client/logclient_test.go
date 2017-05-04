@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	ct "github.com/google/certificate-transparency/go"
-	"github.com/google/certificate-transparency/go/fixchain"
-	"github.com/google/certificate-transparency/go/jsonclient"
-	"github.com/google/certificate-transparency/go/testdata"
-	"github.com/google/certificate-transparency/go/tls"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/fixchain"
+	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/tls"
 	"golang.org/x/net/context"
 )
 

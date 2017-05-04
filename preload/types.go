@@ -1,7 +1,7 @@
 package preload
 
 import (
-	ct "github.com/google/certificate-transparency/go"
+	ct "github.com/google/certificate-transparency-go"
 )
 
 // AddedCert holds information about a certificate that has been added to a log.

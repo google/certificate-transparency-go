@@ -15,8 +15,8 @@ import (
 	_ "crypto/sha512"
 	"runtime"
 	// START CT CHANGES
-	"github.com/google/certificate-transparency/go/asn1"
-	"github.com/google/certificate-transparency/go/x509/pkix"
+	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509/pkix"
 	// END CT CHANGES
 	"encoding/base64"
 	"encoding/hex"

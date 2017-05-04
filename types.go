@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/certificate-transparency/go/tls"
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 ///////////////////////////////////////////////////////////////////////////////

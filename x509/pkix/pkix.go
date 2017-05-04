@@ -8,7 +8,7 @@ package pkix
 
 import (
 	// START CT CHANGES
-	"github.com/google/certificate-transparency/go/asn1"
+	"github.com/google/certificate-transparency-go/asn1"
 	// END CT CHANGES
 	"math/big"
 	"time"

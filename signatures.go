@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/certificate-transparency/go/tls"
+	"github.com/google/certificate-transparency-go/tls"
 )
 
 var allowVerificationWithNonCompliantKeys = flag.Bool("allow_verification_with_non_compliant_keys", false,

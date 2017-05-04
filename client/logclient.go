@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"strconv"
 
-	ct "github.com/google/certificate-transparency/go"
-	"github.com/google/certificate-transparency/go/jsonclient"
-	"github.com/google/certificate-transparency/go/tls"
-	"github.com/google/certificate-transparency/go/x509"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/net/context"
 )
 

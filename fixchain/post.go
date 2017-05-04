@@ -8,7 +8,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 // PostChainToLog attempts to post the given chain to the Certificate

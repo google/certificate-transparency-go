@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/google/certificate-transparency/go/asn1"
-	"github.com/google/certificate-transparency/go/x509"
-	"github.com/google/certificate-transparency/go/x509/pkix"
+	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 //////////////////////////////////////

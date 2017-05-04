@@ -4,7 +4,7 @@ import (
 	"encoding/pem"
 	"log"
 
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 // Go has no PKCS#7 implementation. Rather than fix that, manually

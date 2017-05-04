@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	ct "github.com/google/certificate-transparency/go"
+	ct "github.com/google/certificate-transparency-go"
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
 

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/certificate-transparency/go/testdata"
-	"github.com/google/certificate-transparency/go/x509"
+	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestGenerateHash(t *testing.T) {

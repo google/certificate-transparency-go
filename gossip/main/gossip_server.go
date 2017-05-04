@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	ct "github.com/google/certificate-transparency/go"
-	"github.com/google/certificate-transparency/go/gossip"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/gossip"
 )
 
 var dbPath = flag.String("database", "/tmp/gossip.sq3", "Path to database.")

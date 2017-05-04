@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/google/certificate-transparency/go/testdata"
+	"github.com/google/certificate-transparency-go/testdata"
 )
 
 func TestNewJSONClient(t *testing.T) {
