@@ -307,8 +307,8 @@ func getConsistencyProofs() []consistencyTestVector {
 func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
 	v := getVerifier()
 	// Serialized MerkleTreeLeaf from test-cert.pem and test-cert.proof
-	certFile := "../../test/testdata/test-cert.pem"
-	sctFile := "../../test/testdata/test-cert.proof"
+	certFile := "../testdata/test-cert.pem"
+	sctFile := "../testdata/test-cert.proof"
 	certB, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", certFile, err)
