@@ -347,16 +347,16 @@ func TestMarshalJSON(t *testing.T) {
 	for i, test := range marshalJSONTests {
 		b, err := test.MarshalJSON()
 		if err != nil {
-			t.Errorf("#%d: Error marshalling json: %s", i, err.Error())
+			t.Errorf("#%d: Error marshaling json: %s", i, err.Error())
 		}
 
 		ferr, err := UnmarshalJSON(b)
 		if err != nil {
-			t.Errorf("#%d: Error unmarshalling json: %s", i, err.Error())
+			t.Errorf("#%d: Error unmarshaling json: %s", i, err.Error())
 		}
 
 		if !test.Equal(ferr) {
-			t.Errorf("#%d: Original FixError does not match marshalled-then-unmarshalled FixError", i)
+			t.Errorf("#%d: Original FixError does not match marshaled-then-unmarshaled FixError", i)
 		}
 	}
 }

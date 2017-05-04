@@ -257,7 +257,7 @@ func TestVerifySCTSignatureRSA(t *testing.T) {
 
 func TestVerifySCTSignatureFailsForMismatchedSignatureAlgorithm(t *testing.T) {
 	v := mustCreateSignatureVerifier(t, sigTestECPublicKey(t))
-	expectVerifySCTToFail(t, v, sigTestSCTRSA(t), "Sucessfully verified with mismatched signature algorithm")
+	expectVerifySCTToFail(t, v, sigTestSCTRSA(t), "Successfully verified with mismatched signature algorithm")
 }
 
 func TestVerifySCTSignatureFailsForUnknownSignatureAlgorithm(t *testing.T) {
