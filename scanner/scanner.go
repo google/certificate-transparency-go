@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package scanner holds code for iterating through the contents of a CT log.
 package scanner
 
 import (

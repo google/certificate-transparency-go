@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package merkletree holds code to manipulate Merkle trees.
 package merkletree
 
 // MerkleTreeInterface represents the common interface for basic MerkleTree functions.

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package ct holds core types and utilities for Certificate Transparency.
 package ct
 
 import (
