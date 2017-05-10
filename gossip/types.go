@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package gossip holds code for spreading CT log information via a gossip
+// protocol.
 package gossip
 
 import (

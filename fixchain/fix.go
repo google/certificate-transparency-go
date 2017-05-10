@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package fixchain holds code to help fix the validation chains for certificates.
 package fixchain
 
 import (
