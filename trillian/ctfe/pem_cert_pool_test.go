@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctfe
 
 import (
 	"testing"
 
-	"github.com/google/trillian/examples/ct/testonly"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 )
 
 func TestLoadSingleCertFromPEMs(t *testing.T) {

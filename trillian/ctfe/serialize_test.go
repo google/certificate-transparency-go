@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctfe
 
 import (
 	"bytes"
@@ -23,8 +23,8 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian/examples/ct/testonly"
 	"github.com/kylelemons/godebug/pretty"
 )
 

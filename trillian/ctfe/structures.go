@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctfe
 
 // Code to handle encoding / decoding various data structures used in RFC 6962. Does not
 // contain the low level serialization.

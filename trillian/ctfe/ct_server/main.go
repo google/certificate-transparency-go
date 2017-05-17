@@ -27,8 +27,8 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	etcdnaming "github.com/coreos/etcd/clientv3/naming"
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/trillian"
-	"github.com/google/trillian/examples/ct"
 	"github.com/google/trillian/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/naming"
@@ -49,11 +49,11 @@ func main() {
 	flag.Parse()
 
 	if *maxGetEntriesFlag > 0 {
-		ct.MaxGetEntriesAllowed = *maxGetEntriesFlag
+		ctfe.MaxGetEntriesAllowed = *maxGetEntriesFlag
 	}
 
 	// Get log config from file before we start.
-	cfg, err := ct.LogConfigFromFile(*logConfigFlag)
+	cfg, err := ctfe.LogConfigFromFile(*logConfigFlag)
 	if err != nil {
 		glog.Exitf("Failed to read log config: %v", err)
 	}

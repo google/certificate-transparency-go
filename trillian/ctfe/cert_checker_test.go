@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctfe
 
 import (
 	"encoding/pem"
 	"testing"
 
+	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
-	"github.com/google/trillian/examples/ct/testonly"
 )
 
 func wipeExtensions(cert *x509.Certificate) *x509.Certificate {
