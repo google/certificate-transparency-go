@@ -82,7 +82,7 @@ main() {
     printf '%s\n' ${go_srcs} | xargs -I'{}' go vet '{}'
 
     echo 'running gocyclo'
-    printf '%s\n' ${go_srcs} | xargs -I'{}' bash -c 'gocyclo -over 40 {}'
+    printf '%s\n' ${go_srcs} | xargs -I'{}' bash -c 'gocyclo -over 40 {} || true'
 
     echo 'running misspell'
     printf '%s\n' ${go_srcs} | xargs -I'{}' misspell -error -i cancelled,CANCELLED -locale US '{}'
