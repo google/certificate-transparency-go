@@ -44,7 +44,7 @@ type LogConfig struct {
 }
 
 var (
-	logVars = expvar.NewMap("logs")
+	logVars = expvar.NewMap("ctfe-logs")
 )
 
 // LogStats matches the schema of the exported JSON stats for a particular log instance.
@@ -61,7 +61,7 @@ type LogStats struct {
 
 // AllStats matches the schema of the entire exported JSON stats.
 type AllStats struct {
-	Logs map[string]LogStats `json:"logs"`
+	Logs map[string]LogStats `json:"ctfe-logs"`
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
