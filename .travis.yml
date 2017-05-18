@@ -11,6 +11,8 @@ go:
 env:
   - GOFLAGS=
   - GOFLAGS=-race
+  - GOFLAGS=      WITH_ETCD=true
+  - GOFLAGS=-race WITH_ETCD=true
 
 matrix:
   fast_finish: true
@@ -27,9 +29,20 @@ install:
   - go get -u github.com/client9/misspell/cmd/misspell
   - go get -u github.com/fzipp/gocyclo
   - go get -u github.com/golang/lint/golint
+  - pushd ${GOPATH}/src/github.com/google/trillian
+  - go get -d -t ./...
+  # install Trillian's vendored etcd binaries
+  - go install ./vendor/github.com/coreos/etcd/cmd/etcd
+  - go install ./vendor/github.com/coreos/etcd/cmd/etcdctl
+  - popd
 
 script:
   - set -e
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
   - ./scripts/presubmit.sh
+  - |
+      if [[ "${WITH_ETCD}" == "true" ]]; then
+        export ETCD_DIR="${GOPATH}/bin"
+      fi
+  - ./trillian/integration/integration_test.sh
   - set +e
