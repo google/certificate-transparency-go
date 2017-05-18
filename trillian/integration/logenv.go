@@ -19,17 +19,20 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/trillian"
-	"github.com/google/trillian/examples/ct"
+	"github.com/google/trillian/testonly/integration"
 )
 
 // CTLogEnv is a test environment that contains both a log server and a CT personality
 // connected to it.
 type CTLogEnv struct {
-	logEnv       *LogEnv
+	logEnv       *integration.LogEnv
+	wg           *sync.WaitGroup
 	ctListener   net.Listener
 	ctHTTPServer *http.Server
 	CTAddr       string
@@ -38,9 +41,9 @@ type CTLogEnv struct {
 // NewCTLogEnv creates a fresh DB, log server, and CT personality.
 // testID should be unique to each unittest package so as to allow parallel tests.
 // Created logIDs will be set to cfgs.
-func NewCTLogEnv(ctx context.Context, cfgs []*ct.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
+func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
 	// Start log server and signer.
-	logEnv, err := NewLogEnv(ctx, numSequencers, testID)
+	logEnv, err := integration.NewLogEnv(ctx, numSequencers, testID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LogEnv: %v", err)
 	}
@@ -60,9 +63,10 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ct.LogConfig, numSequencers int, t
 		return nil, fmt.Errorf("failed to find an unused port for CT personality: %v", err)
 	}
 	server := http.Server{Addr: addr, Handler: nil}
-	logEnv.pendingTasks.Add(1)
-	go func(env *LogEnv, server *http.Server, listener net.Listener, cfgs []*ct.LogConfig) {
-		defer env.pendingTasks.Done()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*ctfe.LogConfig) {
+		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
 		for _, cfg := range cfgs {
 			handlers, err := cfg.SetUpInstance(client, 10*time.Second)
@@ -77,6 +81,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ct.LogConfig, numSequencers int, t
 	}(logEnv, &server, listener, cfgs)
 	return &CTLogEnv{
 		logEnv:       logEnv,
+		wg:           &wg,
 		ctListener:   listener,
 		ctHTTPServer: &server,
 		CTAddr:       addr,
@@ -86,5 +91,20 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ct.LogConfig, numSequencers int, t
 // Close shuts down the servers.
 func (env *CTLogEnv) Close() {
 	env.ctListener.Close()
+	env.wg.Wait()
 	env.logEnv.Close()
+}
+
+// listen opens a random high numbered port for listening.
+func listen() (string, net.Listener, error) {
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return "", nil, err
+	}
+	_, port, err := net.SplitHostPort(lis.Addr().String())
+	if err != nil {
+		return "", nil, err
+	}
+	addr := "localhost:" + port
+	return addr, lis, nil
 }

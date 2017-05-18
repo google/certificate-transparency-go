@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
+. "${GOPATH}"/src/github.com/google/trillian/integration/functions.sh
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
-. "${INTEGRATION_DIR}"/functions.sh
 . "${INTEGRATION_DIR}"/ct_functions.sh
 
 # Default to one of everything.
@@ -24,7 +24,7 @@ TO_KILL+=(${CT_SERVER_PIDS[@]})
 echo "Running test(s)"
 pushd "${INTEGRATION_DIR}"
 set +e
-go test -v -run ".*LiveCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/trillian/testdata
+go test -v -run ".*LiveCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
 RESULT=$?
 set -e
 popd

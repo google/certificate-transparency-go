@@ -21,6 +21,7 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -35,11 +36,10 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/trillian/crypto/keys"
-	ctfe "github.com/google/trillian/examples/ct"
-	"github.com/google/trillian/testonly"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 )
@@ -451,7 +451,23 @@ func GetChain(dir, path string) ([]ct.ASN1Cert, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load certificate: %v", err)
 	}
-	return testonly.CertsFromPEM(certdata), nil
+	return CertsFromPEM(certdata), nil
+}
+
+// CertsFromPEM loads X.509 certificates from the provided PEM-encoded data.
+func CertsFromPEM(data []byte) []ct.ASN1Cert {
+	var chain []ct.ASN1Cert
+	for {
+		var block *pem.Block
+		block, data = pem.Decode(data)
+		if block == nil {
+			break
+		}
+		if block.Type == "CERTIFICATE" {
+			chain = append(chain, ct.ASN1Cert{Data: block.Bytes})
+		}
+	}
+	return chain
 }
 
 // awaitTreeSize loops until the an STH is retrieved that is the specified size (or larger, if exact is false).

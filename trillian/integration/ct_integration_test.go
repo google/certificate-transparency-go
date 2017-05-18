@@ -22,8 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/trillian/examples/ct"
-	"github.com/google/trillian/testonly/integration"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
 var httpServersFlag = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
@@ -44,7 +43,7 @@ func TestLiveCTIntegration(t *testing.T) {
 	fmt.Printf("Today's test has been brought to you by the letters C and T and the number %#x\n", *seed)
 	rand.Seed(*seed)
 
-	cfgs, err := ct.LogConfigFromFile(*logConfigFlag)
+	cfgs, err := ctfe.LogConfigFromFile(*logConfigFlag)
 	if err != nil {
 		t.Fatalf("Failed to read log config: %v", err)
 	}
@@ -73,7 +72,7 @@ const (
 
 func TestInProcessCTIntegration(t *testing.T) {
 	ctx := context.Background()
-	cfgs := []*ct.LogConfig{
+	cfgs := []*ctfe.LogConfig{
 		{
 			Prefix:          "athos",
 			RootsPEMFile:    []string{rootsPEMFile},
@@ -97,7 +96,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 		},
 	}
 
-	env, err := integration.NewCTLogEnv(ctx, cfgs, 2, "TestInProcessCTIntegration")
+	env, err := NewCTLogEnv(ctx, cfgs, 2, "TestInProcessCTIntegration")
 	if err != nil {
 		t.Fatalf("Failed to launch test environment: %v", err)
 	}

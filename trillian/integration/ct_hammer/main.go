@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/integration"
 	"github.com/google/certificate-transparency-go/x509"
-	ctfe "github.com/google/trillian/examples/ct"
-	"github.com/google/trillian/integration"
 )
 
 var (
