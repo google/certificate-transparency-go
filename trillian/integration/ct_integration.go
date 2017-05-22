@@ -50,7 +50,9 @@ var Verifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
 	return hash[:]
 })
 
+// ClientPool describes an entity which produces LogClient instances.
 type ClientPool interface {
+	// Next returns the next LogClient instance to be used.
 	Next() *client.LogClient
 }
 
