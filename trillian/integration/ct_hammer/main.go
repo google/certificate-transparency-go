@@ -22,12 +22,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/integration"
 	"github.com/google/certificate-transparency-go/x509"
@@ -52,6 +56,26 @@ var (
 	getRootsBias          = flag.Int("get_roots", 1, "Bias for get-roots operations")
 	getEntryAndProofBias  = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
 )
+
+func newPool(servers string, cfg ctfe.LogConfig) (integration.ClientPool, error) {
+	opts := jsonclient.Options{}
+	if cfg.PubKeyPEMFile != "" {
+		pubkey, err := ioutil.ReadFile(cfg.PubKeyPEMFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get public key contents: %v", err)
+		}
+		opts.PublicKey = string(pubkey)
+	}
+	var pool integration.RandomPool
+	for _, s := range strings.Split(servers, ",") {
+		c, err := client.New("http://"+s+"/"+cfg.Prefix, nil, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LogClient instance: %v", err)
+		}
+		pool = append(pool, c)
+	}
+	return &pool, nil
+}
 
 func main() {
 	flag.Parse()
@@ -122,6 +146,10 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
+		pool, err := newPool(*httpServersFlag, c)
+		if err != nil {
+			glog.Exitf("Failed to create client pool: %v", err)
+		}
 		cfg := integration.HammerConfig{
 			LogCfg:            c,
 			MMD:               *mmdFlag,
@@ -129,7 +157,7 @@ func main() {
 			LeafCert:          leafCert,
 			CACert:            caCert,
 			Signer:            signer,
-			Servers:           *httpServersFlag,
+			ClientPool:        pool,
 			EPBias:            bias,
 			Operations:        *operationsFlag,
 			MaxParallelChains: *maxParallelChains,
