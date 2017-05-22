@@ -87,13 +87,12 @@ main() {
     echo 'running misspell'
     printf '%s\n' ${go_srcs} | xargs -I'{}' misspell -error -i cancelled,CANCELLED -locale US '{}'
 
-    # TODO(drysdale): add license headers and re-enable
-    #echo 'checking license header'
-    #local nolicense="$(grep -L 'Apache License' ${go_srcs})"
-    #if [[ "${nolicense}" ]]; then
-    #  echo "Missing license header in: ${nolicense}"
-    #  exit 2
-    #fi
+    echo 'checking license header'
+    local nolicense="$(grep -L 'Apache License' ${go_srcs})"
+    if [[ "${nolicense}" ]]; then
+      echo "Missing license header in: ${nolicense}"
+      exit 2
+    fi
   fi
 
   local go_dirs="$(go list ./... | \
