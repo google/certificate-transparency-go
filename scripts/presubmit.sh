@@ -23,6 +23,22 @@ check_cmd() {
   fi
 }
 
+run_linter() {
+  local cmd="$1"
+  local srcs="$2"
+  local exceptions="${3:-noexceptions}"
+
+  declare -a results
+  mapfile -t results < <(printf '%s\n' ${srcs} | xargs -I'{}' bash -c "${cmd} {}" 2>&1 | egrep -v "${exceptions}")
+  if [ ${#results[@]} -eq 0 ]; then
+    return
+  fi
+  for result in "${results[@]}"; do
+    echo "${result}"
+  done
+  return 1
+}
+
 usage() {
   echo "$0 [--fix] [--no-build] [--no-linters]"
 }
@@ -74,18 +90,16 @@ main() {
 
   if [[ "${run_linters}" -eq 1 ]]; then
     echo 'running golint'
-    # Don't fail on golint checks for now.
-    # TODO(drysdale): fix lint errors and re-enable
-    printf '%s\n' ${go_srcs} | xargs -I'{}' bash -c 'golint --set_exit_status {} || true'
+    run_linter "golint" "${go_srcs}" "ct.CTExtensions|OidExtensionSubjectKeyId|OidExtensionAuthorityKeyId|merkletree.MerkleTreeInterface|scanner.ScannerOptions"
 
     echo 'running go vet'
-    printf '%s\n' ${go_srcs} | xargs -I'{}' go vet '{}'
+    run_linter "go vet" "${go_srcs}"
 
     echo 'running gocyclo'
-    printf '%s\n' ${go_srcs} | xargs -I'{}' bash -c 'gocyclo -over 40 {} || true'
+    run_linter "gocyclo -over 40" "${go_srcs}" "RunCTIntegrationForLog"
 
     echo 'running misspell'
-    printf '%s\n' ${go_srcs} | xargs -I'{}' misspell -error -i cancelled,CANCELLED -locale US '{}'
+    run_linter "misspell -error -i cancelled,CANCELLED -locale US" "${go_srcs}"
 
     echo 'checking license header'
     local nolicense="$(grep -L 'Apache License' ${go_srcs})"
