@@ -69,6 +69,26 @@ func (p RandomPool) Next() *client.LogClient {
 	return p[rand.Intn(len(p))]
 }
 
+func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error) {
+	opts := jsonclient.Options{}
+	if pubPEMFile != "" {
+		pubkey, err := ioutil.ReadFile(pubPEMFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get public key contents: %v", err)
+		}
+		opts.PublicKey = string(pubkey)
+	}
+	var pool RandomPool
+	for _, s := range strings.Split(servers, ",") {
+		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), nil, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LogClient instance: %v", err)
+		}
+		pool = append(pool, c)
+	}
+	return &pool, nil
+}
+
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
@@ -81,13 +101,9 @@ func RunCTIntegrationForLog(cfg ctfe.LogConfig, servers, testdir string, mmd tim
 		}
 		opts.PublicKey = string(pubkey)
 	}
-	var pool RandomPool
-	for _, s := range strings.Split(servers, ",") {
-		c, err := client.New("http://"+s+"/"+cfg.Prefix, nil, opts)
-		if err != nil {
-			return fmt.Errorf("failed to create LogClient instance: %v", err)
-		}
-		pool = append(pool, c)
+	pool, err := NewRandomPool(servers, cfg.PubKeyPEMFile, cfg.Prefix)
+	if err != nil {
+		return fmt.Errorf("failed to create pool: %v", err)
 	}
 	ctx := context.Background()
 	if err := stats.check(cfg, servers); err != nil {

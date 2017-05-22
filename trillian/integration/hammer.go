@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -63,7 +64,6 @@ type HammerConfig struct {
 	// Intermediate CA certificate chain to use as re-signing CA.
 	CACert *x509.Certificate
 	Signer crypto.Signer
-
 	// ClientPool provides the clients used to make requests.
 	ClientPool ClientPool
 	// Bias values to favor particular log operations
@@ -181,7 +181,6 @@ func (pc *pendingCerts) popIfMMDPassed(now time.Time) *submittedCert {
 // earlier SCTs/STHs for later checking.
 type hammerState struct {
 	cfg   *HammerConfig
-	pool  ClientPool
 	stats *wantStats
 	// STHs are arranged from later to earlier (so [0] is the most recent), and the
 	// discovery of new STHs will push older ones off the end.
@@ -196,10 +195,13 @@ type hammerState struct {
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	state := hammerState{
 		cfg:   cfg,
-		pool:  cfg.ClientPool,
 		stats: newWantStats(cfg.LogCfg.LogID),
 	}
 	return &state, nil
+}
+
+func (s *hammerState) client() *client.LogClient {
+	return s.cfg.ClientPool.Next()
 }
 
 // addMultiple calls the passed in function a random number
@@ -232,7 +234,7 @@ func (s *hammerState) addChain(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to make fresh cert: %v", err)
 	}
-	sct, err := s.pool.Next().AddChain(ctx, chain)
+	sct, err := s.client().AddChain(ctx, chain)
 	if err != nil {
 		return fmt.Errorf("failed to add-chain: %v", err)
 	}
@@ -265,7 +267,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
 	}
-	sct, err := s.pool.Next().AddPreChain(ctx, prechain)
+	sct, err := s.client().AddPreChain(ctx, prechain)
 	if err != nil {
 		return fmt.Errorf("failed to add-pre-chain: %v", err)
 	}
@@ -302,7 +304,7 @@ func (s *hammerState) getSTH(ctx context.Context) error {
 		s.sth[i] = s.sth[i-1]
 	}
 	var err error
-	s.sth[0], err = s.pool.Next().GetSTH(ctx)
+	s.sth[0], err = s.client().GetSTH(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get-sth: %v", err)
 	}
@@ -312,7 +314,7 @@ func (s *hammerState) getSTH(ctx context.Context) error {
 
 func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 	// Get current size, and pick an earlier size
-	sthNow, err := s.pool.Next().GetSTH(ctx)
+	sthNow, err := s.client().GetSTH(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get-sth for current tree: %v", err)
 	}
@@ -326,7 +328,7 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 		return errSkip{}
 	}
 
-	proof, err := s.pool.Next().GetSTHConsistency(ctx, s.sth[which].TreeSize, sthNow.TreeSize)
+	proof, err := s.client().GetSTHConsistency(ctx, s.sth[which].TreeSize, sthNow.TreeSize)
 	if err != nil {
 		return fmt.Errorf("failed to get-sth-consistency(%d, %d): %v", s.sth[which].TreeSize, sthNow.TreeSize, err)
 	}
@@ -345,12 +347,12 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 		return errSkip{}
 	}
 	// Get an STH that should include this submitted [pre-]cert.
-	sth, err := s.pool.Next().GetSTH(ctx)
+	sth, err := s.client().GetSTH(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get-sth for proof: %v", err)
 	}
 	// Get and check an inclusion proof.
-	rsp, err := s.pool.Next().GetProofByHash(ctx, submitted.leafHash[:], sth.TreeSize)
+	rsp, err := s.client().GetProofByHash(ctx, submitted.leafHash[:], sth.TreeSize)
 	if err != nil {
 		return fmt.Errorf("failed to get-proof-by-hash(size=%d) on cert with SCT @ %v: %v, %+v", sth.TreeSize, timeFromMS(submitted.sct.Timestamp), err, rsp)
 	}
@@ -372,7 +374,7 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 	// Entry indices are zero-based.
 	first := int64(s.sth[0].TreeSize - count)
 	last := int64(s.sth[0].TreeSize) - 1
-	entries, err := s.pool.Next().GetEntries(ctx, first, last)
+	entries, err := s.client().GetEntries(ctx, first, last)
 	if err != nil {
 		return fmt.Errorf("failed to get-entries(%d,%d): %v", first, last, err)
 	}
@@ -397,7 +399,7 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 }
 
 func (s *hammerState) getRoots(ctx context.Context) error {
-	roots, err := s.pool.Next().GetAcceptedRoots(ctx)
+	roots, err := s.client().GetAcceptedRoots(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get-roots: %v", err)
 	}
