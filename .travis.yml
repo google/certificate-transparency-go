@@ -26,6 +26,7 @@ install:
       ln -s $TRAVIS_BUILD_DIR $HOME/gopath/src/github.com/google/certificate-transparency-go
     fi
   - go get -d -t ./...
+  - if [[ $TRAVIS_OS_NAME == "osx" ]]; then brew update > /dev/null && brew install mariadb && mysql.server start; fi
   - go get -u github.com/client9/misspell/cmd/misspell
   - go get -u github.com/fzipp/gocyclo
   - go get -u github.com/golang/lint/golint
