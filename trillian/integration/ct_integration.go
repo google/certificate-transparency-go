@@ -61,7 +61,7 @@ type RandomPool []*client.LogClient
 
 var _ ClientPool = &RandomPool{}
 
-// Next a random client from the pool.
+// Next picks a random client from the pool.
 func (p RandomPool) Next() *client.LogClient {
 	if len(p) == 0 {
 		return nil
@@ -69,6 +69,7 @@ func (p RandomPool) Next() *client.LogClient {
 	return p[rand.Intn(len(p))]
 }
 
+// NewRandomPool creates a pool which returns a random client from list of servers.
 func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error) {
 	opts := jsonclient.Options{}
 	if pubPEMFile != "" {
