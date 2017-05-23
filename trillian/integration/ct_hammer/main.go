@@ -122,6 +122,10 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
+		pool, err := integration.NewRandomPool(*httpServersFlag, c.PubKeyPEMFile, c.Prefix)
+		if err != nil {
+			glog.Exitf("Failed to create client pool: %v", err)
+		}
 		cfg := integration.HammerConfig{
 			LogCfg:            c,
 			MMD:               *mmdFlag,
@@ -129,7 +133,7 @@ func main() {
 			LeafCert:          leafCert,
 			CACert:            caCert,
 			Signer:            signer,
-			Servers:           *httpServersFlag,
+			ClientPool:        pool,
 			EPBias:            bias,
 			Operations:        *operationsFlag,
 			MaxParallelChains: *maxParallelChains,
