@@ -39,7 +39,8 @@ install:
 script:
   - set -e
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
-  - ./scripts/presubmit.sh
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PRESUBMIT_OPTS=--no-linters; fi
+  - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
   - |
       if [[ "${WITH_ETCD}" == "true" ]]; then
         export ETCD_DIR="${GOPATH}/bin"
