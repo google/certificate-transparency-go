@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"time"
 
@@ -28,8 +30,8 @@ import (
 	etcdnaming "github.com/coreos/etcd/clientv3/naming"
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
-	"github.com/google/trillian/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/naming"
 )
@@ -96,11 +98,26 @@ func main() {
 	}
 
 	// Bring up the HTTP server and serve until we get a signal not to.
-	go util.AwaitSignal(func() {
+	go awaitSignal(func() {
 		os.Exit(1)
 	})
 	server := http.Server{Addr: fmt.Sprintf("%s:%d", *serverHostFlag, *serverPortFlag), Handler: nil}
 	err = server.ListenAndServe()
 	glog.Warningf("Server exited: %v", err)
 	glog.Flush()
+}
+
+// awaitSignal waits for standard termination signals, then runs the given
+// function; it should be run as a separate goroutine.
+func awaitSignal(doneFn func()) {
+	// Arrange notification for the standard set of signals used to terminate a server
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	// Now block main and wait for a signal
+	sig := <-sigs
+	glog.Warningf("Signal received: %v", sig)
+	glog.Flush()
+
+	doneFn()
 }
