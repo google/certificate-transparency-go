@@ -35,12 +35,12 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
+	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/mockclient"
-	"github.com/google/trillian/testonly"
 	"github.com/google/trillian/util"
 	"github.com/kylelemons/godebug/pretty"
 	"google.golang.org/grpc/codes"
@@ -532,7 +532,7 @@ func TestGetSTH(t *testing.T) {
 		},
 	}
 
-	key, err := keys.NewFromPublicPEM(testonly.DemoPublicKey)
+	key, err := keys.NewFromPublicPEM(testdata.DemoPublicKey)
 	if err != nil {
 		t.Fatalf("Failed to load public key: %v", err)
 	}
@@ -542,9 +542,9 @@ func TestGetSTH(t *testing.T) {
 		func() {
 			var signer *crypto.Signer
 			if test.signErr != nil {
-				signer = crypto.NewSHA256Signer(testonly.NewSignerWithErr(key, test.signErr))
+				signer = crypto.NewSHA256Signer(testdata.NewSignerWithErr(key, test.signErr))
 			} else {
-				signer = crypto.NewSHA256Signer(testonly.NewSignerWithFixedSig(key, fakeSignature))
+				signer = crypto.NewSHA256Signer(testdata.NewSignerWithFixedSig(key, fakeSignature))
 			}
 
 			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)

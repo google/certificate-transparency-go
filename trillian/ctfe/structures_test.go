@@ -20,9 +20,9 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/testonly"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -34,7 +34,7 @@ var (
 )
 
 func TestGetCTLogID(t *testing.T) {
-	pk, err := keys.NewFromPublicPEM(testonly.DemoPublicKey)
+	pk, err := keys.NewFromPublicPEM(testdata.DemoPublicKey)
 	if err != nil {
 		t.Fatalf("unexpected error loading public key: %v", err)
 	}
@@ -83,12 +83,12 @@ func TestSerializeLogEntry(t *testing.T) {
 // Creates a fake signer for use in interaction tests.
 // It will always return fakeSig when asked to sign something.
 func setupSigner(fakeSig []byte) (*crypto.Signer, error) {
-	key, err := keys.NewFromPublicPEM(testonly.DemoPublicKey)
+	key, err := keys.NewFromPublicPEM(testdata.DemoPublicKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return crypto.NewSHA256Signer(testonly.NewSignerWithFixedSig(key, fakeSig)), nil
+	return crypto.NewSHA256Signer(testdata.NewSignerWithFixedSig(key, fakeSig)), nil
 }
 
 // Creates a dummy cert chain
