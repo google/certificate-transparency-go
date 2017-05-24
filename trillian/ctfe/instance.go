@@ -22,11 +22,11 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/util"
 )
 
 // LogConfig describes the configuration options for a log instance.
