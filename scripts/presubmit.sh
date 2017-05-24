@@ -65,6 +65,9 @@ main() {
       --no-linters)
         run_linters=0
         ;;
+      --no-generate)
+        run_generate=0
+        ;;
       *)
         usage
         exit 1
@@ -74,6 +77,7 @@ main() {
   done
 
   local go_srcs="$(find . -name '*.go' | \
+    grep -v mock_ | \
     grep -v x509/ | \
     grep -v asn1/ | \
     grep -v vendor/ | \
@@ -111,6 +115,11 @@ main() {
 
   local go_dirs="$(go list ./... | \
     grep -v /vendor/)"
+
+  if [[ "${run_generate}" -eq 1 ]]; then
+    echo 'running go generate'
+    go generate -run="mockgen" ${go_dirs}
+  fi
 
   if [[ "${run_build}" -eq 1 ]]; then
     local goflags=''

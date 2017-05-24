@@ -32,6 +32,7 @@ install:
   - go get -u github.com/golang/lint/golint
   - pushd ${GOPATH}/src/github.com/google/trillian
   - go get -d -t ./...
+  - go install github.com/golang/mock/mockgen
   # install Trillian's vendored etcd binaries
   - go install ./vendor/github.com/coreos/etcd/cmd/etcd
   - go install ./vendor/github.com/coreos/etcd/cmd/etcdctl
@@ -42,6 +43,15 @@ script:
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PRESUBMIT_OPTS=--no-linters; fi
   - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
+  - |
+      # Check re-generation didn't change anything
+      status=$(git status --porcelain) || :
+      if [[ -n ${status} ]]; then
+        echo "Regenerated files differ from checked-in versions: ${status}"
+        git status
+        git diff
+        exit 1
+      fi
   - |
       if [[ "${WITH_ETCD}" == "true" ]]; then
         export ETCD_DIR="${GOPATH}/bin"
