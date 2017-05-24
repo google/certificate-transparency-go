@@ -14,4 +14,4 @@
 
 package mockclient
 
-//go:generate mockgen -package mockclient -destination mock_log_client.go github.com/google/trillian TrillianLogClient,TrillianLogServer,TrillianMapClient,TrillianMapServer
+//go:generate mockgen -package mockclient -destination mock_log_client.go github.com/google/trillian TrillianLogClient
