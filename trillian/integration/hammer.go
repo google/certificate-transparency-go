@@ -208,7 +208,7 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 	state := hammerState{
 		cfg:   cfg,
-		stats: newLogStats(cfg.LogCfg.LogID),
+		stats: newLogStats(cfg.LogCfg.LogId),
 	}
 	return &state, nil
 }

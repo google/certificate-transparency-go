@@ -31,39 +31,39 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "valid",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 			},
 		},
 		{
 			desc: "no-roots",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 			},
-			errStr: "specify RootsPEMFile",
+			errStr: "specify RootsPemFile",
 		},
 		{
 			desc: "no-priv-key",
 			cfg: LogConfig{
-				LogID:        1,
+				LogId:        1,
 				Prefix:       "log",
-				RootsPEMFile: []string{"../testdata/fake-ca.cert"},
+				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 			},
-			errStr: "specify PrivKeyPEMFile",
+			errStr: "specify PrivKeyPemFile",
 		},
 		{
 			desc: "missing-root-cert",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/bogus.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/bogus.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 			},
 			errStr: "failed to read trusted roots",
@@ -71,10 +71,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "missing-privkey",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/bogus.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/bogus.privkey.pem",
 				PrivKeyPassword: "dirk",
 			},
 			errStr: "failed to load private key",
@@ -82,10 +82,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "privkey-wrong-password",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirkly",
 			},
 			errStr: "failed to load private key",
@@ -93,10 +93,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "valid-ekus-1",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 				ExtKeyUsages:    []string{"Any"},
 			},
@@ -104,10 +104,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "valid-ekus-2",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 				ExtKeyUsages:    []string{"Any", "ServerAuth", "TimeStamping"},
 			},
@@ -115,10 +115,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "invalid-ekus-1",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 				ExtKeyUsages:    []string{"Any", "ServerAuth", "TimeStomping"},
 			},
@@ -127,10 +127,10 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "invalid-ekus-2",
 			cfg: LogConfig{
-				LogID:           1,
+				LogId:           1,
 				Prefix:          "log",
-				RootsPEMFile:    []string{"../testdata/fake-ca.cert"},
-				PrivKeyPEMFile:  "../testdata/ct-http-server.privkey.pem",
+				RootsPemFile:    []string{"../testdata/fake-ca.cert"},
+				PrivKeyPemFile:  "../testdata/ct-http-server.privkey.pem",
 				PrivKeyPassword: "dirk",
 				ExtKeyUsages:    []string{"Any "},
 			},

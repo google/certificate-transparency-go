@@ -18,9 +18,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
@@ -29,38 +30,31 @@ import (
 	"github.com/google/trillian/monitoring"
 )
 
-// LogConfig describes the configuration options for a log instance.
-type LogConfig struct {
-	LogID           int64
-	Prefix          string
-	RootsPEMFile    []string
-	PrivKeyPEMFile  string
-	PrivKeyPassword string
-	// The public key is included for the convenience of test tools (and obviously should
-	// match the private key above); it is not used by the CT personality.
-	PubKeyPEMFile string
-	RejectExpired bool
-	ExtKeyUsages  []string
-}
-
 // LogConfigFromFile creates a slice of LogConfig options from the given
 // filename, which should contain JSON encoded configuration data.
 func LogConfigFromFile(filename string) ([]LogConfig, error) {
 	if len(filename) == 0 {
 		return nil, errors.New("log config filename empty")
 	}
-	cfgData, err := ioutil.ReadFile(filename)
+
+	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read log config: %v", err)
+		return nil, fmt.Errorf("failed to open log config: %v", err)
 	}
-	var cfg []LogConfig
-	if err := json.Unmarshal(cfgData, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config data: %v", err)
+
+	decoder := json.NewDecoder(file)
+	var cfgs []LogConfig
+	for decoder.More() {
+		var cfg LogConfig
+		if err := jsonpb.UnmarshalNext(decoder, &cfg); err != nil {
+			return nil, fmt.Errorf("failed to parse config data: %v", err)
+		}
+		cfgs = append(cfgs, cfg)
 	}
-	if len(cfg) == 0 {
+	if len(cfgs) == 0 {
 		return nil, errors.New("empty log config found")
 	}
-	return cfg, nil
+	return cfgs, nil
 }
 
 var stringToKeyUsage = map[string]x509.ExtKeyUsage{
@@ -82,23 +76,23 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 // with the Trillian RPC back end.
 func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
 	// Check config validity.
-	if len(cfg.RootsPEMFile) == 0 {
-		return nil, errors.New("need to specify RootsPEMFile")
+	if len(cfg.RootsPemFile) == 0 {
+		return nil, errors.New("need to specify RootsPemFile")
 	}
-	if len(cfg.PrivKeyPEMFile) == 0 {
-		return nil, errors.New("need to specify PrivKeyPEMFile")
+	if len(cfg.PrivKeyPemFile) == 0 {
+		return nil, errors.New("need to specify PrivKeyPemFile")
 	}
 
 	// Load the trusted roots
 	roots := NewPEMCertPool()
-	for _, pemFile := range cfg.RootsPEMFile {
+	for _, pemFile := range cfg.RootsPemFile {
 		if err := roots.AppendCertsFromPEMFile(pemFile); err != nil {
 			return nil, fmt.Errorf("failed to read trusted roots: %v", err)
 		}
 	}
 
 	// Load the private key for this log.
-	key, err := keys.NewFromPrivatePEMFile(cfg.PrivKeyPEMFile, cfg.PrivKeyPassword)
+	key, err := keys.NewFromPrivatePEMFile(cfg.PrivKeyPemFile, cfg.PrivKeyPassword)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}
@@ -118,7 +112,7 @@ func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline t
 	}
 
 	// Create and register the handlers using the RPC client we just set up
-	ctx := NewLogContext(cfg.LogID, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
+	ctx := NewLogContext(cfg.LogId, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
 
 	handlers := ctx.Handlers(cfg.Prefix)
 	return &handlers, nil

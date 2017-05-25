@@ -54,9 +54,9 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int,
 	for _, cfg := range cfgs {
 		logID, err := logEnv.CreateLog()
 		if err != nil {
-			return nil, fmt.Errorf("failed to provision log %d: %v", cfg.LogID, err)
+			return nil, fmt.Errorf("failed to provision log %d: %v", cfg.LogId, err)
 		}
-		cfg.LogID = logID
+		cfg.LogId = logID
 	}
 
 	// Start the CT personality.

@@ -23,6 +23,7 @@ import (
 	"crypto"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -104,14 +105,14 @@ func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error
 // a variety of test data files.
 func RunCTIntegrationForLog(cfg ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
 	opts := jsonclient.Options{}
-	if cfg.PubKeyPEMFile != "" {
-		pubkey, err := ioutil.ReadFile(cfg.PubKeyPEMFile)
+	if cfg.PubKeyPemFile != "" {
+		pubkey, err := ioutil.ReadFile(cfg.PubKeyPemFile)
 		if err != nil {
 			return fmt.Errorf("failed to get public key contents: %v", err)
 		}
 		opts.PublicKey = string(pubkey)
 	}
-	pool, err := NewRandomPool(servers, cfg.PubKeyPEMFile, cfg.Prefix)
+	pool, err := NewRandomPool(servers, cfg.PubKeyPemFile, cfg.Prefix)
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}

@@ -54,7 +54,7 @@ func TestLiveCTIntegration(t *testing.T) {
 			t.Parallel()
 			var stats *logStats
 			if !*skipStats {
-				stats = newLogStats(cfg.LogID)
+				stats = newLogStats(cfg.LogId)
 			}
 			if err := RunCTIntegrationForLog(cfg, *httpServersFlag, *testDir, *mmdFlag, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
@@ -75,23 +75,23 @@ func TestInProcessCTIntegration(t *testing.T) {
 	cfgs := []*ctfe.LogConfig{
 		{
 			Prefix:          "athos",
-			RootsPEMFile:    []string{rootsPEMFile},
-			PubKeyPEMFile:   pubKeyPEMFile,
-			PrivKeyPEMFile:  privKeyPEMFile,
+			RootsPemFile:    []string{rootsPEMFile},
+			PubKeyPemFile:   pubKeyPEMFile,
+			PrivKeyPemFile:  privKeyPEMFile,
 			PrivKeyPassword: privKeyPassword,
 		},
 		{
 			Prefix:          "porthos",
-			RootsPEMFile:    []string{rootsPEMFile},
-			PubKeyPEMFile:   pubKeyPEMFile,
-			PrivKeyPEMFile:  privKeyPEMFile,
+			RootsPemFile:    []string{rootsPEMFile},
+			PubKeyPemFile:   pubKeyPEMFile,
+			PrivKeyPemFile:  privKeyPEMFile,
 			PrivKeyPassword: privKeyPassword,
 		},
 		{
 			Prefix:          "aramis",
-			RootsPEMFile:    []string{rootsPEMFile},
-			PubKeyPEMFile:   pubKeyPEMFile,
-			PrivKeyPEMFile:  privKeyPEMFile,
+			RootsPemFile:    []string{rootsPEMFile},
+			PubKeyPemFile:   pubKeyPEMFile,
+			PrivKeyPemFile:  privKeyPEMFile,
 			PrivKeyPassword: privKeyPassword,
 		},
 	}
@@ -110,7 +110,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 			cfg := cfg // capture config
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
-				stats := newLogStats(cfg.LogID)
+				stats := newLogStats(cfg.LogId)
 				if err := RunCTIntegrationForLog(*cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}

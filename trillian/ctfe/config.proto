@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package ctfe;
+
+// LogConfig describes the configuration options for a log instance.
+message LogConfig {
+  int64 log_id = 1;
+  string prefix = 2;
+  repeated string roots_pem_file = 3;
+  string priv_key_pem_file = 4;
+  string priv_key_password = 5;
+  // The public key is included for the convenience of test tools (and obviously
+  // should match the private key above); it is not used by the CT personality.
+  string pub_key_pem_file = 6;
+  bool reject_expired = 7;
+  repeated string ext_key_usages = 8;
+}
