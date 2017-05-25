@@ -74,6 +74,8 @@ type HammerConfig struct {
 	MaxParallelChains int
 	// EmitInterval defines how frequently stats are logged.
 	EmitInterval time.Duration
+	// IgnoreErrors controls whether a hammer run fails immediately on any error.
+	IgnoreErrors bool
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -495,7 +497,10 @@ func HammerCTLog(cfg HammerConfig) error {
 
 	for count := uint64(1); count < cfg.Operations; count++ {
 		if err := s.oneOp(ctx); err != nil {
-			return err
+			if !cfg.IgnoreErrors {
+				return err
+			}
+			glog.Warning("%s: %v", cfg.LogCfg.Prefix, err)
 		}
 	}
 	ticker.Stop()
