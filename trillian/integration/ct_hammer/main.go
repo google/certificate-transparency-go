@@ -122,7 +122,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
-		pool, err := integration.NewRandomPool(*httpServersFlag, c.PubKeyPEMFile, c.Prefix)
+		pool, err := integration.NewRandomPool(*httpServersFlag, c.PubKeyPemFile, c.Prefix)
 		if err != nil {
 			glog.Exitf("Failed to create client pool: %v", err)
 		}
