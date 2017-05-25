@@ -416,7 +416,7 @@ func (s *hammerState) getRoots(ctx context.Context) error {
 	return nil
 }
 
-func (s *hammerState) statString() string {
+func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -491,7 +491,7 @@ func HammerCTLog(cfg HammerConfig) error {
 
 	go func(c <-chan time.Time) {
 		for d := range c {
-			fmt.Printf("[%v] %s\n", d, s.statString())
+			fmt.Printf("[%v] %s\n", d, s.String())
 		}
 	}(ticker.C)
 
