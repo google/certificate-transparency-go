@@ -416,11 +416,18 @@ func (s *hammerState) getRoots(ctx context.Context) error {
 	return nil
 }
 
+func sthSize(sth *ct.SignedTreeHead) string {
+	if sth == nil {
+		return "n/a"
+	}
+	return fmt.Sprintf("%d", sth.TreeSize)
+}
+
 func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	l := fmt.Sprintf("%10s: lastSTH.size=%d ops: total=%d", s.cfg.LogCfg.Prefix, s.sth[0].TreeSize, s.totalOps)
+	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps)
 	statusOK := strconv.Itoa(http.StatusOK)
 	for _, ep := range ctfe.Entrypoints {
 		if s.cfg.EPBias.Bias[ep] > 0 {
