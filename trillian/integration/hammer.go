@@ -452,13 +452,12 @@ func (s *hammerState) oneOp(ctx context.Context) (err error) {
 	glog.V(3).Infof("perform %s operation", ep)
 	status := http.StatusOK
 	defer func() {
-		if err != nil {
+		if err == nil {
 			s.stats.done(ep, status)
 		}
 		s.totalOps++
 	}()
 
-	var err error
 	for {
 		switch ep {
 		case ctfe.AddChainName:
@@ -476,6 +475,7 @@ func (s *hammerState) oneOp(ctx context.Context) (err error) {
 		case ctfe.GetRootsName:
 			err = s.getRoots(ctx)
 		case ctfe.GetEntryAndProofName:
+			err = nil
 			status = http.StatusNotImplemented
 			glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
 		default:
