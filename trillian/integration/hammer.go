@@ -490,11 +490,6 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	for !done {
 		s.mu.Lock()
 
-		if time.Now().After(deadline) {
-			glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
-			break
-		}
-
 		s.totalOps++
 
 		status, err = s.performOp(ctx, ep)
@@ -511,11 +506,17 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 			s.totalErrs++
 			if s.cfg.IgnoreErrors {
 				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
-				continue
+			} else {
+				done = true
 			}
+		}
+
+		s.mu.Unlock()
+
+		if time.Now().After(deadline) {
+			glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
 			done = true
 		}
-		s.mu.Unlock()
 	}
 	return err
 }
