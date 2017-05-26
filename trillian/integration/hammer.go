@@ -444,7 +444,7 @@ func isSkip(e error) bool {
 	return ok
 }
 
-func (s *hammerState) oneOp(ctx context.Context) error {
+func (s *hammerState) oneOp(ctx context.Context) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -452,7 +452,9 @@ func (s *hammerState) oneOp(ctx context.Context) error {
 	glog.V(3).Infof("perform %s operation", ep)
 	status := http.StatusOK
 	defer func() {
-		s.stats.done(ep, status)
+		if err != nil {
+			s.stats.done(ep, status)
+		}
 		s.totalOps++
 	}()
 
