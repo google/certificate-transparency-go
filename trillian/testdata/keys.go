@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testdata
-
+// Package testdata holds files, data and code for testing.
 // KEYS IN THIS FILE ARE ONLY FOR TESTING. They must not be used by production code.
+package testdata
 
 // DemoPrivateKeyPass is the password for DemoPrivateKey
 const DemoPrivateKeyPass string = "towel"

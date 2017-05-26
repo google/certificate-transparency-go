@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package util provides general utility functions for the CT personality.
 package util
 
 import "time"

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package integration holds test-only code for running tests on
+// an integrated system of the CT personality and a Trillian log.
 package integration
 
 import (
