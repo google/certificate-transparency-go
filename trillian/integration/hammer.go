@@ -196,6 +196,8 @@ type hammerState struct {
 	pending pendingCerts
 	// totalOps is a running count of operations performed by this hammer.
 	totalOps int64
+	//totalErrs is a running count of failed operations.
+	totalErrs int64
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -427,7 +429,7 @@ func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps)
+	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d errs=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps, s.totalErrs)
 	statusOK := strconv.Itoa(http.StatusOK)
 	for _, ep := range ctfe.Entrypoints {
 		if s.cfg.EPBias.Bias[ep] > 0 {
@@ -449,42 +451,51 @@ func (s *hammerState) oneOp(ctx context.Context) error {
 	ep := s.cfg.EPBias.Choose()
 	glog.V(3).Infof("perform %s operation", ep)
 	status := http.StatusOK
+	defer func() {
+		s.stats.done(ep, status)
+		s.totalOps++
+	}()
+
 	var err error
-	switch ep {
-	case ctfe.AddChainName:
-		err = s.addMultiple(ctx, s.addChain)
-	case ctfe.AddPreChainName:
-		err = s.addMultiple(ctx, s.addPreChain)
-	case ctfe.GetSTHName:
-		err = s.getSTH(ctx)
-	case ctfe.GetSTHConsistencyName:
-		err = s.getSTHConsistency(ctx)
-	case ctfe.GetProofByHashName:
-		err = s.getProofByHash(ctx)
-	case ctfe.GetEntriesName:
-		err = s.getEntries(ctx)
-	case ctfe.GetRootsName:
-		err = s.getRoots(ctx)
-	case ctfe.GetEntryAndProofName:
-		status = http.StatusNotImplemented
-		glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
-	default:
-		return fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
+	for {
+		switch ep {
+		case ctfe.AddChainName:
+			err = s.addMultiple(ctx, s.addChain)
+		case ctfe.AddPreChainName:
+			err = s.addMultiple(ctx, s.addPreChain)
+		case ctfe.GetSTHName:
+			err = s.getSTH(ctx)
+		case ctfe.GetSTHConsistencyName:
+			err = s.getSTHConsistency(ctx)
+		case ctfe.GetProofByHashName:
+			err = s.getProofByHash(ctx)
+		case ctfe.GetEntriesName:
+			err = s.getEntries(ctx)
+		case ctfe.GetRootsName:
+			err = s.getRoots(ctx)
+		case ctfe.GetEntryAndProofName:
+			status = http.StatusNotImplemented
+			glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
+		default:
+			return fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
+		}
+
+		switch err.(type) {
+		case errSkip:
+			status = http.StatusFailedDependency
+			return nil
+		case nil:
+			return nil
+		default:
+			s.totalErrs++
+
+			if s.cfg.IgnoreErrors {
+				glog.Warningf("%s: op %v failed (will retry): %v", ep, s.cfg.LogCfg.Prefix, err)
+				continue
+			}
+			return err
+		}
 	}
-
-	switch err.(type) {
-	case errSkip:
-		status = http.StatusFailedDependency
-	case nil:
-		break
-	default:
-		return err
-	}
-
-	s.stats.done(ep, status)
-	s.totalOps++
-
-	return nil
 }
 
 // HammerCTLog performs load/stress operations according to given config.
@@ -497,17 +508,14 @@ func HammerCTLog(cfg HammerConfig) error {
 	ticker := time.NewTicker(cfg.EmitInterval)
 
 	go func(c <-chan time.Time) {
-		for d := range c {
-			fmt.Printf("[%v] %s\n", d, s.String())
+		for _ = range c {
+			glog.Info(s.String())
 		}
 	}(ticker.C)
 
 	for count := uint64(1); count < cfg.Operations; count++ {
 		if err := s.oneOp(ctx); err != nil {
-			if !cfg.IgnoreErrors {
-				return err
-			}
-			glog.Warning("%s: %v", cfg.LogCfg.Prefix, err)
+			return err
 		}
 	}
 	ticker.Stop()
