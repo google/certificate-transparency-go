@@ -444,7 +444,35 @@ func isSkip(e error) bool {
 	return ok
 }
 
-func (s *hammerState) oneOp(ctx context.Context) (err error) {
+func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (error, int) {
+	status := http.StatusOK
+	var err error
+	switch ep {
+	case ctfe.AddChainName:
+		err = s.addMultiple(ctx, s.addChain)
+	case ctfe.AddPreChainName:
+		err = s.addMultiple(ctx, s.addPreChain)
+	case ctfe.GetSTHName:
+		err = s.getSTH(ctx)
+	case ctfe.GetSTHConsistencyName:
+		err = s.getSTHConsistency(ctx)
+	case ctfe.GetProofByHashName:
+		err = s.getProofByHash(ctx)
+	case ctfe.GetEntriesName:
+		err = s.getEntries(ctx)
+	case ctfe.GetRootsName:
+		err = s.getRoots(ctx)
+	case ctfe.GetEntryAndProofName:
+		err = nil
+		status = http.StatusNotImplemented
+		glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
+	default:
+		err = fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
+	}
+	return err, status
+}
+
+func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -459,28 +487,7 @@ func (s *hammerState) oneOp(ctx context.Context) (err error) {
 	}()
 
 	for {
-		switch ep {
-		case ctfe.AddChainName:
-			err = s.addMultiple(ctx, s.addChain)
-		case ctfe.AddPreChainName:
-			err = s.addMultiple(ctx, s.addPreChain)
-		case ctfe.GetSTHName:
-			err = s.getSTH(ctx)
-		case ctfe.GetSTHConsistencyName:
-			err = s.getSTHConsistency(ctx)
-		case ctfe.GetProofByHashName:
-			err = s.getProofByHash(ctx)
-		case ctfe.GetEntriesName:
-			err = s.getEntries(ctx)
-		case ctfe.GetRootsName:
-			err = s.getRoots(ctx)
-		case ctfe.GetEntryAndProofName:
-			err = nil
-			status = http.StatusNotImplemented
-			glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
-		default:
-			return fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
-		}
+		err, status = s.performOp(ctx, ep)
 
 		switch err.(type) {
 		case errSkip:
@@ -516,7 +523,7 @@ func HammerCTLog(cfg HammerConfig) error {
 	}(ticker.C)
 
 	for count := uint64(1); count < cfg.Operations; count++ {
-		if err := s.oneOp(ctx); err != nil {
+		if err := s.retryOneOp(ctx); err != nil {
 			return err
 		}
 	}
