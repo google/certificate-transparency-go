@@ -24,7 +24,7 @@ TO_KILL+=(${CT_SERVER_PIDS[@]})
 
 echo "Running test(s)"
 set +e
-./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
+./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --logtostderr
 RESULT=$?
 set -e
 

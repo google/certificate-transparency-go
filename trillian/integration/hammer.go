@@ -43,6 +43,8 @@ const sctCount = 10
 // Maximum number of entries to request.
 const maxEntriesCount = uint64(10)
 
+var maxRetryDuration = 60 * time.Second
+
 // errSkip indicates that a test operation should be skipped.
 type errSkip struct{}
 
@@ -196,6 +198,8 @@ type hammerState struct {
 	pending pendingCerts
 	// totalOps is a running count of operations performed by this hammer.
 	totalOps int64
+	// totalErrs is a running count of failed operations.
+	totalErrs int64
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -427,7 +431,7 @@ func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps)
+	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d errs=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps, s.totalErrs)
 	statusOK := strconv.Itoa(http.StatusOK)
 	for _, ep := range ctfe.Entrypoints {
 		if s.cfg.EPBias.Bias[ep] > 0 {
@@ -442,12 +446,7 @@ func isSkip(e error) bool {
 	return ok
 }
 
-func (s *hammerState) oneOp(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	ep := s.cfg.EPBias.Choose()
-	glog.V(3).Infof("perform %s operation", ep)
+func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
 	status := http.StatusOK
 	var err error
 	switch ep {
@@ -469,22 +468,57 @@ func (s *hammerState) oneOp(ctx context.Context) error {
 		status = http.StatusNotImplemented
 		glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
 	default:
-		return fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
+		err = fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
 	}
+	return status, err
+}
 
-	switch err.(type) {
-	case errSkip:
-		status = http.StatusFailedDependency
-	case nil:
-		break
-	default:
-		return err
+func (s *hammerState) chooseOp() ctfe.EntrypointName {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.EPBias.Choose()
+}
+
+func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
+	ep := s.chooseOp()
+	glog.V(3).Infof("perform %s operation", ep)
+
+	status := http.StatusOK
+	deadline := time.Now().Add(maxRetryDuration)
+
+	done := false
+	for !done {
+		s.mu.Lock()
+
+		s.totalOps++
+
+		status, err = s.performOp(ctx, ep)
+
+		switch err.(type) {
+		case nil:
+			s.stats.done(ep, status)
+			done = true
+		case errSkip:
+			status = http.StatusFailedDependency
+			err = nil
+			done = true
+		default:
+			s.totalErrs++
+			if s.cfg.IgnoreErrors {
+				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
+			} else {
+				done = true
+			}
+		}
+
+		s.mu.Unlock()
+
+		if time.Now().After(deadline) {
+			glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
+			done = true
+		}
 	}
-
-	s.stats.done(ep, status)
-	s.totalOps++
-
-	return nil
+	return err
 }
 
 // HammerCTLog performs load/stress operations according to given config.
@@ -497,17 +531,14 @@ func HammerCTLog(cfg HammerConfig) error {
 	ticker := time.NewTicker(cfg.EmitInterval)
 
 	go func(c <-chan time.Time) {
-		for d := range c {
-			fmt.Printf("[%v] %s\n", d, s.String())
+		for _ = range c {
+			glog.Info(s.String())
 		}
 	}(ticker.C)
 
 	for count := uint64(1); count < cfg.Operations; count++ {
-		if err := s.oneOp(ctx); err != nil {
-			if !cfg.IgnoreErrors {
-				return err
-			}
-			glog.Warning("%s: %v", cfg.LogCfg.Prefix, err)
+		if err := s.retryOneOp(ctx); err != nil {
+			return err
 		}
 	}
 	ticker.Stop()
