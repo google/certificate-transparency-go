@@ -198,7 +198,7 @@ type hammerState struct {
 	pending pendingCerts
 	// totalOps is a running count of operations performed by this hammer.
 	totalOps int64
-	//totalErrs is a running count of failed operations.
+	// totalErrs is a running count of failed operations.
 	totalErrs int64
 }
 
@@ -465,7 +465,6 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 	case ctfe.GetRootsName:
 		err = s.getRoots(ctx)
 	case ctfe.GetEntryAndProofName:
-		err = nil
 		status = http.StatusNotImplemented
 		glog.V(2).Infof("%s: hammering entrypoint %s not yet implemented", s.cfg.LogCfg.Prefix, ep)
 	default:
@@ -474,41 +473,50 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 	return status, err
 }
 
+func (s *hammerState) chooseOp() ctfe.EntrypointName {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.EPBias.Choose()
+}
+
 func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	ep := s.cfg.EPBias.Choose()
+	ep := s.chooseOp()
 	glog.V(3).Infof("perform %s operation", ep)
-	status := http.StatusOK
-	defer func() {
-		if err == nil {
-			s.stats.done(ep, status)
-		}
-		s.totalOps++
-	}()
 
+	status := http.StatusOK
 	deadline := time.Now().Add(maxRetryDuration)
-	for time.Now().Before(deadline) {
+
+	done := false
+	for !done {
+		s.mu.Lock()
+
+		if time.Now().After(deadline) {
+			glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
+			break
+		}
+
+		s.totalOps++
+
 		status, err = s.performOp(ctx, ep)
 
 		switch err.(type) {
+		case nil:
+			s.stats.done(ep, status)
+			done = true
 		case errSkip:
 			status = http.StatusFailedDependency
-			return nil
-		case nil:
-			return nil
+			err = nil
+			done = true
 		default:
 			s.totalErrs++
-
 			if s.cfg.IgnoreErrors {
 				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
 				continue
 			}
-			return err
+			done = true
 		}
+		s.mu.Unlock()
 	}
-	glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
 	return err
 }
 
