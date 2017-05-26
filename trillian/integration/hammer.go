@@ -43,6 +43,8 @@ const sctCount = 10
 // Maximum number of entries to request.
 const maxEntriesCount = uint64(10)
 
+var maxRetryDuration = 60 * time.Second
+
 // errSkip indicates that a test operation should be skipped.
 type errSkip struct{}
 
@@ -444,7 +446,7 @@ func isSkip(e error) bool {
 	return ok
 }
 
-func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (error, int) {
+func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
 	status := http.StatusOK
 	var err error
 	switch ep {
@@ -469,7 +471,7 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (er
 	default:
 		err = fmt.Errorf("internal error: unknown entrypoint %s selected", ep)
 	}
-	return err, status
+	return status, err
 }
 
 func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
@@ -486,8 +488,9 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 		s.totalOps++
 	}()
 
-	for {
-		err, status = s.performOp(ctx, ep)
+	deadline := time.Now().Add(maxRetryDuration)
+	for time.Now().Before(deadline) {
+		status, err = s.performOp(ctx, ep)
 
 		switch err.(type) {
 		case errSkip:
@@ -499,12 +502,14 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 			s.totalErrs++
 
 			if s.cfg.IgnoreErrors {
-				glog.Warningf("%s: op %v failed (will retry): %v", ep, s.cfg.LogCfg.Prefix, err)
+				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
 				continue
 			}
 			return err
 		}
 	}
+	glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
+	return err
 }
 
 // HammerCTLog performs load/stress operations according to given config.
