@@ -514,7 +514,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 		s.mu.Unlock()
 
 		if time.Now().After(deadline) {
-			glog.Warningf("%d: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
+			glog.Warningf("%s: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
 			done = true
 		}
 	}
