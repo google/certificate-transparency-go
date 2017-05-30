@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package mockclient provides a mockable version of the Trillian log client API.
 package mockclient
 
 //go:generate mockgen -package mockclient -destination mock_log_client.go github.com/google/trillian TrillianLogClient
