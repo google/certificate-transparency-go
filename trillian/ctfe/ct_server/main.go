@@ -17,7 +17,6 @@ package main
 
 import (
 	"context"
-	_ "expvar" // For HTTP server registration
 	"flag"
 	"net/http"
 	"os"
@@ -33,6 +32,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
+	"github.com/google/trillian/monitoring/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/naming"
 )
@@ -102,7 +103,7 @@ func main() {
 	client := trillian.NewTrillianLogClient(conn)
 
 	for _, c := range cfg {
-		handlers, err := c.SetUpInstance(client, *rpcDeadlineFlag)
+		handlers, err := c.SetUpInstance(client, *rpcDeadlineFlag, prometheus.MetricFactory{})
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
@@ -110,6 +111,7 @@ func main() {
 			http.Handle(path, handler)
 		}
 	}
+	http.Handle("/metrics", promhttp.Handler())
 
 	// Bring up the HTTP server and serve until we get a signal not to.
 	go awaitSignal(func() {

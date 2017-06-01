@@ -17,7 +17,6 @@ package ctfe
 import (
 	"encoding/json"
 	"errors"
-	"expvar"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/monitoring"
 )
 
 // LogConfig describes the configuration options for a log instance.
@@ -41,27 +41,6 @@ type LogConfig struct {
 	PubKeyPEMFile string
 	RejectExpired bool
 	ExtKeyUsages  []string
-}
-
-var (
-	logVars = expvar.NewMap("ctfe-logs")
-)
-
-// LogStats matches the schema of the exported JSON stats for a particular log instance.
-type LogStats struct {
-	LogID            int                               `json:"log-id"`
-	LastSCTTimestamp int                               `json:"last-sct-timestamp"`
-	LastSTHTimestamp int                               `json:"last-sth-timestamp"`
-	LastSTHTreesize  int                               `json:"last-sth-treesize"`
-	HTTPAllReqs      int                               `json:"http-all-reqs"`
-	HTTPAllRsps      map[string]int                    `json:"http-all-rsps"` // status => count
-	HTTPReq          map[EntrypointName]int            `json:"http-reqs"`     // entrypoint => count
-	HTTPRsps         map[EntrypointName]map[string]int `json:"http-rsps"`     // entrypoint => status => count
-}
-
-// AllStats matches the schema of the entire exported JSON stats.
-type AllStats struct {
-	Logs map[string]LogStats `json:"ctfe-logs"`
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
@@ -101,7 +80,7 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate
 // with the Trillian RPC back end.
-func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline time.Duration) (*PathHandlers, error) {
+func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
 	// Check config validity.
 	if len(cfg.RootsPEMFile) == 0 {
 		return nil, errors.New("need to specify RootsPEMFile")
@@ -139,8 +118,7 @@ func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline t
 	}
 
 	// Create and register the handlers using the RPC client we just set up
-	ctx := NewLogContext(cfg.LogID, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource))
-	logVars.Set(cfg.Prefix, ctx.exp.vars)
+	ctx := NewLogContext(cfg.LogID, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
 
 	handlers := ctx.Handlers(cfg.Prefix)
 	return &handlers, nil
