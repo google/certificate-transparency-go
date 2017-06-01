@@ -18,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/trillian/monitoring"
 )
 
 func TestSetUpInstance(t *testing.T) {
@@ -137,7 +139,7 @@ func TestSetUpInstance(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := test.cfg.SetUpInstance(nil, time.Second)
+		_, err := test.cfg.SetUpInstance(nil, time.Second, monitoring.InertMetricFactory{})
 		if err != nil {
 			if test.errStr == "" {
 				t.Errorf("(%v).SetUpInstance()=_,%v; want _,nil", test.desc, err)

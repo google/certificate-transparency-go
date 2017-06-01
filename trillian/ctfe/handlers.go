@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"expvar"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -37,6 +37,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
+	"github.com/google/trillian/monitoring"
 )
 
 const (
@@ -82,6 +83,27 @@ const (
 	GetEntryAndProofName  = EntrypointName("GetEntryAndProof")
 )
 
+var (
+	once             sync.Once
+	lastSCTTimestamp monitoring.Gauge     // logid => value
+	lastSTHTimestamp monitoring.Gauge     // logid => value
+	lastSTHTreeSize  monitoring.Gauge     // logid => value
+	reqsCounter      monitoring.Counter   // logid, ep => value
+	rspsCounter      monitoring.Counter   // logid, ep, rc => value
+	rspLatency       monitoring.Histogram // logid, ep, rc => value
+)
+
+func setupMetrics(mf monitoring.MetricFactory) {
+	// Initialize all the exported metrics.
+	lastSCTTimestamp = mf.NewGauge("last_sct_timestamp", "Time of last SCT in ms since epoch", "logid")
+	lastSTHTimestamp = mf.NewGauge("last_sth_timestamp", "Time of last STH in ms since epoch", "logid")
+	lastSTHTreeSize = mf.NewGauge("last_sth_treesize", "Size of tree at last STH", "logid")
+	// TODO(drysdale): investigate whether there's a generic wrapper to do this
+	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
+	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in milliseconds", "logid", "ep", "rc")
+}
+
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
 var Entrypoints = []EntrypointName{AddChainName, AddPreChainName, GetSTHName, GetSTHConsistencyName, GetProofByHashName, GetEntriesName, GetRootsName, GetEntryAndProofName}
 
@@ -100,8 +122,15 @@ type AppHandler struct {
 // ServeHTTP for an AppHandler invokes the underlying handler function but
 // does additional common error and stats processing.
 func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	a.Context.exp.vars.Add("http-all-reqs", 1)
-	a.Context.exp.reqs.Add(string(a.Name), 1)
+	var status int
+	label0 := strconv.FormatInt(a.Context.logID, 10)
+	label1 := string(a.Name)
+	reqsCounter.Inc(label0, label1)
+	startTime := a.Context.TimeSource.Now()
+	defer func() {
+		latency := (a.Context.TimeSource.Now().Sub(startTime).Nanoseconds()) / millisPerNano
+		rspLatency.Observe(float64(latency), label0, label1, strconv.Itoa(status))
+	}()
 	glog.V(2).Infof("%s: request %v %q => %s", a.Context.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
 		glog.Warningf("%s: %s wrong HTTP method: %v", a.Context.LogPrefix, a.Name, r.Method)
@@ -125,11 +154,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	status, err := a.Handler(ctx, a.Context, w, r)
 	glog.V(2).Infof("%s: %s <= status=%d", a.Context.LogPrefix, a.Name, status)
-	a.Context.exp.allRsps.Add(strconv.Itoa(status), 1)
-	e := a.Context.exp.rsps.Get(string(a.Name))
-	if e, ok := e.(*expvar.Map); ok {
-		e.Add(strconv.Itoa(status), 1)
-	}
+	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
 		glog.Warningf("%s: %s handler error: %v", a.Context.LogPrefix, a.Name, err)
 		sendHTTPError(w, status, err)
@@ -173,21 +198,10 @@ type LogContext struct {
 	signer *crypto.Signer
 	// rpcDeadline is the deadline that will be set on all backend RPC requests
 	rpcDeadline time.Duration
-	// Various per-log statistics
-	exp struct {
-		vars             *expvar.Map // varname => expvar.Var, includes all below
-		lastSCTTimestamp *expvar.Int
-		lastSTHTimestamp *expvar.Int
-		lastSTHTreeSize  *expvar.Int
-		// Statistics for HTTP requests/responses
-		reqs    *expvar.Map // entrypoint => expvar.Int  (as "http-reqs")
-		allRsps *expvar.Map // http.rc => expvar.Int  (as "http-all-rsps")
-		rsps    *expvar.Map // entrypoint => expvar.Map[http.rc => expvar.Int]  (as "http-rsps")
-	}
 }
 
 // NewLogContext creates a new instance of LogContext.
-func NewLogContext(logID int64, prefix string, trustedRoots *PEMCertPool, rejectExpired bool, extKeyUsages []x509.ExtKeyUsage, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, rpcDeadline time.Duration, timeSource util.TimeSource) *LogContext {
+func NewLogContext(logID int64, prefix string, trustedRoots *PEMCertPool, rejectExpired bool, extKeyUsages []x509.ExtKeyUsage, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, rpcDeadline time.Duration, timeSource util.TimeSource, mf monitoring.MetricFactory) *LogContext {
 	ctx := &LogContext{
 		logID:       logID,
 		urlPrefix:   prefix,
@@ -202,30 +216,7 @@ func NewLogContext(logID int64, prefix string, trustedRoots *PEMCertPool, reject
 			extKeyUsages:  extKeyUsages,
 		},
 	}
-
-	// Initialize all the exported variables.
-	ctx.exp.vars = new(expvar.Map).Init()
-
-	e := new(expvar.Int)
-	e.Set(logID)
-	ctx.exp.vars.Set("log-id", e)
-	ctx.exp.lastSCTTimestamp = new(expvar.Int)
-	ctx.exp.vars.Set("last-sct-timestamp", ctx.exp.lastSCTTimestamp)
-	ctx.exp.lastSTHTimestamp = new(expvar.Int)
-	ctx.exp.vars.Set("last-sth-timestamp", ctx.exp.lastSTHTimestamp)
-	ctx.exp.lastSTHTreeSize = new(expvar.Int)
-	ctx.exp.vars.Set("last-sth-treesize", ctx.exp.lastSTHTreeSize)
-
-	// TODO(drysdale): investigate whether there's a generic wrapper to do this
-	ctx.exp.reqs = new(expvar.Map).Init()
-	ctx.exp.vars.Set("http-reqs", ctx.exp.reqs)
-	ctx.exp.allRsps = new(expvar.Map).Init()
-	ctx.exp.vars.Set("http-all-rsps", ctx.exp.allRsps)
-	ctx.exp.rsps = new(expvar.Map).Init()
-	for _, ep := range Entrypoints {
-		ctx.exp.rsps.Set(string(ep), new(expvar.Map).Init())
-	}
-	ctx.exp.vars.Set("http-rsps", ctx.exp.rsps)
+	once.Do(func() { setupMetrics(mf) })
 
 	return ctx
 }
@@ -354,7 +345,7 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 		return http.StatusInternalServerError, fmt.Errorf("failed to write response: %v", err)
 	}
 	glog.V(3).Infof("%s: %s <= SCT", c.LogPrefix, method)
-	c.exp.lastSCTTimestamp.Set(int64(sct.Timestamp))
+	lastSCTTimestamp.Set(float64(sct.Timestamp), strconv.FormatInt(c.logID, 10))
 
 	return http.StatusOK, nil
 }
@@ -425,8 +416,8 @@ func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Re
 		// Probably too late for this as headers might have been written but we don't know for sure
 		return http.StatusInternalServerError, fmt.Errorf("failed to write response data: %v", err)
 	}
-	c.exp.lastSTHTimestamp.Set(int64(sth.Timestamp))
-	c.exp.lastSTHTreeSize.Set(int64(sth.TreeSize))
+	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(c.logID, 10))
+	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(c.logID, 10))
 
 	return http.StatusOK, nil
 }

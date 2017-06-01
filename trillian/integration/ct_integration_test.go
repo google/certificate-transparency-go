@@ -111,6 +111,8 @@ func TestInProcessCTIntegration(t *testing.T) {
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
 				stats := newWantStats(cfg.LogID)
+				// TODO(drysdale): reinstate stats checking once checks moved to Prometheus
+				stats = nil
 				if err := RunCTIntegrationForLog(*cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}

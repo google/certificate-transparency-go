@@ -42,6 +42,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/monitoring"
 	"github.com/kylelemons/godebug/pretty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -111,7 +112,7 @@ func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTe
 	}
 
 	info.client = mockclient.NewMockTrillianLogClient(info.mockCtrl)
-	info.c = *NewLogContext(0x42, "test", info.roots, false, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, info.client, signer, time.Millisecond*500, fakeTimeSource)
+	info.c = *NewLogContext(0x42, "test", info.roots, false, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, info.client, signer, time.Millisecond*500, fakeTimeSource, monitoring.InertMetricFactory{})
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {
