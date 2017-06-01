@@ -17,18 +17,20 @@
 package integration
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +46,11 @@ import (
 	"github.com/google/trillian/crypto/keys"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
+)
+
+const (
+	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} (\d+)$`
+	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
 )
 
 // Verifier is used to verify Merkle tree calculations.
@@ -95,7 +102,7 @@ func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
-func RunCTIntegrationForLog(cfg ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *wantStats) error {
+func RunCTIntegrationForLog(cfg ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
 	opts := jsonclient.Options{}
 	if cfg.PubKeyPEMFile != "" {
 		pubkey, err := ioutil.ReadFile(cfg.PubKeyPEMFile)
@@ -498,7 +505,7 @@ func CertsFromPEM(data []byte) []ct.ASN1Cert {
 }
 
 // awaitTreeSize loops until the an STH is retrieved that is the specified size (or larger, if exact is false).
-func awaitTreeSize(ctx context.Context, logClient *client.LogClient, size uint64, exact bool, mmd time.Duration, stats *wantStats) (*ct.SignedTreeHead, error) {
+func awaitTreeSize(ctx context.Context, logClient *client.LogClient, size uint64, exact bool, mmd time.Duration, stats *logStats) (*ct.SignedTreeHead, error) {
 	var sth *ct.SignedTreeHead
 	deadline := time.Now().Add(mmd)
 	for sth == nil || sth.TreeSize < size {
@@ -603,42 +610,48 @@ func MakeSigner(testdir string) (crypto.Signer, error) {
 	return key, nil
 }
 
-// Track HTTP requests/responses in parallel so we can check the stats exported by the log.
-type wantStats ctfe.LogStats
+// Track HTTP requests/responses so we can check the stats exported by the log.
+type logStats struct {
+	logID            int64
+	lastSCTTimestamp int
+	lastSTHTimestamp int
+	lastSTHTreesize  int
+	reqs             map[string]int            // entrypoint =>count
+	rsps             map[string]map[string]int // entrypoint => status => count
 
-func newWantStats(logID int64) *wantStats {
-	stats := wantStats{
-		LogID:       int(logID),
-		HTTPAllRsps: make(map[string]int),
-		HTTPReq:     make(map[ctfe.EntrypointName]int),
-		HTTPRsps:    make(map[ctfe.EntrypointName]map[string]int),
+}
+
+func newLogStats(logID int64) *logStats {
+	stats := logStats{
+		logID: logID,
+		reqs:  make(map[string]int),
+		rsps:  make(map[string]map[string]int),
 	}
 	for _, ep := range ctfe.Entrypoints {
-		stats.HTTPRsps[ep] = make(map[string]int)
+		stats.rsps[string(ep)] = make(map[string]int)
 	}
 	return &stats
 }
 
-func (want *wantStats) done(ep ctfe.EntrypointName, rc int) {
-	if want == nil {
+func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
+	if ls == nil {
 		return
 	}
-	want.HTTPAllReqs++
-	status := strconv.Itoa(rc)
-	want.HTTPAllRsps[status]++
-	want.HTTPReq[ep]++
-	want.HTTPRsps[ep][status]++
+	ls.reqs[string(ep)]++
+	ls.rsps[string(ep)][strconv.Itoa(rc)]++
 }
 
-func (want *wantStats) check(cfg ctfe.LogConfig, servers string) error {
-	if want == nil {
+func (ls *logStats) check(cfg ctfe.LogConfig, servers string) error {
+	if ls == nil {
 		return nil
 	}
+	reqsRE := regexp.MustCompile(reqStatsRE)
+	rspsRE := regexp.MustCompile(rspStatsRE)
+
 	ctx := context.Background()
-	got := newWantStats(int64(want.LogID))
-	rcs := []string{"200", "400"}
+	got := newLogStats(int64(ls.logID))
 	for _, s := range strings.Split(servers, ",") {
-		httpReq, err := http.NewRequest(http.MethodGet, "http://"+s+"/debug/vars", nil)
+		httpReq, err := http.NewRequest(http.MethodGet, "http://"+s+"/metrics", nil)
 		if err != nil {
 			return fmt.Errorf("failed to build GET request: %v", err)
 		}
@@ -653,47 +666,40 @@ func (want *wantStats) check(cfg ctfe.LogConfig, servers string) error {
 		if httpRsp.StatusCode != http.StatusOK {
 			return fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
-		var stats ctfe.AllStats
-		if err := json.NewDecoder(httpRsp.Body).Decode(&stats); err != nil {
-			return fmt.Errorf("failed to json.Decode(), result: %v", err)
-		}
-		gotSingle := stats.Logs[cfg.Prefix]
-		if gotSingle.LogID != want.LogID {
-			return fmt.Errorf("got stats.log-id %d, want %d", got.LogID, want.LogID)
-		}
 
-		// Accumulate per-server stats for this log into overall per-log stats.
-		got.HTTPAllReqs += gotSingle.HTTPAllReqs
-		for _, rc := range rcs {
-			got.HTTPAllRsps[rc] += gotSingle.HTTPAllRsps[rc]
-		}
-		for _, ep := range ctfe.Entrypoints {
-			got.HTTPReq[ep] += gotSingle.HTTPReq[ep]
-			for _, rc := range rcs {
-				got.HTTPRsps[ep][rc] += gotSingle.HTTPRsps[ep][rc]
+		scanner := bufio.NewScanner(httpRsp.Body)
+		for scanner.Scan() {
+			line := scanner.Text()
+			m := reqsRE.FindStringSubmatch(line)
+			if m != nil {
+				if m[2] == strconv.FormatInt(ls.logID, 10) {
+					if val, err := strconv.Atoi(m[3]); err == nil {
+						ep := m[1]
+						got.reqs[ep] += val
+					}
+				}
+				continue
+			}
+			m = rspsRE.FindStringSubmatch(line)
+			if m != nil {
+				if m[2] == strconv.FormatInt(ls.logID, 10) {
+					if val, err := strconv.Atoi(m[4]); err == nil {
+						ep := m[1]
+						rc := m[3]
+						got.rsps[ep][rc] += val
+					}
+				}
+				continue
 			}
 		}
 	}
 
 	// Now compare accumulated actual stats with what we expect to see.
-	if got.HTTPAllReqs != want.HTTPAllReqs {
-		return fmt.Errorf("got stats.http-all-reqs %d, want %d", got.HTTPAllReqs, want.HTTPAllReqs)
+	if !reflect.DeepEqual(got.reqs, ls.reqs) {
+		return fmt.Errorf("got reqs %+v; want %+v", got.reqs, ls.reqs)
 	}
-	for _, rc := range rcs {
-		if got.HTTPAllRsps[rc] != want.HTTPAllRsps[rc] {
-			return fmt.Errorf("got stats.http-all-rsps[%s]=%d; want %d", rc, got.HTTPAllRsps[rc], want.HTTPAllRsps[rc])
-		}
+	if !reflect.DeepEqual(got.rsps, ls.rsps) {
+		return fmt.Errorf("got rsps %+v; want %+v", got.rsps, ls.rsps)
 	}
-	for _, ep := range ctfe.Entrypoints {
-		if got.HTTPReq[ep] != want.HTTPReq[ep] {
-			return fmt.Errorf("got stats.http-reqs[%s] %d, want %d", ep, got.HTTPReq[ep], want.HTTPReq[ep])
-		}
-		for _, rc := range rcs {
-			if got.HTTPRsps[ep][rc] != want.HTTPRsps[ep][rc] {
-				return fmt.Errorf("got stats.http-rsps[%s][%s]=%d; want %d", ep, rc, got.HTTPRsps[ep][rc], want.HTTPRsps[ep][rc])
-			}
-		}
-	}
-
 	return nil
 }

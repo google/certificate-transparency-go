@@ -27,6 +27,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/testonly/integration"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // CTLogEnv is a test environment that contains both a log server and a CT personality
@@ -70,7 +71,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int,
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
 		for _, cfg := range cfgs {
-			handlers, err := cfg.SetUpInstance(client, 10*time.Second, prometheus.MetricFactory{Prefix: testID + "_"})
+			handlers, err := cfg.SetUpInstance(client, 10*time.Second, prometheus.MetricFactory{})
 			if err != nil {
 				glog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
 			}
@@ -78,6 +79,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int,
 				http.Handle(path, handler)
 			}
 		}
+		http.Handle("/metrics", promhttp.Handler())
 		server.Serve(listener)
 	}(logEnv, &server, listener, cfgs)
 	return &CTLogEnv{

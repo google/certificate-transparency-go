@@ -52,9 +52,9 @@ func TestLiveCTIntegration(t *testing.T) {
 		cfg := cfg // capture config
 		t.Run(cfg.Prefix, func(t *testing.T) {
 			t.Parallel()
-			var stats *wantStats
+			var stats *logStats
 			if !*skipStats {
-				stats = newWantStats(cfg.LogID)
+				stats = newLogStats(cfg.LogID)
 			}
 			if err := RunCTIntegrationForLog(cfg, *httpServersFlag, *testDir, *mmdFlag, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
@@ -110,9 +110,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 			cfg := cfg // capture config
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
-				stats := newWantStats(cfg.LogID)
-				// TODO(drysdale): reinstate stats checking once checks moved to Prometheus
-				stats = nil
+				stats := newLogStats(cfg.LogID)
 				if err := RunCTIntegrationForLog(*cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}
