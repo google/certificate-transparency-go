@@ -187,7 +187,7 @@ func (pc *pendingCerts) popIfMMDPassed(now time.Time) *submittedCert {
 type hammerState struct {
 	mu    sync.RWMutex
 	cfg   *HammerConfig
-	stats *wantStats
+	stats *logStats
 	// STHs are arranged from later to earlier (so [0] is the most recent), and the
 	// discovery of new STHs will push older ones off the end.
 	sth [sthCount]*ct.SignedTreeHead
@@ -208,7 +208,7 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 	state := hammerState{
 		cfg:   cfg,
-		stats: newWantStats(cfg.LogCfg.LogID),
+		stats: newLogStats(cfg.LogCfg.LogID),
 	}
 	return &state, nil
 }
@@ -435,7 +435,7 @@ func (s *hammerState) String() string {
 	statusOK := strconv.Itoa(http.StatusOK)
 	for _, ep := range ctfe.Entrypoints {
 		if s.cfg.EPBias.Bias[ep] > 0 {
-			l += fmt.Sprintf(" %s=%d/%d", ep, s.stats.HTTPRsps[ep][statusOK], s.stats.HTTPReq[ep])
+			l += fmt.Sprintf(" %s=%d/%d", ep, s.stats.rsps[string(ep)][statusOK], s.stats.reqs[string(ep)])
 		}
 	}
 	return l
