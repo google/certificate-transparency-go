@@ -31,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
+	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
@@ -101,8 +102,10 @@ func main() {
 	defer conn.Close()
 	client := trillian.NewTrillianLogClient(conn)
 
+	sf := keys.PEMSignerFactory{}
+
 	for _, c := range cfg {
-		handlers, err := c.SetUpInstance(client, *rpcDeadlineFlag, prometheus.MetricFactory{})
+		handlers, err := ctfe.SetUpInstance(ctx, client, c, sf, *rpcDeadlineFlag, prometheus.MetricFactory{})
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}

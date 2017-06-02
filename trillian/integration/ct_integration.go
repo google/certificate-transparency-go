@@ -23,7 +23,6 @@ import (
 	"crypto"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -45,6 +44,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 )
@@ -80,15 +80,11 @@ func (p RandomPool) Next() *client.LogClient {
 }
 
 // NewRandomPool creates a pool which returns a random client from list of servers.
-func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error) {
-	opts := jsonclient.Options{}
-	if pubPEMFile != "" {
-		pubkey, err := ioutil.ReadFile(pubPEMFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get public key contents: %v", err)
-		}
-		opts.PublicKey = string(pubkey)
+func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (ClientPool, error) {
+	opts := jsonclient.Options{
+		PublicKeyDER: pubKey.GetDer(),
 	}
+
 	var pool RandomPool
 	for _, s := range strings.Split(servers, ",") {
 		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), nil, opts)
@@ -103,16 +99,8 @@ func NewRandomPool(servers string, pubPEMFile, prefix string) (ClientPool, error
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
-func RunCTIntegrationForLog(cfg ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
-	opts := jsonclient.Options{}
-	if cfg.PubKeyPemFile != "" {
-		pubkey, err := ioutil.ReadFile(cfg.PubKeyPemFile)
-		if err != nil {
-			return fmt.Errorf("failed to get public key contents: %v", err)
-		}
-		opts.PublicKey = string(pubkey)
-	}
-	pool, err := NewRandomPool(servers, cfg.PubKeyPemFile, cfg.Prefix)
+func RunCTIntegrationForLog(cfg *ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
+	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}
@@ -642,7 +630,7 @@ func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
 	ls.rsps[string(ep)][strconv.Itoa(rc)]++
 }
 
-func (ls *logStats) check(cfg ctfe.LogConfig, servers string) error {
+func (ls *logStats) check(cfg *ctfe.LogConfig, servers string) error {
 	if ls == nil {
 		return nil
 	}
