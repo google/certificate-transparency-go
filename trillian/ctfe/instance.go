@@ -15,6 +15,7 @@
 package ctfe
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,7 +33,7 @@ import (
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
 // filename, which should contain JSON encoded configuration data.
-func LogConfigFromFile(filename string) ([]LogConfig, error) {
+func LogConfigFromFile(filename string) ([]*LogConfig, error) {
 	if len(filename) == 0 {
 		return nil, errors.New("log config filename empty")
 	}
@@ -43,13 +44,13 @@ func LogConfigFromFile(filename string) ([]LogConfig, error) {
 	}
 
 	decoder := json.NewDecoder(file)
-	var cfgs []LogConfig
+	var cfgs []*LogConfig
 	for decoder.More() {
 		var cfg LogConfig
 		if err := jsonpb.UnmarshalNext(decoder, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config data: %v", err)
 		}
-		cfgs = append(cfgs, cfg)
+		cfgs = append(cfgs, &cfg)
 	}
 	if len(cfgs) == 0 {
 		return nil, errors.New("empty log config found")
@@ -74,13 +75,13 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate
 // with the Trillian RPC back end.
-func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
+func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *LogConfig, sf keys.SignerFactory, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
 	// Check config validity.
 	if len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
 	}
-	if len(cfg.PrivKeyPemFile) == 0 {
-		return nil, errors.New("need to specify PrivKeyPemFile")
+	if cfg.PrivateKey == nil {
+		return nil, errors.New("need to specify PrivateKey")
 	}
 
 	// Load the trusted roots
@@ -92,7 +93,7 @@ func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline t
 	}
 
 	// Load the private key for this log.
-	key, err := keys.NewFromPrivatePEMFile(cfg.PrivKeyPemFile, cfg.PrivKeyPassword)
+	key, err := sf.NewSigner(ctx, cfg.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}
@@ -112,8 +113,8 @@ func (cfg LogConfig) SetUpInstance(client trillian.TrillianLogClient, deadline t
 	}
 
 	// Create and register the handlers using the RPC client we just set up
-	ctx := NewLogContext(cfg.LogId, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
+	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
 
-	handlers := ctx.Handlers(cfg.Prefix)
+	handlers := logCtx.Handlers(cfg.Prefix)
 	return &handlers, nil
 }

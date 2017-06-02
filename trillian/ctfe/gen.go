@@ -14,4 +14,4 @@
 
 package ctfe
 
-//go:generate protoc -I=. --go_out=:. config.proto
+//go:generate protoc -I=. -I=$GOPATH/src --go_out=:. config.proto

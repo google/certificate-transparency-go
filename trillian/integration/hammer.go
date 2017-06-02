@@ -55,7 +55,7 @@ func (e errSkip) Error() string {
 // HammerConfig provides configuration for a stress/load test.
 type HammerConfig struct {
 	// Configuration for the log.
-	LogCfg ctfe.LogConfig
+	LogCfg *ctfe.LogConfig
 	// Maximum merge delay.
 	MMD time.Duration
 	// Leaf certificate chain to use as template.

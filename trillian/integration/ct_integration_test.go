@@ -16,13 +16,17 @@ package integration
 
 import (
 	"context"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/trillian/crypto/keyspb"
 )
 
 var httpServersFlag = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
@@ -71,28 +75,36 @@ const (
 )
 
 func TestInProcessCTIntegration(t *testing.T) {
+	pubKeyDER, err := loadPublicKey(pubKeyPEMFile)
+	if err != nil {
+		t.Fatalf("Could not load public key: %v", err)
+	}
+
+	pubKey := &keyspb.PublicKey{Der: pubKeyDER}
+	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: privKeyPEMFile, Password: privKeyPassword})
+	if err != nil {
+		t.Fatalf("Could not marshal private key as protobuf Any: %v", err)
+	}
+
 	ctx := context.Background()
 	cfgs := []*ctfe.LogConfig{
 		{
-			Prefix:          "athos",
-			RootsPemFile:    []string{rootsPEMFile},
-			PubKeyPemFile:   pubKeyPEMFile,
-			PrivKeyPemFile:  privKeyPEMFile,
-			PrivKeyPassword: privKeyPassword,
+			Prefix:       "athos",
+			RootsPemFile: []string{rootsPEMFile},
+			PublicKey:    pubKey,
+			PrivateKey:   privKey,
 		},
 		{
-			Prefix:          "porthos",
-			RootsPemFile:    []string{rootsPEMFile},
-			PubKeyPemFile:   pubKeyPEMFile,
-			PrivKeyPemFile:  privKeyPEMFile,
-			PrivKeyPassword: privKeyPassword,
+			Prefix:       "porthos",
+			RootsPemFile: []string{rootsPEMFile},
+			PublicKey:    pubKey,
+			PrivateKey:   privKey,
 		},
 		{
-			Prefix:          "aramis",
-			RootsPemFile:    []string{rootsPEMFile},
-			PubKeyPemFile:   pubKeyPEMFile,
-			PrivKeyPemFile:  privKeyPEMFile,
-			PrivKeyPassword: privKeyPassword,
+			Prefix:       "aramis",
+			RootsPemFile: []string{rootsPEMFile},
+			PublicKey:    pubKey,
+			PrivateKey:   privKey,
 		},
 	}
 
@@ -111,10 +123,27 @@ func TestInProcessCTIntegration(t *testing.T) {
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
 				stats := newLogStats(cfg.LogId)
-				if err := RunCTIntegrationForLog(*cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
+				if err := RunCTIntegrationForLog(cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}
 			})
 		}
 	})
+}
+
+func loadPublicKey(path string) ([]byte, error) {
+	pemKey, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(pemKey)
+	if block == nil {
+		return nil, fmt.Errorf("could not decode PEM public key: %v", path)
+	}
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("got %q PEM, want \"PUBLIC KEY\": %v", block.Type, path)
+	}
+
+	return block.Bytes, nil
 }
