@@ -41,6 +41,11 @@ ct_prep_test() {
     wait_for_server_startup ${port}
   done
   CT_SERVERS="${CT_SERVERS:1}"
+
+  if [[ ! -z "${ETCD_OPTS}" ]]; then
+    echo "Registered HTTP endpoints"
+    ETCDCTL_API=3 etcdctl get trillian-ctfe-http/ --prefix
+  fi
 }
 
 # ct_provision generates a CT configuration file and provisions the trees for it.
