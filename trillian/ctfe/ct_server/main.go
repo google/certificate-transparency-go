@@ -18,7 +18,6 @@ package main
 import (
 	_ "expvar" // For HTTP server registration
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,8 +38,7 @@ import (
 
 // Global flags that affect all log instances.
 var (
-	serverHostFlag    = flag.String("host", "localhost", "Address to serve CT log requests on")
-	serverPortFlag    = flag.Int("port", 6962, "Port to serve CT log requests on")
+	httpEndpoint      = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
 	rpcBackendFlag    = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
 	rpcDeadlineFlag   = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
@@ -102,7 +100,7 @@ func main() {
 	go awaitSignal(func() {
 		os.Exit(1)
 	})
-	server := http.Server{Addr: fmt.Sprintf("%s:%d", *serverHostFlag, *serverPortFlag), Handler: nil}
+	server := http.Server{Addr: *httpEndpoint, Handler: nil}
 	err = server.ListenAndServe()
 	glog.Warningf("Server exited: %v", err)
 	glog.Flush()

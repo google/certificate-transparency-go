@@ -35,7 +35,7 @@ ct_prep_test() {
     CT_SERVERS="${CT_SERVERS},localhost:${port}"
 
     echo "Starting CT HTTP server on localhost:${port}"
-    ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --port=${port} &
+    ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" &
     pid=$!
     CT_SERVER_PIDS+=(${pid})
     wait_for_server_startup ${port}
