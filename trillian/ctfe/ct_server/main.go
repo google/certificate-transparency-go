@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	_ "expvar" // For HTTP server registration
 	"flag"
 	"net/http"
@@ -44,10 +45,12 @@ var (
 	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
 	maxGetEntriesFlag = flag.Int64("maxGetEntriesAllowed", 0, "Max number of entries we allow in a get-entries request (default 50)")
 	etcdServers       = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
+	etcdHTTPService   = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 )
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 
 	if *maxGetEntriesFlag > 0 {
 		ctfe.MaxGetEntriesAllowed = *maxGetEntriesFlag
@@ -73,7 +76,19 @@ func main() {
 		if err != nil {
 			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
-		res = &etcdnaming.GRPCResolver{Client: client}
+		etcdRes := &etcdnaming.GRPCResolver{Client: client}
+		res = etcdRes
+
+		// Also announce ourselves.
+		update := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
+		etcdRes.Update(ctx, *etcdHTTPService, update)
+		glog.Infof("Announcing our presence in %v with %+v", *etcdHTTPService, update)
+
+		bye := naming.Update{Op: naming.Delete, Addr: *httpEndpoint}
+		defer func() {
+			glog.Infof("Removing our presence in %v with %+v", *etcdHTTPService, update)
+			etcdRes.Update(ctx, *etcdHTTPService, bye)
+		}()
 	} else {
 		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
 		res = util.FixedBackendResolver{}
