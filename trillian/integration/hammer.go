@@ -84,6 +84,8 @@ type HammerConfig struct {
 type HammerBias struct {
 	Bias  map[ctfe.EntrypointName]int
 	total int
+	// InvalidChance gives the odds of performing an invalid operation, as the N in 1-in-N.
+	InvalidChance map[ctfe.EntrypointName]int
 }
 
 // Choose randomly picks an operation to perform according to the biases.
@@ -101,6 +103,15 @@ func (hb HammerBias) Choose() ctfe.EntrypointName {
 		}
 	}
 	panic("random choice out of range")
+}
+
+// Invalid randomly chooses whether an operation should be invalid.
+func (hb HammerBias) Invalid(ep ctfe.EntrypointName) bool {
+	chance := hb.InvalidChance[ep]
+	if chance <= 0 {
+		return false
+	}
+	return (rand.Intn(chance) == 0)
 }
 
 type submittedCert struct {
@@ -198,6 +209,8 @@ type hammerState struct {
 	pending pendingCerts
 	// totalOps is a running count of operations performed by this hammer.
 	totalOps int64
+	// totalInvalidOps is a running count of invalid operations performed by this hammer.
+	totalInvalidOps int64
 	// totalErrs is a running count of failed operations.
 	totalErrs int64
 }
@@ -215,6 +228,13 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 
 func (s *hammerState) client() *client.LogClient {
 	return s.cfg.ClientPool.Next()
+}
+
+func (s *hammerState) lastTreeSize() uint64 {
+	if s.sth[0] == nil {
+		return 0
+	}
+	return s.sth[0].TreeSize
 }
 
 // addMultiple calls the passed in function a random number
@@ -275,6 +295,19 @@ func (s *hammerState) addChain(ctx context.Context) error {
 	return nil
 }
 
+func (s *hammerState) addChainInvalid(ctx context.Context) error {
+	// Invalid because it's a pre-cert chain, not a cert chain.
+	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	if err != nil {
+		return fmt.Errorf("failed to make fresh cert: %v", err)
+	}
+	sct, err := s.client().AddChain(ctx, chain)
+	if err == nil {
+		return fmt.Errorf("unexpected success: add-chain: %+v", sct)
+	}
+	return nil
+}
+
 func (s *hammerState) addPreChain(ctx context.Context) error {
 	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
 	if err != nil {
@@ -308,6 +341,19 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 	submitted.leafHash = sha256.Sum256(append([]byte{merkletree.LeafPrefix}, submitted.leafData...))
 	s.pending.tryAppendCert(time.Now(), s.cfg.MMD, &submitted)
 	glog.V(3).Infof("%s: Uploaded pre-cert has leaf-hash %x", s.cfg.LogCfg.Prefix, submitted.leafHash)
+	return nil
+}
+
+func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
+	// Invalid because it's a cert chain, not a pre-cert chain.
+	prechain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	if err != nil {
+		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
+	}
+	sct, err := s.client().AddPreChain(ctx, prechain)
+	if err == nil {
+		return fmt.Errorf("unexpected success: add-pre-chain: %+v", sct)
+	}
 	return nil
 }
 
@@ -353,6 +399,17 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 	return nil
 }
 
+func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
+	// Invalid because it's beyond the tree size.
+	first := s.lastTreeSize() + 100000
+	second := first + 100
+	proof, err := s.client().GetSTHConsistency(ctx, first, second)
+	if err == nil {
+		return fmt.Errorf("unexpected success: get-sth-consistency(%d, %d): %+v", first, second, proof)
+	}
+	return nil
+}
+
 func (s *hammerState) getProofByHash(ctx context.Context) error {
 	submitted := s.pending.popIfMMDPassed(time.Now())
 	if submitted == nil {
@@ -371,6 +428,15 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 	}
 	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], submitted.leafData); err != nil {
 		return fmt.Errorf("failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+	}
+	return nil
+}
+
+func (s *hammerState) getProofByHashInvalid(ctx context.Context) error {
+	// Invalid because the hash is wrong.
+	rsp, err := s.client().GetProofByHash(ctx, []byte{0x01, 0x02}, 1)
+	if err == nil {
+		return fmt.Errorf("unexpected success: get-proof-by-hash(0x0102, 1): %+v", rsp)
 	}
 	return nil
 }
@@ -411,6 +477,17 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 	return nil
 }
 
+func (s *hammerState) getEntriesInvalid(ctx context.Context) error {
+	// Invalid because it's beyond the tree size.
+	last := int64(s.lastTreeSize()) + 100000
+	first := last - 4
+	entries, err := s.client().GetEntries(ctx, first, last)
+	if err == nil {
+		return fmt.Errorf("unexpected success: get-entries(%d,%d): %d entries", first, last, len(entries))
+	}
+	return nil
+}
+
 func (s *hammerState) getRoots(ctx context.Context) error {
 	roots, err := s.client().GetAcceptedRoots(ctx)
 	if err != nil {
@@ -431,7 +508,7 @@ func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d errs=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps, s.totalErrs)
+	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d invalid=%d errs=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps, s.totalInvalidOps, s.totalErrs)
 	statusOK := strconv.Itoa(http.StatusOK)
 	for _, ep := range ctfe.Entrypoints {
 		if s.cfg.EPBias.Bias[ep] > 0 {
@@ -473,16 +550,47 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 	return status, err
 }
 
+func (s *hammerState) performInvalidOp(ctx context.Context, ep ctfe.EntrypointName) error {
+	switch ep {
+	case ctfe.AddChainName:
+		return s.addChainInvalid(ctx)
+	case ctfe.AddPreChainName:
+		return s.addPreChainInvalid(ctx)
+	case ctfe.GetSTHConsistencyName:
+		return s.getSTHConsistencyInvalid(ctx)
+	case ctfe.GetProofByHashName:
+		return s.getProofByHashInvalid(ctx)
+	case ctfe.GetEntriesName:
+		return s.getEntriesInvalid(ctx)
+	case ctfe.GetSTHName, ctfe.GetRootsName:
+		return fmt.Errorf("no invalid request possible for entrypoint %s", ep)
+	case ctfe.GetEntryAndProofName:
+		return fmt.Errorf("hammering entrypoint %s not yet implemented", ep)
+	}
+	return fmt.Errorf("internal error: unknown entrypoint %s", ep)
+}
+
 func (s *hammerState) chooseOp() ctfe.EntrypointName {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.cfg.EPBias.Choose()
 }
 
+func (s *hammerState) chooseInvalid(ep ctfe.EntrypointName) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cfg.EPBias.Invalid(ep)
+}
+
 func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	ep := s.chooseOp()
-	glog.V(3).Infof("perform %s operation", ep)
+	if s.chooseInvalid(ep) {
+		glog.V(3).Infof("perform invalid %s operation", ep)
+		s.totalInvalidOps++
+		return s.performInvalidOp(ctx, ep)
+	}
 
+	glog.V(3).Infof("perform %s operation", ep)
 	status := http.StatusOK
 	deadline := time.Now().Add(maxRetryDuration)
 
@@ -491,7 +599,6 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 		s.mu.Lock()
 
 		s.totalOps++
-
 		status, err = s.performOp(ctx, ep)
 
 		switch err.(type) {

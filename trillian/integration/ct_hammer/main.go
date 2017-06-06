@@ -34,23 +34,24 @@ import (
 )
 
 var (
-	httpServersFlag = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
-	testDir         = flag.String("testdata_dir", "testdata", "Name of directory with test data")
-	seed            = flag.Int64("seed", -1, "Seed for random number generation")
-	logConfigFlag   = flag.String("log_config", "", "File holding log config in JSON")
-	mmdFlag         = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
-	operationsFlag  = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
+	httpServersFlag   = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
+	testDir           = flag.String("testdata_dir", "testdata", "Name of directory with test data")
+	seed              = flag.Int64("seed", -1, "Seed for random number generation")
+	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
+	mmdFlag           = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
+	operationsFlag    = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
+	maxParallelChains = flag.Int("max_parallel_chains", 2, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
 	addPreChainBias       = flag.Int("add_pre_chain", 20, "Bias for add-pre-chain operations")
-	maxParallelChains     = flag.Int("max_parallel_chains", 5, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
 	getSTHBias            = flag.Int("get_sth", 2, "Bias for get-sth operations")
 	getSTHConsistencyBias = flag.Int("get_sth_consistency", 2, "Bias for get-sth-consistency operations")
 	getProofByHashBias    = flag.Int("get_proof_by_hash", 2, "Bias for get-proof-by-hash operations")
 	getEntriesBias        = flag.Int("get_entries", 2, "Bias for get-entries operations")
 	getRootsBias          = flag.Int("get_roots", 1, "Bias for get-roots operations")
 	getEntryAndProofBias  = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
+	invalidChance         = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
 )
 
 func main() {
@@ -90,16 +91,28 @@ func main() {
 	if err != nil {
 		glog.Exitf("failed to parse issuer for precert: %v", err)
 	}
-	bias := integration.HammerBias{Bias: map[ctfe.EntrypointName]int{
-		ctfe.AddChainName:          *addChainBias,
-		ctfe.AddPreChainName:       *addPreChainBias,
-		ctfe.GetSTHName:            *getSTHBias,
-		ctfe.GetSTHConsistencyName: *getSTHConsistencyBias,
-		ctfe.GetProofByHashName:    *getProofByHashBias,
-		ctfe.GetEntriesName:        *getEntriesBias,
-		ctfe.GetRootsName:          *getRootsBias,
-		ctfe.GetEntryAndProofName:  *getEntryAndProofBias,
-	}}
+	bias := integration.HammerBias{
+		Bias: map[ctfe.EntrypointName]int{
+			ctfe.AddChainName:          *addChainBias,
+			ctfe.AddPreChainName:       *addPreChainBias,
+			ctfe.GetSTHName:            *getSTHBias,
+			ctfe.GetSTHConsistencyName: *getSTHConsistencyBias,
+			ctfe.GetProofByHashName:    *getProofByHashBias,
+			ctfe.GetEntriesName:        *getEntriesBias,
+			ctfe.GetRootsName:          *getRootsBias,
+			ctfe.GetEntryAndProofName:  *getEntryAndProofBias,
+		},
+		InvalidChance: map[ctfe.EntrypointName]int{
+			ctfe.AddChainName:          *invalidChance,
+			ctfe.AddPreChainName:       *invalidChance,
+			ctfe.GetSTHName:            0,
+			ctfe.GetSTHConsistencyName: *invalidChance,
+			ctfe.GetProofByHashName:    *invalidChance,
+			ctfe.GetEntriesName:        *invalidChance,
+			ctfe.GetRootsName:          0,
+			ctfe.GetEntryAndProofName:  0,
+		},
+	}
 
 	fmt.Print("\n\nStop")
 	for i := 0; i < 8; i++ {
