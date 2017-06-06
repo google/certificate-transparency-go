@@ -13,7 +13,10 @@ CT_CFG=
 # Populates:
 #  - CT_SERVERS     : list of HTTP addresses (comma separated)
 #  - CT_SERVER_PIDS : bash array of CT HTTP server pids
-# in addition to the variables populated by logPrepTest.
+# in addition to the variables populated by log_prep_test.
+# If etcd and Prometheus are configured, it also populates:
+#  - ETCDISCOVER_PID : pid of etcd service watcher
+#  - PROMETHEUS_PID  : pid of local Prometheus server
 ct_prep_test() {
   # Default to one of everything.
   local rpc_server_count=${1:-1}
@@ -45,6 +48,19 @@ ct_prep_test() {
   if [[ ! -z "${ETCD_OPTS}" ]]; then
     echo "Registered HTTP endpoints"
     ETCDCTL_API=3 etcdctl get trillian-ctfe-http/ --prefix
+  fi
+
+  if [[ -x "${PROMETHEUS_DIR}/prometheus" ]]; then
+    if [[ ! -z "${ETCD_OPTS}" ]]; then
+        echo "Building etcdiscover"
+        go build github.com/google/trillian/monitoring/prometheus/etcdiscover
+        echo "Launching etcd service monitor"
+        ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-http,trillian-logserver-http,trillian-logsigner-http -target=./trillian.json --logtostderr &
+        ETCDISCOVER_PID=$!
+        echo "Launching Prometheus (default location localhost:9090)"
+        ${PROMETHEUS_DIR}/prometheus --config.file=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml &
+        PROMETHEUS_PID=$!
+    fi
   fi
 }
 
@@ -87,6 +103,12 @@ ct_provision() {
 # Assumes the following variables are set, in addition to those needed by logStopTest:
 #  - CT_SERVER_PIDS  : bash array of CT HTTP server pids
 ct_stop_test() {
+  if [[ "${PROMETHEUS_PID}" != "" ]]; then
+    kill_pid ${PROMETHEUS_PID}
+  fi
+  if [[ "${ETCDISCOVER_PID}" != "" ]]; then
+    kill_pid ${ETCDISCOVER_PID}
+  fi
   for pid in "${CT_SERVER_PIDS[@]}"; do
     echo "Stopping CT HTTP server (pid ${pid})"
     kill_pid ${pid}
