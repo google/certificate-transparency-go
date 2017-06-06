@@ -1,5 +1,8 @@
 ct_server
 createtree
 ct_hammer
+etcdiscover
 trillian_log_server
 trillian_log_signer
+trillian.json
+data
