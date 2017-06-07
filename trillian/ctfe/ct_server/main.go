@@ -23,7 +23,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
