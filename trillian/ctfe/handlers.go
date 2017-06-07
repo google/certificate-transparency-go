@@ -84,6 +84,8 @@ const (
 )
 
 var (
+	// Metrics are all per-log (label "logid"), but may also be
+	// per-entrypoint (label "ep") or per-return-code (label "rc").
 	once             sync.Once
 	lastSCTTimestamp monitoring.Gauge     // logid => value
 	lastSTHTimestamp monitoring.Gauge     // logid => value
