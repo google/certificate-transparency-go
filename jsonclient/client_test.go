@@ -16,6 +16,7 @@ package jsonclient
 
 import (
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"math"
 	"net/http"
@@ -32,31 +33,84 @@ import (
 	"github.com/google/certificate-transparency-go/testdata"
 )
 
+func publicKeyPEMToDER(key string) []byte {
+	block, _ := pem.Decode([]byte(key))
+	if block == nil {
+		panic("failed to decode public key PEM")
+	}
+	if block.Type != "PUBLIC KEY" {
+		panic("PEM does not have type 'PUBLIC KEY'")
+	}
+	return block.Bytes
+}
+
 func TestNewJSONClient(t *testing.T) {
 	tests := []struct {
-		pubKey string
+		name   string
+		opts   Options
 		errstr string
 	}{
-		{"bogus", "no PEM block"},
-		{testdata.RsaPublicKeyPEM, ""},
-		{testdata.EcdsaPublicKeyPEM, ""},
-		{testdata.DsaPublicKeyPEM, "Unsupported public key type"},
-		{testdata.RsaPublicKeyPEM + "bogus", "extra data found"},
+		{
+			name:   "invalid PublicKey",
+			opts:   Options{PublicKey: "bogus"},
+			errstr: "no PEM block",
+		},
+		{
+			name:   "invalid PublicKeyDER",
+			opts:   Options{PublicKeyDER: []byte("bogus")},
+			errstr: "asn1: structure error",
+		},
+		{
+			name: "RSA PublicKey",
+			opts: Options{PublicKey: testdata.RsaPublicKeyPEM},
+		},
+		{
+			name: "RSA PublicKeyDER",
+			opts: Options{PublicKeyDER: publicKeyPEMToDER(testdata.RsaPublicKeyPEM)},
+		},
+		{
+			name: "ECDSA PublicKey",
+			opts: Options{PublicKey: testdata.EcdsaPublicKeyPEM},
+		},
+		{
+			name: "ECDSA PublicKeyDER",
+			opts: Options{PublicKeyDER: publicKeyPEMToDER(testdata.EcdsaPublicKeyPEM)},
+		},
+		{
+			name:   "DSA PublicKey",
+			opts:   Options{PublicKey: testdata.DsaPublicKeyPEM},
+			errstr: "Unsupported public key type",
+		},
+		{
+			name:   "DSA PublicKeyDER",
+			opts:   Options{PublicKeyDER: publicKeyPEMToDER(testdata.DsaPublicKeyPEM)},
+			errstr: "Unsupported public key type",
+		},
+		{
+			name:   "PublicKey contains trailing garbage",
+			opts:   Options{PublicKey: testdata.RsaPublicKeyPEM + "bogus"},
+			errstr: "extra data found",
+		},
+		{
+			name:   "PublicKeyDER contains trailing garbage",
+			opts:   Options{PublicKeyDER: append(publicKeyPEMToDER(testdata.RsaPublicKeyPEM), []byte("deadbeef")...)},
+			errstr: "trailing data",
+		},
 	}
 	for _, test := range tests {
-		client, err := New("http://127.0.0.1", nil, Options{PublicKey: test.pubKey})
+		client, err := New("http://127.0.0.1", nil, test.opts)
 		if test.errstr != "" {
 			if err == nil {
-				t.Errorf("New()=%p,nil; want error %q", client, test.errstr)
+				t.Errorf("%v: New()=%p,nil; want error %q", test.name, client, test.errstr)
 			} else if !strings.Contains(err.Error(), test.errstr) {
-				t.Errorf("New()=nil,%q; want error %q", err.Error(), test.errstr)
+				t.Errorf("%v: New()=nil,%q; want error %q", test.name, err, test.errstr)
 			}
 			continue
 		}
 		if err != nil {
-			t.Errorf("New()=nil,%q; want no error", err.Error())
+			t.Errorf("%v: New()=nil,%q; want no error", test.name, err)
 		} else if client == nil {
-			t.Errorf("New()=nil,nil; want client")
+			t.Errorf("%v: New()=nil,nil; want client", test.name)
 		}
 	}
 }
