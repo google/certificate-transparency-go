@@ -87,6 +87,7 @@ var (
 	// Metrics are all per-log (label "logid"), but may also be
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
 	once             sync.Once
+	knownLogs        monitoring.Gauge     // logid => value (always 1.0)
 	lastSCTTimestamp monitoring.Gauge     // logid => value
 	lastSTHTimestamp monitoring.Gauge     // logid => value
 	lastSTHTreeSize  monitoring.Gauge     // logid => value
@@ -95,8 +96,9 @@ var (
 	rspLatency       monitoring.Histogram // logid, ep, rc => value
 )
 
+// setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
-	// Initialize all the exported metrics.
+	knownLogs = mf.NewGauge("known_logs", "Set to 1 for known logs", "logid")
 	lastSCTTimestamp = mf.NewGauge("last_sct_timestamp", "Time of last SCT in ms since epoch", "logid")
 	lastSTHTimestamp = mf.NewGauge("last_sth_timestamp", "Time of last STH in ms since epoch", "logid")
 	lastSTHTreeSize = mf.NewGauge("last_sth_treesize", "Size of tree at last STH", "logid")
@@ -219,6 +221,7 @@ func NewLogContext(logID int64, prefix string, trustedRoots *PEMCertPool, reject
 		},
 	}
 	once.Do(func() { setupMetrics(mf) })
+	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))
 
 	return ctx
 }
