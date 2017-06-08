@@ -58,7 +58,9 @@ ct_prep_test() {
         ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-http,trillian-logserver-http,trillian-logsigner-http -target=./trillian.json --logtostderr &
         ETCDISCOVER_PID=$!
         echo "Launching Prometheus (default location localhost:9090)"
-        ${PROMETHEUS_DIR}/prometheus --config.file=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml &
+        ${PROMETHEUS_DIR}/prometheus --config.file=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml \
+                           --web.console.templates=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/consoles \
+                           --web.console.libraries=${GOPATH}/src/github.com/google/certificate-transparency-go/third_party/prometheus/console_libs &
         PROMETHEUS_PID=$!
     fi
   fi
