@@ -16,6 +16,8 @@ package jsonclient
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,9 +54,32 @@ type Options struct {
 	// Interface to use for logging warnings and errors, if nil the
 	// standard library log package will be used.
 	Logger Logger
-	// PEM format public key to use for signature verification, if
-	// empty signatures will not be verified.
+	// PEM format public key to use for signature verification.
 	PublicKey string
+	// DER format public key to use for signature verification.
+	PublicKeyDER []byte
+}
+
+// ParsePublicKey parses and returns the public key contained in opts.
+// If both opts.PublicKey and opts.PublicKeyDER are set, PublicKeyDER is used.
+// If neither is set, nil will be returned.
+func (opts *Options) ParsePublicKey() (crypto.PublicKey, error) {
+	if len(opts.PublicKeyDER) > 0 {
+		return x509.ParsePKIXPublicKey(opts.PublicKeyDER)
+	}
+
+	if opts.PublicKey != "" {
+		pubkey, _ /* keyhash */, rest, err := ct.PublicKeyFromPEM([]byte(opts.PublicKey))
+		if err != nil {
+			return nil, err
+		}
+		if len(rest) > 0 {
+			return nil, errors.New("extra data found after PEM key decoded")
+		}
+		return pubkey, nil
+	}
+
+	return nil, nil
 }
 
 type basicLogger struct{}
@@ -65,21 +90,22 @@ func (bl *basicLogger) Printf(msg string, args ...interface{}) {
 
 // New constructs a new JSONClient instance, for the given base URI, using the
 // given http.Client object (if provided) and the Options object.
+// If opts does not specify a public key, signatures will not be verified.
 func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
+	pubkey, err := opts.ParsePublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("invalid public key: %v", err)
+	}
+
 	var verifier *ct.SignatureVerifier
-	if opts.PublicKey != "" {
-		pubkey, _ /* keyhash */, rest, err := ct.PublicKeyFromPEM([]byte(opts.PublicKey))
-		if err != nil {
-			return nil, err
-		}
-		if len(rest) > 0 {
-			return nil, errors.New("extra data found after PEM key decoded")
-		}
+	if pubkey != nil {
+		var err error
 		verifier, err = ct.NewSignatureVerifier(pubkey)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	if hc == nil {
 		hc = new(http.Client)
 	}
