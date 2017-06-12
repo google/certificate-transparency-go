@@ -163,8 +163,7 @@ func TestCreateSignatureFailures(t *testing.T) {
 	}{
 		{PEM2PrivKey(testdata.EcdsaPrivateKeyPKCS8PEM), 99, "abcd", "unsupported Algorithm.Hash"},
 		{nil, SHA256, "abcd", "unsupported private key type"},
-		// TODO(drysdale): the following test panics on Go < 1.7, so disable until the repo moves to 1.7
-		// {*bogusKey, MD5, "abcd", "zero parameter"},
+		{bogusKey(), MD5, "abcd", "zero parameter"},
 	}
 	for _, test := range tests {
 		if sig, err := CreateSignature(test.privKey, test.hashAlgo, testdata.FromHex(test.in)); err == nil {
