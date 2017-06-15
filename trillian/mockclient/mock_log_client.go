@@ -10,27 +10,30 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// Mock of TrillianLogClient interface
+// MockTrillianLogClient is a mock of TrillianLogClient interface
 type MockTrillianLogClient struct {
 	ctrl     *gomock.Controller
-	recorder *_MockTrillianLogClientRecorder
+	recorder *MockTrillianLogClientMockRecorder
 }
 
-// Recorder for MockTrillianLogClient (not exported)
-type _MockTrillianLogClientRecorder struct {
+// MockTrillianLogClientMockRecorder is the mock recorder for MockTrillianLogClient
+type MockTrillianLogClientMockRecorder struct {
 	mock *MockTrillianLogClient
 }
 
+// NewMockTrillianLogClient creates a new mock instance
 func NewMockTrillianLogClient(ctrl *gomock.Controller) *MockTrillianLogClient {
 	mock := &MockTrillianLogClient{ctrl: ctrl}
-	mock.recorder = &_MockTrillianLogClientRecorder{mock}
+	mock.recorder = &MockTrillianLogClientMockRecorder{mock}
 	return mock
 }
 
-func (_m *MockTrillianLogClient) EXPECT() *_MockTrillianLogClientRecorder {
+// EXPECT returns an object that allows the caller to indicate expected use
+func (_m *MockTrillianLogClient) EXPECT() *MockTrillianLogClientMockRecorder {
 	return _m.recorder
 }
 
+// GetConsistencyProof mocks base method
 func (_m *MockTrillianLogClient) GetConsistencyProof(_param0 context.Context, _param1 *trillian.GetConsistencyProofRequest, _param2 ...grpc.CallOption) (*trillian.GetConsistencyProofResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -42,11 +45,13 @@ func (_m *MockTrillianLogClient) GetConsistencyProof(_param0 context.Context, _p
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetConsistencyProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetConsistencyProof indicates an expected call of GetConsistencyProof
+func (_mr *MockTrillianLogClientMockRecorder) GetConsistencyProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetConsistencyProof", _s...)
 }
 
+// GetEntryAndProof mocks base method
 func (_m *MockTrillianLogClient) GetEntryAndProof(_param0 context.Context, _param1 *trillian.GetEntryAndProofRequest, _param2 ...grpc.CallOption) (*trillian.GetEntryAndProofResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -58,11 +63,13 @@ func (_m *MockTrillianLogClient) GetEntryAndProof(_param0 context.Context, _para
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetEntryAndProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetEntryAndProof indicates an expected call of GetEntryAndProof
+func (_mr *MockTrillianLogClientMockRecorder) GetEntryAndProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetEntryAndProof", _s...)
 }
 
+// GetInclusionProof mocks base method
 func (_m *MockTrillianLogClient) GetInclusionProof(_param0 context.Context, _param1 *trillian.GetInclusionProofRequest, _param2 ...grpc.CallOption) (*trillian.GetInclusionProofResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -74,11 +81,13 @@ func (_m *MockTrillianLogClient) GetInclusionProof(_param0 context.Context, _par
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetInclusionProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetInclusionProof indicates an expected call of GetInclusionProof
+func (_mr *MockTrillianLogClientMockRecorder) GetInclusionProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInclusionProof", _s...)
 }
 
+// GetInclusionProofByHash mocks base method
 func (_m *MockTrillianLogClient) GetInclusionProofByHash(_param0 context.Context, _param1 *trillian.GetInclusionProofByHashRequest, _param2 ...grpc.CallOption) (*trillian.GetInclusionProofByHashResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -90,11 +99,13 @@ func (_m *MockTrillianLogClient) GetInclusionProofByHash(_param0 context.Context
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetInclusionProofByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetInclusionProofByHash indicates an expected call of GetInclusionProofByHash
+func (_mr *MockTrillianLogClientMockRecorder) GetInclusionProofByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInclusionProofByHash", _s...)
 }
 
+// GetLatestSignedLogRoot mocks base method
 func (_m *MockTrillianLogClient) GetLatestSignedLogRoot(_param0 context.Context, _param1 *trillian.GetLatestSignedLogRootRequest, _param2 ...grpc.CallOption) (*trillian.GetLatestSignedLogRootResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -106,11 +117,13 @@ func (_m *MockTrillianLogClient) GetLatestSignedLogRoot(_param0 context.Context,
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetLatestSignedLogRoot(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetLatestSignedLogRoot indicates an expected call of GetLatestSignedLogRoot
+func (_mr *MockTrillianLogClientMockRecorder) GetLatestSignedLogRoot(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLatestSignedLogRoot", _s...)
 }
 
+// GetLeavesByHash mocks base method
 func (_m *MockTrillianLogClient) GetLeavesByHash(_param0 context.Context, _param1 *trillian.GetLeavesByHashRequest, _param2 ...grpc.CallOption) (*trillian.GetLeavesByHashResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -122,11 +135,13 @@ func (_m *MockTrillianLogClient) GetLeavesByHash(_param0 context.Context, _param
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetLeavesByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetLeavesByHash indicates an expected call of GetLeavesByHash
+func (_mr *MockTrillianLogClientMockRecorder) GetLeavesByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLeavesByHash", _s...)
 }
 
+// GetLeavesByIndex mocks base method
 func (_m *MockTrillianLogClient) GetLeavesByIndex(_param0 context.Context, _param1 *trillian.GetLeavesByIndexRequest, _param2 ...grpc.CallOption) (*trillian.GetLeavesByIndexResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -138,11 +153,13 @@ func (_m *MockTrillianLogClient) GetLeavesByIndex(_param0 context.Context, _para
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetLeavesByIndex(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetLeavesByIndex indicates an expected call of GetLeavesByIndex
+func (_mr *MockTrillianLogClientMockRecorder) GetLeavesByIndex(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLeavesByIndex", _s...)
 }
 
+// GetSequencedLeafCount mocks base method
 func (_m *MockTrillianLogClient) GetSequencedLeafCount(_param0 context.Context, _param1 *trillian.GetSequencedLeafCountRequest, _param2 ...grpc.CallOption) (*trillian.GetSequencedLeafCountResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -154,11 +171,13 @@ func (_m *MockTrillianLogClient) GetSequencedLeafCount(_param0 context.Context, 
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) GetSequencedLeafCount(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// GetSequencedLeafCount indicates an expected call of GetSequencedLeafCount
+func (_mr *MockTrillianLogClientMockRecorder) GetSequencedLeafCount(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSequencedLeafCount", _s...)
 }
 
+// QueueLeaf mocks base method
 func (_m *MockTrillianLogClient) QueueLeaf(_param0 context.Context, _param1 *trillian.QueueLeafRequest, _param2 ...grpc.CallOption) (*trillian.QueueLeafResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -170,11 +189,13 @@ func (_m *MockTrillianLogClient) QueueLeaf(_param0 context.Context, _param1 *tri
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) QueueLeaf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// QueueLeaf indicates an expected call of QueueLeaf
+func (_mr *MockTrillianLogClientMockRecorder) QueueLeaf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "QueueLeaf", _s...)
 }
 
+// QueueLeaves mocks base method
 func (_m *MockTrillianLogClient) QueueLeaves(_param0 context.Context, _param1 *trillian.QueueLeavesRequest, _param2 ...grpc.CallOption) (*trillian.QueueLeavesResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -186,7 +207,8 @@ func (_m *MockTrillianLogClient) QueueLeaves(_param0 context.Context, _param1 *t
 	return ret0, ret1
 }
 
-func (_mr *_MockTrillianLogClientRecorder) QueueLeaves(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// QueueLeaves indicates an expected call of QueueLeaves
+func (_mr *MockTrillianLogClientMockRecorder) QueueLeaves(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "QueueLeaves", _s...)
 }
