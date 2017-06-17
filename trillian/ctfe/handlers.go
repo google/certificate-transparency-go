@@ -132,8 +132,8 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqsCounter.Inc(label0, label1)
 	startTime := a.Context.TimeSource.Now()
 	defer func() {
-		latency := (a.Context.TimeSource.Now().Sub(startTime).Nanoseconds()) / millisPerNano
-		rspLatency.Observe(float64(latency), label0, label1, strconv.Itoa(status))
+		latency := a.Context.TimeSource.Now().Sub(startTime).Seconds()
+		rspLatency.Observe(latency, label0, label1, strconv.Itoa(status))
 	}()
 	glog.V(2).Infof("%s: request %v %q => %s", a.Context.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
