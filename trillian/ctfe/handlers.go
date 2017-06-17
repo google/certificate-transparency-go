@@ -105,7 +105,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	// TODO(drysdale): investigate whether there's a generic wrapper to do this
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in milliseconds", "logid", "ep", "rc")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
