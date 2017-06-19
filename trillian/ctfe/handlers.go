@@ -105,7 +105,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	// TODO(drysdale): investigate whether there's a generic wrapper to do this
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in milliseconds", "logid", "ep", "rc")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
@@ -132,8 +132,8 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqsCounter.Inc(label0, label1)
 	startTime := a.Context.TimeSource.Now()
 	defer func() {
-		latency := (a.Context.TimeSource.Now().Sub(startTime).Nanoseconds()) / millisPerNano
-		rspLatency.Observe(float64(latency), label0, label1, strconv.Itoa(status))
+		latency := a.Context.TimeSource.Now().Sub(startTime).Seconds()
+		rspLatency.Observe(latency, label0, label1, strconv.Itoa(status))
 	}()
 	glog.V(2).Infof("%s: request %v %q => %s", a.Context.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
