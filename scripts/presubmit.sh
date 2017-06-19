@@ -81,6 +81,7 @@ main() {
     grep -v x509/ | \
     grep -v asn1/ | \
     grep -v vendor/ | \
+    grep -v .pb.go | \
     tr '\n' ' ')"
 
   if [[ "$fix" -eq 1 ]]; then
