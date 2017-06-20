@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring/prometheus"
@@ -44,7 +45,7 @@ type CTLogEnv struct {
 // NewCTLogEnv creates a fresh DB, log server, and CT personality.
 // testID should be unique to each unittest package so as to allow parallel tests.
 // Created logIDs will be set to cfgs.
-func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
+func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
 	// Start log server and signer.
 	logEnv, err := integration.NewLogEnv(ctx, numSequencers, testID)
 	if err != nil {
@@ -68,7 +69,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*ctfe.LogConfig, numSequencers int,
 	server := http.Server{Addr: addr, Handler: nil}
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*ctfe.LogConfig) {
+	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
 		sf := keys.PEMSignerFactory{}

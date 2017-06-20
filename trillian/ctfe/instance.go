@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
@@ -33,7 +34,7 @@ import (
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
 // filename, which should contain JSON encoded configuration data.
-func LogConfigFromFile(filename string) ([]*LogConfig, error) {
+func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
 	if len(filename) == 0 {
 		return nil, errors.New("log config filename empty")
 	}
@@ -44,9 +45,9 @@ func LogConfigFromFile(filename string) ([]*LogConfig, error) {
 	}
 
 	decoder := json.NewDecoder(file)
-	var cfgs []*LogConfig
+	var cfgs []*configpb.LogConfig
 	for decoder.More() {
-		var cfg LogConfig
+		var cfg configpb.LogConfig
 		if err := jsonpb.UnmarshalNext(decoder, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse config data: %v", err)
 		}
@@ -75,7 +76,7 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate
 // with the Trillian RPC back end.
-func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *LogConfig, sf keys.SignerFactory, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
+func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, sf keys.SignerFactory, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
 	// Check config validity.
 	if len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
