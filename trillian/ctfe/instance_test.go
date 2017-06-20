@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -47,12 +48,12 @@ func TestSetUpInstance(t *testing.T) {
 
 	var tests = []struct {
 		desc   string
-		cfg    LogConfig
+		cfg    configpb.LogConfig
 		errStr string
 	}{
 		{
 			desc: "valid",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -61,7 +62,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-roots",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:      1,
 				Prefix:     "log",
 				PrivateKey: privKey,
@@ -70,7 +71,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-priv-key",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -79,7 +80,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "missing-root-cert",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/bogus.cert"},
@@ -89,7 +90,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "missing-privkey",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -99,7 +100,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "privkey-wrong-password",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -109,7 +110,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "valid-ekus-1",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -119,7 +120,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "valid-ekus-2",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -129,7 +130,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "invalid-ekus-1",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -140,7 +141,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "invalid-ekus-2",
-			cfg: LogConfig{
+			cfg: configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},

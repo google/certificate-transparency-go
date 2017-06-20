@@ -12,22 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax = "proto3";
+package configpb
 
-package ctfe;
-
-import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
-import "google/protobuf/any.proto";
-
-// LogConfig describes the configuration options for a log instance.
-message LogConfig {
-  int64 log_id = 1;
-  string prefix = 2;
-  repeated string roots_pem_file = 3;
-  google.protobuf.Any private_key = 4;
-  // The public key is included for the convenience of test tools (and obviously
-  // should match the private key above); it is not used by the CT personality.
-  keyspb.PublicKey public_key = 5;
-  bool reject_expired = 6;
-  repeated string ext_key_usages = 7;
-}
+//go:generate protoc -I=. -I=$GOPATH/src --go_out=:. config.proto

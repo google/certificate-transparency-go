@@ -26,6 +26,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
@@ -87,7 +88,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	cfgs := []*ctfe.LogConfig{
+	cfgs := []*configpb.LogConfig{
 		{
 			Prefix:       "athos",
 			RootsPemFile: []string{rootsPEMFile},

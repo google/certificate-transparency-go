@@ -31,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -55,7 +56,7 @@ func (e errSkip) Error() string {
 // HammerConfig provides configuration for a stress/load test.
 type HammerConfig struct {
 	// Configuration for the log.
-	LogCfg *ctfe.LogConfig
+	LogCfg *configpb.LogConfig
 	// Maximum merge delay.
 	MMD time.Duration
 	// Leaf certificate chain to use as template.

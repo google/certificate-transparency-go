@@ -41,6 +41,7 @@ import (
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/trillian/crypto/keys"
@@ -99,7 +100,7 @@ func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (Cli
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
-func RunCTIntegrationForLog(cfg *ctfe.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
+func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
@@ -630,7 +631,7 @@ func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
 	ls.rsps[string(ep)][strconv.Itoa(rc)]++
 }
 
-func (ls *logStats) check(cfg *ctfe.LogConfig, servers string) error {
+func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 	if ls == nil {
 		return nil
 	}
