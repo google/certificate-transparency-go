@@ -120,6 +120,7 @@ main() {
   if [[ "${run_generate}" -eq 1 ]]; then
     echo 'running go generate'
     go generate -run="mockgen" ${go_dirs}
+    go generate -run="protoc" ${go_dirs}
   fi
 
   if [[ "${run_build}" -eq 1 ]]; then
