@@ -83,6 +83,9 @@ main() {
     grep -v vendor/ | \
     grep -v .pb.go | \
     tr '\n' ' ')"
+  local proto_srcs="$(find . -name '*.proto' | \
+    grep -v vendor/ | \
+    tr '\n' ' ')"
 
   if [[ "$fix" -eq 1 ]]; then
     check_cmd goimports golang.org/x/tools/cmd/goimports
@@ -107,7 +110,7 @@ main() {
     run_linter "misspell -error -i cancelled,CANCELLED -locale US" "${go_srcs}"
 
     echo 'checking license header'
-    local nolicense="$(grep -L 'Apache License' ${go_srcs})"
+    local nolicense="$(grep -L 'Apache License' ${go_srcs} ${proto_srcs})"
     if [[ "${nolicense}" ]]; then
       echo "Missing license header in: ${nolicense}"
       exit 2
