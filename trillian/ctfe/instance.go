@@ -44,6 +44,14 @@ func LogConfigFromFile(filename string) ([]*LogConfig, error) {
 	}
 
 	decoder := json.NewDecoder(file)
+	t, err := decoder.Token() // read opening bracket
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config data: %v", err)
+	}
+	if d, ok := t.(json.Delim); ok && d != '[' || !ok {
+		return nil, errors.New("unexpected character at start of log config")
+	}
+
 	var cfgs []*LogConfig
 	for decoder.More() {
 		var cfg LogConfig
@@ -52,6 +60,14 @@ func LogConfigFromFile(filename string) ([]*LogConfig, error) {
 		}
 		cfgs = append(cfgs, &cfg)
 	}
+	t, err = decoder.Token() // read closing bracket
+        if err != nil {
+                return nil, fmt.Errorf("failed to parse config data: %v", err)
+        }
+	if d, ok := t.(json.Delim); ok && d != ']' || !ok {
+                return nil, errors.New("unexpected character at end of log config")
+        }
+
 	if len(cfgs) == 0 {
 		return nil, errors.New("empty log config found")
 	}
