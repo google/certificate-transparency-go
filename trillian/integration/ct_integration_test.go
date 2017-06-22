@@ -31,6 +31,7 @@ import (
 )
 
 var httpServersFlag = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
+var metricsServersFlag = flag.String("ct_metrics_servers", "localhost:8093", "Comma-separated list of (assumed interchangeable) metrics servers, each as address:port")
 var testDir = flag.String("testdata_dir", "testdata", "Name of directory with test data")
 var seed = flag.Int64("seed", -1, "Seed for random number generation")
 var logConfigFlag = flag.String("log_config", "", "File holding log config in JSON")
@@ -61,7 +62,7 @@ func TestLiveCTIntegration(t *testing.T) {
 			if !*skipStats {
 				stats = newLogStats(cfg.LogId)
 			}
-			if err := RunCTIntegrationForLog(cfg, *httpServersFlag, *testDir, *mmdFlag, stats); err != nil {
+			if err := RunCTIntegrationForLog(cfg, *httpServersFlag, *metricsServersFlag, *testDir, *mmdFlag, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
 			}
 		})
@@ -124,7 +125,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
 				stats := newLogStats(cfg.LogId)
-				if err := RunCTIntegrationForLog(cfg, env.CTAddr, "../testdata", mmd, stats); err != nil {
+				if err := RunCTIntegrationForLog(cfg, env.CTAddr, env.CTAddr, "../testdata", mmd, stats); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}
 			})

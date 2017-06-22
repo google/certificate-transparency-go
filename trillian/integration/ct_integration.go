@@ -100,13 +100,13 @@ func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (Cli
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
-func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mmd time.Duration, stats *logStats) error {
+func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, testdir string, mmd time.Duration, stats *logStats) error {
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}
 	ctx := context.Background()
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -155,7 +155,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 		return fmt.Errorf("AwaitTreeSize(1)=(nil,%v); want (_,nil)", err)
 	}
 	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", cfg.Prefix, timeFromMS(sth1.Timestamp), sth1.TreeSize, sth1.SHA256RootHash)
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -206,7 +206,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 	if err := checkCTConsistencyProof(sth1, sth2, proof12); err != nil {
 		return fmt.Errorf("got CheckCTConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
 	}
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -219,7 +219,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 	if len(proof02) != 0 {
 		return fmt.Errorf("len(proof02)=%d; want 0", len(proof02))
 	}
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -239,7 +239,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 		}
 	}
 	fmt.Printf("%s: Uploaded leaf02-leaf%02d to log, got SCTs\n", cfg.Prefix, count)
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -295,7 +295,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 		return fmt.Errorf("retrieved cert hashes don't match uploaded cert hashes, diff:\n%v", diff)
 	}
 	fmt.Printf("%s: Got entries [1:%d+1]\n", cfg.Prefix, count)
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -328,7 +328,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 		}
 	}
 	fmt.Printf("%s: Got inclusion proofs [1:%d+1]\n", cfg.Prefix, count)
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -349,7 +349,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 	}
 	stats.done(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(leaf-only)=nil,%v\n", cfg.Prefix, err)
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -404,7 +404,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 	if !bytes.Equal(ts.PrecertEntry.TBSCertificate, tbs) {
 		return fmt.Errorf("leaf[%d].ts.PrecertEntry differs from originally uploaded cert", precertIndex)
 	}
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
@@ -440,7 +440,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, testdir string, mm
 	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sthN1.TreeSize), rsp.AuditPath, sthN1.SHA256RootHash[:], leafData); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", precertIndex, sthN1.TreeSize, err)
 	}
-	if err := stats.check(cfg, servers); err != nil {
+	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 
