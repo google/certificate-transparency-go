@@ -33,6 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"
 )
 
 const defaultEmitSeconds = 10
@@ -46,6 +47,24 @@ const maxEntriesCount = uint64(10)
 
 var maxRetryDuration = 60 * time.Second
 
+var (
+	// Metrics are all per-log (label "logid"), but may also be
+	// per-entrypoint (label "ep") or per-return-code (label "rc").
+	once        sync.Once
+	reqs        monitoring.Counter // logid, ep => value
+	errs        monitoring.Counter // logid, ep => value
+	rsps        monitoring.Counter // logid, ep, rc => value
+	invalidReqs monitoring.Counter // logid, ep => value
+)
+
+// setupMetrics initializes all the exported metrics.
+func setupMetrics(mf monitoring.MetricFactory) {
+	reqs = mf.NewCounter("reqs", "Number of valid requests sent", "logid", "ep")
+	errs = mf.NewCounter("errs", "Number of error responses received for valid requests", "logid", "ep")
+	rsps = mf.NewCounter("rsps", "Number of responses received for valid requests", "logid", "ep", "rc")
+	invalidReqs = mf.NewCounter("invalid_reqs", "Number of deliberately-invalid requests sent", "logid", "ep")
+}
+
 // errSkip indicates that a test operation should be skipped.
 type errSkip struct{}
 
@@ -57,6 +76,8 @@ func (e errSkip) Error() string {
 type HammerConfig struct {
 	// Configuration for the log.
 	LogCfg *configpb.LogConfig
+	// How to create process-wide metrics.
+	MetricFactory monitoring.MetricFactory
 	// Maximum merge delay.
 	MMD time.Duration
 	// Leaf certificate chain to use as template.
@@ -197,9 +218,8 @@ func (pc *pendingCerts) popIfMMDPassed(now time.Time) *submittedCert {
 // hammerState tracks the operations that have been performed during a test run, including
 // earlier SCTs/STHs for later checking.
 type hammerState struct {
-	mu    sync.RWMutex
-	cfg   *HammerConfig
-	stats *logStats
+	cfg *HammerConfig
+	mu  sync.RWMutex
 	// STHs are arranged from later to earlier (so [0] is the most recent), and the
 	// discovery of new STHs will push older ones off the end.
 	sth [sthCount]*ct.SignedTreeHead
@@ -208,21 +228,19 @@ type hammerState struct {
 	// keeps the same elements.  Instead, the oldest entry is removed (and a space
 	// created) when we are able to get an inclusion proof for it.
 	pending pendingCerts
-	// totalOps is a running count of operations performed by this hammer.
-	totalOps int64
-	// totalInvalidOps is a running count of invalid operations performed by this hammer.
-	totalInvalidOps int64
-	// totalErrs is a running count of failed operations.
-	totalErrs int64
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
+	mf := cfg.MetricFactory
+	if mf == nil {
+		mf = monitoring.InertMetricFactory{}
+	}
+	once.Do(func() { setupMetrics(mf) })
 	if cfg.EmitInterval == 0 {
 		cfg.EmitInterval = defaultEmitSeconds * time.Second
 	}
 	state := hammerState{
-		cfg:   cfg,
-		stats: newLogStats(cfg.LogCfg.LogId),
+		cfg: cfg,
 	}
 	return &state, nil
 }
@@ -505,18 +523,29 @@ func sthSize(sth *ct.SignedTreeHead) string {
 	return fmt.Sprintf("%d", sth.TreeSize)
 }
 
+func (s *hammerState) label() string {
+	return strconv.FormatInt(s.cfg.LogCfg.LogId, 10)
+}
+
 func (s *hammerState) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	l := fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d invalid=%d errs=%d", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), s.totalOps, s.totalInvalidOps, s.totalErrs)
+	details := ""
 	statusOK := strconv.Itoa(http.StatusOK)
+	totalReqs := 0
+	totalInvalidReqs := 0
+	totalErrs := 0
 	for _, ep := range ctfe.Entrypoints {
+		reqCount := int(reqs.Value(s.label(), string(ep)))
+		totalReqs += reqCount
 		if s.cfg.EPBias.Bias[ep] > 0 {
-			l += fmt.Sprintf(" %s=%d/%d", ep, s.stats.rsps[string(ep)][statusOK], s.stats.reqs[string(ep)])
+			details += fmt.Sprintf(" %s=%d/%d", ep, int(rsps.Value(s.label(), string(ep), statusOK)), reqCount)
 		}
+		totalInvalidReqs += int(invalidReqs.Value(s.label(), string(ep)))
+		totalErrs += int(errs.Value(s.label(), string(ep)))
 	}
-	return l
+	return fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d invalid=%d errs=%v%s", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), totalReqs, totalInvalidReqs, totalErrs, details)
 }
 
 func isSkip(e error) bool {
@@ -587,7 +616,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	ep := s.chooseOp()
 	if s.chooseInvalid(ep) {
 		glog.V(3).Infof("perform invalid %s operation", ep)
-		s.totalInvalidOps++
+		invalidReqs.Inc(s.label(), string(ep))
 		return s.performInvalidOp(ctx, ep)
 	}
 
@@ -599,19 +628,19 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	for !done {
 		s.mu.Lock()
 
-		s.totalOps++
+		reqs.Inc(s.label(), string(ep))
 		status, err = s.performOp(ctx, ep)
 
 		switch err.(type) {
 		case nil:
-			s.stats.done(ep, status)
+			rsps.Inc(s.label(), string(ep), strconv.Itoa(status))
 			done = true
 		case errSkip:
 			status = http.StatusFailedDependency
 			err = nil
 			done = true
 		default:
-			s.totalErrs++
+			errs.Inc(s.label(), string(ep))
 			if s.cfg.IgnoreErrors {
 				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
 			} else {
