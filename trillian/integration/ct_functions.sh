@@ -11,8 +11,9 @@ CT_CFG=
 #   - number of log signers to run
 #   - number of CT personality instances to run
 # Populates:
-#  - CT_SERVERS     : list of HTTP addresses (comma separated)
-#  - CT_SERVER_PIDS : bash array of CT HTTP server pids
+#  - CT_SERVERS         : list of HTTP addresses (comma separated)
+#  - CT_METRICS_SERVERS : list of HTTP addresses (comma separated) serving metrics
+#  - CT_SERVER_PIDS     : bash array of CT HTTP server pids
 # in addition to the variables populated by log_prep_test.
 # If etcd and Prometheus are configured, it also populates:
 #  - ETCDISCOVER_PID : pid of etcd service watcher
@@ -37,6 +38,7 @@ ct_prep_test() {
     local port=$(pick_unused_port)
     CT_SERVERS="${CT_SERVERS},localhost:${port}"
     local metrics_port=$(pick_unused_port ${port})
+    CT_METRICS_SERVERS="${CT_METRICS_SERVERS},localhost:${metrics_port}"
 
     echo "Starting CT HTTP server on localhost:${port}, metrics on localhost:${metrics_port}"
     ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
@@ -45,6 +47,7 @@ ct_prep_test() {
     wait_for_server_startup ${port}
   done
   CT_SERVERS="${CT_SERVERS:1}"
+  CT_METRICS_SERVERS="${CT_METRICS_SERVERS:1}"
 
   if [[ ! -z "${ETCD_OPTS}" ]]; then
     echo "Registered HTTP endpoints"
