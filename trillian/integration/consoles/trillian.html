@@ -11,7 +11,7 @@
 <script>
 new PromConsole.Graph({
   node: document.querySelector("#treeSizeGraph"),
-  expr:"max(last_sth_treesize{job='trillian-ctfe-http'}) without (instance, job)",
+  expr:"max(last_sth_treesize{job='trillian-ctfe-metrics-http'}) without (instance, job)",
   yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yTitle: "Tree Size"
@@ -40,7 +40,7 @@ new PromConsole.Graph({
 <script>
 new PromConsole.Graph({
   node: document.querySelector("#knownLogsGraph"),
-  expr: "max(known_logs{job='trillian-ctfe-http'}) without (instance, job) - on (logid) max(known_logs{job='trillian-logsigner-http'}) without (instance, job)",
+  expr: "max(known_logs{job='trillian-ctfe-metrics-http'}) without (instance, job) - on (logid) max(known_logs{job='trillian-logsigner-http'}) without (instance, job)",
   yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yUnits: "/s",

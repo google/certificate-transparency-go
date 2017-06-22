@@ -40,13 +40,15 @@ import (
 
 // Global flags that affect all log instances.
 var (
-	httpEndpoint      = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
-	rpcBackendFlag    = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
-	rpcDeadlineFlag   = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
-	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
-	maxGetEntriesFlag = flag.Int64("maxGetEntriesAllowed", 0, "Max number of entries we allow in a get-entries request (default 50)")
-	etcdServers       = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
-	etcdHTTPService   = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
+	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
+	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
+	rpcBackendFlag     = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
+	rpcDeadlineFlag    = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	logConfigFlag      = flag.String("log_config", "", "File holding log config in JSON")
+	maxGetEntriesFlag  = flag.Int64("maxGetEntriesAllowed", 0, "Max number of entries we allow in a get-entries request (default 50)")
+	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
+	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
+	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
 )
 
 func main() {
@@ -66,6 +68,11 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	glog.Info("**** CT HTTP Server Starting ****")
 
+	metricsAt := *metricsEndpoint
+	if metricsAt == "" {
+		metricsAt = *httpEndpoint
+	}
+
 	// TODO(Martin2112): Support TLS and other stuff for RPC client and http server, this is just to
 	// get started. Uses a blocking connection so we don't start serving before we're connected
 	// to backend.
@@ -81,14 +88,20 @@ func main() {
 		res = etcdRes
 
 		// Also announce ourselves.
-		update := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
-		etcdRes.Update(ctx, *etcdHTTPService, update)
-		glog.Infof("Announcing our presence in %v with %+v", *etcdHTTPService, update)
+		updateHTTP := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
+		updateMetrics := naming.Update{Op: naming.Add, Addr: metricsAt}
+		glog.Infof("Announcing our presence in %v with %+v", *etcdHTTPService, updateHTTP)
+		etcdRes.Update(ctx, *etcdHTTPService, updateHTTP)
+		glog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, updateMetrics)
+		etcdRes.Update(ctx, *etcdMetricsService, updateMetrics)
 
-		bye := naming.Update{Op: naming.Delete, Addr: *httpEndpoint}
+		byeHTTP := naming.Update{Op: naming.Delete, Addr: *httpEndpoint}
+		byeMetrics := naming.Update{Op: naming.Delete, Addr: metricsAt}
 		defer func() {
-			glog.Infof("Removing our presence in %v with %+v", *etcdHTTPService, update)
-			etcdRes.Update(ctx, *etcdHTTPService, bye)
+			glog.Infof("Removing our presence in %v with %+v", *etcdHTTPService, byeHTTP)
+			etcdRes.Update(ctx, *etcdHTTPService, byeHTTP)
+			glog.Infof("Removing our presence in %v with %+v", *etcdMetricsService, byeMetrics)
+			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
 	} else {
 		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
@@ -113,7 +126,19 @@ func main() {
 			http.Handle(path, handler)
 		}
 	}
-	http.Handle("/metrics", promhttp.Handler())
+	if metricsAt != *httpEndpoint {
+		// Run a separate handler for metrics.
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			metricsServer := http.Server{Addr: metricsAt, Handler: mux}
+			err := metricsServer.ListenAndServe()
+			glog.Warningf("Metrics server exited: %v", err)
+		}()
+	} else {
+		// Handle metrics on the DefaultServeMux.
+		http.Handle("/metrics", promhttp.Handler())
+	}
 
 	// Bring up the HTTP server and serve until we get a signal not to.
 	go awaitSignal(func() {

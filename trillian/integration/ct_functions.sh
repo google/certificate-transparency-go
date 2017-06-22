@@ -34,11 +34,12 @@ ct_prep_test() {
 
   echo "Launching CT personalities"
   for ((i=0; i < http_server_count; i++)); do
-    port=$(pick_unused_port)
+    local port=$(pick_unused_port)
     CT_SERVERS="${CT_SERVERS},localhost:${port}"
+    local metrics_port=$(pick_unused_port ${port})
 
-    echo "Starting CT HTTP server on localhost:${port}"
-    ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" &
+    echo "Starting CT HTTP server on localhost:${port}, metrics on localhost:${metrics_port}"
+    ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
     pid=$!
     CT_SERVER_PIDS+=(${pid})
     wait_for_server_startup ${port}
@@ -48,6 +49,7 @@ ct_prep_test() {
   if [[ ! -z "${ETCD_OPTS}" ]]; then
     echo "Registered HTTP endpoints"
     ETCDCTL_API=3 etcdctl get trillian-ctfe-http/ --prefix
+    ETCDCTL_API=3 etcdctl get trillian-ctfe-metrics-http/ --prefix
   fi
 
   if [[ -x "${PROMETHEUS_DIR}/prometheus" ]]; then
@@ -55,7 +57,7 @@ ct_prep_test() {
         echo "Building etcdiscover"
         go build github.com/google/trillian/monitoring/prometheus/etcdiscover
         echo "Launching etcd service monitor"
-        ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-http,trillian-logserver-http,trillian-logsigner-http -target=./trillian.json --logtostderr &
+        ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-metrics-http,trillian-logserver-http,trillian-logsigner-http -target=./trillian.json --logtostderr &
         ETCDISCOVER_PID=$!
         echo "Launching Prometheus (default location localhost:9090)"
         ${PROMETHEUS_DIR}/prometheus --config.file=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml \

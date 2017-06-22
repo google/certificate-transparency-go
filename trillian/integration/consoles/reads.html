@@ -12,7 +12,7 @@
 <script>
 new PromConsole.Graph({
   node: document.querySelector("#httpReqsGraph"),
-  expr: "sum(rate(http_reqs{ep=~'Get.+', job='trillian-ctfe-http'}[5m])) without (job, instance, logid)",
+  expr: "sum(rate(http_reqs{ep=~'Get.+', job='trillian-ctfe-metrics-http'}[5m])) without (job, instance, logid)",
   yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yUnits: "/s",
@@ -26,7 +26,7 @@ new PromConsole.Graph({
 <script>
 new PromConsole.Graph({
   node: document.querySelector("#httpErrorsGraph"),
-  expr: "sum(http_rsps{ep=~'Get.+', job='trillian-ctfe-http', rc!='200'}) without (instance, logid, job) / ignoring (rc) sum(http_reqs{ep=~'Get.+', job='trillian-ctfe-http'}) without (instance, logid, job)",
+  expr: "sum(http_rsps{ep=~'Get.+', job='trillian-ctfe-metrics-http', rc!='200'}) without (instance, logid, job) / ignoring (rc) sum(http_reqs{ep=~'Get.+', job='trillian-ctfe-metrics-http'}) without (instance, logid, job)",
   yAxisFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yHoverFormatter: PromConsole.NumberFormatter.humanizeNoSmallPrefix,
   yTitle: "Error Rate",
