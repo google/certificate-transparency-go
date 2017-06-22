@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -31,11 +32,15 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/integration"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"
+	"github.com/google/trillian/monitoring/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
 	httpServersFlag   = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
 	testDir           = flag.String("testdata_dir", "testdata", "Name of directory with test data")
+	metricsEndpoint   = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
 	seed              = flag.Int64("seed", -1, "Seed for random number generation")
 	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
 	mmdFlag           = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
@@ -114,6 +119,20 @@ func main() {
 		},
 	}
 
+	var mf monitoring.MetricFactory
+	if *metricsEndpoint != "" {
+		mf = prometheus.MetricFactory{}
+		http.Handle("/metrics", promhttp.Handler())
+		server := http.Server{Addr: *metricsEndpoint, Handler: nil}
+		glog.Infof("Serving metrics at %v", *metricsEndpoint)
+		go func() {
+			err := server.ListenAndServe()
+			glog.Warningf("Metrics server exited: %v", err)
+		}()
+	} else {
+		mf = monitoring.InertMetricFactory{}
+	}
+
 	fmt.Print("\n\nStop")
 	for i := 0; i < 8; i++ {
 		time.Sleep(100 * time.Millisecond)
@@ -141,6 +160,7 @@ func main() {
 		}
 		cfg := integration.HammerConfig{
 			LogCfg:            c,
+			MetricFactory:     mf,
 			MMD:               *mmdFlag,
 			LeafChain:         leafChain,
 			LeafCert:          leafCert,
@@ -158,6 +178,7 @@ func main() {
 		}(cfg)
 	}
 	wg.Wait()
+
 	close(results)
 	errCount := 0
 	for e := range results {

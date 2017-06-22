@@ -24,9 +24,10 @@ TO_KILL+=(${ETCDISCOVER_PID})
 TO_DELETE="${TO_DELETE} ${CT_CFG}"
 TO_KILL+=(${CT_SERVER_PIDS[@]})
 
-echo "Running test(s)"
+metrics_port=$(pick_unused_port)
+echo "Running test(s) with metrics at localhost:${metrics_port}"
 set +e
-./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --logtostderr
+./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --metrics_endpoint="localhost:${metrics_port}" --logtostderr
 RESULT=$?
 set -e
 
