@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -94,7 +95,12 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	}
 
 	// Load the private key for this log.
-	key, err := sf.NewSigner(ctx, cfg.PrivateKey)
+	var keyProto ptypes.DynamicAny
+	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
+	}
+
+	key, err := sf.NewSigner(ctx, keyProto.Message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}
