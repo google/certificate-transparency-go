@@ -1017,6 +1017,25 @@ func TestGetProofByHash(t *testing.T) {
 			},
 			httpRsp: &inclusionProof,
 		},
+		{
+			// Hash with URL-encoded %2B -> '+'.
+			req:  "hash=WtfX3Axbm7UwtY7GhHoAHPCtXJVrY5vZsH%2ByaXOD2GI=&tree_size=1",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 2,
+						// Proof to match inclusionProof above.
+						Hashes: [][]byte{
+							[]byte("abcdef"),
+							[]byte("ghijkl"),
+							[]byte("mnopqr"),
+						},
+					},
+				},
+			},
+			httpRsp: &inclusionProof,
+		},
 	}
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
