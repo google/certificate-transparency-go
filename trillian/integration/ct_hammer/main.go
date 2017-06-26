@@ -188,6 +188,6 @@ func main() {
 		}
 	}
 	if errCount > 0 {
-		os.Exit(1)
+		glog.Exitf("non-zero error count (%d), exiting", errCount)
 	}
 }
