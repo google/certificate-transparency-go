@@ -149,7 +149,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	// Display the SCT
 	fmt.Printf("%s: Uploaded int-ca.cert to %v log, got SCT(time=%q)\n", cfg.Prefix, scts[0].SCTVersion, timeFromMS(scts[0].Timestamp))
 
-	// Keep getting the STH until tree size becomes 1.
+	// Keep getting the STH until tree size becomes 1 and check the cert is included.
 	sth1, err := awaitTreeSize(ctx, pool.Next(), 1, true, mmd, stats)
 	if err != nil {
 		return fmt.Errorf("AwaitTreeSize(1)=(nil,%v); want (_,nil)", err)
@@ -158,6 +158,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err := stats.check(cfg, metricsServers); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
+	checkInclusionOf(ctx, pool, chain[0], scts[0], sth1, stats)
 
 	// Stage 2.5: add the same cert, expect an SCT with the same timestamp as before.
 	var sctCopy *ct.SignedCertificateTimestamp
@@ -301,31 +302,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 9: get an audit proof for each certificate we have an SCT for.
 	for i := 1; i <= count; i++ {
-		sct := scts[i]
-		// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
-		leaf := ct.MerkleTreeLeaf{
-			Version:  ct.V1,
-			LeafType: ct.TimestampedEntryLeafType,
-			TimestampedEntry: &ct.TimestampedEntry{
-				Timestamp:  sct.Timestamp,
-				EntryType:  ct.X509LogEntryType,
-				X509Entry:  &(chain[i][0]),
-				Extensions: sct.Extensions,
-			},
-		}
-		leafData, err := tls.Marshal(leaf)
-		if err != nil {
-			return fmt.Errorf("tls.Marshal(leaf[%d])=(nil,%v); want (_,nil)", i, err)
-		}
-		hash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
-		rsp, err := pool.Next().GetProofByHash(ctx, hash[:], sthN.TreeSize)
-		stats.done(ctfe.GetProofByHashName, 200)
-		if err != nil {
-			return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", i, sthN.TreeSize, err)
-		}
-		if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sthN.TreeSize), rsp.AuditPath, sthN.SHA256RootHash[:], leafData); err != nil {
-			return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", i, sthN.TreeSize, err)
-		}
+		checkInclusionOf(ctx, pool, chain[i], scts[i], sthN, stats)
 	}
 	fmt.Printf("%s: Got inclusion proofs [1:%d+1]\n", cfg.Prefix, count)
 	if err := stats.check(cfg, metricsServers); err != nil {
@@ -522,6 +499,36 @@ func awaitTreeSize(ctx context.Context, logClient *client.LogClient, size uint64
 func checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
 	return Verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
 		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
+}
+
+// checkInclusionOf checks that a given certificate chain and assocated SCT are included
+// under a signed tree head.
+func checkInclusionOf(ctx context.Context, pool ClientPool, chain []ct.ASN1Cert, sct *ct.SignedCertificateTimestamp, sth *ct.SignedTreeHead, stats *logStats) error {
+	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
+	leaf := ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
+			Timestamp:  sct.Timestamp,
+			EntryType:  ct.X509LogEntryType,
+			X509Entry:  &(chain[0]),
+			Extensions: sct.Extensions,
+		},
+	}
+	leafData, err := tls.Marshal(leaf)
+	if err != nil {
+		return fmt.Errorf("tls.Marshal(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
+	}
+	hash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	rsp, err := pool.Next().GetProofByHash(ctx, hash[:], sth.TreeSize)
+	stats.done(ctfe.GetProofByHashName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
+	}
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafData); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
+	}
+	return nil
 }
 
 // makePrecertChain builds a precert chain based from the given cert chain and cert, converting and
