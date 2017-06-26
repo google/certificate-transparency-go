@@ -38,12 +38,17 @@ import (
 
 const defaultEmitSeconds = 10
 
-// How many STHs and SCTs to hold on to.
-const sthCount = 10
-const sctCount = 10
+const (
+	// How many STHs and SCTs to hold on to.
+	sthCount = 10
+	sctCount = 10
 
-// Maximum number of entries to request.
-const maxEntriesCount = uint64(10)
+	// Maximum number of entries to request.
+	maxEntriesCount = uint64(10)
+
+	// How far beyond current tree size to request for invalid requests.
+	invalidStretch = int64(1000000)
+)
 
 var maxRetryDuration = 60 * time.Second
 
@@ -419,8 +424,11 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 }
 
 func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
+	if s.lastTreeSize() == 0 {
+		return nil
+	}
 	// Invalid because it's beyond the tree size.
-	first := s.lastTreeSize() + 100000
+	first := s.lastTreeSize() + uint64(invalidStretch)
 	second := first + 100
 	proof, err := s.client().GetSTHConsistency(ctx, first, second)
 	if err == nil {
@@ -497,8 +505,11 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 }
 
 func (s *hammerState) getEntriesInvalid(ctx context.Context) error {
+	if s.lastTreeSize() == 0 {
+		return nil
+	}
 	// Invalid because it's beyond the tree size.
-	last := int64(s.lastTreeSize()) + 100000
+	last := int64(s.lastTreeSize()) + invalidStretch
 	first := last - 4
 	entries, err := s.client().GetEntries(ctx, first, last)
 	if err == nil {
