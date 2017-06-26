@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -234,7 +233,7 @@ func (c *LogClient) GetSTHConsistency(ctx context.Context, first, second uint64)
 
 // GetProofByHash returns an audit path for the hash of an SCT.
 func (c *LogClient) GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*ct.GetProofByHashResponse, error) {
-	b64Hash := url.QueryEscape(base64.StdEncoding.EncodeToString(hash))
+	b64Hash := base64.StdEncoding.EncodeToString(hash)
 	base10 := 10
 	params := map[string]string{
 		"tree_size": strconv.FormatUint(treeSize, base10),
