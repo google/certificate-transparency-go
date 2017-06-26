@@ -68,6 +68,10 @@ const (
 // MaxGetEntriesAllowed is the number of entries we allow in a get-entries request
 var MaxGetEntriesAllowed int64 = 50
 
+// Use an explicitly empty slice for empty proofs so it gets JSON-encoded as
+// '[]' rather than 'null'.
+var emptyProof = make([][]byte, 0)
+
 // EntrypointName identifies a CT entrypoint as defined in section 4 of RFC 6962.
 type EntrypointName string
 
@@ -451,6 +455,9 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 
 		// We got a valid response from the server. Marshal it as JSON and return it to the client
 		jsonRsp.Consistency = rsp.Proof.Hashes
+		if jsonRsp.Consistency == nil {
+			jsonRsp.Consistency = emptyProof
+		}
 	} else {
 		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) starts from 0 so return empty proof", c.LogPrefix, first, second)
 	}
@@ -516,6 +523,9 @@ func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r 
 	proofRsp := ct.GetProofByHashResponse{
 		LeafIndex: rsp.Proof[0].LeafIndex,
 		AuditPath: rsp.Proof[0].Hashes,
+	}
+	if proofRsp.AuditPath == nil {
+		proofRsp.AuditPath = emptyProof
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -909,11 +910,13 @@ func TestGetProofByHash(t *testing.T) {
 	}
 
 	var tests = []struct {
-		req    string
-		want   int
-		rpcRsp *trillian.GetInclusionProofByHashResponse
-		rpcErr error
-		errStr string
+		req      string
+		want     int
+		rpcRsp   *trillian.GetInclusionProofByHashResponse
+		httpRsp  *ct.GetProofByHashResponse
+		httpJSON string
+		rpcErr   error
+		errStr   string
 	}{
 		{
 			req:  "",
@@ -942,6 +945,21 @@ func TestGetProofByHash(t *testing.T) {
 			errStr: "RPCFAIL",
 		},
 		{
+			req:  "tree_size=1&hash=YWhhc2g=",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 0,
+						Hashes:    nil,
+					},
+				},
+			},
+			httpRsp: &ct.GetProofByHashResponse{LeafIndex: 0, AuditPath: nil},
+			// Check undecoded JSON to confirm use of '[]' not 'null'
+			httpJSON: "{\"leaf_index\":0,\"audit_path\":[]}",
+		},
+		{
 			req:  "tree_size=7&hash=YWhhc2g=",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
@@ -962,6 +980,7 @@ func TestGetProofByHash(t *testing.T) {
 					},
 				},
 			},
+			httpRsp: &inclusionProof,
 		},
 		{
 			req:  "tree_size=9&hash=YWhhc2g=",
@@ -996,6 +1015,7 @@ func TestGetProofByHash(t *testing.T) {
 					},
 				},
 			},
+			httpRsp: &inclusionProof,
 		},
 	}
 	info := setupTest(t, nil, nil)
@@ -1025,27 +1045,38 @@ func TestGetProofByHash(t *testing.T) {
 		if test.want != http.StatusOK {
 			continue
 		}
-		var resp ct.GetProofByHashResponse
-		if err = json.NewDecoder(w.Body).Decode(&resp); err != nil {
-			t.Errorf("Failed to unmarshal json response %s: %v", w.Body.Bytes(), err)
+		jsonData, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Errorf("failed to read response body: %v", err)
 			continue
 		}
-		if diff := pretty.Compare(resp, inclusionProof); diff != "" {
+		var resp ct.GetProofByHashResponse
+		if err = json.Unmarshal(jsonData, &resp); err != nil {
+			t.Errorf("Failed to unmarshal json response %s: %v", jsonData, err)
+			continue
+		}
+		if diff := pretty.Compare(resp, test.httpRsp); diff != "" {
 			t.Errorf("proofByHash(%q) diff:\n%v", test.req, diff)
+		}
+		if test.httpJSON != "" {
+			// Also check the JSON string is as expected
+			if diff := pretty.Compare(string(jsonData), test.httpJSON); diff != "" {
+				t.Errorf("proofByHash(%q) diff:\n%v", test.req, diff)
+			}
 		}
 	}
 }
 
 func TestGetSTHConsistency(t *testing.T) {
-	consistencyProof := ct.GetSTHConsistencyResponse{
-		Consistency: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
-	}
 	var tests = []struct {
-		req    string
-		want   int
-		rpcRsp *trillian.GetConsistencyProofResponse
-		rpcErr error
-		errStr string
+		req           string
+		want          int
+		first, second int64
+		rpcRsp        *trillian.GetConsistencyProofResponse
+		httpRsp       *ct.GetSTHConsistencyResponse
+		httpJSON      string
+		rpcErr        error
+		errStr        string
 	}{
 		{
 			req:  "",
@@ -1093,13 +1124,17 @@ func TestGetSTHConsistency(t *testing.T) {
 		},
 		{
 			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
 			want:   http.StatusInternalServerError,
 			rpcErr: errors.New("RPCFAIL"),
 			errStr: "RPCFAIL",
 		},
 		{
-			req:  "first=10&second=20",
-			want: http.StatusInternalServerError,
+			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
+			want:   http.StatusInternalServerError,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
@@ -1113,12 +1148,13 @@ func TestGetSTHConsistency(t *testing.T) {
 			errStr: "invalid proof",
 		},
 		{
-			req:  "first=10&second=20",
-			want: http.StatusOK,
+			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
+			want:   http.StatusOK,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
-					// Proof to match consistencyProof above.
 					Hashes: [][]byte{
 						[]byte("abcdef"),
 						[]byte("ghijkl"),
@@ -1126,6 +1162,26 @@ func TestGetSTHConsistency(t *testing.T) {
 					},
 				},
 			},
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
+			},
+		},
+		{
+			req:    "first=1&second=2",
+			first:  1,
+			second: 2,
+			want:   http.StatusOK,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				Proof: &trillian.Proof{
+					LeafIndex: 0,
+					Hashes:    nil,
+				},
+			},
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: nil,
+			},
+			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
+			httpJSON: "{\"consistency\":[]}",
 		},
 	}
 
@@ -1140,7 +1196,12 @@ func TestGetSTHConsistency(t *testing.T) {
 			continue
 		}
 		if test.rpcRsp != nil || test.rpcErr != nil {
-			info.client.EXPECT().GetConsistencyProof(deadlineMatcher(), &trillian.GetConsistencyProofRequest{LogId: 0x42, FirstTreeSize: 10, SecondTreeSize: 20}).Return(test.rpcRsp, test.rpcErr)
+			req := trillian.GetConsistencyProofRequest{
+				LogId:          0x42,
+				FirstTreeSize:  test.first,
+				SecondTreeSize: test.second,
+			}
+			info.client.EXPECT().GetConsistencyProof(deadlineMatcher(), &req).Return(test.rpcRsp, test.rpcErr)
 		}
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
@@ -1156,13 +1217,24 @@ func TestGetSTHConsistency(t *testing.T) {
 		if test.want != http.StatusOK {
 			continue
 		}
-		var resp ct.GetSTHConsistencyResponse
-		if err = json.NewDecoder(w.Body).Decode(&resp); err != nil {
-			t.Errorf("Failed to unmarshal json response %s: %v", w.Body.Bytes(), err)
+		jsonData, err := ioutil.ReadAll(w.Body)
+		if err != nil {
+			t.Errorf("failed to read response body: %v", err)
 			continue
 		}
-		if diff := pretty.Compare(resp, consistencyProof); diff != "" {
+		var resp ct.GetSTHConsistencyResponse
+		if err = json.Unmarshal(jsonData, &resp); err != nil {
+			t.Errorf("Failed to unmarshal json response %s: %v", jsonData, err)
+			continue
+		}
+		if diff := pretty.Compare(resp, test.httpRsp); diff != "" {
 			t.Errorf("getSTHConsistency(%q) diff:\n%v", test.req, diff)
+		}
+		if test.httpJSON != "" {
+			// Also check the JSON string is as expected
+			if diff := pretty.Compare(string(jsonData), test.httpJSON); diff != "" {
+				t.Errorf("getSTHConsistency(%q) diff:\n%v", test.req, diff)
+			}
 		}
 	}
 }
