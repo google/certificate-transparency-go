@@ -174,9 +174,9 @@ func main() {
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 
-	certs := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	precerts := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	addedCerts := make(chan *preload.AddedCert, *batchSize**parallelFetch)
+	certs := make(chan *ct.LogEntry, 10**parallelSubmit)
+	precerts := make(chan *ct.LogEntry, 10**parallelSubmit)
+	addedCerts := make(chan *preload.AddedCert, 10**parallelSubmit)
 
 	var sctWriterWG sync.WaitGroup
 	sctWriterWG.Add(1)

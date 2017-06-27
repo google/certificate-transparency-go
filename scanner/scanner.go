@@ -376,8 +376,8 @@ func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
 
 	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
-	fetches := make(chan fetchRange, 1000)
-	jobs := make(chan matcherJob, 100000)
+	fetches := make(chan fetchRange)
+	jobs := make(chan matcherJob)
 	go func() {
 		slidingWindow := make([]int64, 15)
 		i, previousCount := 0, int64(0)
