@@ -173,7 +173,7 @@ func main() {
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 
-	bufferSize := *batchSize * *parallelFetch
+	bufferSize := 10 * *parallelSubmit
 	certs := make(chan *ct.LogEntry, bufferSize)
 	precerts := make(chan *ct.LogEntry, bufferSize)
 	addedCerts := make(chan *preload.AddedCert, bufferSize)

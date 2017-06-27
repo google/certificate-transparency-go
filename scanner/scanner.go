@@ -285,8 +285,8 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 
 	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
-	fetches := make(chan fetchRange, 1000)
-	jobs := make(chan entryInfo, 100000)
+	fetches := make(chan fetchRange)
+	jobs := make(chan entryInfo)
 	go func() {
 		for range ticker.C {
 			certsProcessed := atomic.LoadInt64(&s.certsProcessed)
