@@ -72,7 +72,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
-		sf := &keys.PEMSignerFactory{}
+		sf := &keys.DefaultSignerFactory{}
 		for _, cfg := range cfgs {
 			handlers, err := ctfe.SetUpInstance(ctx, client, cfg, sf, 10*time.Second, prometheus.MetricFactory{})
 			if err != nil {
