@@ -23,7 +23,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
@@ -33,11 +32,6 @@ import (
 	"github.com/google/certificate-transparency-go/preload"
 	"github.com/google/certificate-transparency-go/scanner"
 	"golang.org/x/net/context"
-)
-
-const (
-	// MatchesNothingRegex is a regex which cannot match any input.
-	MatchesNothingRegex = "a^"
 )
 
 var sourceLogURI = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
@@ -50,20 +44,6 @@ var startIndex = flag.Int64("start_index", 0, "Log index to start scanning at")
 var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 var sctInputFile = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
-
-func createMatcher() (scanner.Matcher, error) {
-	// Make a "match everything" regex matcher
-	precertRegex := regexp.MustCompile(".*")
-	var certRegex *regexp.Regexp
-	if *precertsOnly {
-		certRegex = regexp.MustCompile(MatchesNothingRegex)
-	} else {
-		certRegex = precertRegex
-	}
-	return scanner.MatchSubjectRegex{
-		CertificateSubjectRegex:    certRegex,
-		PrecertificateSubjectRegex: precertRegex}, nil
-}
 
 func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
 	addedCert := preload.AddedCert{
@@ -183,13 +163,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	matcher, err := createMatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	opts := scanner.ScannerOptions{
-		Matcher:       matcher,
+		Matcher:       scanner.MatchAll{},
+		PrecertOnly:   *precertsOnly,
 		BatchSize:     *batchSize,
 		NumWorkers:    *numWorkers,
 		ParallelFetch: *parallelFetch,
