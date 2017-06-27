@@ -29,7 +29,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/preload"
+	"github.com/google/certificate-transparency-go/preload/internal/scts"
 	"github.com/google/certificate-transparency-go/scanner"
 	"golang.org/x/net/context"
 )
@@ -45,8 +45,8 @@ var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, o
 var sctInputFile = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
 
-func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
-	addedCert := preload.AddedCert{
+func recordSct(addedCerts chan<- *scts.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
+	addedCert := scts.AddedCert{
 		CertDER:                    certDer,
 		SignedCertificateTimestamp: *sct,
 		AddedOk:                    true,
@@ -54,8 +54,8 @@ func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *c
 	addedCerts <- &addedCert
 }
 
-func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, addError error) {
-	addedCert := preload.AddedCert{
+func recordFailure(addedCerts chan<- *scts.AddedCert, certDer ct.ASN1Cert, addError error) {
+	addedCert := scts.AddedCert{
 		CertDER:      certDer,
 		AddedOk:      false,
 		ErrorMessage: addError.Error(),
@@ -63,7 +63,7 @@ func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, ad
 	addedCerts <- &addedCert
 }
 
-func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
+func sctWriterJob(addedCerts <-chan *scts.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
 	encoder := gob.NewEncoder(sctWriter)
 
 	numAdded := 0
@@ -86,7 +86,7 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 	wg.Done()
 }
 
-func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
+func certSubmitterJob(ctx context.Context, addedCerts chan<- *scts.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
@@ -106,7 +106,7 @@ func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 	wg.Done()
 }
 
-func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient,
+func precertSubmitterJob(ctx context.Context, addedCerts chan<- *scts.AddedCert, logClient *client.LogClient,
 	precerts <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
@@ -176,7 +176,7 @@ func main() {
 
 	certs := make(chan *ct.LogEntry, 10**parallelSubmit)
 	precerts := make(chan *ct.LogEntry, 10**parallelSubmit)
-	addedCerts := make(chan *preload.AddedCert, 10**parallelSubmit)
+	addedCerts := make(chan *scts.AddedCert, 10**parallelSubmit)
 
 	var sctWriterWG sync.WaitGroup
 	sctWriterWG.Add(1)
