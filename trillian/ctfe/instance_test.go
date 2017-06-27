@@ -29,7 +29,7 @@ import (
 
 func TestSetUpInstance(t *testing.T) {
 	ctx := context.Background()
-	sf := keys.PEMSignerFactory{}
+	sf := &keys.PEMSignerFactory{}
 
 	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	if err != nil {

@@ -115,7 +115,7 @@ func main() {
 	defer conn.Close()
 	client := trillian.NewTrillianLogClient(conn)
 
-	sf := keys.PEMSignerFactory{}
+	sf := &keys.PEMSignerFactory{}
 
 	for _, c := range cfg {
 		handlers, err := ctfe.SetUpInstance(ctx, client, c, sf, *rpcDeadlineFlag, prometheus.MetricFactory{})
