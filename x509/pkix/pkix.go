@@ -187,7 +187,7 @@ func (certList *CertificateList) HasExpired(now time.Time) bool {
 	return now.After(certList.TBSCertList.NextUpdate)
 }
 
-// TBSCertificateList represents the ASN.1 structure of the same name. See RFC
+// TBSCertificateList represents the ASN.1 structure TBSCertList. See RFC
 // 5280, section 5.1.
 type TBSCertificateList struct {
 	Raw                 asn1.RawContent
@@ -200,7 +200,8 @@ type TBSCertificateList struct {
 	Extensions          []Extension          `asn1:"tag:0,optional,explicit"`
 }
 
-// RevokedCertificate represents the ASN.1 structure of the same name. See RFC
+// RevokedCertificate represents the unnamed ASN.1 structure that makes up the
+// revokedCertificates member of the TBSCertList structure. See RFC
 // 5280, section 5.1.
 type RevokedCertificate struct {
 	SerialNumber   *big.Int
