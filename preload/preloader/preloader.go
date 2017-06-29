@@ -129,10 +129,12 @@ func main() {
 	var sctFileWriter io.Writer
 	var err error
 	if *sctInputFile != "" {
-		sctFileWriter, err = os.Create(*sctInputFile)
+		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer sctFile.Close()
+		sctFileWriter = sctFile
 	} else {
 		sctFileWriter = ioutil.Discard
 	}
