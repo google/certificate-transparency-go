@@ -5,6 +5,7 @@
 *.tfstate.backup
 *~
 /.idea
+/certcheck
 /chainfix
 /coverage.txt
 /createtree
