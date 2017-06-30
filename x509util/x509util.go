@@ -353,6 +353,42 @@ func NameToString(name pkix.Name) string {
 	return result.String()
 }
 
+// OtherNameToString creates a string description of an x509.OtherName object.
+func OtherNameToString(other x509.OtherName) string {
+	return fmt.Sprintf("%v=%v", other.TypeID, hex.EncodeToString(other.Value.Bytes))
+}
+
+// GeneralNamesToString creates a string description of an x509.GeneralNames object.
+func GeneralNamesToString(gname *x509.GeneralNames) string {
+	var buf bytes.Buffer
+	for _, name := range gname.DNSNames {
+		commaAppend(&buf, "DNS:"+name)
+	}
+	for _, email := range gname.EmailAddresses {
+		commaAppend(&buf, "email:"+email)
+	}
+	for _, name := range gname.DirectoryNames {
+		commaAppend(&buf, "DirName:"+NameToString(name))
+	}
+	for _, uri := range gname.URIs {
+		commaAppend(&buf, "URI:"+uri)
+	}
+	for _, ip := range gname.IPNets {
+		if ip.Mask == nil {
+			commaAppend(&buf, "IP Address:"+ip.IP.String())
+		} else {
+			commaAppend(&buf, "IP Address:"+ip.IP.String()+"/"+ip.Mask.String())
+		}
+	}
+	for _, id := range gname.RegisteredIDs {
+		commaAppend(&buf, "Registered ID:"+id.String())
+	}
+	for _, other := range gname.OtherNames {
+		commaAppend(&buf, "othername:"+OtherNameToString(other))
+	}
+	return buf.String()
+}
+
 // CertificateToString generates a string describing the given certificate.
 // The output roughly resembles that from openssl x509 -text.
 func CertificateToString(cert *x509.Certificate) string {
