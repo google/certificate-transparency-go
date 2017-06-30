@@ -1184,6 +1184,46 @@ func (e *NonFatalErrors) HasError() bool {
 	return len(e.Errors) > 0
 }
 
+func parseDistributionPoints(data []byte, crldp *[]string) error {
+	// CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
+	//
+	// DistributionPoint ::= SEQUENCE {
+	//     distributionPoint       [0]     DistributionPointName OPTIONAL,
+	//     reasons                 [1]     ReasonFlags OPTIONAL,
+	//     cRLIssuer               [2]     GeneralNames OPTIONAL }
+	//
+	// DistributionPointName ::= CHOICE {
+	//     fullName                [0]     GeneralNames,
+	//     nameRelativeToCRLIssuer [1]     RelativeDistinguishedName }
+
+	var cdp []distributionPoint
+	if rest, err := asn1.Unmarshal(data, &cdp); err != nil {
+		return err
+	} else if len(rest) != 0 {
+		return errors.New("x509: trailing data after X.509 CRL distribution point")
+	}
+
+	for _, dp := range cdp {
+		// Per RFC 5280, 4.2.1.13, one of distributionPoint or cRLIssuer may be empty.
+		if len(dp.DistributionPoint.FullName.Bytes) == 0 {
+			continue
+		}
+
+		var n asn1.RawValue
+		if _, err := asn1.Unmarshal(dp.DistributionPoint.FullName.Bytes, &n); err != nil {
+			return err
+		}
+		// Trailing data after the fullName is
+		// allowed because other elements of
+		// the SEQUENCE can appear.
+
+		if n.Tag == 6 {
+			*crldp = append(*crldp, string(n.Bytes))
+		}
+	}
+	return nil
+}
+
 func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddresses []string, ipAddresses []net.IP, err error) {
 	// RFC 5280, 4.2.1.6
 
@@ -1377,42 +1417,8 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 
 			case OIDExtensionCRLDistributionPoints[3]:
 				// RFC 5280, 4.2.1.13
-
-				// CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
-				//
-				// DistributionPoint ::= SEQUENCE {
-				//     distributionPoint       [0]     DistributionPointName OPTIONAL,
-				//     reasons                 [1]     ReasonFlags OPTIONAL,
-				//     cRLIssuer               [2]     GeneralNames OPTIONAL }
-				//
-				// DistributionPointName ::= CHOICE {
-				//     fullName                [0]     GeneralNames,
-				//     nameRelativeToCRLIssuer [1]     RelativeDistinguishedName }
-
-				var cdp []distributionPoint
-				if rest, err := asn1.Unmarshal(e.Value, &cdp); err != nil {
+				if err := parseDistributionPoints(e.Value, &out.CRLDistributionPoints); err != nil {
 					return nil, err
-				} else if len(rest) != 0 {
-					return nil, errors.New("x509: trailing data after X.509 CRL distribution point")
-				}
-
-				for _, dp := range cdp {
-					// Per RFC 5280, 4.2.1.13, one of distributionPoint or cRLIssuer may be empty.
-					if len(dp.DistributionPoint.FullName.Bytes) == 0 {
-						continue
-					}
-
-					var n asn1.RawValue
-					if _, err := asn1.Unmarshal(dp.DistributionPoint.FullName.Bytes, &n); err != nil {
-						return nil, err
-					}
-					// Trailing data after the fullName is
-					// allowed because other elements of
-					// the SEQUENCE can appear.
-
-					if n.Tag == 6 {
-						out.CRLDistributionPoints = append(out.CRLDistributionPoints, string(n.Bytes))
-					}
 				}
 
 			case OIDExtensionAuthorityKeyId[3]:
