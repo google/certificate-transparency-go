@@ -96,7 +96,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	isPrecert := false
 	leaf, err := x509.ParseCertificate(chain[0].Data)
 	if err == nil {
-		count, _ := x509util.OidInExtensions(x509.OIDExtensionCTPoison, leaf.Extensions)
+		count, _ := x509util.OIDInExtensions(x509.OIDExtensionCTPoison, leaf.Extensions)
 		if count > 0 {
 			isPrecert = true
 			fmt.Print("Uploading pre-certificate to log\n")
