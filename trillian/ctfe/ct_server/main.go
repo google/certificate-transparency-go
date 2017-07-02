@@ -45,7 +45,7 @@ var (
 	rpcBackendFlag     = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
 	rpcDeadlineFlag    = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	logConfigFlag      = flag.String("log_config", "", "File holding log config in JSON")
-	maxGetEntriesFlag  = flag.Int64("maxGetEntriesAllowed", 0, "Max number of entries we allow in a get-entries request (default 50)")
+	maxGetEntriesFlag  = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 50)")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
