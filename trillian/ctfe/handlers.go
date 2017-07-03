@@ -65,7 +65,7 @@ const (
 )
 
 // MaxGetEntriesAllowed is the number of entries we allow in a get-entries request
-var MaxGetEntriesAllowed int64 = 50
+var MaxGetEntriesAllowed int64 = 1000
 
 // Use an explicitly empty slice for empty proofs so it gets JSON-encoded as
 // '[]' rather than 'null'.
