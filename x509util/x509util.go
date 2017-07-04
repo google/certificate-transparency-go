@@ -310,6 +310,8 @@ func extKeyUsageToString(u x509.ExtKeyUsage) string {
 		return "Microsoft server gated cryptography"
 	case x509.ExtKeyUsageNetscapeServerGatedCrypto:
 		return "Netscape server gated cryptography"
+	case x509.ExtKeyUsageCertificateTransparency:
+		return "Certificate transparency"
 	default:
 		return "Unknown"
 	}
