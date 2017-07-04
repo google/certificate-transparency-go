@@ -335,15 +335,11 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
 	}
-	leafCert, err := x509.ParseCertificate(chain[1][0].Data)
-	if err != nil {
-		return fmt.Errorf("failed to parse leaf certificate to build precert from: %v", err)
-	}
 	issuer, err := x509.ParseCertificate(chain[0][0].Data)
 	if err != nil {
 		return fmt.Errorf("failed to parse issuer for precert: %v", err)
 	}
-	prechain, tbs, err := makePrecertChain(chain[1], leafCert, issuer, signer)
+	prechain, tbs, err := makePrecertChain(chain[1], issuer, signer)
 	if err != nil {
 		return fmt.Errorf("failed to build pre-certificate: %v", err)
 	}
@@ -533,46 +529,60 @@ func checkInclusionOf(ctx context.Context, pool ClientPool, chain []ct.ASN1Cert,
 
 // makePrecertChain builds a precert chain based from the given cert chain and cert, converting and
 // re-signing relative to the given issuer.
-func makePrecertChain(chain []ct.ASN1Cert, cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
+func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
 	prechain := make([]ct.ASN1Cert, len(chain))
 	copy(prechain[1:], chain[1:])
+
 	cert, err := x509.ParseCertificate(chain[0].Data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
 	}
 
+	prechain[0].Data, err = buildNewPrecertData(cert, issuer, signer)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
+	}
+
+	// For later verification, build the leaf data that is included in the log. Use
+	// the generated precert (removing the just-added poison extension) to be sure that
+	// it matches.  (If we pulled the TBSCertificate out of the template cert, the
+	// extensions might be in a different order.)
+	tbs, err := buildLeafTBS(prechain[0].Data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
+	}
+	return prechain, tbs, nil
+}
+
+// buildNewPrecertData creates a new pre-certificate based on the given template cert (which is
+// modified)
+func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) ([]byte, error) {
 	// Randomize the subject key ID.
 	randData := make([]byte, 128)
 	if _, err := cryptorand.Read(randData); err != nil {
-		return nil, nil, fmt.Errorf("failed to read random data: %v", err)
+		return nil, fmt.Errorf("failed to read random data: %v", err)
 	}
 	cert.SubjectKeyId = randData
 
-	// Add the CT poison extension then rebuild the certificate.
+	// Add the CT poison extension.
 	cert.ExtraExtensions = append(cert.ExtraExtensions, pkix.Extension{
 		Id:       x509.OIDExtensionCTPoison,
 		Critical: true,
 		Value:    []byte{0x05, 0x00}, // ASN.1 NULL
 	})
 
-	// Create a fresh certificate, signed by the intermediate CA.
-	prechain[0].Data, err = x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
+	// Create a fresh certificate, signed by the issuer.
+	return x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
+}
 
-	// Rebuilding the certificate will set the authority key ID to the issuer's subject
-	// key ID, and will re-order extensions.  Extract the corresponding TBSCertificate
-	// and remove the poison for future reference.
-	reparsed, err := x509.ParseCertificate(prechain[0].Data)
+// buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
+// in the log.
+func buildLeafTBS(precertData []byte) ([]byte, error) {
+	reparsed, err := x509.ParseCertificate(precertData)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
+		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
 	}
-	tbs, err := x509.RemoveCTPoison(reparsed.RawTBSCertificate)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to remove poison from TBSCertificate: %v", err)
-	}
-	return prechain, tbs, nil
+	return x509.RemoveCTPoison(reparsed.RawTBSCertificate)
 }
 
 // makeCertChain builds a new cert chain based from the given cert chain, changing SubjectKeyId and
