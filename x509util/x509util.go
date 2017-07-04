@@ -576,7 +576,7 @@ func CertificateToString(cert *x509.Certificate) string {
 
 	for _, ext := range cert.Extensions {
 		// Skip extensions that are already cracked out
-		if OidForStandardExtension(ext.Id) {
+		if oidAlreadyPrinted(ext.Id) {
 			continue
 		}
 		result.WriteString(fmt.Sprintf("            %v:", ext.Id))
@@ -592,4 +592,21 @@ func CertificateToString(cert *x509.Certificate) string {
 	result.WriteString("\n")
 
 	return result.String()
+}
+
+// TODO(drysdale): remove this once all standard OIDs are parsed and printed.
+func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
+	if oid.Equal(OidExtensionSubjectKeyId) ||
+		oid.Equal(OidExtensionKeyUsage) ||
+		oid.Equal(OidExtensionExtendedKeyUsage) ||
+		oid.Equal(OidExtensionAuthorityKeyId) ||
+		oid.Equal(OidExtensionBasicConstraints) ||
+		oid.Equal(OidExtensionSubjectAltName) ||
+		oid.Equal(OidExtensionCertificatePolicies) ||
+		oid.Equal(OidExtensionNameConstraints) ||
+		oid.Equal(OidExtensionCRLDistributionPoints) ||
+		oid.Equal(OidExtensionAuthorityInfoAccess) {
+		return true
+	}
+	return false
 }
