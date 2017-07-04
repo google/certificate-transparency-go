@@ -321,7 +321,7 @@ func (s *hammerState) addChain(ctx context.Context) error {
 
 func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	// Invalid because it's a pre-cert chain, not a cert chain.
-	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh cert: %v", err)
 	}
@@ -333,7 +333,7 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 }
 
 func (s *hammerState) addPreChain(ctx context.Context) error {
-	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
 	}
