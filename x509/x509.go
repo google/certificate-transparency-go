@@ -900,10 +900,20 @@ func (h UnhandledCriticalExtension) Error() string {
 	return fmt.Sprintf("x509: unhandled critical extension (%v)", h.ID)
 }
 
-// RemoveCTPoison takes a DER-encoded TBSCertificate and removes the CT poison extension,
-// and returns the result, still as a DER-encoded TBSCertificate.  This function will
-// fail if there is not exactly 1 CT poison extension present.
+// RemoveCTPoison takes a DER-encoded TBSCertificate and removes the CT poison
+// extension (preserving the order of other extensions), and returns the result
+// still as a DER-encoded TBSCertificate.  This function will fail if there is
+// not exactly 1 CT poison extension present.
 func RemoveCTPoison(tbsData []byte) ([]byte, error) {
+	return BuildPrecertTBS(tbsData, nil)
+}
+
+// BuildPrecertTBS builds a Certificate Transparency pre-certificate (RFC 6962
+// s3.1) from the given DER-encoded TBSCertificate.  It removes the CT poison
+// extension (there must be exactly 1 of these), preserving the order of other
+// extensions, and optionally changes the issuer name.  The result is returned
+// as a DER-encoded TBSCertificate.
+func BuildPrecertTBS(tbsData []byte, issuer *pkix.Name) ([]byte, error) {
 	var tbs tbsCertificate
 	rest, err := asn1.Unmarshal(tbsData, &tbs)
 	if err != nil {
@@ -925,6 +935,15 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 	}
 	tbs.Extensions = append(tbs.Extensions[:poisonAt], tbs.Extensions[poisonAt+1:]...)
 	tbs.Raw = nil
+
+	if issuer != nil {
+		asn1Issuer, err := asn1.Marshal(issuer.ToRDNSequence())
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal new issuer: %v", err)
+		}
+		tbs.Issuer = asn1.RawValue{FullBytes: asn1Issuer}
+	}
+
 	data, err := asn1.Marshal(tbs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal TBSCertificate: %v", err)
