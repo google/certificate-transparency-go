@@ -24,6 +24,7 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -156,14 +157,77 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 	if err != nil {
 		return fmt.Errorf("tls.Marshal(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
 	}
-	hash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
-	rsp, err := t.client().GetProofByHash(ctx, hash[:], sth.TreeSize)
+	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
 	t.stats.done(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
 	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafData); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
+	}
+	return nil
+}
+
+// checkInclusionOfPreCert checks a pre-cert is included at given index.
+func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issuer *x509.Certificate, sct *ct.SignedCertificateTimestamp, sth *ct.SignedTreeHead) error {
+	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
+	leaf := ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
+			Timestamp: sct.Timestamp,
+			EntryType: ct.PrecertLogEntryType,
+			PrecertEntry: &ct.PreCert{
+				IssuerKeyHash:  sha256.Sum256(issuer.RawSubjectPublicKeyInfo),
+				TBSCertificate: tbs,
+			},
+			Extensions: sct.Extensions,
+		},
+	}
+	leafData, err := tls.Marshal(leaf)
+	if err != nil {
+		return fmt.Errorf("tls.Marshal(precertLeaf)=(nil,%v); want (_,nil)", err)
+	}
+	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
+	t.stats.done(ctfe.GetProofByHashName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
+	}
+	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafData); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
+	}
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("unexpected stats check: %v", err)
+	}
+	return nil
+}
+
+// checkPreCertEntry retrieves a pre-cert from a known index and checks it.
+func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tbs []byte) error {
+	precertEntries, err := t.client().GetEntries(ctx, precertIndex, precertIndex)
+	t.stats.done(ctfe.GetEntriesName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetEntries(%d,%d)=(nil,%v); want (_,nil)", precertIndex, precertIndex, err)
+	}
+	if len(precertEntries) != 1 {
+		return fmt.Errorf("len(entries)=%d; want %d", len(precertEntries), 1)
+	}
+	leaf := precertEntries[0].Leaf
+	ts := leaf.TimestampedEntry
+	fmt.Printf("%s: Entry[%d] = {Index:%d Leaf:{Version:%v TS:{EntryType:%v Timestamp:%v}}}\n",
+		t.prefix, precertIndex, precertEntries[0].Index, leaf.Version, ts.EntryType, timeFromMS(ts.Timestamp))
+
+	if ts.EntryType != ct.PrecertLogEntryType {
+		return fmt.Errorf("leaf[%d].ts.EntryType=%v; want PrecertLogEntryType", precertIndex, ts.EntryType)
+	}
+	if !bytes.Equal(ts.PrecertEntry.TBSCertificate, tbs) {
+		return fmt.Errorf("leaf[%d].ts.PrecertEntry differs from originally uploaded cert", precertIndex)
+	}
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("unexpected stats check: %v", err)
 	}
 	return nil
 }
@@ -437,80 +501,64 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 13: retrieve and check pre-cert.
 	precertIndex := int64(count + 1)
-	precertEntries, err := t.client().GetEntries(ctx, precertIndex, precertIndex)
-	t.stats.done(ctfe.GetEntriesName, 200)
-	if err != nil {
-		return fmt.Errorf("got GetEntries(%d,%d)=(nil,%v); want (_,nil)", precertIndex, precertIndex, err)
-	}
-	if len(precertEntries) != 1 {
-		return fmt.Errorf("len(entries)=%d; want %d", len(precertEntries), 1)
-	}
-	leaf := precertEntries[0].Leaf
-	ts := leaf.TimestampedEntry
-	fmt.Printf("%s: Entry[%d] = {Index:%d Leaf:{Version:%v TS:{EntryType:%v Timestamp:%v}}}\n",
-		t.prefix, precertIndex, precertEntries[0].Index, leaf.Version, ts.EntryType, timeFromMS(ts.Timestamp))
-
-	if ts.EntryType != ct.PrecertLogEntryType {
-		return fmt.Errorf("leaf[%d].ts.EntryType=%v; want PrecertLogEntryType", precertIndex, ts.EntryType)
-	}
-	if !bytes.Equal(ts.PrecertEntry.TBSCertificate, tbs) {
-		return fmt.Errorf("leaf[%d].ts.PrecertEntry differs from originally uploaded cert", precertIndex)
-	}
-	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+	if err := t.checkPreCertEntry(ctx, precertIndex, tbs); err != nil {
+		return fmt.Errorf("failed to check pre-cert entry: %v", err)
 	}
 
 	// Stage 14: get an inclusion proof for the precert.
-	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
-	leaf = ct.MerkleTreeLeaf{
-		Version:  ct.V1,
-		LeafType: ct.TimestampedEntryLeafType,
-		TimestampedEntry: &ct.TimestampedEntry{
-			Timestamp: precertSCT.Timestamp,
-			EntryType: ct.PrecertLogEntryType,
-			PrecertEntry: &ct.PreCert{
-				IssuerKeyHash:  sha256.Sum256(issuer.RawSubjectPublicKeyInfo),
-				TBSCertificate: tbs,
-			},
-			Extensions: precertSCT.Extensions,
-		},
-	}
-	leafData, err := tls.Marshal(leaf)
-	if err != nil {
-		return fmt.Errorf("tls.Marshal(precertLeaf)=(nil,%v); want (_,nil)", err)
-	}
-	hash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
-	rsp, err := t.client().GetProofByHash(ctx, hash[:], sthN1.TreeSize)
-	t.stats.done(ctfe.GetProofByHashName, 200)
-	if err != nil {
-		return fmt.Errorf("got GetProofByHash(precertSCT, size=%d)=nil,%v", sthN1.TreeSize, err)
-	}
-	if rsp.LeafIndex != precertIndex {
-		return fmt.Errorf("got GetProofByHash(precertSCT, size=%d).LeafIndex=%d; want %d", sthN1.TreeSize, rsp.LeafIndex, precertIndex)
-	}
-	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, precertIndex, precertSCT.Timestamp, sthN1.TreeSize, rsp.AuditPath)
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sthN1.TreeSize), rsp.AuditPath, sthN1.SHA256RootHash[:], leafData); err != nil {
-		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", precertIndex, sthN1.TreeSize, err)
-	}
-	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+	if err := t.checkInclusionOfPreCert(ctx, tbs, issuer, precertSCT, sthN1); err != nil {
+		return fmt.Errorf("failed to check inclusion of pre-cert entry: %v", err)
 	}
 
 	// Stage 15: invalid consistency proof
 	if rsp, err := t.client().GetSTHConsistency(ctx, 2, 299); err == nil {
 		return fmt.Errorf("got GetSTHConsistency(2,299)=(%+v,nil); want (nil,_)", rsp)
 	}
-	t.stats.done(ctfe.GetSTHConsistencyName, 400)
+	t.stats.done(ctfe.GetSTHConsistencyName, 500)
 	fmt.Printf("%s: GetSTHConsistency(2,299)=(nil,_)\n", t.prefix)
+	// TODO(drysdale): get 4xx status codes emitted here and below
 
 	// Stage 16: invalid inclusion proof
 	wrong := sha256.Sum256([]byte("simply wrong"))
 	if rsp, err := t.client().GetProofByHash(ctx, wrong[:], sthN1.TreeSize); err == nil {
 		return fmt.Errorf("got GetProofByHash(wrong, size=%d)=(%v,nil); want (nil,_)", sthN1.TreeSize, rsp)
 	}
-	t.stats.done(ctfe.GetProofByHashName, 400)
+	t.stats.done(ctfe.GetProofByHashName, 500)
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,_)\n", t.prefix, sthN1.TreeSize)
 
+	// Stage 17: build and add a pre-certificate signed by a pre-issuer.
+	preIssuerChain, preTBS, err := makePreIssuerPrecertChain(chain[1], issuer, signer)
+	if err != nil {
+		return fmt.Errorf("failed to build pre-issued pre-certificate: %v", err)
+	}
+	preIssuerCertSCT, err := pool.Next().AddPreChain(ctx, preIssuerChain)
+	stats.done(ctfe.AddPreChainName, 200)
+	if err != nil {
+		return fmt.Errorf("got AddPreChain()=(nil,%v); want (_,nil)", err)
+	}
+	fmt.Printf("%s: Uploaded pre-issued precert to %v log, got SCT(time=%q)\n", t.prefix, precertSCT.SCTVersion, timeFromMS(precertSCT.Timestamp))
+	treeSize++
+	sthN2, err := t.awaitTreeSize(ctx, uint64(treeSize), true, mmd)
+	if err != nil {
+		return fmt.Errorf("AwaitTreeSize(%d)=(nil,%v); want (_,nil)", treeSize, err)
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sthN2.Timestamp), sthN2.TreeSize, sthN2.SHA256RootHash)
+
+	// Stage 18: retrieve and check pre-issued pre-cert.
+	preIssuerCertIndex := int64(count + 2)
+	if err := t.checkPreCertEntry(ctx, preIssuerCertIndex, preTBS); err != nil {
+		return fmt.Errorf("failed to check pre-issued pre-cert entry: %v", err)
+	}
+
+	// Stage 19: get an inclusion proof for the pre-issued precert.
+	if err := t.checkInclusionOfPreCert(ctx, preTBS, issuer, preIssuerCertSCT, sthN2); err != nil {
+		return fmt.Errorf("failed to check inclusion of pre-cert entry: %v", err)
+	}
+
+	// Final stats check.
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("unexpected stats check: %v", err)
+	}
 	return nil
 }
 
@@ -568,11 +616,8 @@ func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer cryp
 		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
 	}
 
-	// For later verification, build the leaf data that is included in the log. Use
-	// the generated precert (removing the just-added poison extension) to be sure that
-	// it matches.  (If we pulled the TBSCertificate out of the template cert, the
-	// extensions might be in a different order.)
-	tbs, err := buildLeafTBS(prechain[0].Data)
+	// For later verification, build the leaf TBS data that is included in the log.
+	tbs, err := buildLeafTBS(prechain[0].Data, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
 	}
@@ -597,17 +642,68 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 	})
 
 	// Create a fresh certificate, signed by the issuer.
-	return x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
+	data, err := x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to CreateCertificate: %v", err)
+	}
+	return data, nil
 }
 
 // buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
 // in the log.
-func buildLeafTBS(precertData []byte) ([]byte, error) {
+func buildLeafTBS(precertData []byte, issuerName *pkix.Name) ([]byte, error) {
 	reparsed, err := x509.ParseCertificate(precertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
 	}
-	return x509.RemoveCTPoison(reparsed.RawTBSCertificate)
+	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, issuerName)
+}
+
+// makePreIssuerPrecertChain builds a precert chain where the pre-cert is signed by a new
+// pre-issuer intermediate.
+func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
+	prechain := make([]ct.ASN1Cert, len(chain)+1)
+	copy(prechain[2:], chain[1:])
+
+	// Create a new private key and intermediate CA cert to go with it.
+	preSigner, err := keys.NewFromSpec(&keyspb.Specification{
+		Params: &keyspb.Specification_EcdsaParams{
+			EcdsaParams: &keyspb.Specification_ECDSA{
+				Curve: keyspb.Specification_ECDSA_P256,
+			},
+		},
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create pre-issuer private key: %v", err)
+	}
+	preIssuer := *issuer
+	preIssuer.RawSubject = nil
+	preIssuer.Subject.CommonName += "PrecertIssuer"
+	preIssuer.PublicKeyAlgorithm = x509.ECDSA
+	preIssuer.PublicKey = preSigner.Public()
+	preIssuer.ExtKeyUsage = append(preIssuer.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
+	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuer, issuer, preIssuer.PublicKey, signer)
+
+	cert, err := x509.ParseCertificate(chain[0].Data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
+	}
+
+	prechain[0].Data, err = buildNewPrecertData(cert, &preIssuer, preSigner)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
+	}
+
+	if err := verifyChain(prechain); err != nil {
+		return nil, nil, fmt.Errorf("failed to verify just-created prechain: %v", err)
+	}
+
+	// The leaf data has the poison removed and the issuer field changed.
+	tbs, err := buildLeafTBS(prechain[0].Data, &issuer.Subject)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
+	}
+	return prechain, tbs, nil
 }
 
 // makeCertChain builds a new cert chain based from the given cert chain, changing SubjectKeyId and
@@ -631,6 +727,52 @@ func makeCertChain(chain []ct.ASN1Cert, cert, issuer *x509.Certificate, signer c
 	}
 
 	return newchain, nil
+}
+
+// verifyChain checks that a chain of certificates validates locally.
+func verifyChain(rawChain []ct.ASN1Cert) error {
+	chain := make([]*x509.Certificate, 0, len(rawChain))
+	for i, c := range rawChain {
+		cert, err := x509.ParseCertificate(c.Data)
+		if err != nil {
+			return fmt.Errorf("failed to parse rawChain[%d]: %v", i, err)
+		}
+		chain = append(chain, cert)
+	}
+
+	// First verify signatures cert-by-cert.
+	for i := 1; i < len(chain); i++ {
+		issuer := chain[i]
+		cert := chain[i-1]
+		if err := cert.CheckSignatureFrom(issuer); err != nil {
+			return fmt.Errorf("failed to check signature on rawChain[%d] using rawChain[%d]: %v", i-1, i, err)
+		}
+	}
+
+	// Now verify the chain as a whole
+	intermediatePool := x509.NewCertPool()
+	for i := 1; i < len(chain); i++ {
+		intermediatePool.AddCert(chain[i])
+	}
+	rootPool := x509.NewCertPool()
+	rootPool.AddCert(chain[len(chain)-1])
+	opts := x509.VerifyOptions{
+		Roots:             rootPool,
+		Intermediates:     intermediatePool,
+		DisableTimeChecks: true,
+		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	chain[0].UnhandledCriticalExtensions = nil
+	chains, err := chain[0].Verify(opts)
+	if err != nil {
+		return fmt.Errorf("chain[0].Verify(%+v) failed: %v", opts, err)
+	}
+	if len(chains) == 0 {
+		return errors.New("no path to root found when trying to validate chains")
+	}
+
+	return nil
 }
 
 // MakeSigner creates a signer using the private key in the test directory.
