@@ -277,14 +277,14 @@ func parseBodyAsJSONChain(c LogContext, r *http.Request) (ct.AddChainRequest, er
 // TODO(Martin2112): Doesn't properly handle duplicate submissions yet but the backend
 // needs this to be implemented before we can do it here
 func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request, isPrecert bool) (int, error) {
-	var makeLeafFn func(*x509.Certificate, *x509.Certificate, uint64) (*ct.MerkleTreeLeaf, error)
 	var method EntrypointName
+	var etype ct.LogEntryType
 	if isPrecert {
 		method = AddPreChainName
-		makeLeafFn = buildV1MerkleTreeLeafForPrecert
+		etype = ct.PrecertLogEntryType
 	} else {
 		method = AddChainName
-		makeLeafFn = buildV1MerkleTreeLeafForCert
+		etype = ct.X509LogEntryType
 	}
 
 	// Check the contents of the request and convert to slice of certificates.
@@ -302,11 +302,7 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	timeMillis := uint64(c.TimeSource.Now().UnixNano() / millisPerNano)
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
-	var issuer *x509.Certificate
-	if len(chain) > 1 {
-		issuer = chain[1]
-	}
-	merkleLeaf, err := makeLeafFn(chain[0], issuer, timeMillis)
+	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %v", err)
 	}

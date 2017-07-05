@@ -334,7 +334,7 @@ func TestAddChain(t *testing.T) {
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
 			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := buildV1MerkleTreeLeafForCert(pool.RawCertificates()[0], nil, fakeTimeMillis)
+			merkleLeaf, err := ct.MerkleTreeLeafFromChain(pool.RawCertificates(), ct.X509LogEntryType, fakeTimeMillis)
 			if err != nil {
 				t.Errorf("Unexpected error signing SCT: %v", err)
 				continue
@@ -439,7 +439,7 @@ func TestAddPrechain(t *testing.T) {
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
 			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := buildV1MerkleTreeLeafForPrecert(pool.RawCertificates()[0], root, fakeTimeMillis)
+			merkleLeaf, err := ct.MerkleTreeLeafFromChain([]*x509.Certificate{pool.RawCertificates()[0], root}, ct.PrecertLogEntryType, fakeTimeMillis)
 			if err != nil {
 				t.Errorf("Unexpected error signing SCT: %v", err)
 				continue
