@@ -226,7 +226,7 @@ func main() {
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
 		getRoots(ctx, logClient)
-	case "getentries", "get_entries":
+	case "getentries", "get_entries", "get-entries":
 		getEntries(ctx, logClient)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
