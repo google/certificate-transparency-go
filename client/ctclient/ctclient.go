@@ -177,7 +177,7 @@ func showTBSCert(tbs []byte) {
 }
 
 func dieWithUsage(msg string) {
-	fmt.Fprintf(os.Stderr, msg)
+	fmt.Fprintln(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
 		"where cmd is one of:\n"+
 		"   sth         retrieve signed tree head\n"+
