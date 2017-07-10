@@ -37,6 +37,8 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/monitoring"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -318,7 +320,7 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	rsp, err := c.rpcClient.QueueLeaves(ctx, &req)
 	glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v", c.LogPrefix, method, err)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend QueueLeaves request failed: %v", err)
+		return toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
 	}
 	if rsp == nil {
 		return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
@@ -440,7 +442,7 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 		rsp, err := c.rpcClient.GetConsistencyProof(ctx, &req)
 		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", c.LogPrefix, err)
 		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
+			return toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
 		}
 
 		// Additional sanity checks, none of the hashes in the returned path should be empty
@@ -499,7 +501,7 @@ func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r 
 	}
 	rsp, err := c.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
+		return toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
 	}
 
 	// Additional sanity checks
@@ -551,7 +553,7 @@ func getEntries(ctx context.Context, c LogContext, w http.ResponseWriter, r *htt
 	}
 	rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
+		return toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
 	}
 
 	// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
@@ -617,7 +619,7 @@ func getEntryAndProof(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	req := trillian.GetEntryAndProofRequest{LogId: c.logID, LeafIndex: leafIndex, TreeSize: treeSize}
 	rsp, err := c.rpcClient.GetEntryAndProof(ctx, &req)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
+		return toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
 	}
 
 	// Apply some checks that we got reasonable data from the backend
@@ -945,4 +947,13 @@ func checkAuditPath(path [][]byte) bool {
 		}
 	}
 	return true
+}
+
+func toHTTPStatus(err error) int {
+	rpcStatus, ok := status.FromError(err)
+	if !ok {
+		return http.StatusInternalServerError
+	}
+
+	return runtime.HTTPStatusFromCode(rpcStatus.Code())
 }

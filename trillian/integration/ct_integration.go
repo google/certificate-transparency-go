@@ -514,16 +514,15 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if rsp, err := t.client().GetSTHConsistency(ctx, 2, 299); err == nil {
 		return fmt.Errorf("got GetSTHConsistency(2,299)=(%+v,nil); want (nil,_)", rsp)
 	}
-	t.stats.done(ctfe.GetSTHConsistencyName, 500)
+	t.stats.done(ctfe.GetSTHConsistencyName, 400)
 	fmt.Printf("%s: GetSTHConsistency(2,299)=(nil,_)\n", t.prefix)
-	// TODO(drysdale): get 4xx status codes emitted here and below
 
 	// Stage 16: invalid inclusion proof
 	wrong := sha256.Sum256([]byte("simply wrong"))
 	if rsp, err := t.client().GetProofByHash(ctx, wrong[:], sthN1.TreeSize); err == nil {
 		return fmt.Errorf("got GetProofByHash(wrong, size=%d)=(%v,nil); want (nil,_)", sthN1.TreeSize, rsp)
 	}
-	t.stats.done(ctfe.GetProofByHashName, 500)
+	t.stats.done(ctfe.GetProofByHashName, 404)
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,_)\n", t.prefix, sthN1.TreeSize)
 
 	// Stage 17: build and add a pre-certificate signed by a pre-issuer.
