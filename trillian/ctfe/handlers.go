@@ -105,7 +105,6 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	lastSCTTimestamp = mf.NewGauge("last_sct_timestamp", "Time of last SCT in ms since epoch", "logid")
 	lastSTHTimestamp = mf.NewGauge("last_sth_timestamp", "Time of last STH in ms since epoch", "logid")
 	lastSTHTreeSize = mf.NewGauge("last_sth_treesize", "Size of tree at last STH", "logid")
-	// TODO(drysdale): investigate whether there's a generic wrapper to do this
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
@@ -274,8 +273,6 @@ func parseBodyAsJSONChain(c LogContext, r *http.Request) (ct.AddChainRequest, er
 
 // addChainInternal is called by add-chain and add-pre-chain as the logic involved in
 // processing these requests is almost identical
-// TODO(Martin2112): Doesn't properly handle duplicate submissions yet but the backend
-// needs this to be implemented before we can do it here
 func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request, isPrecert bool) (int, error) {
 	var method EntrypointName
 	var etype ct.LogEntryType
@@ -345,7 +342,6 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	err = marshalAndWriteAddChainResponse(sct, c.signer, w)
 	if err != nil {
 		// reason is logged and http status is already set
-		// TODO(Martin2112): Record failure for monitoring when it's implemented
 		return http.StatusInternalServerError, fmt.Errorf("failed to write response: %v", err)
 	}
 	glog.V(3).Infof("%s: %s <= SCT", c.LogPrefix, method)
@@ -915,10 +911,9 @@ func marshalGetEntriesResponse(c LogContext, rsp *trillian.GetLeavesByIndexRespo
 		// or data storage that should be investigated.
 		var treeLeaf ct.MerkleTreeLeaf
 		if rest, err := tls.Unmarshal(leaf.LeafValue, &treeLeaf); err != nil {
-			// TODO(Martin2112): Hook this up to monitoring when implemented
-			glog.Warningf("%s: Failed to deserialize Merkle leaf from backend: %d", c.LogPrefix, leaf.LeafIndex)
+			glog.Errorf("%s: Failed to deserialize Merkle leaf from backend: %d", c.LogPrefix, leaf.LeafIndex)
 		} else if len(rest) > 0 {
-			glog.Warningf("%s: Trailing data after Merkle leaf from backend: %d", c.LogPrefix, leaf.LeafIndex)
+			glog.Errorf("%s: Trailing data after Merkle leaf from backend: %d", c.LogPrefix, leaf.LeafIndex)
 		}
 
 		extraData := leaf.ExtraData
