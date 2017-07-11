@@ -931,11 +931,9 @@ func marshalGetEntriesResponse(c LogContext, rsp *trillian.GetLeavesByIndexRespo
 
 // checkAuditPath does a quick scan of the proof we got from the backend for consistency.
 // All the hashes should be non zero length.
-// TODO(Martin2112): should maybe check they are all the same length and all the expected
-// length of the hashes used in the RFC.
 func checkAuditPath(path [][]byte) bool {
 	for _, node := range path {
-		if len(node) == 0 {
+		if len(node) != sha256.Size {
 			return false
 		}
 	}

@@ -904,9 +904,14 @@ func TestSortLeafRange(t *testing.T) {
 }
 
 func TestGetProofByHash(t *testing.T) {
+	auditHashes := [][]byte{
+		[]byte("abcdef78901234567890123456789012"),
+		[]byte("ghijkl78901234567890123456789012"),
+		[]byte("mnopqr78901234567890123456789012"),
+	}
 	inclusionProof := ct.GetProofByHashResponse{
 		LeafIndex: 2,
-		AuditPath: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
+		AuditPath: auditHashes,
 	}
 
 	var tests = []struct {
@@ -966,12 +971,7 @@ func TestGetProofByHash(t *testing.T) {
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
-						// Proof to match inclusionProof above.
-						Hashes: [][]byte{
-							[]byte("abcdef"),
-							[]byte("ghijkl"),
-							[]byte("mnopqr"),
-						},
+						Hashes:    auditHashes,
 					},
 					// Second proof ignored.
 					{
@@ -990,9 +990,9 @@ func TestGetProofByHash(t *testing.T) {
 					{
 						LeafIndex: 2,
 						Hashes: [][]byte{
-							[]byte("abcdef"),
+							auditHashes[0],
 							{}, // missing hash
-							[]byte("ghijkl"),
+							auditHashes[2],
 						},
 					},
 				},
@@ -1006,12 +1006,7 @@ func TestGetProofByHash(t *testing.T) {
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
-						// Proof to match inclusionProof above.
-						Hashes: [][]byte{
-							[]byte("abcdef"),
-							[]byte("ghijkl"),
-							[]byte("mnopqr"),
-						},
+						Hashes:    auditHashes,
 					},
 				},
 			},
@@ -1025,12 +1020,7 @@ func TestGetProofByHash(t *testing.T) {
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
-						// Proof to match inclusionProof above.
-						Hashes: [][]byte{
-							[]byte("abcdef"),
-							[]byte("ghijkl"),
-							[]byte("mnopqr"),
-						},
+						Hashes:    auditHashes,
 					},
 				},
 			},
@@ -1087,6 +1077,11 @@ func TestGetProofByHash(t *testing.T) {
 }
 
 func TestGetSTHConsistency(t *testing.T) {
+	auditHashes := [][]byte{
+		[]byte("abcdef78901234567890123456789012"),
+		[]byte("ghijkl78901234567890123456789012"),
+		[]byte("mnopqr78901234567890123456789012"),
+	}
 	var tests = []struct {
 		req           string
 		want          int
@@ -1158,9 +1153,26 @@ func TestGetSTHConsistency(t *testing.T) {
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes: [][]byte{
-						[]byte("abcdef"),
-						{}, // invalid
-						[]byte("ghijkl"),
+						auditHashes[0],
+						{}, // missing hash
+						auditHashes[2],
+					},
+				},
+			},
+			errStr: "invalid proof",
+		},
+		{
+			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
+			want:   http.StatusInternalServerError,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes: [][]byte{
+						auditHashes[0],
+						auditHashes[1][:30], // wrong size hash
+						auditHashes[2],
 					},
 				},
 			},
@@ -1174,15 +1186,11 @@ func TestGetSTHConsistency(t *testing.T) {
 			rpcRsp: &trillian.GetConsistencyProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
-					Hashes: [][]byte{
-						[]byte("abcdef"),
-						[]byte("ghijkl"),
-						[]byte("mnopqr"),
-					},
+					Hashes:    auditHashes,
 				},
 			},
 			httpRsp: &ct.GetSTHConsistencyResponse{
-				Consistency: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
+				Consistency: auditHashes,
 			},
 		},
 		{
