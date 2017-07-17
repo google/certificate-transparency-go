@@ -913,7 +913,7 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 // extension (there must be exactly 1 of these), preserving the order of other
 // extensions, and optionally changes the issuer name.  The result is returned
 // as a DER-encoded TBSCertificate.
-func BuildPrecertTBS(tbsData []byte, issuer *pkix.Name) ([]byte, error) {
+func BuildPrecertTBS(tbsData []byte, issuer *Certificate) ([]byte, error) {
 	var tbs tbsCertificate
 	rest, err := asn1.Unmarshal(tbsData, &tbs)
 	if err != nil {
@@ -937,7 +937,7 @@ func BuildPrecertTBS(tbsData []byte, issuer *pkix.Name) ([]byte, error) {
 	tbs.Raw = nil
 
 	if issuer != nil {
-		asn1Issuer, err := asn1.Marshal(issuer.ToRDNSequence())
+		asn1Issuer, err := asn1.Marshal(issuer.Subject.ToRDNSequence())
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal new issuer: %v", err)
 		}
