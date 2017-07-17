@@ -937,11 +937,40 @@ func BuildPrecertTBS(tbsData []byte, issuer *Certificate) ([]byte, error) {
 	tbs.Raw = nil
 
 	if issuer != nil {
+		// Update the precert's Issuer field
 		asn1Issuer, err := asn1.Marshal(issuer.Subject.ToRDNSequence())
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal new issuer: %v", err)
 		}
 		tbs.Issuer = asn1.RawValue{FullBytes: asn1Issuer}
+
+		// Also need to update the cert's AuthorityKeyID extension
+		// to the SubjectKeyID of the new issuer.
+		var issuerKeyID []byte
+		for _, ext := range issuer.Extensions {
+			if ext.Id.Equal(oidExtensionSubjectKeyId) {
+				issuerKeyID = ext.Value
+				break
+			}
+		}
+		if issuerKeyID == nil {
+			return nil, fmt.Errorf("issuer has no subject-key-id extension")
+		}
+
+		keyAt := -1
+		for i, ext := range tbs.Extensions {
+			if ext.Id.Equal(oidExtensionAuthorityKeyId) {
+				keyAt = i
+				break
+			}
+		}
+		if keyAt < 0 {
+			return nil, fmt.Errorf("pre-cert has no authority-key-id extension to update")
+		}
+		tbs.Extensions[keyAt].Value, err = asn1.Marshal(authKeyId{Id: issuerKeyID})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal new auth key ID: %v", err)
+		}
 	}
 
 	data, err := asn1.Marshal(tbs)
