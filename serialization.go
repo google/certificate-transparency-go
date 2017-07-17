@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 // SerializeSCTSignatureInput serializes the passed in sct and log entry into
@@ -162,7 +161,7 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype LogEntryType, time
 	issuer := chain[1]
 	cert := chain[0]
 
-	var issuerName *pkix.Name
+	var newIssuer *x509.Certificate
 	if IsPreIssuer(issuer) {
 		// The issuer of the pre-cert is not going to be the issuer of the final
 		// cert.  Change to use the final issuer.
@@ -171,14 +170,14 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype LogEntryType, time
 		}
 		issuer = chain[2]
 
-		// Replace the cert's Issuer field with the Subject from the
-		// intermediate that will sign the final cert.
-		issuerName = &issuer.Subject
+		// Replace the cert's Issuer field with the intermediate that will sign
+		// the final cert; this changes the issuer and authority key ID.
+		newIssuer = issuer
 	}
 
 	// Next, post-process the DER-encoded TBSCertificate, to remove the CT poison
 	// extension and possibly update the issuer field.
-	defangedTBS, err := x509.BuildPrecertTBS(cert.RawTBSCertificate, issuerName)
+	defangedTBS, err := x509.BuildPrecertTBS(cert.RawTBSCertificate, newIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove poison extension: %v", err)
 	}
