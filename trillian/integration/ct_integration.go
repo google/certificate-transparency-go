@@ -641,6 +641,7 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 	})
 
 	// Create a fresh certificate, signed by the issuer.
+	cert.AuthorityKeyId = issuer.SubjectKeyId
 	data, err := x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to CreateCertificate: %v", err)
@@ -681,6 +682,14 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 	preIssuer.PublicKeyAlgorithm = x509.ECDSA
 	preIssuer.PublicKey = preSigner.Public()
 	preIssuer.ExtKeyUsage = append(preIssuer.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
+
+	// Set a new subject-key-id for the intermediate (to ensure it's different from the true
+	// issuer's subject-key-id).
+	randData := make([]byte, 128)
+	if _, err := cryptorand.Read(randData); err != nil {
+		return nil, nil, fmt.Errorf("failed to read random data: %v", err)
+	}
+	preIssuer.SubjectKeyId = randData
 	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuer, issuer, preIssuer.PublicKey, signer)
 
 	cert, err := x509.ParseCertificate(chain[0].Data)
