@@ -650,12 +650,12 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 
 // buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
 // in the log.
-func buildLeafTBS(precertData []byte, issuerName *pkix.Name) ([]byte, error) {
+func buildLeafTBS(precertData []byte, issuer *x509.Certificate) ([]byte, error) {
 	reparsed, err := x509.ParseCertificate(precertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
 	}
-	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, issuerName)
+	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, issuer)
 }
 
 // makePreIssuerPrecertChain builds a precert chain where the pre-cert is signed by a new
@@ -698,7 +698,7 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 	}
 
 	// The leaf data has the poison removed and the issuer field changed.
-	tbs, err := buildLeafTBS(prechain[0].Data, &issuer.Subject)
+	tbs, err := buildLeafTBS(prechain[0].Data, issuer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
 	}
