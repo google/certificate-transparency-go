@@ -37,7 +37,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/monitoring"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -948,5 +948,28 @@ func toHTTPStatus(err error) int {
 		return http.StatusInternalServerError
 	}
 
-	return runtime.HTTPStatusFromCode(rpcStatus.Code())
+	switch rpcStatus.Code() {
+	case codes.OK:
+		return http.StatusOK
+	case codes.Canceled, codes.DeadlineExceeded:
+		return http.StatusRequestTimeout
+	case codes.InvalidArgument, codes.OutOfRange, codes.AlreadyExists:
+		return http.StatusBadRequest
+	case codes.NotFound:
+		return http.StatusNotFound
+	case codes.PermissionDenied, codes.ResourceExhausted:
+		return http.StatusForbidden
+	case codes.Unauthenticated:
+		return http.StatusUnauthorized
+	case codes.FailedPrecondition:
+		return http.StatusPreconditionFailed
+	case codes.Aborted:
+		return http.StatusConflict
+	case codes.Unimplemented:
+		return http.StatusNotImplemented
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusInternalServerError
+	}
 }
