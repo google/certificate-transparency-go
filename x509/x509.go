@@ -909,11 +909,21 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 }
 
 // BuildPrecertTBS builds a Certificate Transparency pre-certificate (RFC 6962
-// s3.1) from the given DER-encoded TBSCertificate.  It removes the CT poison
-// extension (there must be exactly 1 of these), preserving the order of other
-// extensions, and optionally changes the issuer name.  The result is returned
-// as a DER-encoded TBSCertificate.
-func BuildPrecertTBS(tbsData []byte, issuer *Certificate) ([]byte, error) {
+// s3.1) from the given DER-encoded TBSCertificate, returning a DER-encoded
+// TBSCertificate.
+//
+// This function removes the CT poison extension (there must be exactly 1 of
+// these), preserving the order of other extensions.
+//
+// If preIssuer is provided, this should be a special intermediate certificate
+// that was used to sign the precert (indicated by having the special
+// CertificateTransparency extended key usage).  In this case, the issuance
+// information of the pre-cert is updated to reflect the next issuer in the
+// chain, i.e. the issuer of this special intermediate:
+//  - The precert's Issuer is changed to the Issuer of the intermediate
+//  - The precert's AuthorityKeyId is changed to the AuthorityKeyId of the
+//    intermediate.
+func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 	var tbs tbsCertificate
 	rest, err := asn1.Unmarshal(tbsData, &tbs)
 	if err != nil {
@@ -936,25 +946,37 @@ func BuildPrecertTBS(tbsData []byte, issuer *Certificate) ([]byte, error) {
 	tbs.Extensions = append(tbs.Extensions[:poisonAt], tbs.Extensions[poisonAt+1:]...)
 	tbs.Raw = nil
 
-	if issuer != nil {
+	if preIssuer != nil {
 		// Update the precert's Issuer field
-		asn1Issuer, err := asn1.Marshal(issuer.Subject.ToRDNSequence())
+		asn1Issuer, err := asn1.Marshal(preIssuer.Issuer.ToRDNSequence())
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal new issuer: %v", err)
 		}
 		tbs.Issuer = asn1.RawValue{FullBytes: asn1Issuer}
 
 		// Also need to update the cert's AuthorityKeyID extension
-		// to the SubjectKeyID of the new issuer.
+		// to that of the preIssuer.
 		var issuerKeyID []byte
-		for _, ext := range issuer.Extensions {
-			if ext.Id.Equal(oidExtensionSubjectKeyId) {
+		for _, ext := range preIssuer.Extensions {
+			if ext.Id.Equal(oidExtensionAuthorityKeyId) {
 				issuerKeyID = ext.Value
 				break
 			}
 		}
 		if issuerKeyID == nil {
-			return nil, fmt.Errorf("issuer has no subject-key-id extension")
+			return nil, fmt.Errorf("issuer has no auth-key-id extension")
+		}
+
+		// Check the issuer has the CT EKU.
+		seenCTEKU := false
+		for _, eku := range preIssuer.ExtKeyUsage {
+			if eku == ExtKeyUsageCertificateTransparency {
+				seenCTEKU = true
+				break
+			}
+		}
+		if !seenCTEKU {
+			return nil, fmt.Errorf("issuer does not have CertificateTransparency extended key usage")
 		}
 
 		keyAt := -1
@@ -967,7 +989,7 @@ func BuildPrecertTBS(tbsData []byte, issuer *Certificate) ([]byte, error) {
 		if keyAt < 0 {
 			return nil, fmt.Errorf("pre-cert has no authority-key-id extension to update")
 		}
-		tbs.Extensions[keyAt].Value, err = asn1.Marshal(authKeyId{Id: issuerKeyID})
+		tbs.Extensions[keyAt].Value = issuerKeyID
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal new auth key ID: %v", err)
 		}
