@@ -161,23 +161,22 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype LogEntryType, time
 	issuer := chain[1]
 	cert := chain[0]
 
-	var newIssuer *x509.Certificate
+	var preIssuer *x509.Certificate
 	if IsPreIssuer(issuer) {
+		// Replace the cert's issuance information with details from the pre-issuer.
+		preIssuer = issuer
+
 		// The issuer of the pre-cert is not going to be the issuer of the final
-		// cert.  Change to use the final issuer.
+		// cert.  Change to use the final issuer's key hash.
 		if len(chain) < 3 {
 			return nil, fmt.Errorf("no issuer cert available for pre-issuer")
 		}
 		issuer = chain[2]
-
-		// Replace the cert's Issuer field with the intermediate that will sign
-		// the final cert; this changes the issuer and authority key ID.
-		newIssuer = issuer
 	}
 
 	// Next, post-process the DER-encoded TBSCertificate, to remove the CT poison
 	// extension and possibly update the issuer field.
-	defangedTBS, err := x509.BuildPrecertTBS(cert.RawTBSCertificate, newIssuer)
+	defangedTBS, err := x509.BuildPrecertTBS(cert.RawTBSCertificate, preIssuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove poison extension: %v", err)
 	}
