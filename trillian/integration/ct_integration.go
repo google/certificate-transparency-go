@@ -651,12 +651,12 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 
 // buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
 // in the log.
-func buildLeafTBS(precertData []byte, issuer *x509.Certificate) ([]byte, error) {
+func buildLeafTBS(precertData []byte, preIssuer *x509.Certificate) ([]byte, error) {
 	reparsed, err := x509.ParseCertificate(precertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
 	}
-	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, issuer)
+	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, preIssuer)
 }
 
 // makePreIssuerPrecertChain builds a precert chain where the pre-cert is signed by a new
@@ -676,12 +676,13 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create pre-issuer private key: %v", err)
 	}
-	preIssuer := *issuer
-	preIssuer.RawSubject = nil
-	preIssuer.Subject.CommonName += "PrecertIssuer"
-	preIssuer.PublicKeyAlgorithm = x509.ECDSA
-	preIssuer.PublicKey = preSigner.Public()
-	preIssuer.ExtKeyUsage = append(preIssuer.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
+
+	preIssuerTemplate := *issuer
+	preIssuerTemplate.RawSubject = nil
+	preIssuerTemplate.Subject.CommonName += "PrecertIssuer"
+	preIssuerTemplate.PublicKeyAlgorithm = x509.ECDSA
+	preIssuerTemplate.PublicKey = preSigner.Public()
+	preIssuerTemplate.ExtKeyUsage = append(preIssuerTemplate.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
 
 	// Set a new subject-key-id for the intermediate (to ensure it's different from the true
 	// issuer's subject-key-id).
@@ -689,15 +690,24 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 	if _, err := cryptorand.Read(randData); err != nil {
 		return nil, nil, fmt.Errorf("failed to read random data: %v", err)
 	}
-	preIssuer.SubjectKeyId = randData
-	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuer, issuer, preIssuer.PublicKey, signer)
+	preIssuerTemplate.SubjectKeyId = randData
+	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuerTemplate, issuer, preIssuerTemplate.PublicKey, signer)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create pre-issuer certificate: %v", err)
+	}
+
+	// Parse the pre-issuer back to a fully-populated x509.Certificate.
+	preIssuer, err := x509.ParseCertificate(prechain[1].Data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to re-parse generated pre-issuer: %v", err)
+	}
 
 	cert, err := x509.ParseCertificate(chain[0].Data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
 	}
 
-	prechain[0].Data, err = buildNewPrecertData(cert, &preIssuer, preSigner)
+	prechain[0].Data, err = buildNewPrecertData(cert, preIssuer, preSigner)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
 	}
@@ -706,8 +716,8 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 		return nil, nil, fmt.Errorf("failed to verify just-created prechain: %v", err)
 	}
 
-	// The leaf data has the poison removed and the issuer field changed.
-	tbs, err := buildLeafTBS(prechain[0].Data, issuer)
+	// The leaf data has the poison removed and the issuance information changed.
+	tbs, err := buildLeafTBS(prechain[0].Data, preIssuer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
 	}
