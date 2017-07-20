@@ -31,15 +31,15 @@ message LogConfig {
   keyspb.PublicKey public_key = 5;
   bool reject_expired = 6;
   repeated string ext_key_usages = 7;
-	// not_after_start defines the start of the range of acceptable NotAfter
-	// values, inclusive.
+  // not_after_start defines the start of the range of acceptable NotAfter
+  // values, inclusive.
   // Leaving this unset implies no lower bound to the range.
   google.protobuf.Timestamp not_after_start = 8;
-	// not_after_limit defines the end of the range of acceptable NotAfter values,
-	// exclusive.
+  // not_after_limit defines the end of the range of acceptable NotAfter values,
+  // exclusive.
   // Leaving this unset implies no upper bound to the range.
   google.protobuf.Timestamp not_after_limit = 9;
-	// accept_only_ca controls whether or not *only* certificates with the CA bit
-	// set will be accepted.
+  // accept_only_ca controls whether or not *only* certificates with the CA bit
+  // set will be accepted.
   bool accept_only_ca = 10;
 }
