@@ -17,6 +17,7 @@ package ctfe
 import (
 	"encoding/pem"
 	"testing"
+	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/x509"
@@ -99,9 +100,8 @@ func TestValidateChain(t *testing.T) {
 		t.Fatal("failed to load fake root")
 	}
 	validateOpts := CertValidationOpts{
-		trustedRoots:  fakeCARoots,
-		rejectExpired: false,
-		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		trustedRoots: fakeCARoots,
+		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
 	var tests = []struct {
@@ -149,6 +149,126 @@ func TestValidateChain(t *testing.T) {
 		}
 		if len(gotPath) != test.wantPathLen {
 			t.Errorf("|ValidateChain(%v)|=%d; want %d", test.desc, len(gotPath), test.wantPathLen)
+		}
+	}
+}
+
+func TestCA(t *testing.T) {
+	fakeCARoots := NewPEMCertPool()
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
+		t.Fatal("failed to load fake root")
+	}
+	validateOpts := CertValidationOpts{
+		trustedRoots: fakeCARoots,
+		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
+	leaf, err := x509.ParseCertificate(chain[0])
+	if err != nil {
+		t.Fatalf("Failed to parse golden certificate DER: %v", err)
+	}
+	t.Logf("Cert expiry date: %v", leaf.NotAfter)
+
+	var tests = []struct {
+		desc    string
+		chain   [][]byte
+		caOnly  bool
+		wantErr bool
+	}{
+		{
+			desc:  "end-entity, allow non-CA",
+			chain: chain,
+		},
+		{
+			desc:    "end-entity, disallow non-CA",
+			chain:   chain,
+			caOnly:  true,
+			wantErr: true,
+		},
+		{
+			desc:  "intermediate, allow non-CA",
+			chain: chain[1:],
+		},
+		{
+			desc:   "intermediate, disallow non-CA",
+			chain:  chain[1:],
+			caOnly: true,
+		},
+	}
+	for _, test := range tests {
+		validateOpts.acceptOnlyCA = test.caOnly
+		gotPath, err := ValidateChain(test.chain, validateOpts)
+		if err != nil {
+			if !test.wantErr {
+				t.Errorf("ValidateChain(%v)=%v,%v; want _,nil", test.desc, gotPath, err)
+			}
+			continue
+		}
+		if test.wantErr {
+			t.Errorf("ValidateChain(%v)=%v,%v; want _,non-nil", test.desc, gotPath, err)
+		}
+	}
+}
+
+func TestNotAfterRange(t *testing.T) {
+	fakeCARoots := NewPEMCertPool()
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
+		t.Fatal("failed to load fake root")
+	}
+	validateOpts := CertValidationOpts{
+		trustedRoots:  fakeCARoots,
+		rejectExpired: false,
+		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
+
+	var tests = []struct {
+		desc          string
+		chain         [][]byte
+		notAfterStart time.Time
+		notAfterLimit time.Time
+		wantErr       bool
+	}{
+		{
+			desc:  "valid-chain, no range",
+			chain: chain,
+		},
+		{
+			desc:          "valid-chain, valid range",
+			chain:         chain,
+			notAfterStart: time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC),
+			notAfterLimit: time.Date(2020, 7, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:          "before valid range",
+			chain:         chain,
+			notAfterStart: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       true,
+		},
+		{
+			desc:          "after valid range",
+			chain:         chain,
+			notAfterLimit: time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       true,
+		},
+	}
+	for _, test := range tests {
+		if !test.notAfterStart.IsZero() {
+			validateOpts.notAfterStart = &test.notAfterStart
+		}
+		if !test.notAfterLimit.IsZero() {
+			validateOpts.notAfterLimit = &test.notAfterLimit
+		}
+		gotPath, err := ValidateChain(test.chain, validateOpts)
+		if err != nil {
+			if !test.wantErr {
+				t.Errorf("ValidateChain(%v)=%v,%v; want _,nil", test.desc, gotPath, err)
+			}
+			continue
+		}
+		if test.wantErr {
+			t.Errorf("ValidateChain(%v)=%v,%v; want _,non-nil", test.desc, gotPath, err)
 		}
 	}
 }

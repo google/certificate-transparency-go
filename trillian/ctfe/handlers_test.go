@@ -99,10 +99,12 @@ const caAndIntermediateCertsPEM string = "-----BEGIN CERTIFICATE-----\n" +
 	"\n-----END CERTIFICATE-----\n"
 
 type handlerTestInfo struct {
-	mockCtrl *gomock.Controller
-	roots    *PEMCertPool
-	client   *mockclient.MockTrillianLogClient
-	c        LogContext
+	mockCtrl      *gomock.Controller
+	roots         *PEMCertPool
+	notAfterStart time.Time
+	notAfterEnd   time.Time
+	client        *mockclient.MockTrillianLogClient
+	c             LogContext
 }
 
 // setupTest creates mock objects and contexts.  Caller should invoke info.mockCtrl.Finish().
@@ -113,7 +115,12 @@ func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTe
 	}
 
 	info.client = mockclient.NewMockTrillianLogClient(info.mockCtrl)
-	info.c = *NewLogContext(0x42, "test", info.roots, false, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, info.client, signer, time.Millisecond*500, fakeTimeSource, monitoring.InertMetricFactory{})
+	vOpts := CertValidationOpts{
+		trustedRoots:  info.roots,
+		rejectExpired: false,
+		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+	info.c = *NewLogContext(0x42, "test", vOpts, info.client, signer, time.Millisecond*500, fakeTimeSource, monitoring.InertMetricFactory{})
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {

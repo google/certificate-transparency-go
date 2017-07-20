@@ -119,8 +119,33 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 	}
 
+	var naStart, naLimit *time.Time
+
+	if cfg.NotAfterStart != nil {
+		t, err := ptypes.Timestamp(cfg.NotAfterStart)
+		if err != nil {
+			return nil, fmt.Errorf("invalid not_after_start: %v", err)
+		}
+		naStart = &t
+	}
+	if cfg.NotAfterLimit != nil {
+		t, err := ptypes.Timestamp(cfg.NotAfterLimit)
+		if err != nil {
+			return nil, fmt.Errorf("invalid not_after_limit: %v", err)
+		}
+		naLimit = &t
+	}
+
+	validationOpts := CertValidationOpts{
+		trustedRoots:  roots,
+		rejectExpired: cfg.RejectExpired,
+		notAfterStart: naStart,
+		notAfterLimit: naLimit,
+		acceptOnlyCA:  cfg.AcceptOnlyCa,
+		extKeyUsages:  keyUsages,
+	}
 	// Create and register the handlers using the RPC client we just set up
-	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, roots, cfg.RejectExpired, keyUsages, client, signer, deadline, new(util.SystemTimeSource), mf)
+	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, validationOpts, client, signer, deadline, new(util.SystemTimeSource), mf)
 
 	handlers := logCtx.Handlers(cfg.Prefix)
 	return &handlers, nil
