@@ -66,12 +66,14 @@ const (
 	getEntryAndProofParamTreeSize = "tree_size"
 )
 
-// MaxGetEntriesAllowed is the number of entries we allow in a get-entries request
-var MaxGetEntriesAllowed int64 = 1000
+var (
+	// MaxGetEntriesAllowed is the number of entries we allow in a get-entries request
+	MaxGetEntriesAllowed int64 = 1000
 
-// Use an explicitly empty slice for empty proofs so it gets JSON-encoded as
-// '[]' rather than 'null'.
-var emptyProof = make([][]byte, 0)
+	// Use an explicitly empty slice for empty proofs so it gets JSON-encoded as
+	// '[]' rather than 'null'.
+	emptyProof = make([][]byte, 0)
+)
 
 // EntrypointName identifies a CT entrypoint as defined in section 4 of RFC 6962.
 type EntrypointName string
@@ -183,6 +185,13 @@ type CertValidationOpts struct {
 	trustedRoots *PEMCertPool
 	// rejectExpired indicates whether certificate validity period should be used during chain verification
 	rejectExpired bool
+	// notAfterStart is the earliest notAfter date which will be accepted.
+	notAfterStart *time.Time
+	// notAfterLimit defines the cut off point of notAfter dates - only notAfter
+	// dates strictly *before* notAfterLimit will be accepted.
+	notAfterLimit *time.Time
+	// acceptOnlyCA will reject any certificate without the CA bit set.
+	acceptOnlyCA bool
 	// extKeyUsages contains the list of EKUs to use during chain verification
 	extKeyUsages []x509.ExtKeyUsage
 }
@@ -209,20 +218,16 @@ type LogContext struct {
 }
 
 // NewLogContext creates a new instance of LogContext.
-func NewLogContext(logID int64, prefix string, trustedRoots *PEMCertPool, rejectExpired bool, extKeyUsages []x509.ExtKeyUsage, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, rpcDeadline time.Duration, timeSource util.TimeSource, mf monitoring.MetricFactory) *LogContext {
+func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, rpcDeadline time.Duration, timeSource util.TimeSource, mf monitoring.MetricFactory) *LogContext {
 	ctx := &LogContext{
-		logID:       logID,
-		urlPrefix:   prefix,
-		LogPrefix:   fmt.Sprintf("%s{%d}", prefix, logID),
-		rpcClient:   rpcClient,
-		signer:      signer,
-		rpcDeadline: rpcDeadline,
-		TimeSource:  timeSource,
-		validationOpts: CertValidationOpts{
-			trustedRoots:  trustedRoots,
-			rejectExpired: rejectExpired,
-			extKeyUsages:  extKeyUsages,
-		},
+		logID:          logID,
+		urlPrefix:      prefix,
+		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
+		rpcClient:      rpcClient,
+		signer:         signer,
+		rpcDeadline:    rpcDeadline,
+		TimeSource:     timeSource,
+		validationOpts: validationOpts,
 	}
 	once.Do(func() { setupMetrics(mf) })
 	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))

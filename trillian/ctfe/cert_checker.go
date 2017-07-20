@@ -73,6 +73,22 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		}
 	}
 
+	naStart := validationOpts.notAfterStart
+	naLimit := validationOpts.notAfterLimit
+
+	// Check whether the expiry date of this certificate is within the acceptable
+	// range.
+	if naStart != nil && chain[0].NotAfter.Before(*naStart) {
+		return nil, fmt.Errorf("certificate NotAfter (%v) < %v", chain[0].NotAfter, *naStart)
+	}
+	if naLimit != nil && !chain[0].NotAfter.Before(*naLimit) {
+		return nil, fmt.Errorf("certificate NotAfter (%v) >= %v", chain[0].NotAfter, *naLimit)
+	}
+
+	if validationOpts.acceptOnlyCA && !chain[0].IsCA {
+		return nil, errors.New("only certificates with CA bit set are accepted")
+	}
+
 	// We can now do the verification
 	verifyOpts := x509.VerifyOptions{
 		Roots:             validationOpts.trustedRoots.CertPool(),
