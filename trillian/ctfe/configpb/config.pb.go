@@ -43,9 +43,11 @@ type LogConfig struct {
 	ExtKeyUsages  []string          `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages" json:"ext_key_usages,omitempty"`
 	// not_after_start defines the start of the range of acceptable NotAfter
 	// values, inclusive.
+	// Leaving this unset implies no lower bound to the range.
 	NotAfterStart *google_protobuf1.Timestamp `protobuf:"bytes,8,opt,name=not_after_start,json=notAfterStart" json:"not_after_start,omitempty"`
 	// not_after_limit defines the end of the range of acceptable NotAfter values,
-	// exlusive.
+	// exclusive.
+	// Leaving this unset implies no upper bound to the range.
 	NotAfterLimit *google_protobuf1.Timestamp `protobuf:"bytes,9,opt,name=not_after_limit,json=notAfterLimit" json:"not_after_limit,omitempty"`
 	// accept_only_ca controls whether or not *only* certificates with the CA bit
 	// set will be accepted.
