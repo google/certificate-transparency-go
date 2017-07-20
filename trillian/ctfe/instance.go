@@ -119,26 +119,28 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 	}
 
-	var naStart, naLimit time.Time
+	var naStart, naLimit *time.Time
 
 	if cfg.NotAfterStart != nil {
-		naStart, err = ptypes.Timestamp(cfg.NotAfterStart)
+		t, err = ptypes.Timestamp(cfg.NotAfterStart)
 		if err != nil {
 			return nil, fmt.Errorf("invalid not_after_start: %v", err)
 		}
+		naStart = &t
 	}
 	if cfg.NotAfterLimit != nil {
-		naLimit, err = ptypes.Timestamp(cfg.NotAfterLimit)
+		t, err = ptypes.Timestamp(cfg.NotAfterLimit)
 		if err != nil {
 			return nil, fmt.Errorf("invalid not_after_limit: %v", err)
 		}
+		naLimit = &t
 	}
 
 	validationOpts := CertValidationOpts{
 		trustedRoots:  roots,
 		rejectExpired: cfg.RejectExpired,
-		notAfterStart: &naStart,
-		notAfterLimit: &naLimit,
+		notAfterStart: naStart,
+		notAfterLimit: naLimit,
 		acceptOnlyCA:  cfg.AcceptOnlyCa,
 		extKeyUsages:  keyUsages,
 	}

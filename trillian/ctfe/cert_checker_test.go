@@ -220,12 +220,8 @@ func TestNotAfterRange(t *testing.T) {
 		rejectExpired: false,
 		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
+
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
-	leaf, err := x509.ParseCertificate(chain[0])
-	if err != nil {
-		t.Fatalf("Failed to parse golden certificate DER: %v", err)
-	}
-	t.Logf("Cert expiry date: %v", leaf.NotAfter)
 
 	var tests = []struct {
 		desc          string

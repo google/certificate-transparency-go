@@ -186,9 +186,11 @@ type CertValidationOpts struct {
 	// rejectExpired indicates whether certificate validity period should be used during chain verification
 	rejectExpired bool
 	// notAfterStart is the earliest notAfter date which will be accepted.
+	// nil means no lower bound on the accepted range.
 	notAfterStart *time.Time
 	// notAfterLimit defines the cut off point of notAfter dates - only notAfter
 	// dates strictly *before* notAfterLimit will be accepted.
+	// nil means no upper bound on the accepted range.
 	notAfterLimit *time.Time
 	// acceptOnlyCA will reject any certificate without the CA bit set.
 	acceptOnlyCA bool
