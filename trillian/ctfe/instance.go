@@ -122,14 +122,14 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	var naStart, naLimit *time.Time
 
 	if cfg.NotAfterStart != nil {
-		t, err = ptypes.Timestamp(cfg.NotAfterStart)
+		t, err := ptypes.Timestamp(cfg.NotAfterStart)
 		if err != nil {
 			return nil, fmt.Errorf("invalid not_after_start: %v", err)
 		}
 		naStart = &t
 	}
 	if cfg.NotAfterLimit != nil {
-		t, err = ptypes.Timestamp(cfg.NotAfterLimit)
+		t, err := ptypes.Timestamp(cfg.NotAfterLimit)
 		if err != nil {
 			return nil, fmt.Errorf("invalid not_after_limit: %v", err)
 		}
