@@ -947,12 +947,10 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 	tbs.Raw = nil
 
 	if preIssuer != nil {
-		// Update the precert's Issuer field
-		asn1Issuer, err := asn1.Marshal(preIssuer.Issuer.ToRDNSequence())
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal new issuer: %v", err)
-		}
-		tbs.Issuer = asn1.RawValue{FullBytes: asn1Issuer}
+		// Update the precert's Issuer field.  Use the RawIssuer rather than the
+		// parsed Issuer to avoid any chance of ASN.1 differences (e.g. switching
+		// from UTF8String to PrintableString).
+		tbs.Issuer.FullBytes = preIssuer.RawIssuer
 
 		// Also need to update the cert's AuthorityKeyID extension
 		// to that of the preIssuer.
