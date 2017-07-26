@@ -77,7 +77,7 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate
 // with the Trillian RPC back end.
-func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, sf keys.SignerFactory, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
+func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
 	// Check config validity.
 	if len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
@@ -100,7 +100,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
 	}
 
-	key, err := sf.NewSigner(ctx, keyProto.Message)
+	key, err := keys.NewSigner(ctx, keyProto.Message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}

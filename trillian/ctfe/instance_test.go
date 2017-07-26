@@ -20,18 +20,19 @@ import (
 	"testing"
 	"time"
 
+	// Register PEMKeyFile ProtoHandler
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
 )
 
 func TestSetUpInstance(t *testing.T) {
 	ctx := context.Background()
-	sf := &keys.DefaultSignerFactory{}
 
 	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	if err != nil {
@@ -155,8 +156,7 @@ func TestSetUpInstance(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := SetUpInstance(ctx, nil, &test.cfg, sf, time.Second, monitoring.InertMetricFactory{})
-		if err != nil {
+		if _, err := SetUpInstance(ctx, nil, &test.cfg, time.Second, monitoring.InertMetricFactory{}); err != nil {
 			if test.errStr == "" {
 				t.Errorf("(%v).SetUpInstance()=_,%v; want _,nil", test.desc, err)
 			} else if !strings.Contains(err.Error(), test.errStr) {
@@ -183,7 +183,6 @@ func equivalentTimes(a *time.Time, b *timestamp.Timestamp) bool {
 
 func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 	ctx := context.Background()
-	sf := &keys.DefaultSignerFactory{}
 
 	start := &timestamp.Timestamp{Seconds: 10000}
 	limit := &timestamp.Timestamp{Seconds: 12000}
@@ -239,7 +238,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		h, err := SetUpInstance(ctx, nil, &test.cfg, sf, time.Second, monitoring.InertMetricFactory{})
+		h, err := SetUpInstance(ctx, nil, &test.cfg, time.Second, monitoring.InertMetricFactory{})
 		if err != nil {
 			t.Errorf("%v: SetUpInstance() = %v, want no error", test.desc, err)
 			continue
