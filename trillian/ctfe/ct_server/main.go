@@ -32,11 +32,15 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/naming"
+
+	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
+	_ "github.com/google/trillian/crypto/keys/der/proto"
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
+	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
 )
 
 // Global flags that affect all log instances.
@@ -117,10 +121,8 @@ func main() {
 	defer conn.Close()
 	client := trillian.NewTrillianLogClient(conn)
 
-	sf := &keys.DefaultSignerFactory{}
-
 	for _, c := range cfg {
-		handlers, err := ctfe.SetUpInstance(ctx, client, c, sf, *rpcDeadlineFlag, prometheus.MetricFactory{})
+		handlers, err := ctfe.SetUpInstance(ctx, client, c, *rpcDeadlineFlag, prometheus.MetricFactory{})
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}

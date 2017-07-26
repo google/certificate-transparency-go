@@ -26,7 +26,6 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/testonly/integration"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -72,9 +71,8 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
-		sf := &keys.DefaultSignerFactory{}
 		for _, cfg := range cfgs {
-			handlers, err := ctfe.SetUpInstance(ctx, client, cfg, sf, 10*time.Second, prometheus.MetricFactory{})
+			handlers, err := ctfe.SetUpInstance(ctx, client, cfg, 10*time.Second, prometheus.MetricFactory{})
 			if err != nil {
 				glog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
 			}
