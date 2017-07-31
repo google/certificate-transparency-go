@@ -8,6 +8,7 @@ import (
 	trillian "github.com/google/trillian"
 	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
+	reflect "reflect"
 )
 
 // MockTrillianLogClient is a mock of TrillianLogClient interface
@@ -48,7 +49,7 @@ func (_m *MockTrillianLogClient) GetConsistencyProof(_param0 context.Context, _p
 // GetConsistencyProof indicates an expected call of GetConsistencyProof
 func (_mr *MockTrillianLogClientMockRecorder) GetConsistencyProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetConsistencyProof", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetConsistencyProof", reflect.TypeOf((*MockTrillianLogClient)(nil).GetConsistencyProof), _s...)
 }
 
 // GetEntryAndProof mocks base method
@@ -66,7 +67,7 @@ func (_m *MockTrillianLogClient) GetEntryAndProof(_param0 context.Context, _para
 // GetEntryAndProof indicates an expected call of GetEntryAndProof
 func (_mr *MockTrillianLogClientMockRecorder) GetEntryAndProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetEntryAndProof", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetEntryAndProof", reflect.TypeOf((*MockTrillianLogClient)(nil).GetEntryAndProof), _s...)
 }
 
 // GetInclusionProof mocks base method
@@ -84,7 +85,7 @@ func (_m *MockTrillianLogClient) GetInclusionProof(_param0 context.Context, _par
 // GetInclusionProof indicates an expected call of GetInclusionProof
 func (_mr *MockTrillianLogClientMockRecorder) GetInclusionProof(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInclusionProof", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetInclusionProof", reflect.TypeOf((*MockTrillianLogClient)(nil).GetInclusionProof), _s...)
 }
 
 // GetInclusionProofByHash mocks base method
@@ -102,7 +103,7 @@ func (_m *MockTrillianLogClient) GetInclusionProofByHash(_param0 context.Context
 // GetInclusionProofByHash indicates an expected call of GetInclusionProofByHash
 func (_mr *MockTrillianLogClientMockRecorder) GetInclusionProofByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetInclusionProofByHash", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetInclusionProofByHash", reflect.TypeOf((*MockTrillianLogClient)(nil).GetInclusionProofByHash), _s...)
 }
 
 // GetLatestSignedLogRoot mocks base method
@@ -120,7 +121,7 @@ func (_m *MockTrillianLogClient) GetLatestSignedLogRoot(_param0 context.Context,
 // GetLatestSignedLogRoot indicates an expected call of GetLatestSignedLogRoot
 func (_mr *MockTrillianLogClientMockRecorder) GetLatestSignedLogRoot(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLatestSignedLogRoot", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetLatestSignedLogRoot", reflect.TypeOf((*MockTrillianLogClient)(nil).GetLatestSignedLogRoot), _s...)
 }
 
 // GetLeavesByHash mocks base method
@@ -138,7 +139,7 @@ func (_m *MockTrillianLogClient) GetLeavesByHash(_param0 context.Context, _param
 // GetLeavesByHash indicates an expected call of GetLeavesByHash
 func (_mr *MockTrillianLogClientMockRecorder) GetLeavesByHash(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLeavesByHash", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetLeavesByHash", reflect.TypeOf((*MockTrillianLogClient)(nil).GetLeavesByHash), _s...)
 }
 
 // GetLeavesByIndex mocks base method
@@ -156,7 +157,7 @@ func (_m *MockTrillianLogClient) GetLeavesByIndex(_param0 context.Context, _para
 // GetLeavesByIndex indicates an expected call of GetLeavesByIndex
 func (_mr *MockTrillianLogClientMockRecorder) GetLeavesByIndex(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLeavesByIndex", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetLeavesByIndex", reflect.TypeOf((*MockTrillianLogClient)(nil).GetLeavesByIndex), _s...)
 }
 
 // GetSequencedLeafCount mocks base method
@@ -174,7 +175,7 @@ func (_m *MockTrillianLogClient) GetSequencedLeafCount(_param0 context.Context, 
 // GetSequencedLeafCount indicates an expected call of GetSequencedLeafCount
 func (_mr *MockTrillianLogClientMockRecorder) GetSequencedLeafCount(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSequencedLeafCount", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "GetSequencedLeafCount", reflect.TypeOf((*MockTrillianLogClient)(nil).GetSequencedLeafCount), _s...)
 }
 
 // QueueLeaf mocks base method
@@ -192,7 +193,7 @@ func (_m *MockTrillianLogClient) QueueLeaf(_param0 context.Context, _param1 *tri
 // QueueLeaf indicates an expected call of QueueLeaf
 func (_mr *MockTrillianLogClientMockRecorder) QueueLeaf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "QueueLeaf", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "QueueLeaf", reflect.TypeOf((*MockTrillianLogClient)(nil).QueueLeaf), _s...)
 }
 
 // QueueLeaves mocks base method
@@ -210,5 +211,5 @@ func (_m *MockTrillianLogClient) QueueLeaves(_param0 context.Context, _param1 *t
 // QueueLeaves indicates an expected call of QueueLeaves
 func (_mr *MockTrillianLogClientMockRecorder) QueueLeaves(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "QueueLeaves", _s...)
+	return _mr.mock.ctrl.RecordCallWithMethodType(_mr.mock, "QueueLeaves", reflect.TypeOf((*MockTrillianLogClient)(nil).QueueLeaves), _s...)
 }
