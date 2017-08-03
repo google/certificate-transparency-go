@@ -29,6 +29,7 @@ import (
 	etcdnaming "github.com/coreos/etcd/clientv3/naming"
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
@@ -44,6 +45,7 @@ var (
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
 	rpcBackendFlag     = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
 	rpcDeadlineFlag    = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
 	logConfigFlag      = flag.String("log_config", "", "File holding log config in JSON")
 	maxGetEntriesFlag  = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
@@ -138,6 +140,23 @@ func main() {
 	} else {
 		// Handle metrics on the DefaultServeMux.
 		http.Handle("/metrics", promhttp.Handler())
+	}
+
+	if *getSTHInterval > 0 {
+		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
+		// changes that are not triggered by us.
+		for _, c := range cfg {
+			ticker := time.NewTicker(*getSTHInterval)
+			go func(c *configpb.LogConfig) {
+				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
+				for t := range ticker.C {
+					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
+					if _, err := ctfe.GetTreeHead(ctx, client, c.LogId, c.Prefix); err != nil {
+						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
+					}
+				}
+			}(c)
+		}
 	}
 
 	// Bring up the HTTP server and serve until we get a signal not to.
