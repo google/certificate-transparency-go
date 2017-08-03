@@ -367,38 +367,53 @@ func addPreChain(ctx context.Context, c LogContext, w http.ResponseWriter, r *ht
 	return addChainInternal(ctx, c, w, r, true)
 }
 
-func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
-	// Forward on to the Log server.
-	req := trillian.GetLatestSignedLogRootRequest{LogId: c.logID}
-	glog.V(2).Infof("%s: GetSTH => grpc.GetLatestSignedLogRoot %+v", c.LogPrefix, req)
-	rsp, err := c.rpcClient.GetLatestSignedLogRoot(ctx, &req)
-	glog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", c.LogPrefix, err)
+// GetTreeHead retrieves and builds a tree head structure for the given log; the returned
+// tree head is not yet signed.
+func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*ct.SignedTreeHead, error) {
+	// Send request to the Log server.
+	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
+	glog.V(2).Infof("%s: GetSTH => grpc.GetLatestSignedLogRoot %+v", prefix, req)
+	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
+	glog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend GetLatestSignedLogRoot request failed: %v", err)
+		return nil, fmt.Errorf("backend GetLatestSignedLogRoot request failed: %v", err)
 	}
 
 	// Check over the response.
 	slr := rsp.GetSignedLogRoot()
 	if slr == nil {
-		return http.StatusInternalServerError, errors.New("no log root returned")
+		return nil, errors.New("no log root returned")
 	}
-	glog.V(3).Infof("%s: GetSTH <= slr=%+v", c.LogPrefix, slr)
+	glog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
 	if treeSize := slr.TreeSize; treeSize < 0 {
-		return http.StatusInternalServerError, fmt.Errorf("bad tree size from backend: %d", treeSize)
+		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
 	}
 
 	if hashSize := len(slr.RootHash); hashSize != sha256.Size {
-		return http.StatusInternalServerError, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
+		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
 	}
 
-	// Build the CT STH object, including a signature over its contents.
+	// Build the CT STH object, except the signature.
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
 		TreeSize:  uint64(slr.TreeSize),
 		Timestamp: uint64(slr.TimestampNanos / 1000 / 1000),
 	}
 	copy(sth.SHA256RootHash[:], slr.RootHash) // Checked size above.
-	err = signV1TreeHead(c.signer, &sth)
+	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(logID, 10))
+	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(logID, 10))
+
+	return &sth, nil
+}
+
+func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+	sth, err := GetTreeHead(ctx, c.rpcClient, c.logID, c.LogPrefix)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	// Add the signature over the STH contents.
+	err = signV1TreeHead(c.signer, sth)
 	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
 		return http.StatusInternalServerError, fmt.Errorf("failed to sign tree head: %v", err)
 	}
@@ -425,8 +440,6 @@ func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Re
 		// Probably too late for this as headers might have been written but we don't know for sure
 		return http.StatusInternalServerError, fmt.Errorf("failed to write response data: %v", err)
 	}
-	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(c.logID, 10))
-	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(c.logID, 10))
 
 	return http.StatusOK, nil
 }
