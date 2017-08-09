@@ -92,6 +92,7 @@ ct_provision() {
     # TODO(daviddrysdale): Consider using distinct keys for each log
     tree_id=$(./createtree \
       --admin_server="${admin_server}" \
+      --private_key_format=PrivateKey \
       --pem_key_path=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem \
       --pem_key_password=towel \
       --signature_algorithm=ECDSA)
