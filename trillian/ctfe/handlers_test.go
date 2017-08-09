@@ -1128,6 +1128,15 @@ func TestGetSTHConsistency(t *testing.T) {
 			want: http.StatusBadRequest,
 		},
 		{
+			req:  "first=0&second=1",
+			want: http.StatusOK,
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: nil,
+			},
+			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
+			httpJSON: "{\"consistency\":[]}",
+		},
+		{
 			req:  "first=998&second=997",
 			want: http.StatusBadRequest,
 		},

@@ -473,6 +473,7 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 		}
 	} else {
 		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) starts from 0 so return empty proof", c.LogPrefix, first, second)
+		jsonRsp.Consistency = emptyProof
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
