@@ -68,6 +68,9 @@ show-leaf%: leaf%.cert
 	openssl x509 -inform pem -in $< -text -noout
 leaf%.chain: leaf%.cert int-ca.cert
 	cat $^ > $@
+# Special case: include the root too
+leaf02.chain: leaf02.cert int-ca.cert fake-ca.cert
+	cat $^ > $@
 
 # clean removes things that regenerate exactly the same.
 clean:
@@ -83,4 +86,3 @@ fresh.privkey.pem:
 	openssl ecparam -genkey -name prime256v1 -noout -out $@.unencrypted
 	openssl ec -in $@.unencrypted -out $@ -des  # Prompts for password
 	rm -f $@.unencrypted
-
