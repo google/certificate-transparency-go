@@ -49,6 +49,8 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
+
+	keyspem "github.com/google/trillian/crypto/keys/pem"
 )
 
 const (
@@ -795,7 +797,7 @@ func verifyChain(rawChain []ct.ASN1Cert) error {
 
 // MakeSigner creates a signer using the private key in the test directory.
 func MakeSigner(testdir string) (crypto.Signer, error) {
-	key, err := keys.NewFromPrivatePEMFile(filepath.Join(testdir, "int-ca.privkey.pem"), "babelfish")
+	key, err := keyspem.ReadPrivateKeyFile(filepath.Join(testdir, "int-ca.privkey.pem"), "babelfish")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key for re-signing: %v", err)
 	}
