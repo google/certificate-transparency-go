@@ -662,7 +662,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 		s.mu.Unlock()
 
 		if time.Now().After(deadline) {
-			glog.Warningf("%s: gave up retrying failed op %v after %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration)
+			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration, err)
 			done = true
 		}
 	}
@@ -689,6 +689,7 @@ func HammerCTLog(cfg HammerConfig) error {
 			return err
 		}
 	}
+	glog.Infof("%s: completed %d operations on log", cfg.LogCfg.Prefix, cfg.Operations)
 	ticker.Stop()
 
 	return nil
