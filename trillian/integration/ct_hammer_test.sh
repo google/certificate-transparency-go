@@ -27,7 +27,7 @@ TO_KILL+=(${CT_SERVER_PIDS[@]})
 metrics_port=$(pick_unused_port)
 echo "Running test(s) with metrics at localhost:${metrics_port}"
 set +e
-./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --metrics_endpoint="localhost:${metrics_port}" --logtostderr
+./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --metrics_endpoint="localhost:${metrics_port}" --logtostderr "${HAMMER_OPTS}"
 RESULT=$?
 set -e
 

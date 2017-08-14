@@ -67,4 +67,5 @@ script:
         export ETCD_DIR="${GOPATH}/bin"
       fi
   - ./trillian/integration/integration_test.sh
+  - HAMMER_OPTS="--operations=1500" ./trillian/integration/ct_hammer_test.sh
   - set +e
