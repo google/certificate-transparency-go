@@ -42,7 +42,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto"
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
 	"github.com/kylelemons/godebug/pretty"
 	"google.golang.org/grpc/codes"
@@ -541,7 +541,7 @@ func TestGetSTH(t *testing.T) {
 		},
 	}
 
-	key, err := keys.NewFromPublicPEM(testdata.DemoPublicKey)
+	key, err := pem.UnmarshalPublicKey(testdata.DemoPublicKey)
 	if err != nil {
 		t.Fatalf("Failed to load public key: %v", err)
 	}

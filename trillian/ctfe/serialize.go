@@ -20,7 +20,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/crypto"
-	"github.com/google/trillian/crypto/keys"
 )
 
 // signV1TreeHead signs a tree head for CT. The input STH should have been built from a
@@ -40,7 +39,7 @@ func signV1TreeHead(signer *crypto.Signer, sth *ct.SignedTreeHead) error {
 		Algorithm: tls.SignatureAndHashAlgorithm{
 			Hash: tls.SHA256,
 			// This relies on the protobuf enum values matching the TLS-defined values.
-			Signature: tls.SignatureAlgorithm(keys.SignatureAlgorithm(signer.Public())),
+			Signature: tls.SignatureAlgorithm(crypto.SignatureAlgorithm(signer.Public())),
 		},
 		Signature: signature.Signature,
 	}
@@ -68,7 +67,7 @@ func buildV1SCT(signer *crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCerti
 		Algorithm: tls.SignatureAndHashAlgorithm{
 			Hash: tls.SHA256,
 			// This relies on the protobuf enum values matching the TLS-defined values.
-			Signature: tls.SignatureAlgorithm(keys.SignatureAlgorithm(signer.Public())),
+			Signature: tls.SignatureAlgorithm(crypto.SignatureAlgorithm(signer.Public())),
 		},
 		Signature: signature.Signature,
 	}
