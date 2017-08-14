@@ -179,15 +179,17 @@ func main() {
 	}
 	wg.Wait()
 
+	glog.Infof("completed tests on all %d logs:", len(cfg))
 	close(results)
 	errCount := 0
 	for e := range results {
 		if e.err != nil {
 			errCount++
-			glog.Errorf("%s: %v", e.prefix, e.err)
+			glog.Errorf("  %s: failed with %v", e.prefix, e.err)
 		}
 	}
 	if errCount > 0 {
 		glog.Exitf("non-zero error count (%d), exiting", errCount)
 	}
+	glog.Info("  no errors; done")
 }
