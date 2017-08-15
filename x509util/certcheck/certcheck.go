@@ -63,32 +63,34 @@ func main() {
 
 	errcount := 0
 	for _, filename := range flag.Args() {
-		data, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: Failed to read data: %v\n", filename, err)
 			errcount++
 			continue
 		}
-		certs, err := x509.ParseCertificates(data)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", filename, err.Error())
-			errcount++
-		}
-		for _, cert := range certs {
-			if *verbose {
-				fmt.Print(x509util.CertificateToString(cert))
+		for _, data := range dataList {
+			certs, err := x509.ParseCertificates(data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: %v\n", filename, err.Error())
+				errcount++
 			}
-			if *validate {
-				_, err := cert.Verify(opts)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, err)
-					errcount++
+			for _, cert := range certs {
+				if *verbose {
+					fmt.Print(x509util.CertificateToString(cert))
 				}
-			}
-			if *revokecheck {
-				if err := checkRevocation(cert); err != nil {
-					fmt.Fprintf(os.Stderr, "%s: certificate is revoked: %v\n", filename, err)
-					errcount++
+				if *validate {
+					_, err := cert.Verify(opts)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, err)
+						errcount++
+					}
+				}
+				if *revokecheck {
+					if err := checkRevocation(cert); err != nil {
+						fmt.Fprintf(os.Stderr, "%s: certificate is revoked: %v\n", filename, err)
+						errcount++
+					}
 				}
 			}
 		}
@@ -100,23 +102,25 @@ func main() {
 
 func checkRevocation(cert *x509.Certificate) error {
 	for _, crldp := range cert.CRLDistributionPoints {
-		crlData, err := x509util.ReadPossiblePEMURL(crldp, "X509 CRL")
+		crlDataList, err := x509util.ReadPossiblePEMURL(crldp, "X509 CRL")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to retrieve CRL from %q: %v\n", crldp, err)
 			continue
 		}
-		crl, err := x509.ParseCertificateList(crlData)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to parse CRL from %q: %v\n", crldp, err)
-			continue
-		}
-		if *verbose {
-			fmt.Printf("\nRevocation data from %s:\n", crldp)
-			fmt.Print(x509util.CRLToString(crl))
-		}
-		for _, c := range crl.TBSCertList.RevokedCertificates {
-			if c.SerialNumber.Cmp(cert.SerialNumber) == 0 {
-				return fmt.Errorf("certificate is revoked since %v", c.RevocationTime)
+		for _, crlData := range crlDataList {
+			crl, err := x509.ParseCertificateList(crlData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to parse CRL from %q: %v\n", crldp, err)
+				continue
+			}
+			if *verbose {
+				fmt.Printf("\nRevocation data from %s:\n", crldp)
+				fmt.Print(x509util.CRLToString(crl))
+			}
+			for _, c := range crl.TBSCertList.RevokedCertificates {
+				if c.SerialNumber.Cmp(cert.SerialNumber) == 0 {
+					return fmt.Errorf("certificate is revoked since %v", c.RevocationTime)
+				}
 			}
 		}
 	}
