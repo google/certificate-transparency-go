@@ -24,7 +24,7 @@ import (
 
 // ReadPossiblePEMFile loads data from a file which may be in DER format
 // or may be in PEM format (with the given blockname).
-func ReadPossiblePEMFile(filename, blockname string) ([]byte, error) {
+func ReadPossiblePEMFile(filename, blockname string) ([][]byte, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
@@ -35,7 +35,7 @@ func ReadPossiblePEMFile(filename, blockname string) ([]byte, error) {
 // ReadPossiblePEMURL attempts to determine if the given target is a local file or a
 // URL, and return the file contents regardless. It also copes with either PEM or DER
 // format data.
-func ReadPossiblePEMURL(target, blockname string) ([]byte, error) {
+func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
 		// Assume it's a filename
 		return ReadPossiblePEMFile(target, blockname)
@@ -52,12 +52,22 @@ func ReadPossiblePEMURL(target, blockname string) ([]byte, error) {
 	return dePEM(data, blockname), nil
 }
 
-func dePEM(data []byte, blockname string) []byte {
+func dePEM(data []byte, blockname string) [][]byte {
+	var results [][]byte
 	if strings.Contains(string(data), "BEGIN "+blockname) {
-		block, _ := pem.Decode([]byte(data))
-		if block != nil && block.Type == blockname {
-			return block.Bytes
+		rest := data
+		for {
+			var block *pem.Block
+			block, rest = pem.Decode(rest)
+			if block == nil {
+				break
+			}
+			if block.Type == blockname {
+				results = append(results, block.Bytes)
+			}
 		}
+	} else {
+		results = append(results, data)
 	}
-	return data
+	return results
 }
