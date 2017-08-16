@@ -26,7 +26,11 @@ TO_KILL+=(${CT_SERVER_PIDS[@]})
 echo "Running test(s)"
 pushd "${INTEGRATION_DIR}"
 set +e
-go test -v -run ".*LiveCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
+go test ${GOFLAGS} -v -run ".*LiveCT.*" --timeout=5m ./ \
+  --log_config "${CT_CFG}" \
+  --ct_http_servers=${CT_SERVERS} \
+  --ct_metrics_servers=${CT_METRICS_SERVERS} \
+  --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
 RESULT=$?
 set -e
 popd
