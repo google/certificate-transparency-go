@@ -17,6 +17,7 @@ package ctfe
 import (
 	"crypto/sha256"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -91,7 +92,7 @@ func (p *PEMCertPool) AppendCertsFromPEMFile(pemFile string) error {
 	}
 
 	if !p.AppendCertsFromPEM(pemData) {
-		return fmt.Errorf("failed to parse PEM certs file: %v", err)
+		return errors.New("failed to parse PEM certs file")
 	}
 	return nil
 }
