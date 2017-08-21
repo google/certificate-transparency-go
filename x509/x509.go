@@ -169,8 +169,10 @@ type authKeyId struct {
 	Id []byte `asn1:"optional,tag:0"`
 }
 
+// SignatureAlgorithm indicates the algorithm used to sign a certificate.
 type SignatureAlgorithm int
 
+// SignatureAlgorithm values:
 const (
 	UnknownSignatureAlgorithm SignatureAlgorithm = iota
 	MD2WithRSA
@@ -224,8 +226,10 @@ func (algo SignatureAlgorithm) String() string {
 	return strconv.Itoa(int(algo))
 }
 
+// PublicKeyAlgorithm indicates the algorithm used for a certificate's public key.
 type PublicKeyAlgorithm int
 
+// PublicKeyAlgorithm values:
 const (
 	UnknownPublicKeyAlgorithm PublicKeyAlgorithm = iota
 	RSA
@@ -529,6 +533,7 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 // a bitmap of the KeyUsage* constants.
 type KeyUsage int
 
+// KeyUsage values:
 const (
 	KeyUsageDigitalSignature KeyUsage = 1 << iota
 	KeyUsageContentCommitment
@@ -574,6 +579,7 @@ var (
 // Each of the ExtKeyUsage* constants define a unique action.
 type ExtKeyUsage int
 
+// ExtKeyUsage values:
 const (
 	ExtKeyUsageAny ExtKeyUsage = iota
 	ExtKeyUsageServerAuth
@@ -725,7 +731,8 @@ type Certificate struct {
 // involves algorithms that are not currently implemented.
 var ErrUnsupportedAlgorithm = errors.New("x509: cannot verify signature: algorithm unimplemented")
 
-// An InsecureAlgorithmError
+// InsecureAlgorithmError results when the signature algorithm for a certificate
+// is known to be insecure.
 type InsecureAlgorithmError SignatureAlgorithm
 
 func (e InsecureAlgorithmError) Error() string {
@@ -741,6 +748,8 @@ func (ConstraintViolationError) Error() string {
 	return "x509: invalid signature: parent certificate cannot sign this kind of certificate"
 }
 
+// Equal indicates whether two Certificate objects are equal (by comparing their
+// DER-encoded values).
 func (c *Certificate) Equal(other *Certificate) bool {
 	return bytes.Equal(c.Raw, other.Raw)
 }
@@ -905,6 +914,8 @@ func (c *Certificate) CheckCRLSignature(crl *pkix.CertificateList) error {
 	return c.CheckSignature(algo, crl.TBSCertList.Raw, crl.SignatureValue.RightAlign())
 }
 
+// UnhandledCriticalExtension results when the certificate contains an extension
+// that is marked as critical but which is not handled by this library.
 type UnhandledCriticalExtension struct {
 	ID asn1.ObjectIdentifier
 }
@@ -1018,7 +1029,7 @@ type basicConstraints struct {
 	MaxPathLen int  `asn1:"optional,default:-1"`
 }
 
-// RFC 5280 4.2.1.4
+// RFC 5280, 4.2.1.4
 type policyInformation struct {
 	Policy asn1.ObjectIdentifier
 	// policyQualifiers omitted
@@ -1601,7 +1612,7 @@ var (
 	oidAuthorityInfoAccessIssuers = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 2}
 )
 
-// oidNotInExtensions returns whether an extension with the given oid exists in
+// oidInExtensions returns whether an extension with the given oid exists in
 // extensions.
 func oidInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) bool {
 	for _, e := range extensions {
