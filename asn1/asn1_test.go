@@ -608,7 +608,7 @@ func TestRawStructs(t *testing.T) {
 	}
 }
 
-func TestCouleBeISO8859_1(t *testing.T) {
+func TestCouldBeISO8859_1(t *testing.T) {
 	for i := 0; i < 0xff; i++ {
 		b := []byte("StringWithA")
 		b = append(b, byte(i))
@@ -631,7 +631,7 @@ func TestCouleBeISO8859_1(t *testing.T) {
 	}
 }
 
-func TestCouleBeT61(t *testing.T) {
+func TestCouldBeT61(t *testing.T) {
 	for i := 0; i < 255; i++ {
 		b := []byte("StringWithA")
 		b = append(b, byte(i))
