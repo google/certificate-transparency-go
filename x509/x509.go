@@ -8,11 +8,9 @@
 // can be used to override the system default locations for the SSL certificate
 // file and SSL certificate files directory, respectively.
 //
-// START CT CHANGES
 // This is a fork of the go library crypto/x509 package, it's more relaxed
 // about certificates that it'll accept, and exports the TBSCertificate
 // structure.
-// END CT CHANGES
 package x509
 
 import (
@@ -23,10 +21,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rsa"
 	_ "crypto/sha1"
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/asn1"
-	"github.com/google/certificate-transparency-go/x509/pkix"
-	// END CT CHANGES
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 	"encoding/pem"
@@ -37,6 +31,9 @@ import (
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 // pkixPublicKey reflects a PKIX public key structure. See SubjectPublicKeyInfo
@@ -908,7 +905,6 @@ func (c *Certificate) CheckCRLSignature(crl *pkix.CertificateList) error {
 	return c.CheckSignature(algo, crl.TBSCertList.Raw, crl.SignatureValue.RightAlign())
 }
 
-// START CT CHANGES
 type UnhandledCriticalExtension struct {
 	ID asn1.ObjectIdentifier
 }
@@ -1016,8 +1012,6 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 	}
 	return data, nil
 }
-
-// END CT CHANGES
 
 type basicConstraints struct {
 	IsCA       bool `asn1:"optional"`
@@ -1148,8 +1142,6 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{
 	}
 }
 
-// START CT CHANGES
-
 // NonFatalErrors is an error type which can hold a number of other errors.
 // It's used to collect a range of non-fatal errors which occur while parsing
 // a certificate, that way we can still match on certs which technically are
@@ -1177,8 +1169,6 @@ func (e NonFatalErrors) Error() string {
 func (e *NonFatalErrors) HasError() bool {
 	return len(e.Errors) > 0
 }
-
-// END CT CHANGES
 
 func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddresses []string, ipAddresses []net.IP, err error) {
 	// RFC 5280, 4.2.1.6
@@ -1227,9 +1217,7 @@ func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddres
 			case net.IPv4len, net.IPv6len:
 				ipAddresses = append(ipAddresses, v.Bytes)
 			default:
-				// START CT CHANGES
 				nfe.AddError(fmt.Errorf("x509: certificate contained IP address of length %d : %v", len(v.Bytes), v.Bytes))
-				// END CT CHANGES
 			}
 		}
 	}
@@ -1238,9 +1226,7 @@ func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddres
 }
 
 func parseCertificate(in *certificate) (*Certificate, error) {
-	// START CT CHANGES
 	var nfe NonFatalErrors
-	// END CT CHANGES
 
 	out := new(Certificate)
 	out.Raw = in.Raw
@@ -1357,9 +1343,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					for _, subtree := range subtrees {
 						if len(subtree.Name) == 0 {
 							if isCritical {
-								// START CT CHANGES
 								nfe.AddError(UnhandledCriticalExtension{e.Id})
-								// END CT CHANGES
 							}
 							continue
 						}
@@ -1507,15 +1491,11 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 			out.UnhandledCriticalExtensions = append(out.UnhandledCriticalExtensions, e.Id)
 		}
 	}
-	// START CT CHANGES
 	if nfe.HasError() {
 		return out, nfe
 	}
-	// END CT CHANGES
 	return out, nil
 }
-
-// START CT CHANGES
 
 // ParseTBSCertificate parses a single TBSCertificate from the given ASN.1 DER data.
 // The parsed data is returned in a Certificate struct for ease of access.
@@ -1532,8 +1512,6 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 		Raw:            tbsCert.Raw,
 		TBSCertificate: tbsCert})
 }
-
-// END CT CHANGES
 
 // ParseCertificate parses a single certificate from the given ASN.1 DER data.
 func ParseCertificate(asn1Data []byte) (*Certificate, error) {
@@ -2445,9 +2423,7 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 		return nil, err
 	}
 
-	// START CT CHANGES
 	var nfe NonFatalErrors
-	// END CT CHANGES
 	for _, extension := range out.Extensions {
 		if extension.Id.Equal(oidExtensionSubjectAltName) {
 			out.DNSNames, out.EmailAddresses, out.IPAddresses, err = parseSANExtension(extension.Value, &nfe)

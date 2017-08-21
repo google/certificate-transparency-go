@@ -8,11 +8,10 @@ import (
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/x509"
-	// END CT CHANGES
 	"encoding/pem"
 	"fmt"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 func ExampleCertificate_Verify() {
