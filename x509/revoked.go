@@ -8,8 +8,6 @@ package x509
 import (
 	"bytes"
 	"encoding/pem"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/certificate-transparency-go/asn1"
@@ -145,21 +143,26 @@ func ParseCertificateList(clBytes []byte) (*CertificateList, error) {
 }
 
 // ParseCertificateListDER parses a DER encoded CertificateList from the given bytes.
+// For non-fatal errors, this function returns both an error and a CertificateList
+// object.
 func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
+	var errs Errors
 	// First parse the DER into the pkix structures.
 	pkixList := new(pkix.CertificateList)
 	if rest, err := asn1.Unmarshal(derBytes, pkixList); err != nil {
-		return nil, err
+		errs.AddID(ErrInvalidCertList, err)
+		return nil, &errs
 	} else if len(rest) != 0 {
-		return nil, errors.New("x509: trailing data after CRL")
+		errs.AddID(ErrTrailingCertList)
+		return nil, &errs
 	}
 
 	// Transcribe the revoked certs but crack out extensions.
 	revokedCerts := make([]*RevokedCertificate, len(pkixList.TBSCertList.RevokedCertificates))
 	for i, pkixRevoked := range pkixList.TBSCertList.RevokedCertificates {
-		var err error
-		if revokedCerts[i], err = parseRevokedCertificate(pkixRevoked); err != nil {
-			return nil, err
+		revokedCerts[i] = parseRevokedCertificate(pkixRevoked, &errs)
+		if revokedCerts[i] == nil {
+			return nil, &errs
 		}
 	}
 
@@ -185,9 +188,9 @@ func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
 	for _, e := range certList.TBSCertList.Extensions {
 		if expectCritical, present := listExtCritical[e.Id.String()]; present {
 			if e.Critical && !expectCritical {
-				return nil, fmt.Errorf("x509: extension %v marked critical, expect non-critical", e.Id)
+				errs.AddID(ErrUnexpectedlyCriticalCertListExtension, e.Id)
 			} else if !e.Critical && expectCritical {
-				return nil, fmt.Errorf("x509: extension %v marked non-critical, expect critical", e.Id)
+				errs.AddID(ErrUnexpectedlyNonCriticalCertListExtension, e.Id)
 			}
 		}
 		switch {
@@ -195,52 +198,51 @@ func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
 			// RFC 5280 s5.2.1
 			var a authKeyId
 			if rest, err := asn1.Unmarshal(e.Value, &a); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal X.509 authority key-id: %v", err)
+				errs.AddID(ErrInvalidCertListAuthKeyID, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 authority key-id")
+				errs.AddID(ErrTrailingCertListAuthKeyID)
 			}
 			certList.TBSCertList.AuthorityKeyID = a.Id
 		case e.Id.Equal(OIDExtensionIssuerAltName):
 			// RFC 5280 s5.2.2
 			if err := parseGeneralNames(e.Value, &certList.TBSCertList.IssuerAltNames); err != nil {
-				return nil, fmt.Errorf("x509: failed to parse IssuerAltNames: %v", err)
+				errs.AddID(ErrInvalidCertListIssuerAltName, err)
 			}
 		case e.Id.Equal(OIDExtensionCRLNumber):
 			// RFC 5280 s5.2.3
 			if rest, err := asn1.Unmarshal(e.Value, &certList.TBSCertList.CRLNumber); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal X.509 CRL number: %v", err)
+				errs.AddID(ErrInvalidCertListCRLNumber, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 CRL number")
+				errs.AddID(ErrTrailingCertListCRLNumber)
 			}
 			if certList.TBSCertList.CRLNumber < 0 {
-				return nil, fmt.Errorf("x509: negative X.509 CRL number: %d", certList.TBSCertList.CRLNumber)
+				errs.AddID(ErrNegativeCertListCRLNumber, certList.TBSCertList.CRLNumber)
 			}
 		case e.Id.Equal(OIDExtensionDeltaCRLIndicator):
 			// RFC 5280 s5.2.4
 			if rest, err := asn1.Unmarshal(e.Value, &certList.TBSCertList.BaseCRLNumber); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal X.509 base CRL number: %v", err)
+				errs.AddID(ErrInvalidCertListDeltaCRL, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 base CRL number")
+				errs.AddID(ErrTrailingCertListDeltaCRL)
 			}
 			if certList.TBSCertList.BaseCRLNumber < 0 {
-				return nil, fmt.Errorf("x509: negative X.509 delta CRL base: %d", certList.TBSCertList.BaseCRLNumber)
+				errs.AddID(ErrNegativeCertListDeltaCRL, certList.TBSCertList.BaseCRLNumber)
 			}
 		case e.Id.Equal(OIDExtensionIssuingDistributionPoint):
-			if err := parseIssuingDistributionPoint(e.Value, &certList.TBSCertList.IssuingDistributionPoint, &certList.TBSCertList.IssuingDPFullNames); err != nil {
-				return nil, err
-			}
+			parseIssuingDistributionPoint(e.Value, &certList.TBSCertList.IssuingDistributionPoint, &certList.TBSCertList.IssuingDPFullNames, &errs)
 		case e.Id.Equal(OIDExtensionFreshestCRL):
 			// RFC 5280 s5.2.6
 			if err := parseDistributionPoints(e.Value, &certList.TBSCertList.FreshestCRLDistributionPoint); err != nil {
+				errs.AddID(ErrInvalidCertListFreshestCRL, err)
 				return nil, err
 			}
 		case e.Id.Equal(OIDExtensionAuthorityInfoAccess):
 			// RFC 5280 s5.2.7
 			var aia []authorityInfoAccess
 			if rest, err := asn1.Unmarshal(e.Value, &aia); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal X.509 authority information: %v", err)
+				errs.AddID(ErrInvalidCertListAuthInfoAccess, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 authority information")
+				errs.AddID(ErrTrailingCertListAuthInfoAccess)
 			}
 
 			for _, v := range aia {
@@ -258,20 +260,26 @@ func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
 			}
 		default:
 			if e.Critical {
-				return nil, fmt.Errorf("unhandled critical extension in revokedCertificate: %v", e.Id)
+				errs.AddID(ErrUnhandledCriticalCertListExtension, e.Id)
 			}
 		}
 	}
 
-	return &certList, nil
+	if errs.Fatal() {
+		return nil, &errs
+	}
+	if errs.Empty() {
+		return &certList, nil
+	}
+	return &certList, &errs
 }
 
-func parseIssuingDistributionPoint(data []byte, idp *IssuingDistributionPoint, name *GeneralNames) error {
+func parseIssuingDistributionPoint(data []byte, idp *IssuingDistributionPoint, name *GeneralNames, errs *Errors) {
 	// RFC 5280 s5.2.5
 	if rest, err := asn1.Unmarshal(data, idp); err != nil {
-		return fmt.Errorf("x509: failed to unmarshal X.509 CRL issuing-distribution-point: %v", err)
+		errs.AddID(ErrInvalidCertListIssuingDP, err)
 	} else if len(rest) != 0 {
-		return errors.New("x509: trailing data after X.509 CRL issuing-distribution-point")
+		errs.AddID(ErrTrailingCertListIssuingDP)
 	}
 
 	typeCount := 0
@@ -285,8 +293,7 @@ func parseIssuingDistributionPoint(data []byte, idp *IssuingDistributionPoint, n
 		typeCount++
 	}
 	if typeCount > 1 {
-		return fmt.Errorf("x509: multiple cert types set in issuing-distribution-point: user:%v CA:%v attr:%v",
-			idp.OnlyContainsUserCerts, idp.OnlyContainsCACerts, idp.OnlyContainsAttributeCerts)
+		errs.AddID(ErrCertListIssuingDPMultipleTypes, idp.OnlyContainsUserCerts, idp.OnlyContainsCACerts, idp.OnlyContainsAttributeCerts)
 	}
 	fnData := idp.DistributionPoint.FullName.FullBytes
 	if len(fnData) > 0 {
@@ -296,10 +303,9 @@ func parseIssuingDistributionPoint(data []byte, idp *IssuingDistributionPoint, n
 		data[0] = 0x30
 		err := parseGeneralNames(data, name)
 		if err != nil {
-			return fmt.Errorf("x509: failed to parse X.509 CRL issuing-distribution-point fullName: %v", err)
+			errs.AddID(ErrCertListIssuingDPInvalidFullName, err)
 		}
 	}
-	return nil
 }
 
 // RevokedCertificate represents the unnamed ASN.1 structure that makes up the
@@ -314,14 +320,14 @@ type RevokedCertificate struct {
 	Issuer           GeneralNames
 }
 
-func parseRevokedCertificate(pkixRevoked pkix.RevokedCertificate) (*RevokedCertificate, error) {
+func parseRevokedCertificate(pkixRevoked pkix.RevokedCertificate, errs *Errors) *RevokedCertificate {
 	result := RevokedCertificate{RevokedCertificate: pkixRevoked}
 	for _, e := range pkixRevoked.Extensions {
 		if expectCritical, present := certExtCritical[e.Id.String()]; present {
 			if e.Critical && !expectCritical {
-				return nil, fmt.Errorf("x509: extension %v marked critical, expect non-critical", e.Id)
+				errs.AddID(ErrUnexpectedlyCriticalRevokedCertExtension, e.Id)
 			} else if !e.Critical && expectCritical {
-				return nil, fmt.Errorf("x509: extension %v marked non-critical, expect critical", e.Id)
+				errs.AddID(ErrUnexpectedlyNonCriticalRevokedCertExtension, e.Id)
 			}
 		}
 		switch {
@@ -329,30 +335,30 @@ func parseRevokedCertificate(pkixRevoked pkix.RevokedCertificate) (*RevokedCerti
 			// RFC 5280, s5.3.1
 			var reason asn1.Enumerated
 			if rest, err := asn1.Unmarshal(e.Value, &reason); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal revocation reason: %v", err)
+				errs.AddID(ErrInvalidRevocationReason, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after revocation reason")
+				errs.AddID(ErrTrailingRevocationReason)
 			}
 			result.RevocationReason = RevocationReasonCode(reason)
 		case e.Id.Equal(OIDExtensionInvalidityDate):
 			// RFC 5280, s5.3.2
 			if rest, err := asn1.Unmarshal(e.Value, &result.InvalidityDate); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal invalidity date: %v", err)
+				errs.AddID(ErrInvalidRevocationInvalidityDate, err)
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after invalidity date")
+				errs.AddID(ErrTrailingRevocationInvalidityDate)
 			}
 		case e.Id.Equal(OIDExtensionCertificateIssuer):
 			// RFC 5280, s5.3.3
 			if err := parseGeneralNames(e.Value, &result.Issuer); err != nil {
-				return nil, fmt.Errorf("x509: failed to unmarshal issuer: %v", err)
+				errs.AddID(ErrInvalidRevocationIssuer, err)
 			}
 		default:
 			if e.Critical {
-				return nil, fmt.Errorf("unhandled critical extension in revokedCertificate: %v", e.Id)
+				errs.AddID(ErrUnhandledCriticalRevokedCertExtension, e.Id)
 			}
 		}
 	}
-	return &result, nil
+	return &result
 }
 
 // CheckCertificateListSignature checks that the signature in crl is from c.
