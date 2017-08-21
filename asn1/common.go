@@ -80,6 +80,7 @@ type fieldParameters struct {
 	timeType     int    // the time tag to use when marshaling.
 	set          bool   // true iff this should be encoded as a SET
 	omitEmpty    bool   // true iff this should be omitted if empty when marshaling.
+	name         string // name of field for better diagnostics
 
 	// Invariants:
 	//   if explicit is set, tag is non-nil.

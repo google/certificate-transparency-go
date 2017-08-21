@@ -31,7 +31,7 @@ var boolTestData = []boolTest{
 
 func TestParseBool(t *testing.T) {
 	for i, test := range boolTestData {
-		ret, err := parseBool(test.in)
+		ret, err := parseBool(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -64,7 +64,7 @@ var int64TestData = []int64Test{
 
 func TestParseInt64(t *testing.T) {
 	for i, test := range int64TestData {
-		ret, err := parseInt64(test.in)
+		ret, err := parseInt64(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -97,7 +97,7 @@ var int32TestData = []int32Test{
 
 func TestParseInt32(t *testing.T) {
 	for i, test := range int32TestData {
-		ret, err := parseInt32(test.in)
+		ret, err := parseInt32(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -125,7 +125,7 @@ var bigIntTests = []struct {
 
 func TestParseBigInt(t *testing.T) {
 	for i, test := range bigIntTests {
-		ret, err := parseBigInt(test.in)
+		ret, err := parseBigInt(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -133,7 +133,7 @@ func TestParseBigInt(t *testing.T) {
 			if ret.String() != test.base10 {
 				t.Errorf("#%d: bad result from %x, got %s want %s", i, test.in, ret.String(), test.base10)
 			}
-			e, err := makeBigInt(ret)
+			e, err := makeBigInt(ret, "fieldname")
 			if err != nil {
 				t.Errorf("%d: err=%q", i, err)
 				continue
@@ -165,7 +165,7 @@ var bitStringTestData = []bitStringTest{
 
 func TestBitString(t *testing.T) {
 	for i, test := range bitStringTestData {
-		ret, err := parseBitString(test.in)
+		ret, err := parseBitString(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -241,7 +241,7 @@ var objectIdentifierTestData = []objectIdentifierTest{
 
 func TestObjectIdentifier(t *testing.T) {
 	for i, test := range objectIdentifierTestData {
-		ret, err := parseObjectIdentifier(test.in)
+		ret, err := parseObjectIdentifier(test.in, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -395,7 +395,7 @@ var tagAndLengthData = []tagAndLengthTest{
 
 func TestParseTagAndLength(t *testing.T) {
 	for i, test := range tagAndLengthData {
-		tagAndLength, _, err := parseTagAndLength(test.in, 0)
+		tagAndLength, _, err := parseTagAndLength(test.in, 0, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did pass? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -430,8 +430,10 @@ var parseFieldParametersTestData []parseFieldParametersTest = []parseFieldParame
 	{"optional,explicit", fieldParameters{optional: true, explicit: true, tag: new(int)}},
 	{"default:42", fieldParameters{defaultValue: newInt64(42)}},
 	{"tag:17", fieldParameters{tag: newInt(17)}},
-	{"optional,explicit,default:42,tag:17", fieldParameters{optional: true, explicit: true, defaultValue: newInt64(42), tag: newInt(17)}},
-	{"optional,explicit,default:42,tag:17,rubbish1", fieldParameters{true, true, false, newInt64(42), newInt(17), 0, 0, false, false}},
+	{"optional,explicit,default:42,tag:17",
+		fieldParameters{optional: true, explicit: true, defaultValue: newInt64(42), tag: newInt(17)}},
+	{"optional,explicit,default:42,tag:17,rubbish1",
+		fieldParameters{optional: true, explicit: true, defaultValue: newInt64(42), tag: newInt(17)}},
 	{"set", fieldParameters{set: true}},
 }
 
@@ -1051,7 +1053,7 @@ type exported struct {
 }
 
 func TestUnexportedStructField(t *testing.T) {
-	want := StructuralError{"struct contains unexported fields"}
+	want := StructuralError{"struct contains unexported fields", "y"}
 
 	_, err := Marshal(unexported{X: 5, y: 1})
 	if err != want {
