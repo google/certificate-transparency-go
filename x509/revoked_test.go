@@ -213,7 +213,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "expect non-critical",
+			wantErr: "marked critical",
 		},
 		{
 			desc: "invalid-unknown-critical-ext",
@@ -481,7 +481,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "expect critical",
+			wantErr: "marked non-critical",
 		},
 		{
 			desc: "invalid-delta-crl-indicator-ext-wrong-asn1",
@@ -526,7 +526,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "failed to unmarshal X.509 base CRL",
+			wantErr: "failed to unmarshal",
 		},
 		{
 			desc: "invalid-delta-crl-indicator-ext-trailing-data",
@@ -616,7 +616,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "negative X.509 delta",
+			wantErr: "negative",
 		},
 		{
 			desc: "invalid-crl-number-ext-critical",
@@ -658,7 +658,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "expect non-critical",
+			wantErr: "marked critical",
 		},
 		{
 			desc: "invalid-crl-number-ext-trailing-data",
@@ -740,7 +740,7 @@ func TestParseCertificateList(t *testing.T) {
 					"0500") + // NULL
 				("03820101" + // BIT STRING length 0x101
 					"004dcde29667973239cca344c58b72128fb5c5db03efdc75cfb7d9a0410ec03c8cd21160b449cd80224f41ca9d91529295ef7d0179ca4b08bb688cecce13cc07b20ecd87ffde1bc356554083c40bea7a387dacc54b3848b3710acf2fa613d007b12afc37f0a77082655b8dbb6683ba2fc52555e9f74bb5ba9429377ff38e193e799fc05c4c9bbcee29492945a732db67ba3575a79a83427a1f6d18d9ede01c544f3ccd68e5680a9b5418e03e1d80b3e77e69860982a4d21c6b111b07c87fe32c561e871554896b37651d5aaf42b2d092ce8d4dd4ae1d7a97091c0a06c03d71580e0557a51408513fde3012f02dac76536822a564faa2553048729633b68f1fc369")),
-			wantErr: "negative X.509 CRL number",
+			wantErr: "negative",
 		},
 		{
 			desc: "invalid-crl-number-ext-wrong-asn1",
@@ -1670,7 +1670,7 @@ func TestParseRevokedCertificate(t *testing.T) {
 						("0603" + "551d18") + // OID: invalidity date
 						("0403" + // octet string
 							"0a01" + "01")))), // enum:1
-			wantErr: "failed to unmarshal",
+			wantErr: "failed to parse",
 		},
 		{
 			desc: "invalid-invalidity-date-ext-trailing-data",
@@ -1739,7 +1739,7 @@ func TestParseRevokedCertificate(t *testing.T) {
 						("0101ff") + // critical: true
 						("0403" + // octet string
 							"0a01" + "01")))), // enum:1
-			wantErr: "failed to unmarshal",
+			wantErr: "failed to parse",
 		},
 		{
 			desc: "invalid-issuer-ext-non-critical",
@@ -1802,8 +1802,10 @@ func TestParseRevokedCertificate(t *testing.T) {
 			t.Errorf("asn1.Unmarshal(%s)=_,%v; want _,nil", test.data, err)
 			continue
 		}
-		got, err := parseRevokedCertificate(pkixCert)
-		if err != nil {
+		var errs Errors
+		got := parseRevokedCertificate(pkixCert, &errs)
+		if len(errs.Errs) > 0 {
+			err := errs.Errs[0]
 			if test.wantErr == "" {
 				t.Errorf("parseRevokedCertificate(%q)=%+v,%v; want _,nil", test.desc, got, err)
 			} else if !strings.Contains(err.Error(), test.wantErr) {
@@ -1905,8 +1907,10 @@ func TestParseIssuingDistributionPoint(t *testing.T) {
 		inData := fromHex(test.data)
 		var got IssuingDistributionPoint
 		var gn GeneralNames
-		err := parseIssuingDistributionPoint(inData, &got, &gn)
-		if err != nil {
+		var errs Errors
+		parseIssuingDistributionPoint(inData, &got, &gn, &errs)
+		if !errs.Empty() {
+			err := errs.Errs[0]
 			if test.wantErr == "" {
 				t.Errorf("asn1.Unmarshal(%s)=_,%v; want _,nil", test.data, err)
 			} else if !strings.Contains(err.Error(), test.wantErr) {
