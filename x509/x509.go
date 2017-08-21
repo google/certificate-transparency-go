@@ -1206,7 +1206,7 @@ func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddres
 		err = errors.New("x509: trailing data after X.509 extension")
 		return
 	}
-	if !seq.IsCompound || seq.Tag != 16 || seq.Class != 0 {
+	if !seq.IsCompound || seq.Tag != asn1.TagSequence || seq.Class != asn1.ClassUniversal {
 		err = asn1.StructuralError{Msg: "bad SAN sequence"}
 		return
 	}
@@ -1628,10 +1628,10 @@ func oidInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) boo
 func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP) (derBytes []byte, err error) {
 	var rawValues []asn1.RawValue
 	for _, name := range dnsNames {
-		rawValues = append(rawValues, asn1.RawValue{Tag: 2, Class: 2, Bytes: []byte(name)})
+		rawValues = append(rawValues, asn1.RawValue{Tag: 2, Class: asn1.ClassContextSpecific, Bytes: []byte(name)})
 	}
 	for _, email := range emailAddresses {
-		rawValues = append(rawValues, asn1.RawValue{Tag: 1, Class: 2, Bytes: []byte(email)})
+		rawValues = append(rawValues, asn1.RawValue{Tag: 1, Class: asn1.ClassContextSpecific, Bytes: []byte(email)})
 	}
 	for _, rawIP := range ipAddresses {
 		// If possible, we always want to encode IPv4 addresses in 4 bytes.
@@ -1639,7 +1639,7 @@ func marshalSANs(dnsNames, emailAddresses []string, ipAddresses []net.IP) (derBy
 		if ip == nil {
 			ip = rawIP
 		}
-		rawValues = append(rawValues, asn1.RawValue{Tag: 7, Class: 2, Bytes: ip})
+		rawValues = append(rawValues, asn1.RawValue{Tag: 7, Class: asn1.ClassContextSpecific, Bytes: ip})
 	}
 	return asn1.Marshal(rawValues)
 }
@@ -1734,13 +1734,13 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 		for _, name := range template.OCSPServer {
 			aiaValues = append(aiaValues, authorityInfoAccess{
 				Method:   oidAuthorityInfoAccessOcsp,
-				Location: asn1.RawValue{Tag: 6, Class: 2, Bytes: []byte(name)},
+				Location: asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(name)},
 			})
 		}
 		for _, name := range template.IssuingCertificateURL {
 			aiaValues = append(aiaValues, authorityInfoAccess{
 				Method:   oidAuthorityInfoAccessIssuers,
-				Location: asn1.RawValue{Tag: 6, Class: 2, Bytes: []byte(name)},
+				Location: asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(name)},
 			})
 		}
 		ret[n].Value, err = asn1.Marshal(aiaValues)
@@ -1803,11 +1803,11 @@ func buildExtensions(template *Certificate, authorityKeyId []byte) (ret []pkix.E
 
 		var crlDp []distributionPoint
 		for _, name := range template.CRLDistributionPoints {
-			rawFullName, _ := asn1.Marshal(asn1.RawValue{Tag: 6, Class: 2, Bytes: []byte(name)})
+			rawFullName, _ := asn1.Marshal(asn1.RawValue{Tag: 6, Class: asn1.ClassContextSpecific, Bytes: []byte(name)})
 
 			dp := distributionPoint{
 				DistributionPoint: distributionPointName{
-					FullName: asn1.RawValue{Tag: 0, Class: 2, IsCompound: true, Bytes: rawFullName},
+					FullName: asn1.RawValue{Tag: 0, Class: asn1.ClassContextSpecific, IsCompound: true, Bytes: rawFullName},
 				},
 			}
 			crlDp = append(crlDp, dp)
