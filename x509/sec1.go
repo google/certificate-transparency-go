@@ -7,12 +7,11 @@ package x509
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/asn1"
-	// START CT CHANGES
 	"errors"
 	"fmt"
 	"math/big"
+
+	"github.com/google/certificate-transparency-go/asn1"
 )
 
 const ecPrivKeyVersion = 1

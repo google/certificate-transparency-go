@@ -6,11 +6,10 @@ package x509
 
 import (
 	"crypto/rsa"
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/asn1"
-	// END CT CHANGES
 	"errors"
 	"math/big"
+
+	"github.com/google/certificate-transparency-go/asn1"
 )
 
 // pkcs1PrivateKey is a structure which mirrors the PKCS#1 ASN.1 for an RSA private key.

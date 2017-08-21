@@ -13,27 +13,22 @@ import (
 	"crypto/rsa"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
-	"runtime"
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/asn1"
-	"github.com/google/certificate-transparency-go/x509/pkix"
-	// END CT CHANGES
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
-	// START CT CHANGES
 	"errors"
-	// END CT CHANGES
 	"fmt"
 	"math/big"
 	"net"
 	"os/exec"
 	"reflect"
-	// START CT CHANGES
+	"runtime"
 	"strings"
-	// END CT CHANGES
 	"testing"
 	"time"
+
+	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 func TestParsePKCS1PrivateKey(t *testing.T) {
@@ -965,8 +960,6 @@ func TestParsePEMCRL(t *testing.T) {
 	// Can't check the signature here without a package cycle.
 }
 
-// START CT CHANGES
-
 func TestNonFatalErrors(t *testing.T) {
 	nfe := NonFatalErrors{}
 
@@ -1116,8 +1109,6 @@ func TestRemoveCTPoison(t *testing.T) {
 		}
 	}
 }
-
-// END CT CHANGES
 
 func TestImports(t *testing.T) {
 	//	testenv.MustHaveGoRun(t)

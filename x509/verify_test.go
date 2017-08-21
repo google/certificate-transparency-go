@@ -5,9 +5,6 @@
 package x509
 
 import (
-	// START CT CHANGES
-	"github.com/google/certificate-transparency-go/x509/pkix"
-	// END CT CHANGES
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -15,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
 var supportSHA2 = true
