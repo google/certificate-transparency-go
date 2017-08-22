@@ -16,13 +16,12 @@ package ctfe
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
@@ -40,24 +39,20 @@ func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
 		return nil, errors.New("log config filename empty")
 	}
 
-	file, err := os.Open(filename)
+	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open log config: %v", err)
+		return nil, fmt.Errorf("failed to read log config: %v", err)
 	}
 
-	decoder := json.NewDecoder(file)
-	var cfgs []*configpb.LogConfig
-	for decoder.More() {
-		var cfg configpb.LogConfig
-		if err := jsonpb.UnmarshalNext(decoder, &cfg); err != nil {
-			return nil, fmt.Errorf("failed to parse config data: %v", err)
-		}
-		cfgs = append(cfgs, &cfg)
+	var cfg configpb.LogConfigSet
+	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse log config: %v", err)
 	}
-	if len(cfgs) == 0 {
+
+	if len(cfg.Config) == 0 {
 		return nil, errors.New("empty log config found")
 	}
-	return cfgs, nil
+	return cfg.Config, nil
 }
 
 var stringToKeyUsage = map[string]x509.ExtKeyUsage{

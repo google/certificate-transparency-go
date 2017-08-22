@@ -20,6 +20,11 @@ import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
 
+// LogConfigSet is a set of LogConfig messages.
+message LogConfigSet {
+  repeated LogConfig config = 1;
+}
+
 // LogConfig describes the configuration options for a log instance.
 message LogConfig {
   int64 log_id = 1;
