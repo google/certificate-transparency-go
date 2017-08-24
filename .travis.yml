@@ -55,7 +55,7 @@ script:
   - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
   - |
       # Check re-generation didn't change anything
-      status=$(git status --porcelain) || :
+      status=$(git status --porcelain | grep -v coverage) || :
       if [[ -n ${status} ]]; then
         echo "Regenerated files differ from checked-in versions: ${status}"
         git status
@@ -69,3 +69,7 @@ script:
   - ./trillian/integration/integration_test.sh
   - HAMMER_OPTS="--operations=1500" ./trillian/integration/ct_hammer_test.sh
   - set +e
+
+after_success:
+  - cp /tmp/coverage.txt .
+  - bash <(curl -s https://codecov.io/bash)
