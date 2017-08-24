@@ -22,7 +22,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/certificate-transparency-go/preload"
+	"github.com/google/certificate-transparency-go/preload/internal/scts"
 )
 
 var sctFile = flag.String("sct_file", "", "File to load SCTs & leaf data from")
@@ -51,7 +51,7 @@ func main() {
 
 	// TODO(alcutter) should probably store this stuff in a protobuf really.
 	decoder := gob.NewDecoder(sctReader)
-	var addedCert preload.AddedCert
+	var addedCert scts.AddedCert
 	numAdded := 0
 	numFailed := 0
 	for {

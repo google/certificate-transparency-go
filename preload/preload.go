@@ -23,21 +23,15 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/preload"
+	"github.com/google/certificate-transparency-go/preload/internal/scts"
 	"github.com/google/certificate-transparency-go/scanner"
 	"golang.org/x/net/context"
-)
-
-const (
-	// MatchesNothingRegex is a regex which cannot match any input.
-	MatchesNothingRegex = "a^"
 )
 
 var sourceLogURI = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
@@ -51,22 +45,8 @@ var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, o
 var sctInputFile = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
 
-func createMatcher() (scanner.Matcher, error) {
-	// Make a "match everything" regex matcher
-	precertRegex := regexp.MustCompile(".*")
-	var certRegex *regexp.Regexp
-	if *precertsOnly {
-		certRegex = regexp.MustCompile(MatchesNothingRegex)
-	} else {
-		certRegex = precertRegex
-	}
-	return scanner.MatchSubjectRegex{
-		CertificateSubjectRegex:    certRegex,
-		PrecertificateSubjectRegex: precertRegex}, nil
-}
-
-func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
-	addedCert := preload.AddedCert{
+func recordSct(addedCerts chan<- *scts.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
+	addedCert := scts.AddedCert{
 		CertDER:                    certDer,
 		SignedCertificateTimestamp: *sct,
 		AddedOk:                    true,
@@ -74,8 +54,8 @@ func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *c
 	addedCerts <- &addedCert
 }
 
-func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, addError error) {
-	addedCert := preload.AddedCert{
+func recordFailure(addedCerts chan<- *scts.AddedCert, certDer ct.ASN1Cert, addError error) {
+	addedCert := scts.AddedCert{
 		CertDER:      certDer,
 		AddedOk:      false,
 		ErrorMessage: addError.Error(),
@@ -83,7 +63,7 @@ func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, ad
 	addedCerts <- &addedCert
 }
 
-func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
+func sctWriterJob(addedCerts <-chan *scts.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
 	encoder := gob.NewEncoder(sctWriter)
 
 	numAdded := 0
@@ -106,7 +86,7 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 	wg.Done()
 }
 
-func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
+func certSubmitterJob(ctx context.Context, addedCerts chan<- *scts.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
@@ -126,7 +106,7 @@ func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 	wg.Done()
 }
 
-func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient,
+func precertSubmitterJob(ctx context.Context, addedCerts chan<- *scts.AddedCert, logClient *client.LogClient,
 	precerts <-chan *ct.LogEntry,
 	wg *sync.WaitGroup) {
 	for c := range precerts {
@@ -149,10 +129,12 @@ func main() {
 	var sctFileWriter io.Writer
 	var err error
 	if *sctInputFile != "" {
-		sctFileWriter, err = os.Create(*sctInputFile)
+		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer sctFile.Close()
+		sctFileWriter = sctFile
 	} else {
 		sctFileWriter = ioutil.Discard
 	}
@@ -183,13 +165,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	matcher, err := createMatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	opts := scanner.ScannerOptions{
-		Matcher:       matcher,
+		Matcher:       scanner.MatchAll{},
+		PrecertOnly:   *precertsOnly,
 		BatchSize:     *batchSize,
 		NumWorkers:    *numWorkers,
 		ParallelFetch: *parallelFetch,
@@ -198,9 +176,9 @@ func main() {
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 
-	certs := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	precerts := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	addedCerts := make(chan *preload.AddedCert, *batchSize**parallelFetch)
+	certs := make(chan *ct.LogEntry, 10**parallelSubmit)
+	precerts := make(chan *ct.LogEntry, 10**parallelSubmit)
+	addedCerts := make(chan *scts.AddedCert, 10**parallelSubmit)
 
 	var sctWriterWG sync.WaitGroup
 	sctWriterWG.Add(1)
