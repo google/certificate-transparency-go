@@ -33,7 +33,7 @@ import (
 )
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
-// filename, which should contain JSON encoded configuration data.
+// filename, which should contain text-protobuf encoded configuration data.
 func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
 	if len(filename) == 0 {
 		return nil, errors.New("log config filename empty")
