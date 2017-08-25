@@ -366,7 +366,7 @@ func TestAddPreChain(t *testing.T) {
 	chain := []ct.ASN1Cert{{Data: cert.Raw}, {Data: issuer.Raw}}
 	_, err = client.AddPreChain(context.Background(), chain)
 	if err != nil {
-		t.Errorf("AddChain()=nil,%v; want sct,nil", err)
+		t.Errorf("AddPreChain()=nil,%v; want sct,nil", err)
 	}
 }
 
