@@ -18,9 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -30,6 +32,29 @@ import (
 type interval struct {
 	lower *time.Time // nil => no lower bound
 	upper *time.Time // nil => no upper bound
+}
+
+// TemporalLogConfigFromFile creates a TemporalLogConfig object from the given
+// filename, which should contain text-protobuf encoded configuration data.
+func TemporalLogConfigFromFile(filename string) (*TemporalLogConfig, error) {
+	if len(filename) == 0 {
+		return nil, errors.New("log config filename empty")
+	}
+
+	cfgText, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read log config: %v", err)
+	}
+
+	var cfg TemporalLogConfig
+	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse log config: %v", err)
+	}
+
+	if len(cfg.Shard) == 0 {
+		return nil, errors.New("empty log config found")
+	}
+	return &cfg, nil
 }
 
 // TemporalLogClient allows [pre-]certificates to be uploaded to a temporal log.
