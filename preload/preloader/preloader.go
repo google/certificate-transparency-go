@@ -16,6 +16,7 @@ package main
 
 import (
 	"compress/zlib"
+	"context"
 	"encoding/gob"
 	"flag"
 	"io"
@@ -31,7 +32,6 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/preload"
 	"github.com/google/certificate-transparency-go/scanner"
-	"golang.org/x/net/context"
 )
 
 var sourceLogURI = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
@@ -207,7 +207,7 @@ func main() {
 	addPreChainFunc := func(entry *ct.LogEntry) {
 		precerts <- entry
 	}
-	scanner.Scan(addChainFunc, addPreChainFunc)
+	scanner.Scan(ctx, addChainFunc, addPreChainFunc)
 
 	close(certs)
 	close(precerts)

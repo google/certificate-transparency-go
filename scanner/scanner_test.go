@@ -16,6 +16,7 @@ package scanner
 
 import (
 	"container/list"
+	"context"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -202,7 +203,8 @@ func TestScannerEndToEnd(t *testing.T) {
 	var matchedCerts list.List
 	var matchedPrecerts list.List
 
-	err = scanner.Scan(func(e *ct.LogEntry) {
+	ctx := context.Background()
+	err = scanner.Scan(ctx, func(e *ct.LogEntry) {
 		// Annoyingly we can't t.Fatal() in here, as this is run in another go
 		// routine
 		matchedCerts.PushBack(*e.X509Cert)
