@@ -195,8 +195,8 @@ type Scanner struct {
 	Log func(msg string)
 }
 
-// matcherJob represents the context for an individual matcher job.
-type matcherJob struct {
+// entryInfo represents information about a log entry
+type entryInfo struct {
 	// The log entry returned by the log server
 	entry ct.LogEntry
 	// The index of the entry containing the LeafInput in the log
@@ -205,8 +205,8 @@ type matcherJob struct {
 
 // fetchRange represents a range of certs to fetch from a CT log
 type fetchRange struct {
-	start int64
-	end   int64
+	start int64 // inclusive
+	end   int64 // inclusive
 }
 
 // Takes the error returned by either x509.ParseCertificate() or
@@ -274,7 +274,7 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 // Worker function to match certs.
 // Accepts MatcherJobs over the entries channel, and processes them.
 // Returns true over the done channel when the entries channel is closed.
-func (s *Scanner) matcherJob(entries <-chan matcherJob, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
+func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	for e := range entries {
 		s.processEntry(e.entry, foundCert, foundPrecert)
 	}
@@ -286,7 +286,7 @@ func (s *Scanner) matcherJob(entries <-chan matcherJob, foundCert func(*ct.LogEn
 // entries channel for the matchers to chew on.
 // Will retry failed attempts to retrieve ranges indefinitely.
 // Sends true over the done channel when the ranges channel is closed.
-func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entries chan<- matcherJob) {
+func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entries chan<- entryInfo) {
 	for r := range ranges {
 		success := false
 		// TODO(alcutter): give up after a while:
@@ -298,7 +298,7 @@ func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entr
 			}
 			for _, logEntry := range logEntries {
 				logEntry.Index = r.start
-				entries <- matcherJob{logEntry, r.start}
+				entries <- entryInfo{logEntry, r.start}
 				r.start++
 			}
 			if r.start > r.end {
@@ -370,7 +370,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
 	fetches := make(chan fetchRange, 1000)
-	jobs := make(chan matcherJob, 100000)
+	jobs := make(chan entryInfo, 100000)
 	go func() {
 		for range ticker.C {
 			certsProcessed := atomic.LoadInt64(&s.certsProcessed)
