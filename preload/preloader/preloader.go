@@ -34,16 +34,19 @@ import (
 	"github.com/google/certificate-transparency-go/scanner"
 )
 
-var sourceLogURI = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-var targetLogURI = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
-var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
-var numWorkers = flag.Int("num_workers", 2, "Number of concurrent matchers")
-var parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
-var parallelSubmit = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
-var startIndex = flag.Int64("start_index", 0, "Log index to start scanning at")
-var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
-var sctInputFile = flag.String("sct_file", "", "File to save SCTs & leaf data to")
-var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
+var (
+	sourceLogURI         = flag.String("source_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+	targetLogURI         = flag.String("target_log_uri", "http://example.com/ct", "CT log base URI to add entries to")
+	targetTemporalLogCfg = flag.String("target_temporal_log_cfg", "", "File holding temporal log configuration")
+	batchSize            = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
+	numWorkers           = flag.Int("num_workers", 2, "Number of concurrent matchers")
+	parallelFetch        = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+	parallelSubmit       = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
+	startIndex           = flag.Int64("start_index", 0, "Log index to start scanning at")
+	quiet                = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
+	sctInputFile         = flag.String("sct_file", "", "File to save SCTs & leaf data to")
+	precertsOnly         = flag.Bool("precerts_only", false, "Only match precerts")
+)
 
 func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
 	addedCert := preload.AddedCert{
@@ -85,7 +88,7 @@ func sctDumper(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer) {
 	log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
 }
 
-func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry) {
+func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient client.AddLogClient, certs <-chan *ct.LogEntry) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
 		chain[0] = ct.ASN1Cert{Data: c.X509Cert.Raw}
@@ -103,7 +106,7 @@ func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, lo
 	}
 }
 
-func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, precerts <-chan *ct.LogEntry) {
+func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient client.AddLogClient, precerts <-chan *ct.LogEntry) {
 	for c := range precerts {
 		sct, err := logClient.AddPreChain(ctx, c.Chain)
 		if err != nil {
@@ -182,9 +185,21 @@ func main() {
 		sctDumper(addedCerts, sctWriter)
 	}()
 
-	submitLogClient, err := client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
-	if err != nil {
-		log.Fatalf("Failed to create client for destination log: %v", err)
+	var submitLogClient client.AddLogClient
+	if *targetTemporalLogCfg != "" {
+		cfg, err := client.TemporalLogConfigFromFile(*targetTemporalLogCfg)
+		if err != nil {
+			log.Fatalf("Failed to load temporal log config: %v", err)
+		}
+		submitLogClient, err = client.NewTemporalLogClient(*cfg, &http.Client{Transport: transport})
+		if err != nil {
+			log.Fatalf("Failed to create client for destination temporal log: %v", err)
+		}
+	} else {
+		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
+		if err != nil {
+			log.Fatalf("Failed to create client for destination log: %v", err)
+		}
 	}
 
 	ctx := context.Background()
