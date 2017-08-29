@@ -17,6 +17,7 @@ package scanner
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"log"
 	"math/big"
@@ -28,7 +29,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
-	"golang.org/x/net/context"
 )
 
 // Matcher describes how to match certificates and precertificates; clients should implement this interface
@@ -287,12 +287,12 @@ func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*
 // entries channel for the matchers to chew on.
 // Will retry failed attempts to retrieve ranges indefinitely.
 // Sends true over the done channel when the ranges channel is closed.
-func (s *Scanner) fetcherJob(id int, ranges <-chan fetchRange, entries chan<- matcherJob) {
+func (s *Scanner) fetcherJob(ctx context.Context, id int, ranges <-chan fetchRange, entries chan<- matcherJob) {
 	for r := range ranges {
 		success := false
 		// TODO(alcutter): give up after a while:
 		for !success {
-			logEntries, err := s.logClient.GetEntries(context.TODO(), r.start, r.end)
+			logEntries, err := s.logClient.GetEntries(ctx, r.start, r.end)
 			if err != nil {
 				s.Log(fmt.Sprintf("Problem fetching from log: %s", err.Error()))
 				continue
@@ -356,17 +356,16 @@ func humanTime(seconds int) string {
 // precert string as the arguments.
 //
 // This method blocks until the scan is complete.
-func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
-	foundPrecert func(*ct.LogEntry)) error {
+func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
 	s.precertsSeen = 0
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
 
-	latestSth, err := s.logClient.GetSTH(context.Background())
+	latestSth, err := s.logClient.GetSTH(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to GetSTH(): %v", err)
 	}
 	s.Log(fmt.Sprintf("Got STH with %d certs", latestSth.TreeSize))
 
@@ -407,7 +406,7 @@ func (s *Scanner) Scan(foundCert func(*ct.LogEntry),
 		fetcherWG.Add(1)
 		go func() {
 			defer fetcherWG.Done()
-			s.fetcherJob(w, fetches, jobs)
+			s.fetcherJob(ctx, w, fetches, jobs)
 		}()
 	}
 	for r := ranges.Front(); r != nil; r = r.Next() {

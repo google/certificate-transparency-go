@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -142,9 +143,10 @@ func main() {
 	}
 	scanner := scanner.NewScanner(logClient, opts)
 
+	ctx := context.Background()
 	if *printChains {
-		scanner.Scan(logFullChain, logFullChain)
+		scanner.Scan(ctx, logFullChain, logFullChain)
 	} else {
-		scanner.Scan(logCertInfo, logPrecertInfo)
+		scanner.Scan(ctx, logCertInfo, logPrecertInfo)
 	}
 }
