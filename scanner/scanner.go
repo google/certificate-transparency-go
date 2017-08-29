@@ -274,11 +274,10 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 // Worker function to match certs.
 // Accepts MatcherJobs over the entries channel, and processes them.
 // Returns true over the done channel when the entries channel is closed.
-func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
+func (s *Scanner) matcherJob(entries <-chan matcherJob, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	for e := range entries {
 		s.processEntry(e.entry, foundCert, foundPrecert)
 	}
-	s.Log(fmt.Sprintf("Matcher %d finished", id))
 }
 
 // Worker function for fetcher jobs.
@@ -287,7 +286,7 @@ func (s *Scanner) matcherJob(id int, entries <-chan matcherJob, foundCert func(*
 // entries channel for the matchers to chew on.
 // Will retry failed attempts to retrieve ranges indefinitely.
 // Sends true over the done channel when the ranges channel is closed.
-func (s *Scanner) fetcherJob(ctx context.Context, id int, ranges <-chan fetchRange, entries chan<- matcherJob) {
+func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entries chan<- matcherJob) {
 	for r := range ranges {
 		success := false
 		// TODO(alcutter): give up after a while:
@@ -310,7 +309,6 @@ func (s *Scanner) fetcherJob(ctx context.Context, id int, ranges <-chan fetchRan
 			}
 		}
 	}
-	s.Log(fmt.Sprintf("Fetcher %d finished", id))
 }
 
 func min(a int64, b int64) int64 {
@@ -398,7 +396,8 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		matcherWG.Add(1)
 		go func() {
 			defer matcherWG.Done()
-			s.matcherJob(w, jobs, foundCert, foundPrecert)
+			s.matcherJob(jobs, foundCert, foundPrecert)
+			s.Log(fmt.Sprintf("Matcher %d finished", w))
 		}()
 	}
 	// Start fetcher workers
@@ -406,7 +405,8 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		fetcherWG.Add(1)
 		go func() {
 			defer fetcherWG.Done()
-			s.fetcherJob(ctx, w, fetches, jobs)
+			s.fetcherJob(ctx, fetches, jobs)
+			s.Log(fmt.Sprintf("Fetcher %d finished", w))
 		}()
 	}
 	for r := ranges.Front(); r != nil; r = r.Next() {
