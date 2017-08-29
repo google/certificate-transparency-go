@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// fixchain is a utility program for fixing the validation chains for certificates.
+// chainfix is a utility program for fixing the validation chains for certificates.
 package main
 
 import (
