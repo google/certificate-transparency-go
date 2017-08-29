@@ -63,7 +63,7 @@ func recordFailure(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, ad
 	addedCerts <- &addedCert
 }
 
-func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg *sync.WaitGroup) {
+func sctDumper(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer) {
 	encoder := gob.NewEncoder(sctWriter)
 
 	numAdded := 0
@@ -83,11 +83,9 @@ func sctWriterJob(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer, wg 
 		}
 	}
 	log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
-	wg.Done()
 }
 
-func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry,
-	wg *sync.WaitGroup) {
+func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, certs <-chan *ct.LogEntry) {
 	for c := range certs {
 		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
 		chain[0] = ct.ASN1Cert{Data: c.X509Cert.Raw}
@@ -103,12 +101,9 @@ func certSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 			log.Printf("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
 		}
 	}
-	wg.Done()
 }
 
-func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient,
-	precerts <-chan *ct.LogEntry,
-	wg *sync.WaitGroup) {
+func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient *client.LogClient, precerts <-chan *ct.LogEntry) {
 	for c := range precerts {
 		sct, err := logClient.AddPreChain(ctx, c.Chain)
 		if err != nil {
@@ -121,7 +116,6 @@ func precertSubmitterJob(ctx context.Context, addedCerts chan<- *preload.AddedCe
 			log.Printf("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
 		}
 	}
-	wg.Done()
 }
 
 func main() {
@@ -131,7 +125,7 @@ func main() {
 	if *sctInputFile != "" {
 		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to create SCT file: %v", err)
 		}
 		defer sctFile.Close()
 		sctFileWriter = sctFile
@@ -143,7 +137,7 @@ func main() {
 	defer func() {
 		err := sctWriter.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to close SCT file: %v", err)
 		}
 	}()
 
@@ -162,7 +156,7 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create client for source log: %v", err)
 	}
 
 	opts := scanner.ScannerOptions{
@@ -176,27 +170,35 @@ func main() {
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 
-	certs := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	precerts := make(chan *ct.LogEntry, *batchSize**parallelFetch)
-	addedCerts := make(chan *preload.AddedCert, *batchSize**parallelFetch)
+	bufferSize := *batchSize * *parallelFetch
+	certs := make(chan *ct.LogEntry, bufferSize)
+	precerts := make(chan *ct.LogEntry, bufferSize)
+	addedCerts := make(chan *preload.AddedCert, bufferSize)
 
 	var sctWriterWG sync.WaitGroup
 	sctWriterWG.Add(1)
-	go sctWriterJob(addedCerts, sctWriter, &sctWriterWG)
+	go func() {
+		defer sctWriterWG.Done()
+		sctDumper(addedCerts, sctWriter)
+	}()
 
-	submitLogClient, err := client.New(*targetLogURI, &http.Client{
-		Transport: transport,
-	}, jsonclient.Options{})
+	submitLogClient, err := client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create client for destination log: %v", err)
 	}
 
-	backgroundCtx := context.Background()
+	ctx := context.Background()
 	var submitterWG sync.WaitGroup
 	for w := 0; w < *parallelSubmit; w++ {
 		submitterWG.Add(2)
-		go certSubmitterJob(backgroundCtx, addedCerts, submitLogClient, certs, &submitterWG)
-		go precertSubmitterJob(backgroundCtx, addedCerts, submitLogClient, precerts, &submitterWG)
+		go func() {
+			defer submitterWG.Done()
+			certSubmitter(ctx, addedCerts, submitLogClient, certs)
+		}()
+		go func() {
+			defer submitterWG.Done()
+			precertSubmitter(ctx, addedCerts, submitLogClient, precerts)
+		}()
 	}
 
 	addChainFunc := func(entry *ct.LogEntry) {
@@ -205,7 +207,6 @@ func main() {
 	addPreChainFunc := func(entry *ct.LogEntry) {
 		precerts <- entry
 	}
-
 	scanner.Scan(addChainFunc, addPreChainFunc)
 
 	close(certs)
