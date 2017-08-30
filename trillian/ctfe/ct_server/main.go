@@ -49,6 +49,7 @@ var (
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
 	rpcBackendFlag     = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
 	rpcDeadlineFlag    = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	rpcDialTimeout     = flag.Duration("rpc_dial_timeout", time.Minute*5, "Timeout to set when dialing log_rpc_server")
 	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
 	logConfigFlag      = flag.String("log_config", "", "File holding log config in JSON")
 	maxGetEntriesFlag  = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
@@ -114,7 +115,9 @@ func main() {
 		res = util.FixedBackendResolver{}
 	}
 	bal := grpc.RoundRobin(res)
-	conn, err := grpc.Dial(*rpcBackendFlag, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
+	ctx, cancelFunc := context.WithDeadline(context.Background(), time.Now().Add(*rpcDialTimeout))
+	defer cancelFunc()
+	conn, err := grpc.DialContext(ctx, *rpcBackendFlag, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
 	if err != nil {
 		glog.Exitf("Could not connect to rpc server: %v", err)
 	}
