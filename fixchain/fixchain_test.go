@@ -124,13 +124,6 @@ var postTests = []postTest{
 		url:   "https://ct.googleapis.com/pilot",
 		chain: []string{googleLeaf, thawteIntermediate, verisignRoot},
 
-		ferr:         &FixError{Type: PostFailed},
-		expectedErrs: []errorType{PostFailed},
-	},
-	{
-		url:   "https://ct.googleapis.com/pilot",
-		chain: []string{googleLeaf, thawteIntermediate, verisignRoot},
-
 		ferr:         &FixError{Type: LogPostFailed},
 		expectedErrs: []errorType{LogPostFailed},
 	},
