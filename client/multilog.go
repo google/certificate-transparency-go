@@ -57,6 +57,14 @@ func TemporalLogConfigFromFile(filename string) (*TemporalLogConfig, error) {
 	return &cfg, nil
 }
 
+// AddLogClient is an interface that allows adding certificates and pre-certificates to a log.
+// Both LogClient and TemporalLogClient implement this interface, which allows users to
+// commonize code for adding certs to normal/temporal logs.
+type AddLogClient interface {
+	AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+	AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+}
+
 // TemporalLogClient allows [pre-]certificates to be uploaded to a temporal log.
 type TemporalLogClient struct {
 	Clients   []*LogClient
