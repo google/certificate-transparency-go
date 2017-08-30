@@ -286,20 +286,20 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	// Start matcher workers
 	for w := 0; w < s.opts.NumWorkers; w++ {
 		matcherWG.Add(1)
-		go func() {
+		go func(w int) {
 			defer matcherWG.Done()
 			s.matcherJob(jobs, foundCert, foundPrecert)
 			s.Log(fmt.Sprintf("Matcher %d finished", w))
-		}()
+		}(w)
 	}
 	// Start fetcher workers
 	for w := 0; w < s.opts.ParallelFetch; w++ {
 		fetcherWG.Add(1)
-		go func() {
+		go func(w int) {
 			defer fetcherWG.Done()
 			s.fetcherJob(ctx, fetches, jobs)
 			s.Log(fmt.Sprintf("Fetcher %d finished", w))
-		}()
+		}(w)
 	}
 	for r := ranges.Front(); r != nil; r = r.Next() {
 		fetches <- r.Value.(fetchRange)
