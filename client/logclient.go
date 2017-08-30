@@ -18,6 +18,7 @@
 package client
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -27,7 +28,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
-	"golang.org/x/net/context"
 )
 
 // LogClient represents a client for a given CT Log instance
