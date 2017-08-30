@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package client;
+package configpb;
 
 import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
 import "google/protobuf/timestamp.proto";

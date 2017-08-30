@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client/configpb"
 	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/trillian/crypto/keyspb"
@@ -38,19 +39,19 @@ func TestNewTemporalLogClient(t *testing.T) {
 	ts4, _ := ptypes.TimestampProto(time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC))
 
 	tests := []struct {
-		cfg     TemporalLogConfig
+		cfg     configpb.TemporalLogConfig
 		wantErr string
 	}{
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: "one", NotAfterStart: nil, NotAfterLimit: nil},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: "one", NotAfterStart: nil, NotAfterLimit: nil},
 				},
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -59,8 +60,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: nil, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -69,8 +70,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: nil, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -79,8 +80,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -89,8 +90,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -101,8 +102,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			wantErr: "previous interval ended at",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
@@ -112,8 +113,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			wantErr: "previous interval ended at",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: nil, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts1},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -123,8 +124,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			wantErr: "inverted",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: nil},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -134,8 +135,8 @@ func TestNewTemporalLogClient(t *testing.T) {
 			wantErr: "no upper bound",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: nil, NotAfterLimit: ts3},
@@ -148,44 +149,44 @@ func TestNewTemporalLogClient(t *testing.T) {
 			wantErr: "empty",
 		},
 		{
-			cfg:     TemporalLogConfig{Shard: []*LogShardConfig{}},
+			cfg:     configpb.TemporalLogConfig{Shard: []*configpb.LogShardConfig{}},
 			wantErr: "empty",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts1, NotAfterLimit: ts1},
 				},
 			},
 			wantErr: "inverted",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts2, NotAfterLimit: ts1},
 				},
 			},
 			wantErr: "inverted",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: &tspb.Timestamp{Seconds: -1, Nanos: -1}, NotAfterLimit: ts2},
 				},
 			},
 			wantErr: "failed to parse",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{Uri: "one", NotAfterStart: ts1, NotAfterLimit: &tspb.Timestamp{Seconds: -1, Nanos: -1}},
 				},
 			},
 			wantErr: "failed to parse",
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
 					{
 						Uri:           "one",
 						NotAfterStart: nil,
@@ -228,8 +229,8 @@ func TestIndexByDate(t *testing.T) {
 	ts3, _ := ptypes.TimestampProto(time3)
 	ts4, _ := ptypes.TimestampProto(time4)
 
-	allCfg := TemporalLogConfig{
-		Shard: []*LogShardConfig{
+	allCfg := configpb.TemporalLogConfig{
+		Shard: []*configpb.LogShardConfig{
 			{Uri: "zero", NotAfterStart: nil, NotAfterLimit: ts0},
 			{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 			{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
@@ -238,8 +239,8 @@ func TestIndexByDate(t *testing.T) {
 			{Uri: "five", NotAfterStart: ts4, NotAfterLimit: nil},
 		},
 	}
-	uptoCfg := TemporalLogConfig{
-		Shard: []*LogShardConfig{
+	uptoCfg := configpb.TemporalLogConfig{
+		Shard: []*configpb.LogShardConfig{
 			{Uri: "zero", NotAfterStart: nil, NotAfterLimit: ts0},
 			{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 			{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
@@ -248,8 +249,8 @@ func TestIndexByDate(t *testing.T) {
 		},
 	}
 	fromCfg :=
-		TemporalLogConfig{
-			Shard: []*LogShardConfig{
+		configpb.TemporalLogConfig{
+			Shard: []*configpb.LogShardConfig{
 				{Uri: "zero", NotAfterStart: ts0, NotAfterLimit: ts1},
 				{Uri: "one", NotAfterStart: ts1, NotAfterLimit: ts2},
 				{Uri: "two", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -258,8 +259,8 @@ func TestIndexByDate(t *testing.T) {
 			},
 		}
 	boundedCfg :=
-		TemporalLogConfig{
-			Shard: []*LogShardConfig{
+		configpb.TemporalLogConfig{
+			Shard: []*configpb.LogShardConfig{
 				{Uri: "zero", NotAfterStart: ts0, NotAfterLimit: ts1},
 				{Uri: "one", NotAfterStart: ts1, NotAfterLimit: ts2},
 				{Uri: "two", NotAfterStart: ts2, NotAfterLimit: ts3},
@@ -268,7 +269,7 @@ func TestIndexByDate(t *testing.T) {
 		}
 
 	tests := []struct {
-		cfg     TemporalLogConfig
+		cfg     configpb.TemporalLogConfig
 		when    time.Time
 		want    int
 		wantErr bool
@@ -360,49 +361,49 @@ func TestTemporalAddChain(t *testing.T) {
 	pubKey := &keyspb.PublicKey{Der: p.Bytes}
 
 	tests := []struct {
-		cfg     TemporalLogConfig
+		cfg     configpb.TemporalLogConfig
 		wantErr bool
 	}{
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: nil, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: nil, PublicKey: pubKey},
 				},
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts2, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts2, PublicKey: pubKey},
 				},
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: nil, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: nil, PublicKey: pubKey},
 				},
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: ts2, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: ts2, PublicKey: pubKey},
 				},
 			},
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts1, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts1, PublicKey: pubKey},
 				},
 			},
 			wantErr: true,
 		},
 		{
-			cfg: TemporalLogConfig{
-				Shard: []*LogShardConfig{
-					&LogShardConfig{Uri: hs.URL, NotAfterStart: ts2, NotAfterLimit: nil, PublicKey: pubKey},
+			cfg: configpb.TemporalLogConfig{
+				Shard: []*configpb.LogShardConfig{
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts2, NotAfterLimit: nil, PublicKey: pubKey},
 				},
 			},
 			wantErr: true,
@@ -441,9 +442,9 @@ func TestTemporalAddChainErrors(t *testing.T) {
 	hs := ctServer(t)
 	defer hs.Close()
 
-	cfg := TemporalLogConfig{
-		Shard: []*LogShardConfig{
-			&LogShardConfig{
+	cfg := configpb.TemporalLogConfig{
+		Shard: []*configpb.LogShardConfig{
+			&configpb.LogShardConfig{
 				Uri:           hs.URL,
 				NotAfterStart: nil,
 				NotAfterLimit: nil,

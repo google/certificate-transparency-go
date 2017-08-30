@@ -25,6 +25,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client/configpb"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -36,7 +37,7 @@ type interval struct {
 
 // TemporalLogConfigFromFile creates a TemporalLogConfig object from the given
 // filename, which should contain text-protobuf encoded configuration data.
-func TemporalLogConfigFromFile(filename string) (*TemporalLogConfig, error) {
+func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, error) {
 	if len(filename) == 0 {
 		return nil, errors.New("log config filename empty")
 	}
@@ -46,7 +47,7 @@ func TemporalLogConfigFromFile(filename string) (*TemporalLogConfig, error) {
 		return nil, fmt.Errorf("failed to read log config: %v", err)
 	}
 
-	var cfg TemporalLogConfig
+	var cfg configpb.TemporalLogConfig
 	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse log config: %v", err)
 	}
@@ -73,7 +74,7 @@ type TemporalLogClient struct {
 
 // NewTemporalLogClient builds a new client for interacting with a temporal log.
 // The provided config should be contiguous and chronological.
-func NewTemporalLogClient(cfg TemporalLogConfig, hc *http.Client) (*TemporalLogClient, error) {
+func NewTemporalLogClient(cfg configpb.TemporalLogConfig, hc *http.Client) (*TemporalLogClient, error) {
 	if len(cfg.Shard) == 0 {
 		return nil, errors.New("empty config")
 	}
@@ -161,7 +162,7 @@ func (tlc *TemporalLogClient) IndexByDate(when time.Time) (int, error) {
 	return -1, fmt.Errorf("no log found encompassing date %v", when)
 }
 
-func shardInterval(cfg *LogShardConfig) (interval, error) {
+func shardInterval(cfg *configpb.LogShardConfig) (interval, error) {
 	var interval interval
 	if cfg.NotAfterStart != nil {
 		t, err := ptypes.Timestamp(cfg.NotAfterStart)
