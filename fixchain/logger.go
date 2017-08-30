@@ -15,15 +15,15 @@
 package fixchain
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -37,8 +37,7 @@ type Limiter interface {
 // Certificate Transparency log and properties to store information about each
 // attempt that is made to post a certificate chain to said log.
 type Logger struct {
-	url    string
-	client *http.Client
+	client *client.LogClient
 	roots  *x509.CertPool
 	toPost chan *toPost
 	errors chan<- *FixError
@@ -93,8 +92,7 @@ func (l *Logger) QueueChain(chain []*x509.Certificate) {
 	}
 	l.postChainCache.set(h, true)
 
-	p := &toPost{chain: chain, retries: 5}
-	l.postToLog(p)
+	l.postToLog(&toPost{chain: chain})
 }
 
 // Wait for all of the active requests to finish being processed.
@@ -114,40 +112,24 @@ func (l *Logger) RootCerts() *x509.CertPool {
 			}
 			log.Println(err)
 		}
-		log.Fatalf("Can't get roots from %s", l.url)
+		log.Fatalf("Can't get roots for log")
 	}
 	return l.roots
 }
 
 func (l *Logger) getRoots() (*x509.CertPool, error) {
-	rootsJSON, err := l.client.Get(l.url + "/ct/v1/get-roots")
+	roots, err := l.client.GetAcceptedRoots(context.TODO())
 	if err != nil {
-		return nil, fmt.Errorf("can't get roots from %s: %s", l.url, err)
-	}
-	defer rootsJSON.Body.Close()
-	j, err := ioutil.ReadAll(rootsJSON.Body)
-	if err != nil {
-		return nil, fmt.Errorf("can't read body from %s: %s", l.url, err)
-	}
-	if rootsJSON.StatusCode != 200 {
-		return nil, fmt.Errorf("can't deal with status other than 200 from %s: %d\nbody: %s", l.url, rootsJSON.StatusCode, string(j))
-	}
-	type Certificates struct {
-		Certificates [][]byte
-	}
-	var certs Certificates
-	err = json.Unmarshal(j, &certs)
-	if err != nil {
-		return nil, fmt.Errorf("can't parse json (%s) from %s: %s", err, l.url, j)
+		return nil, fmt.Errorf("failed to get roots: %s", err)
 	}
 	ret := x509.NewCertPool()
-	for i := 0; i < len(certs.Certificates); i++ {
-		r, err := x509.ParseCertificate(certs.Certificates[i])
+	for _, root := range roots {
+		r, err := x509.ParseCertificate(root.Data)
 		switch err.(type) {
 		case nil, x509.NonFatalErrors:
 			// ignore
 		default:
-			return nil, fmt.Errorf("can't parse certificate from %s: %s %#v", l.url, err, certs.Certificates[i])
+			return nil, fmt.Errorf("can't parse certificate: %s %#v", err, root.Data)
 		}
 		ret.AddCert(r)
 	}
@@ -155,8 +137,7 @@ func (l *Logger) getRoots() (*x509.CertPool, error) {
 }
 
 type toPost struct {
-	chain   []*x509.Certificate
-	retries uint8
+	chain []*x509.Certificate
 }
 
 // postToLog(), rather than its asynchronous couterpart asyncPostToLog(), is
@@ -211,34 +192,21 @@ func (l *Logger) postChain(p *toPost) {
 		return
 	}
 
+	derChain := make([]ct.ASN1Cert, 0, len(p.chain))
+	for _, cert := range p.chain {
+		derChain = append(derChain, ct.ASN1Cert{Data: cert.Raw})
+	}
+
 	l.limiter.Wait()
-	ferr := PostChainToLog(p.chain, l.client, l.url)
 	atomic.AddUint32(&l.posted, 1)
-	if ferr != nil {
-		switch ferr.Type {
-		case PostFailed:
-			if p.retries == 0 {
-				l.errors <- ferr
-			} else {
-				log.Printf(ferr.Error.Error())
-				p.retries--
-				l.asyncPostToLog(p)
-			}
-			return
-		case LogPostFailed:
-			// If the http error code is 502, we retry.
-			// TODO(katjoyce): Are there any other error codes for which the
-			// post should be retried?
-			if p.retries == 0 || ferr.Code != 502 {
-				l.errors <- ferr
-			} else {
-				p.retries--
-				l.asyncPostToLog(p)
-			}
-			return
-		default:
-			log.Fatalf("Unexpected FixError type: %s", ferr.TypeString())
+	_, err := l.client.AddChain(context.TODO(), derChain)
+	if err != nil {
+		l.errors <- &FixError{
+			Type:  LogPostFailed,
+			Chain: p.chain,
+			Error: fmt.Errorf("add-chain failed: %s", err),
 		}
+		return
 	}
 
 	// If the post was successful, cache.
@@ -269,9 +237,8 @@ func (l *Logger) logStats() {
 // Certificate Transparency log at the given url.  It starts up a pool of
 // workerCount workers.  Errors are pushed to the errors channel.  client is
 // used to post the chains to the log.
-func NewLogger(workerCount int, url string, errors chan<- *FixError, client *http.Client, limiter Limiter, logStats bool) *Logger {
+func NewLogger(workerCount int, errors chan<- *FixError, client *client.LogClient, limiter Limiter, logStats bool) *Logger {
 	l := &Logger{
-		url:            url,
 		client:         client,
 		errors:         errors,
 		toPost:         make(chan *toPost),

@@ -25,6 +25,9 @@ import (
 	"strings"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -101,7 +104,7 @@ func (rt testRoundTripper) RoundTrip(request *http.Request) (*http.Response, err
 			Proto:         request.Proto,
 			ProtoMajor:    request.ProtoMajor,
 			ProtoMinor:    request.ProtoMinor,
-			Body:          &bytesReadCloser{bytes.NewReader([]byte(""))},
+			Body:          &bytesReadCloser{bytes.NewReader(validSCT())},
 			ContentLength: 0,
 			Request:       request,
 		}, nil
@@ -166,10 +169,6 @@ func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response,
 		}, nil
 	}
 	// For tests that are checking the correct FixError type is returned:
-	if rt.test.ferr.Type == PostFailed {
-		return nil, errors.New("")
-	}
-
 	if rt.test.ferr.Type == LogPostFailed {
 		return &http.Response{
 			Status:        "501 Not Implemented",
@@ -231,6 +230,11 @@ func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response,
 		rt.t.Errorf("#%d: incorrect format of request body.  Received %s, expected %s", rt.testIndex, string(body), expStr)
 	}
 
+	rspData := []byte("")
+	if strings.Contains(request.URL.Path, "/ct/v1/add-chain") {
+		rspData = validSCT()
+	}
+
 	// Return a response
 	return &http.Response{
 		Status:        "200 OK",
@@ -238,17 +242,30 @@ func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response,
 		Proto:         request.Proto,
 		ProtoMajor:    request.ProtoMajor,
 		ProtoMinor:    request.ProtoMinor,
-		Body:          &bytesReadCloser{bytes.NewReader([]byte(""))},
+		Body:          &bytesReadCloser{bytes.NewReader(rspData)},
 		ContentLength: 0,
 		Request:       request,
 	}, nil
+}
+
+func validSCT() []byte {
+	var sct ct.SignedCertificateTimestamp
+	_, err := tls.Unmarshal(testdata.TestCertProof, &sct)
+	if err != nil {
+		panic(fmt.Sprintf("failed to tls-unmarshal test certificate proof: %v", err))
+	}
+	rspData, err := json.Marshal(sct)
+	if err != nil {
+		panic(fmt.Sprintf("failed to json-marshal test certificate proof: %v", err))
+	}
+	return rspData
 }
 
 type newLoggerTestRoundTripper struct{}
 
 func (rt newLoggerTestRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	// Return a response
-	b := stringRootsToJSON([]string{verisignRoot})
+	b := validSCT()
 	return &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,

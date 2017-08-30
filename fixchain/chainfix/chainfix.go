@@ -25,8 +25,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -118,8 +120,12 @@ func main() {
 	go logStringErrors(&wg, errors, errDir)
 
 	limiter := ratelimiter.NewLimiter(1000)
-	client := &http.Client{}
-	fl := fixchain.NewFixAndLog(100, 100, errors, client, client, logURL, limiter, true)
+	c := &http.Client{}
+	logClient, err := client.New(logURL, c, jsonclient.Options{})
+	if err != nil {
+		log.Fatalf("failed to create log client: %v", err)
+	}
+	fl := fixchain.NewFixAndLog(100, 100, errors, c, logClient, limiter, true)
 
 	processChains(chainsFile, fl)
 

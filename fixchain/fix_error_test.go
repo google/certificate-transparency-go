@@ -34,12 +34,12 @@ func TestEqual(t *testing.T) {
 			true,
 		},
 		{
-			&FixError{Type: PostFailed},
+			&FixError{Type: LogPostFailed},
 			&FixError{},
 			false,
 		},
 		{
-			&FixError{Type: PostFailed},
+			&FixError{Type: ParseFailure},
 			&FixError{Type: LogPostFailed},
 			false,
 		},
@@ -129,16 +129,6 @@ func TestEqual(t *testing.T) {
 			false,
 		},
 		{
-			&FixError{Code: 200},
-			&FixError{},
-			false,
-		},
-		{
-			&FixError{Code: 200},
-			&FixError{Code: 502},
-			false,
-		},
-		{
 			&FixError{
 				Type: LogPostFailed,
 				Cert: GetTestCertificateFromPEM(t, googleLeaf),
@@ -150,7 +140,6 @@ func TestEqual(t *testing.T) {
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			&FixError{},
 			false,
@@ -168,7 +157,6 @@ func TestEqual(t *testing.T) {
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			false,
 		},
@@ -184,7 +172,6 @@ func TestEqual(t *testing.T) {
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			&FixError{
 				Type: LogPostFailed,
@@ -197,38 +184,8 @@ func TestEqual(t *testing.T) {
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			true,
-		},
-		{
-			&FixError{
-				Type: PostFailed,
-				Cert: GetTestCertificateFromPEM(t, googleLeaf),
-				Chain: []*x509.Certificate{
-					GetTestCertificateFromPEM(t, googleLeaf),
-					GetTestCertificateFromPEM(t, thawteIntermediate),
-					GetTestCertificateFromPEM(t, verisignRoot),
-				},
-				URL:   "https://www.test.com",
-				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Post Failed"),
-				Code:  404,
-			},
-			&FixError{
-				Type: LogPostFailed,
-				Cert: GetTestCertificateFromPEM(t, megaLeaf),
-				Chain: []*x509.Certificate{
-					GetTestCertificateFromPEM(t, megaLeaf),
-					GetTestCertificateFromPEM(t, comodoIntermediate),
-					GetTestCertificateFromPEM(t, comodoRoot),
-				},
-				URL:   "https://www.test1.com",
-				Bad:   GetTestCertificateFromPEM(t, megaLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
-				Code:  502,
-			},
-			false,
 		},
 		{ // nil test
 			&FixError{
@@ -242,7 +199,6 @@ func TestEqual(t *testing.T) {
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			nil,
 			false,
@@ -276,10 +232,6 @@ func TestTypeString(t *testing.T) {
 		{
 			FixError{Type: FixFailed},
 			"FixFailed",
-		},
-		{
-			FixError{Type: PostFailed},
-			"PostFailed",
 		},
 		{
 			FixError{Type: LogPostFailed},
@@ -322,10 +274,8 @@ func TestString(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Error: errors.New("Log Post Failed"),
-				Code:  404,
 			},
 			"LogPostFailed\n" +
-				"Status Code: 404\n" +
 				"Error: Log Post Failed\n" +
 				"URL: https://www.test.com\n" +
 				"Cert: " + googleLeaf +
@@ -354,7 +304,6 @@ func TestMarshalJSON(t *testing.T) {
 			URL:   "https://www.test.com",
 			Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
 			Error: errors.New("Log Post Failed"),
-			Code:  404,
 		},
 	}
 
