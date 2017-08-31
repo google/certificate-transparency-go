@@ -27,7 +27,6 @@ import (
 	"github.com/google/certificate-transparency-go/client/configpb"
 	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/testdata"
-	"github.com/google/trillian/crypto/keyspb"
 )
 
 func TestNewTemporalLogClient(t *testing.T) {
@@ -191,7 +190,7 @@ func TestNewTemporalLogClient(t *testing.T) {
 						Uri:           "one",
 						NotAfterStart: nil,
 						NotAfterLimit: nil,
-						PublicKey:     &keyspb.PublicKey{Der: []byte{0x01, 0x02}},
+						PublicKeyDer:  []byte{0x01, 0x02},
 					},
 				},
 			},
@@ -358,7 +357,6 @@ func TestTemporalAddChain(t *testing.T) {
 	if p == nil {
 		t.Fatalf("Failed to parse public key from PEM: %v", err)
 	}
-	pubKey := &keyspb.PublicKey{Der: p.Bytes}
 
 	tests := []struct {
 		cfg     configpb.TemporalLogConfig
@@ -367,35 +365,35 @@ func TestTemporalAddChain(t *testing.T) {
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: nil, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: nil, PublicKeyDer: p.Bytes},
 				},
 			},
 		},
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts2, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts2, PublicKeyDer: p.Bytes},
 				},
 			},
 		},
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: nil, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: nil, PublicKeyDer: p.Bytes},
 				},
 			},
 		},
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: ts2, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts1, NotAfterLimit: ts2, PublicKeyDer: p.Bytes},
 				},
 			},
 		},
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts1, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: nil, NotAfterLimit: ts1, PublicKeyDer: p.Bytes},
 				},
 			},
 			wantErr: true,
@@ -403,7 +401,7 @@ func TestTemporalAddChain(t *testing.T) {
 		{
 			cfg: configpb.TemporalLogConfig{
 				Shard: []*configpb.LogShardConfig{
-					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts2, NotAfterLimit: nil, PublicKey: pubKey},
+					&configpb.LogShardConfig{Uri: hs.URL, NotAfterStart: ts2, NotAfterLimit: nil, PublicKeyDer: p.Bytes},
 				},
 			},
 			wantErr: true,
