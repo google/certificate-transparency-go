@@ -105,9 +105,7 @@ func NewTemporalLogClient(cfg configpb.TemporalLogConfig, hc *http.Client) (*Tem
 	clients := make([]*LogClient, 0, len(cfg.Shard))
 	for i, shard := range cfg.Shard {
 		opts := jsonclient.Options{}
-		if shard.PublicKey != nil {
-			opts.PublicKeyDER = shard.PublicKey.GetDer()
-		}
+		opts.PublicKeyDER = shard.GetPublicKeyDer()
 		c, err := New(shard.Uri, hc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client for cfg.Shard[%d]: %v", i, err)
