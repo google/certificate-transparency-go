@@ -15,6 +15,7 @@
 package fixchain
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"testing"
@@ -25,6 +26,7 @@ import (
 
 // NewLogger() test
 func TestNewLogger(t *testing.T) {
+	ctx := context.Background()
 	// Test single chain posts.
 	for i, test := range postTests {
 		errors := make(chan *FixError)
@@ -40,7 +42,7 @@ func TestNewLogger(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
-		l := NewLogger(1, errors, logClient, newNilLimiter(), false)
+		l := NewLogger(ctx, 1, errors, logClient, newNilLimiter(), false)
 
 		l.QueueChain(extractTestChain(t, i, test.chain))
 		l.Wait()
@@ -63,6 +65,7 @@ func TestNewLogger(t *testing.T) {
 // NewLogger() test
 func TestNewLoggerCaching(t *testing.T) {
 	// Test logging multiple chains by looking at caching.
+	ctx := context.Background()
 	newLoggerTest := struct {
 		url          string
 		chains       [][]string
@@ -91,7 +94,7 @@ func TestNewLoggerCaching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create LogClient: %v", err)
 	}
-	l := NewLogger(5, errors, logClient, newNilLimiter(), false)
+	l := NewLogger(ctx, 5, errors, logClient, newNilLimiter(), false)
 
 	for _, chain := range newLoggerTest.chains {
 		l.QueueChain(extractTestChain(t, 0, chain))
@@ -116,6 +119,7 @@ func TestNewLoggerCaching(t *testing.T) {
 
 // Logger.postServer() test
 func TestPostServer(t *testing.T) {
+	ctx := context.Background()
 	for i, test := range postTests {
 		errors := make(chan *FixError)
 		c := &http.Client{Transport: &postTestRoundTripper{t: t, test: &test, testIndex: i}}
@@ -124,6 +128,7 @@ func TestPostServer(t *testing.T) {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
 		l := &Logger{
+			ctx:            ctx,
 			client:         logClient,
 			toPost:         make(chan *toPost),
 			errors:         errors,
@@ -225,6 +230,7 @@ func TestLoggerQueueChain(t *testing.T) {
 
 // Logger.RootCerts() test
 func TestRootCerts(t *testing.T) {
+	ctx := context.Background()
 	rootCertsTests := []struct {
 		url           string
 		expectedRoots []string
@@ -241,7 +247,7 @@ func TestRootCerts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
-		l := &Logger{client: logClient}
+		l := &Logger{ctx: ctx, client: logClient}
 		roots := l.RootCerts()
 		matchTestRoots(t, i, test.expectedRoots, roots)
 	}

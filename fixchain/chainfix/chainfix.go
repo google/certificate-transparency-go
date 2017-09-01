@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -108,6 +109,7 @@ func logJSONErrors(wg *sync.WaitGroup, errors chan *fixchain.FixError, baseDir s
 }
 
 func main() {
+	ctx := context.Background()
 	logURL := os.Args[1]
 	chainsFile := os.Args[2]
 	errDir := os.Args[3]
@@ -125,7 +127,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create log client: %v", err)
 	}
-	fl := fixchain.NewFixAndLog(100, 100, errors, c, logClient, limiter, true)
+	fl := fixchain.NewFixAndLog(ctx, 100, 100, errors, c, logClient, limiter, true)
 
 	processChains(chainsFile, fl)
 

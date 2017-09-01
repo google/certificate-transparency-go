@@ -37,6 +37,7 @@ type Limiter interface {
 // Certificate Transparency log and properties to store information about each
 // attempt that is made to post a certificate chain to said log.
 type Logger struct {
+	ctx    context.Context
 	client *client.LogClient
 	roots  *x509.CertPool
 	toPost chan *toPost
@@ -118,7 +119,7 @@ func (l *Logger) RootCerts() *x509.CertPool {
 }
 
 func (l *Logger) getRoots() (*x509.CertPool, error) {
-	roots, err := l.client.GetAcceptedRoots(context.TODO())
+	roots, err := l.client.GetAcceptedRoots(l.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get roots: %s", err)
 	}
@@ -199,7 +200,7 @@ func (l *Logger) postChain(p *toPost) {
 
 	l.limiter.Wait()
 	atomic.AddUint32(&l.posted, 1)
-	_, err := l.client.AddChain(context.TODO(), derChain)
+	_, err := l.client.AddChain(l.ctx, derChain)
 	if err != nil {
 		l.errors <- &FixError{
 			Type:  LogPostFailed,
@@ -237,8 +238,9 @@ func (l *Logger) logStats() {
 // Certificate Transparency log at the given url.  It starts up a pool of
 // workerCount workers.  Errors are pushed to the errors channel.  client is
 // used to post the chains to the log.
-func NewLogger(workerCount int, errors chan<- *FixError, client *client.LogClient, limiter Limiter, logStats bool) *Logger {
+func NewLogger(ctx context.Context, workerCount int, errors chan<- *FixError, client *client.LogClient, limiter Limiter, logStats bool) *Logger {
 	l := &Logger{
+		ctx:            ctx,
 		client:         client,
 		errors:         errors,
 		toPost:         make(chan *toPost),
