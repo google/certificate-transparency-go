@@ -15,6 +15,7 @@
 package fixchain
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
@@ -194,6 +195,7 @@ var newFixAndLogTests = []fixAndLogTest{
 
 func TestNewFixAndLog(t *testing.T) {
 	// Test that expected chains are logged when adding a chain using QueueChain()
+	ctx := context.Background()
 	for i, test := range newFixAndLogTests {
 		seen := make([]bool, len(test.expLoggedChains))
 		errors := make(chan *FixError)
@@ -202,7 +204,7 @@ func TestNewFixAndLog(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
-		fl := NewFixAndLog(1, 1, errors, c, logClient, newNilLimiter(), false)
+		fl := NewFixAndLog(ctx, 1, 1, errors, c, logClient, newNilLimiter(), false)
 
 		var wg sync.WaitGroup
 		wg.Add(1)
@@ -279,6 +281,7 @@ NextToFix:
 }
 
 func TestQueueAllCertsInChain(t *testing.T) {
+	ctx := context.Background()
 	for i, test := range fixAndLogQueueTests {
 		f := &Fixer{toFix: make(chan *toFix)}
 		c := &http.Client{Transport: &testRoundTripper{}}
@@ -287,6 +290,7 @@ func TestQueueAllCertsInChain(t *testing.T) {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
 		l := &Logger{
+			ctx:           ctx,
 			client:        logClient,
 			postCertCache: newLockedMap(),
 		}
@@ -318,6 +322,7 @@ func testFixAndLogQueueChain(t *testing.T, i int, test *fixAndLogTest, fl *FixAn
 }
 
 func TestFixAndLogQueueChain(t *testing.T) {
+	ctx := context.Background()
 	for i, test := range fixAndLogQueueTests {
 		f := &Fixer{toFix: make(chan *toFix)}
 		c := &http.Client{Transport: &testRoundTripper{}}
@@ -326,6 +331,7 @@ func TestFixAndLogQueueChain(t *testing.T) {
 			t.Fatalf("failed to create LogClient: %v", err)
 		}
 		l := &Logger{
+			ctx:           ctx,
 			client:        logClient,
 			postCertCache: newLockedMap(),
 		}
