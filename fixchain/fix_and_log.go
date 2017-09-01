@@ -102,7 +102,7 @@ func (fl *FixAndLog) Wait() {
 // are added to its queue, and then log them to the Certificate Transparency log
 // found at the given url.  Any errors encountered along the way are pushed to
 // the given errors channel.
-func NewFixAndLog(ctx context.Context, fixerWorkerCount int, loggerWorkerCount int, errors chan<- *FixError, client *http.Client, logClient *client.LogClient, limiter Limiter, logStats bool) *FixAndLog {
+func NewFixAndLog(ctx context.Context, fixerWorkerCount int, loggerWorkerCount int, errors chan<- *FixError, client *http.Client, logClient client.AddLogClient, limiter Limiter, logStats bool) *FixAndLog {
 	chains := make(chan []*x509.Certificate)
 	fl := &FixAndLog{
 		fixer:  NewFixer(fixerWorkerCount, chains, errors, client, logStats),

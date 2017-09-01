@@ -38,7 +38,7 @@ type Limiter interface {
 // attempt that is made to post a certificate chain to said log.
 type Logger struct {
 	ctx    context.Context
-	client *client.LogClient
+	client client.AddLogClient
 	roots  *x509.CertPool
 	toPost chan *toPost
 	errors chan<- *FixError
@@ -238,7 +238,7 @@ func (l *Logger) logStats() {
 // Certificate Transparency log at the given url.  It starts up a pool of
 // workerCount workers.  Errors are pushed to the errors channel.  client is
 // used to post the chains to the log.
-func NewLogger(ctx context.Context, workerCount int, errors chan<- *FixError, client *client.LogClient, limiter Limiter, logStats bool) *Logger {
+func NewLogger(ctx context.Context, workerCount int, errors chan<- *FixError, client client.AddLogClient, limiter Limiter, logStats bool) *Logger {
 	l := &Logger{
 		ctx:            ctx,
 		client:         client,
