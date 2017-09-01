@@ -30,10 +30,10 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509util"
 	"golang.org/x/net/context"
 )
 
@@ -332,7 +332,7 @@ func TestAddChain(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	cert, err := fixchain.CertificateFromPEM(testdata.TestCertPEM)
+	cert, err := x509util.CertificateFromPEM(testdata.TestCertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse certificate from PEM: %v", err)
 	}
@@ -353,11 +353,11 @@ func TestAddPreChain(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	cert, err := fixchain.CertificateFromPEM(testdata.TestPreCertPEM)
+	cert, err := x509util.CertificateFromPEM(testdata.TestPreCertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
-	issuer, err := fixchain.CertificateFromPEM(testdata.CACertPEM)
+	issuer, err := x509util.CertificateFromPEM(testdata.CACertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}

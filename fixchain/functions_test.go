@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 type nilLimiter struct{}
@@ -49,7 +50,7 @@ func (rc bytesReadCloser) Close() error {
 // PEM format for testing purposes.  Any errors in the PEM decoding process are
 // reported to the testing framework.
 func GetTestCertificateFromPEM(t *testing.T, pemBytes string) *x509.Certificate {
-	cert, err := CertificateFromPEM(pemBytes)
+	cert, err := x509util.CertificateFromPEM(pemBytes)
 	if err != nil {
 		t.Errorf("Failed to parse leaf: %s", err)
 	}
@@ -224,7 +225,7 @@ func stringRootsToJSON(roots []string) []byte {
 	}
 	var r Roots
 	for _, root := range roots {
-		cert, err := CertificateFromPEM(root)
+		cert, err := x509util.CertificateFromPEM(root)
 		if err != nil {
 			log.Fatalf("Failed to parse certificate: %s", err)
 		}
