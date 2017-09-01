@@ -206,7 +206,10 @@ func TestNewFixAndLog(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		go testErrors(t, i, test.expectedErrs, errors, &wg)
+		go func() {
+			defer wg.Done()
+			testErrors(t, i, test.expectedErrs, errors)
+		}()
 		switch test.function {
 		case "QueueChain":
 			fl.QueueChain(extractTestChain(t, i, test.chain))

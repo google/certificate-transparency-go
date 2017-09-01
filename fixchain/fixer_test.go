@@ -36,8 +36,14 @@ func TestNewFixer(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go testChains(t, 0, expectedChains, chains, &wg)
-	go testErrors(t, 0, expectedErrs, errors, &wg)
+	go func() {
+		defer wg.Done()
+		testChains(t, 0, expectedChains, chains)
+	}()
+	go func() {
+		defer wg.Done()
+		testErrors(t, 0, expectedErrs, errors)
+	}()
 
 	f := NewFixer(10, chains, errors, &http.Client{Transport: &testRoundTripper{}}, false)
 	for _, test := range handleChainTests {
@@ -69,8 +75,14 @@ func TestFixServer(t *testing.T) {
 		f.errors = errors
 
 		wg.Add(2)
-		go testChains(t, i, fst.expectedChains, chains, &wg)
-		go testErrors(t, i, fst.expectedErrs, errors, &wg)
+		go func() {
+			defer wg.Done()
+			testChains(t, i, fst.expectedChains, chains)
+		}()
+		go func() {
+			defer wg.Done()
+			testErrors(t, i, fst.expectedErrs, errors)
+		}()
 
 		f.wg.Add(1)
 		go f.fixServer()
@@ -100,8 +112,14 @@ func TestFixServer(t *testing.T) {
 
 	i := len(fixServerTests)
 	wg.Add(2)
-	go testChains(t, i, expectedChains, chains, &wg)
-	go testErrors(t, i, expectedErrs, errors, &wg)
+	go func() {
+		defer wg.Done()
+		testChains(t, i, expectedChains, chains)
+	}()
+	go func() {
+		defer wg.Done()
+		testErrors(t, i, expectedErrs, errors)
+	}()
 
 	f.wg.Add(1)
 	go f.fixServer()

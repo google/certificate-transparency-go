@@ -30,7 +30,10 @@ func TestNewLogger(t *testing.T) {
 		errors := make(chan *FixError)
 		var wg sync.WaitGroup
 		wg.Add(1)
-		go testErrors(t, i, test.expectedErrs, errors, &wg)
+		go func() {
+			defer wg.Done()
+			testErrors(t, i, test.expectedErrs, errors)
+		}()
 
 		c := &http.Client{Transport: &postTestRoundTripper{t: t, test: &test, testIndex: i}}
 		logClient, err := client.New(test.url, c, jsonclient.Options{})
@@ -78,7 +81,10 @@ func TestNewLoggerCaching(t *testing.T) {
 	errors := make(chan *FixError)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go testErrors(t, 0, newLoggerTest.expectedErrs, errors, &wg)
+	go func() {
+		defer wg.Done()
+		testErrors(t, 0, newLoggerTest.expectedErrs, errors)
+	}()
 
 	c := &http.Client{Transport: &newLoggerTestRoundTripper{}}
 	logClient, err := client.New(newLoggerTest.url, c, jsonclient.Options{})
@@ -127,7 +133,10 @@ func TestPostServer(t *testing.T) {
 		}
 		var wg sync.WaitGroup
 		wg.Add(1)
-		go testErrors(t, i, test.expectedErrs, errors, &wg)
+		go func() {
+			defer wg.Done()
+			testErrors(t, i, test.expectedErrs, errors)
+		}()
 
 		go l.postServer()
 		l.QueueChain(extractTestChain(t, i, test.chain))
