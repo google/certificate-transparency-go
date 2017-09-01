@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -201,8 +200,7 @@ func extractTestRoots(t *testing.T, i int, testRoots []string) *x509.CertPool {
 	return roots
 }
 
-func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x509.Certificate, wg *sync.WaitGroup) {
-	defer wg.Done()
+func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x509.Certificate) {
 	var allChains [][]*x509.Certificate
 	for chain := range chains {
 		allChains = append(allChains, chain)
@@ -210,8 +208,7 @@ func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x
 	matchTestChainList(t, i, expectedChains, allChains)
 }
 
-func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixError, wg *sync.WaitGroup) {
-	defer wg.Done()
+func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixError) {
 	var allFerrs []*FixError
 	for ferr := range errors {
 		allFerrs = append(allFerrs, ferr)
