@@ -875,7 +875,7 @@ func parseGetSTHConsistencyRange(r *http.Request) (int64, int64, error) {
 	if first < 0 || second < 0 {
 		return 0, 0, fmt.Errorf("first and second params cannot be <0: %d %d", first, second)
 	}
-	if second <= first {
+	if second < first {
 		return 0, 0, fmt.Errorf("invalid first, second params: %d %d", first, second)
 	}
 
