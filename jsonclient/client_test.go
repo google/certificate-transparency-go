@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -126,7 +127,10 @@ type TestParams struct {
 }
 
 func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
+	mu := sync.Mutex{}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
 		switch r.URL.Path {
 		case "/struct/path":
 			fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`)
@@ -302,7 +306,6 @@ func TestPostAndParse(t *testing.T) {
 }
 
 func TestPostAndParseWithRetry(t *testing.T) {
-	shortLeeway := time.Millisecond * 100
 	jiffy := time.Millisecond
 
 	tests := []struct {
@@ -315,14 +318,14 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		failCount    int
 		errstr       string
 	}{
-		{"/retry", nil, -1, jiffy, shortLeeway, 0, 0, ""},
-		{"/error", TestParams{RespCode: 418}, 2, jiffy, shortLeeway, 0, 0, "teapot"},
-		{"/short%", nil, 2, 2 * time.Second, shortLeeway, 0, 0, "deadline exceeded"},
-		{"/retry", nil, -1, 7 * time.Second, shortLeeway, -1, 3, ""},
-		{"/retry", nil, 6, 5 * time.Second, shortLeeway, 5, 1, ""},
-		{"/retry", nil, 5, 5 * time.Second, shortLeeway, 10, 1, "deadline exceeded"},
-		{"/retry", nil, 10, 5 * time.Second, shortLeeway, 1, 5, ""},
-		{"/retry", nil, 1, 10 * jiffy, shortLeeway, 0, 10, ""},
+		{"/retry", nil, -1, jiffy, 0, 0, 0, ""},
+		{"/error", TestParams{RespCode: 418}, 2, jiffy, 0, 0, 0, "teapot"},
+		{"/short%", nil, 2, 2 * time.Second, 0, 0, 0, "deadline exceeded"},
+		{"/retry", nil, -1, 7 * time.Second, 0, -1, 3, ""},
+		{"/retry", nil, 6, 5 * time.Second, 0, 5, 1, ""},
+		{"/retry", nil, 5, 5 * time.Second, 0, 10, 1, "deadline exceeded"},
+		{"/retry", nil, 10, 5 * time.Second, 0, 1, 5, ""},
+		{"/retry", nil, 1, 10 * jiffy, 0, 0, 10, ""},
 		{"/retry-rfc1123", nil, -1, 2 * time.Second, 1 * time.Second, 2, 1, ""},
 	}
 	for _, test := range tests {
@@ -345,7 +348,14 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		httpRsp, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &result)
 		took := time.Since(started)
 
-		if math.Abs(float64(took-test.expected)) > float64(test.leeway) {
+		leeway := time.Millisecond * jitter
+		if test.failCount > 0 {
+			leeway += time.Millisecond * time.Duration(jitter*test.failCount)
+		}
+		if test.leeway > 0 {
+			leeway = test.leeway
+		}
+		if math.Abs(float64(took-test.expected)) > float64(leeway) {
 			t.Errorf("PostAndParseWithRetry() took %s; want ~%s", took, test.expected)
 		}
 		if test.errstr != "" {

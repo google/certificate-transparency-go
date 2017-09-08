@@ -23,9 +23,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,22 +50,26 @@ type JSONClient struct {
 	mu         sync.RWMutex
 }
 
-var (
-	baseBackoff = time.Second
-	maxBackoff  = time.Second * 128
-	jitter      = 250
+const (
+	maxBackoff = time.Second * 128
+	jitter     = 250
 )
 
-func (c *JSONClient) setBackoff() time.Duration {
+func (c *JSONClient) setBackoff(override *time.Duration) time.Duration {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.until != nil {
 		return time.Until(*c.until)
 	}
-	c.multiplier++
-	wait := baseBackoff * time.Duration(c.multiplier)
-	if wait > maxBackoff {
-		wait = maxBackoff
+	var wait time.Duration
+	if override != nil {
+		wait = *override
+	} else {
+		c.multiplier++
+		wait = time.Second * time.Duration(math.Pow(2, float64(c.multiplier-1)))
+		if wait > maxBackoff {
+			wait = maxBackoff
+		}
 	}
 	until := time.Now().Add(wait)
 	c.until = &until
@@ -82,7 +88,6 @@ func (c *JSONClient) decreaseBackoffMultiplier() {
 	if c.multiplier > 0 {
 		c.multiplier--
 	}
-	return
 }
 
 func (c *JSONClient) backoff(ctx context.Context) error {
@@ -269,7 +274,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		}
 		httpRsp, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
-			wait := c.setBackoff()
+			wait := c.setBackoff(nil)
 			c.logger.Printf("Request failed, backing-off for %s: %s", wait, err)
 			continue
 		}
@@ -281,8 +286,19 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 			// Request timeout, retry immediately
 			c.logger.Printf("Request timed out, retrying immediately")
 		case httpRsp.StatusCode == http.StatusServiceUnavailable:
-			// Retry
-			wait := c.setBackoff()
+			var backoff *time.Duration
+			// Retry-After may be either a number of seconds as a int or a RFC 1123
+			// date string (RFC 7231 Section 7.1.3)
+			if retryAfter := httpRsp.Header.Get("Retry-After"); retryAfter != "" {
+				if seconds, err := strconv.Atoi(retryAfter); err == nil {
+					b := time.Duration(seconds) * time.Second
+					backoff = &b
+				} else if date, err := time.Parse(time.RFC1123, retryAfter); err == nil {
+					b := date.Sub(time.Now())
+					backoff = &b
+				}
+			}
+			wait := c.setBackoff(backoff)
 			c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", wait, httpRsp.Status)
 		default:
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
