@@ -25,8 +25,8 @@ import (
 	tspb "github.com/golang/protobuf/ptypes/timestamp"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client/configpb"
-	"github.com/google/certificate-transparency-go/fixchain"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 func TestNewTemporalLogClient(t *testing.T) {
@@ -336,16 +336,16 @@ func TestTemporalAddChain(t *testing.T) {
 	hs := ctServer(t)
 	defer hs.Close()
 
-	cert, err := fixchain.CertificateFromPEM(testdata.TestCertPEM)
+	cert, err := x509util.CertificateFromPEM(testdata.TestCertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse certificate from PEM: %v", err)
 	}
 	certChain := []ct.ASN1Cert{{Data: cert.Raw}}
-	precert, err := fixchain.CertificateFromPEM(testdata.TestPreCertPEM)
+	precert, err := x509util.CertificateFromPEM(testdata.TestPreCertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
-	issuer, err := fixchain.CertificateFromPEM(testdata.CACertPEM)
+	issuer, err := x509util.CertificateFromPEM(testdata.CACertPEM)
 	if err != nil {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}

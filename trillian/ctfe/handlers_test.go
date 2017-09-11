@@ -33,7 +33,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
@@ -1124,10 +1124,6 @@ func TestGetSTHConsistency(t *testing.T) {
 			want: http.StatusBadRequest,
 		},
 		{
-			req:  "first=6&second=6",
-			want: http.StatusBadRequest,
-		},
-		{
 			req:  "first=0&second=1",
 			want: http.StatusOK,
 			httpRsp: &ct.GetSTHConsistencyResponse{
@@ -1225,6 +1221,27 @@ func TestGetSTHConsistency(t *testing.T) {
 			},
 			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
 			httpJSON: "{\"consistency\":[]}",
+		},
+		{
+			req:    "first=332&second=332",
+			first:  332,
+			second: 332,
+			want:   http.StatusOK,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				Proof: &trillian.Proof{
+					LeafIndex: 0,
+					Hashes:    nil,
+				},
+			},
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: nil,
+			},
+			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
+			httpJSON: "{\"consistency\":[]}",
+		},
+		{
+			req:  "first=332&second=331",
+			want: http.StatusBadRequest,
 		},
 	}
 

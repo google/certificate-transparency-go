@@ -15,11 +15,14 @@
 package fixchain
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -192,15 +195,23 @@ var newFixAndLogTests = []fixAndLogTest{
 
 func TestNewFixAndLog(t *testing.T) {
 	// Test that expected chains are logged when adding a chain using QueueChain()
+	ctx := context.Background()
 	for i, test := range newFixAndLogTests {
 		seen := make([]bool, len(test.expLoggedChains))
 		errors := make(chan *FixError)
-		client := &http.Client{Transport: &testRoundTripper{t: t, test: &test, testIndex: i, seen: seen}}
-		fl := NewFixAndLog(1, 1, errors, client, client, test.url, newNilLimiter(), false)
+		c := &http.Client{Transport: &testRoundTripper{t: t, test: &test, testIndex: i, seen: seen}}
+		logClient, err := client.New(test.url, c, jsonclient.Options{})
+		if err != nil {
+			t.Fatalf("failed to create LogClient: %v", err)
+		}
+		fl := NewFixAndLog(ctx, 1, 1, errors, c, logClient, newNilLimiter(), false)
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		go testErrors(t, i, test.expectedErrs, errors, &wg)
+		go func() {
+			defer wg.Done()
+			testErrors(t, i, test.expectedErrs, errors)
+		}()
 		switch test.function {
 		case "QueueChain":
 			fl.QueueChain(extractTestChain(t, i, test.chain))
@@ -270,11 +281,17 @@ NextToFix:
 }
 
 func TestQueueAllCertsInChain(t *testing.T) {
+	ctx := context.Background()
 	for i, test := range fixAndLogQueueTests {
 		f := &Fixer{toFix: make(chan *toFix)}
+		c := &http.Client{Transport: &testRoundTripper{}}
+		logClient, err := client.New(test.url, c, jsonclient.Options{})
+		if err != nil {
+			t.Fatalf("failed to create LogClient: %v", err)
+		}
 		l := &Logger{
-			url:           test.url,
-			client:        &http.Client{Transport: &testRoundTripper{}},
+			ctx:           ctx,
+			client:        logClient,
 			postCertCache: newLockedMap(),
 		}
 		fl := &FixAndLog{fixer: f, chains: make(chan []*x509.Certificate), logger: l, done: newLockedMap()}
@@ -305,11 +322,17 @@ func testFixAndLogQueueChain(t *testing.T, i int, test *fixAndLogTest, fl *FixAn
 }
 
 func TestFixAndLogQueueChain(t *testing.T) {
+	ctx := context.Background()
 	for i, test := range fixAndLogQueueTests {
 		f := &Fixer{toFix: make(chan *toFix)}
+		c := &http.Client{Transport: &testRoundTripper{}}
+		logClient, err := client.New(test.url, c, jsonclient.Options{})
+		if err != nil {
+			t.Fatalf("failed to create LogClient: %v", err)
+		}
 		l := &Logger{
-			url:           test.url,
-			client:        &http.Client{Transport: &testRoundTripper{}},
+			ctx:           ctx,
+			client:        logClient,
 			postCertCache: newLockedMap(),
 		}
 		fl := &FixAndLog{fixer: f, chains: make(chan []*x509.Certificate), logger: l, done: newLockedMap()}

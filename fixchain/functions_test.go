@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 type nilLimiter struct{}
@@ -49,7 +49,7 @@ func (rc bytesReadCloser) Close() error {
 // PEM format for testing purposes.  Any errors in the PEM decoding process are
 // reported to the testing framework.
 func GetTestCertificateFromPEM(t *testing.T, pemBytes string) *x509.Certificate {
-	cert, err := CertificateFromPEM(pemBytes)
+	cert, err := x509util.CertificateFromPEM(pemBytes)
 	if err != nil {
 		t.Errorf("Failed to parse leaf: %s", err)
 	}
@@ -200,8 +200,7 @@ func extractTestRoots(t *testing.T, i int, testRoots []string) *x509.CertPool {
 	return roots
 }
 
-func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x509.Certificate, wg *sync.WaitGroup) {
-	defer wg.Done()
+func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x509.Certificate) {
 	var allChains [][]*x509.Certificate
 	for chain := range chains {
 		allChains = append(allChains, chain)
@@ -209,8 +208,7 @@ func testChains(t *testing.T, i int, expectedChains [][]string, chains chan []*x
 	matchTestChainList(t, i, expectedChains, allChains)
 }
 
-func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixError, wg *sync.WaitGroup) {
-	defer wg.Done()
+func testErrors(t *testing.T, i int, expectedErrs []errorType, errors chan *FixError) {
 	var allFerrs []*FixError
 	for ferr := range errors {
 		allFerrs = append(allFerrs, ferr)
@@ -224,7 +222,7 @@ func stringRootsToJSON(roots []string) []byte {
 	}
 	var r Roots
 	for _, root := range roots {
-		cert, err := CertificateFromPEM(root)
+		cert, err := x509util.CertificateFromPEM(root)
 		if err != nil {
 			log.Fatalf("Failed to parse certificate: %s", err)
 		}

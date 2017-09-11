@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -64,6 +65,7 @@ func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, er
 type AddLogClient interface {
 	AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
 	AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+	GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error)
 }
 
 // TemporalLogClient allows [pre-]certificates to be uploaded to a temporal log.
@@ -117,6 +119,41 @@ func NewTemporalLogClient(cfg configpb.TemporalLogConfig, hc *http.Client) (*Tem
 		intervals: intervals,
 	}
 	return &tlc, nil
+}
+
+// GetAcceptedRoots retrieves the set of acceptable root certificates for all
+// of the shards of a temporal log (i.e. the union).
+func (tlc *TemporalLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
+	type result struct {
+		roots []ct.ASN1Cert
+		err   error
+	}
+	results := make(chan result, len(tlc.Clients))
+	for _, c := range tlc.Clients {
+		go func(c *LogClient) {
+			var r result
+			r.roots, r.err = c.GetAcceptedRoots(ctx)
+			results <- r
+		}(c)
+	}
+
+	var allRoots []ct.ASN1Cert
+	seen := make(map[[sha256.Size]byte]bool)
+	for range tlc.Clients {
+		r := <-results
+		if r.err != nil {
+			return nil, r.err
+		}
+		for _, root := range r.roots {
+			h := sha256.Sum256(root.Data)
+			if seen[h] {
+				continue
+			}
+			seen[h] = true
+			allRoots = append(allRoots, root)
+		}
+	}
+	return allRoots, nil
 }
 
 // AddChain adds the (DER represented) X509 chain to the appropriate log.
