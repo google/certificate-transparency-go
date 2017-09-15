@@ -21,6 +21,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/net/context"
 )
 
@@ -61,9 +62,9 @@ func (c *LogClient) GetEntries(ctx context.Context, start, end int64) ([]ct.LogE
 	for index, entry := range resp.Entries {
 		var leaf ct.MerkleTreeLeaf
 		if rest, err := tls.Unmarshal(entry.LeafInput, &leaf); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf for index %d: %v", index, err)
 		} else if len(rest) > 0 {
-			return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf", len(rest))
+			return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf for index %d", len(rest), index)
 		}
 		entries[index].Leaf = leaf
 
@@ -78,18 +79,32 @@ func (c *LogClient) GetEntries(ctx context.Context, start, end int64) ([]ct.LogE
 			}
 			chain = certChain.Entries
 
+			entries[index].X509Cert, err = leaf.X509Certificate()
+			if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+				return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
+			}
+
 		case ct.PrecertLogEntryType:
 			var precertChain ct.PrecertChainEntry
 			if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry: %v", err)
+				return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry for index %d: %v", index, err)
 			} else if len(rest) > 0 {
 				return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry for index %d", len(rest), index)
 			}
-			chain = append(chain, precertChain.PreCertificate)
-			chain = append(chain, precertChain.CertificateChain...)
+			chain = precertChain.CertificateChain
+
+			tbsCert, err := leaf.Precertificate()
+			if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+				return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
+			}
+			entries[index].Precert = &ct.Precertificate{
+				Submitted:      precertChain.PreCertificate,
+				IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
+				TBSCertificate: tbsCert,
+			}
 
 		default:
-			return nil, fmt.Errorf("saw unknown entry type: %v", leaf.TimestampedEntry.EntryType)
+			return nil, fmt.Errorf("saw unknown entry type at index %d: %v", index, leaf.TimestampedEntry.EntryType)
 		}
 		entries[index].Chain = chain
 		entries[index].Index = start + int64(index)

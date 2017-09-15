@@ -116,7 +116,7 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 		log.Fatal(err)
 	}
 	for _, root := range roots {
-		showCert(root)
+		showRawCert(root)
 	}
 }
 
@@ -138,41 +138,40 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 		switch ts.EntryType {
 		case ct.X509LogEntryType:
 			fmt.Printf("X.509 certificate:\n")
-			showCert(*ts.X509Entry)
+			showParsedCert(entry.X509Cert)
 		case ct.PrecertLogEntryType:
-			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
-			showTBSCert(ts.PrecertEntry.TBSCertificate)
+			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", entry.Precert.IssuerKeyHash)
+			showRawCert(entry.Precert.Submitted)
 		default:
 			log.Fatalf("Unhandled log entry type %d", entry.Leaf.TimestampedEntry.EntryType)
 		}
 	}
 }
 
-func showCert(cert ct.ASN1Cert) {
+func showRawCert(cert ct.ASN1Cert) {
 	if *textOut {
 		c, err := x509.ParseCertificate(cert.Data)
 		if err != nil {
 			log.Printf("Error parsing certificate: %q", err.Error())
 			return
 		}
-		fmt.Printf("%s\n", x509util.CertificateToString(c))
+		showParsedCert(c)
 	} else {
-		if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Data}); err != nil {
-			log.Printf("Failed to PEM encode cert: %q", err.Error())
-		}
+		showPEMData(cert.Data)
 	}
 }
 
-func showTBSCert(tbs []byte) {
+func showParsedCert(cert *x509.Certificate) {
 	if *textOut {
-		c, err := x509.ParseTBSCertificate(tbs)
-		if err != nil {
-			log.Printf("Error parsing certificate: %q", err.Error())
-			return
-		}
-		fmt.Printf("%s\n", x509util.CertificateToString(c))
+		fmt.Printf("%s\n", x509util.CertificateToString(cert))
 	} else {
-		fmt.Printf("%x\n", tbs)
+		showPEMData(cert.Raw)
+	}
+}
+
+func showPEMData(data []byte) {
+	if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: data}); err != nil {
+		log.Printf("Failed to PEM encode cert: %q", err.Error())
 	}
 }
 
