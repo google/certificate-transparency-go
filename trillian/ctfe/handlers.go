@@ -862,14 +862,23 @@ func parseGetEntryAndProofParams(r *http.Request) (int64, int64, error) {
 }
 
 func parseGetSTHConsistencyRange(r *http.Request) (int64, int64, error) {
-	first, err := strconv.ParseInt(r.FormValue(getSTHConsistencyParamFirst), 10, 64)
-	if err != nil {
-		return 0, 0, err
+	firstVal := r.FormValue(getSTHConsistencyParamFirst)
+	secondVal := r.FormValue(getSTHConsistencyParamSecond)
+	if firstVal == "" {
+		return 0, 0, fmt.Errorf("parameter 'first' is required")
+	}
+	if secondVal == "" {
+		return 0, 0, fmt.Errorf("parameter 'second' is required")	
 	}
 
-	second, err := strconv.ParseInt(r.FormValue(getSTHConsistencyParamSecond), 10, 64)
+	first, err := strconv.ParseInt(firstVal, 10, 64)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, fmt.Errorf("parameter 'first' is malformed")
+	}
+
+	second, err := strconv.ParseInt(secondVal, 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parameter 'second' is malformed")
 	}
 
 	if first < 0 || second < 0 {

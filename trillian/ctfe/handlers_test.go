@@ -1102,26 +1102,37 @@ func TestGetSTHConsistency(t *testing.T) {
 		{
 			req:  "",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'first' is required",
 		},
 		{
 			req:  "first=apple&second=orange",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'first' is malformed",
+		},
+		{
+			req:  "first=1&last=2",
+			want: http.StatusBadRequest,
+			errStr: "parameter 'second' is required",
 		},
 		{
 			req:  "first=1&second=a",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'second' is malformed",
 		},
 		{
 			req:  "first=a&second=2",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'first' is malformed",
 		},
 		{
 			req:  "first=-1&second=10",
 			want: http.StatusBadRequest,
+			errStr: "first and second params cannot be <0: -1 10",
 		},
 		{
 			req:  "first=10&second=-11",
 			want: http.StatusBadRequest,
+			errStr: "first and second params cannot be <0: 10 -11",
 		},
 		{
 			req:  "first=0&second=1",
@@ -1133,20 +1144,30 @@ func TestGetSTHConsistency(t *testing.T) {
 			httpJSON: "{\"consistency\":[]}",
 		},
 		{
+			// Check that unrecognized parameters are ignored.
+			req:  "first=0&second=1&third=2&fourth=3",
+			want: http.StatusOK,
+			httpRsp: &ct.GetSTHConsistencyResponse{},
+		},
+		{
 			req:  "first=998&second=997",
 			want: http.StatusBadRequest,
+			errStr: "invalid first, second params: 998 997",
 		},
 		{
 			req:  "first=1000&second=200",
 			want: http.StatusBadRequest,
+			errStr: "invalid first, second params: 1000 200",
 		},
 		{
 			req:  "first=10",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'second' is required",
 		},
 		{
 			req:  "second=20",
 			want: http.StatusBadRequest,
+			errStr: "parameter 'first' is required",
 		},
 		{
 			req:    "first=10&second=20",
