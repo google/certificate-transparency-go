@@ -865,20 +865,20 @@ func parseGetSTHConsistencyRange(r *http.Request) (int64, int64, error) {
 	firstVal := r.FormValue(getSTHConsistencyParamFirst)
 	secondVal := r.FormValue(getSTHConsistencyParamSecond)
 	if firstVal == "" {
-		return 0, 0, fmt.Errorf("parameter 'first' is required")
+		return 0, 0, errors.New("parameter 'first' is required")
 	}
 	if secondVal == "" {
-		return 0, 0, fmt.Errorf("parameter 'second' is required")
+		return 0, 0, errors.New("parameter 'second' is required")
 	}
 
 	first, err := strconv.ParseInt(firstVal, 10, 64)
 	if err != nil {
-		return 0, 0, fmt.Errorf("parameter 'first' is malformed")
+		return 0, 0, errors.New("parameter 'first' is malformed")
 	}
 
 	second, err := strconv.ParseInt(secondVal, 10, 64)
 	if err != nil {
-		return 0, 0, fmt.Errorf("parameter 'second' is malformed")
+		return 0, 0, errors.New("parameter 'second' is malformed")
 	}
 
 	if first < 0 || second < 0 {
