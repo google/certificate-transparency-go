@@ -868,7 +868,7 @@ func parseGetSTHConsistencyRange(r *http.Request) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("parameter 'first' is required")
 	}
 	if secondVal == "" {
-		return 0, 0, fmt.Errorf("parameter 'second' is required")	
+		return 0, 0, fmt.Errorf("parameter 'second' is required")
 	}
 
 	first, err := strconv.ParseInt(firstVal, 10, 64)
