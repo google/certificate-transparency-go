@@ -77,6 +77,17 @@ func (e errSkip) Error() string {
 	return "test operation skipped"
 }
 
+// Limiter is an interface to allow different rate limiters to be used with the
+// hammer.
+type Limiter interface {
+	Wait()
+}
+
+type unLimited struct{}
+
+func (u unLimited) Wait() {
+}
+
 // HammerConfig provides configuration for a stress/load test.
 type HammerConfig struct {
 	// Configuration for the log.
@@ -98,6 +109,8 @@ type HammerConfig struct {
 	EPBias HammerBias
 	// Number of operations to perform.
 	Operations uint64
+	// Rate limiter
+	Limiter Limiter
 	// MaxParallelChains sets the upper limit for the number of parallel
 	// add-*-chain requests to make when the biasing model says to perfom an add.
 	MaxParallelChains int
@@ -243,6 +256,9 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	once.Do(func() { setupMetrics(mf) })
 	if cfg.EmitInterval == 0 {
 		cfg.EmitInterval = defaultEmitSeconds * time.Second
+	}
+	if cfg.Limiter == nil {
+		cfg.Limiter = unLimited{}
 	}
 	state := hammerState{
 		cfg: cfg,
@@ -565,6 +581,7 @@ func isSkip(e error) bool {
 }
 
 func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
+	s.cfg.Limiter.Wait()
 	status := http.StatusOK
 	var err error
 	switch ep {
@@ -592,6 +609,7 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 }
 
 func (s *hammerState) performInvalidOp(ctx context.Context, ep ctfe.EntrypointName) error {
+	s.cfg.Limiter.Wait()
 	switch ep {
 	case ctfe.AddChainName:
 		return s.addChainInvalid(ctx)
