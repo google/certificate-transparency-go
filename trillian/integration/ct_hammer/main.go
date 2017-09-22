@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/integration"
 	"github.com/google/certificate-transparency-go/x509"
@@ -46,6 +47,7 @@ var (
 	mmdFlag           = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
 	operationsFlag    = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
 	maxParallelChains = flag.Int("max_parallel_chains", 2, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
+	limitFlag         = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
@@ -58,6 +60,13 @@ var (
 	getEntryAndProofBias  = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
 	invalidChance         = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
 )
+
+func newLimiter(rate int) integration.Limiter {
+	if rate <= 0 {
+		return nil
+	}
+	return ratelimiter.NewLimiter(rate)
+}
 
 func main() {
 	flag.Parse()
@@ -169,6 +178,7 @@ func main() {
 			ClientPool:        pool,
 			EPBias:            bias,
 			Operations:        *operationsFlag,
+			Limiter:           newLimiter(*limitFlag),
 			MaxParallelChains: *maxParallelChains,
 		}
 		go func(cfg integration.HammerConfig) {
