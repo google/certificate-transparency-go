@@ -61,6 +61,13 @@ var (
 	invalidChance         = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
 )
 
+func newLimiter(rate int) integration.Limiter {
+	if rate <= 0 {
+		return nil
+	}
+	return ratelimiter.NewLimiter(rate)
+}
+
 func main() {
 	flag.Parse()
 	if *logConfigFlag == "" {
@@ -160,10 +167,6 @@ func main() {
 		if err != nil {
 			glog.Exitf("Failed to create client pool: %v", err)
 		}
-		var limiter integration.Limiter
-		if *limitFlag > 0 {
-			limiter = ratelimiter.NewLimiter(*limitFlag)
-		}
 		cfg := integration.HammerConfig{
 			LogCfg:            c,
 			MetricFactory:     mf,
@@ -175,7 +178,7 @@ func main() {
 			ClientPool:        pool,
 			EPBias:            bias,
 			Operations:        *operationsFlag,
-			Limiter:           limiter,
+			Limiter:           newLimiter(*limitFlag),
 			MaxParallelChains: *maxParallelChains,
 		}
 		go func(cfg integration.HammerConfig) {
