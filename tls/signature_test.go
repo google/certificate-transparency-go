@@ -16,9 +16,6 @@ package tls
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/pem"
 	mathrand "math/rand"
@@ -163,7 +160,6 @@ func TestCreateSignatureFailures(t *testing.T) {
 	}{
 		{PEM2PrivKey(testdata.EcdsaPrivateKeyPKCS8PEM), 99, "abcd", "unsupported Algorithm.Hash"},
 		{nil, SHA256, "abcd", "unsupported private key type"},
-		{bogusKey(), MD5, "abcd", "zero parameter"},
 	}
 	for _, test := range tests {
 		if sig, err := CreateSignature(test.privKey, test.hashAlgo, testdata.FromHex(test.in)); err == nil {
@@ -203,10 +199,4 @@ func PEM2PrivKey(s string) crypto.PrivateKey {
 	}
 
 	return nil
-}
-func bogusKey() crypto.PrivateKey {
-	bogusCurve := elliptic.P224()
-	bogusCurve.Params().N.SetInt64(0)
-	bogusKey, _ := ecdsa.GenerateKey(bogusCurve, rand.Reader)
-	return *bogusKey
 }
