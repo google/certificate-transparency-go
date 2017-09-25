@@ -116,6 +116,7 @@ func TestScannerMatchSubjectRegexMatchesPrecertificateCommonName(t *testing.T) {
 	const SubjectName = "www.example.com"
 	const SubjectRegEx = ".*example.com"
 	var precert ct.Precertificate
+	precert.TBSCertificate = &x509.Certificate{}
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -128,6 +129,7 @@ func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateCommonName(t *tes
 	const SubjectName = "www.google.com"
 	const SubjectRegEx = ".*example.com"
 	var precert ct.Precertificate
+	precert.TBSCertificate = &x509.Certificate{}
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -140,6 +142,7 @@ func TestScannerMatchSubjectRegexIgnoresDifferentPrecertificateSAN(t *testing.T)
 	const SubjectName = "www.google.com"
 	const SubjectRegEx = ".*example.com"
 	var precert ct.Precertificate
+	precert.TBSCertificate = &x509.Certificate{}
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
@@ -156,6 +159,7 @@ func TestScannerMatchSubjectRegexMatchesPrecertificateSAN(t *testing.T) {
 	const SubjectName = "www.example.com"
 	const SubjectRegEx = ".*example.com"
 	var precert ct.Precertificate
+	precert.TBSCertificate = &x509.Certificate{}
 	precert.TBSCertificate.Subject.CommonName = SubjectName
 
 	m := MatchSubjectRegex{nil, regexp.MustCompile(SubjectRegEx)}
