@@ -192,9 +192,9 @@ func (d *DigitallySigned) UnmarshalJSON(b []byte) error {
 	return d.FromBase64String(content)
 }
 
-// LogEntry represents the contents of an entry in a CT log.  This is described in
-// section 3.1, but note that this structure does *not* match the TLS structure defined
-// there (the TLS structure is never used directly in RFC6962).
+// LogEntry represents the (parsed) contents of an entry in a CT log.  This is described
+// in section 3.1, but note that this structure does *not* match the TLS structure
+// defined there (the TLS structure is never used directly in RFC6962).
 type LogEntry struct {
 	Index int64
 	Leaf  MerkleTreeLeaf
@@ -429,7 +429,8 @@ type GetProofByHashResponse struct {
 	AuditPath [][]byte `json:"audit_path"` // An array of base64-encoded Merkle Tree nodes proving the inclusion of the chosen certificate.
 }
 
-// LeafEntry represents a leaf in the Log's Merkle tree
+// LeafEntry represents a leaf in the Log's Merkle tree, as returned by the get-entries
+// GET method from section 4.6.
 type LeafEntry struct {
 	// LeafInput is a TLS-encoded MerkleTreeLeaf
 	LeafInput []byte `json:"leaf_input"`
