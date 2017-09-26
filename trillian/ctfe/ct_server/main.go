@@ -47,11 +47,11 @@ import (
 var (
 	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
-	rpcBackendFlag     = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
-	rpcDeadlineFlag    = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	rpcBackend         = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
+	rpcDeadline        = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	logConfigFlag      = flag.String("log_config", "", "File holding log config in JSON")
-	maxGetEntriesFlag  = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
+	logConfig          = flag.String("log_config", "", "File holding log config in JSON")
+	maxGetEntries      = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
@@ -61,12 +61,12 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	if *maxGetEntriesFlag > 0 {
-		ctfe.MaxGetEntriesAllowed = *maxGetEntriesFlag
+	if *maxGetEntries > 0 {
+		ctfe.MaxGetEntriesAllowed = *maxGetEntries
 	}
 
 	// Get log config from file before we start.
-	cfg, err := ctfe.LogConfigFromFile(*logConfigFlag)
+	cfg, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
 		glog.Exitf("Failed to read log config: %v", err)
 	}
@@ -114,7 +114,7 @@ func main() {
 		res = util.FixedBackendResolver{}
 	}
 	bal := grpc.RoundRobin(res)
-	conn, err := grpc.Dial(*rpcBackendFlag, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
+	conn, err := grpc.Dial(*rpcBackend, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
 	if err != nil {
 		glog.Exitf("Could not connect to rpc server: %v", err)
 	}
@@ -122,7 +122,7 @@ func main() {
 	client := trillian.NewTrillianLogClient(conn)
 
 	for _, c := range cfg {
-		handlers, err := ctfe.SetUpInstance(ctx, client, c, *rpcDeadlineFlag, prometheus.MetricFactory{})
+		handlers, err := ctfe.SetUpInstance(ctx, client, c, *rpcDeadline, prometheus.MetricFactory{})
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}

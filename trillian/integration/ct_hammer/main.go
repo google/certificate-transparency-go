@@ -39,15 +39,15 @@ import (
 )
 
 var (
-	httpServersFlag   = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
+	httpServers       = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
 	testDir           = flag.String("testdata_dir", "testdata", "Name of directory with test data")
 	metricsEndpoint   = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
 	seed              = flag.Int64("seed", -1, "Seed for random number generation")
-	logConfigFlag     = flag.String("log_config", "", "File holding log config in JSON")
-	mmdFlag           = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
-	operationsFlag    = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
+	logConfig         = flag.String("log_config", "", "File holding log config in JSON")
+	mmd               = flag.Duration("mmd", 2*time.Minute, "MMD for logs")
+	operations        = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
 	maxParallelChains = flag.Int("max_parallel_chains", 2, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
-	limitFlag         = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
+	limit             = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
@@ -70,7 +70,7 @@ func newLimiter(rate int) integration.Limiter {
 
 func main() {
 	flag.Parse()
-	if *logConfigFlag == "" {
+	if *logConfig == "" {
 		glog.Exit("Test aborted as no log config provided (via --log_config)")
 	}
 	if *seed == -1 {
@@ -79,7 +79,7 @@ func main() {
 	fmt.Printf("Today's test has been brought to you by the letters C and T and the number %#x\n", *seed)
 	rand.Seed(*seed)
 
-	cfg, err := ctfe.LogConfigFromFile(*logConfigFlag)
+	cfg, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
 		glog.Exitf("Failed to read log config: %v", err)
 	}
@@ -163,22 +163,22 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
-		pool, err := integration.NewRandomPool(*httpServersFlag, c.PublicKey, c.Prefix)
+		pool, err := integration.NewRandomPool(*httpServers, c.PublicKey, c.Prefix)
 		if err != nil {
 			glog.Exitf("Failed to create client pool: %v", err)
 		}
 		cfg := integration.HammerConfig{
 			LogCfg:            c,
 			MetricFactory:     mf,
-			MMD:               *mmdFlag,
+			MMD:               *mmd,
 			LeafChain:         leafChain,
 			LeafCert:          leafCert,
 			CACert:            caCert,
 			Signer:            signer,
 			ClientPool:        pool,
 			EPBias:            bias,
-			Operations:        *operationsFlag,
-			Limiter:           newLimiter(*limitFlag),
+			Operations:        *operations,
+			Limiter:           newLimiter(*limit),
 			MaxParallelChains: *maxParallelChains,
 		}
 		go func(cfg integration.HammerConfig) {
