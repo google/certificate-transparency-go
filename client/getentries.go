@@ -16,11 +16,9 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/net/context"
 )
@@ -51,63 +49,24 @@ func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*ct.Ge
 	return &resp, nil
 }
 
-// GetEntries attempts to retrieve the entries in the sequence [|start|, |end|] from the CT log server. (see section 4.6.)
-// Returns a slice of LeafInputs or a non-nil error.
+// GetEntries attempts to retrieve the entries in the sequence [start, end] from the CT log server
+// (RFC6962 s4.6) as parsed [pre-]certificates for convenience, held in a slice of ct.LogEntry structures.
+// However, this does mean that any certificate parsing failures will cause a failure of the whole
+// retrieval operation; for more robust retrieval of parsed certificates, use GetRawEntries() and invoke
+// ct.LogEntryFromLeaf() on each individual entry.
 func (c *LogClient) GetEntries(ctx context.Context, start, end int64) ([]ct.LogEntry, error) {
 	resp, err := c.GetRawEntries(ctx, start, end)
 	if err != nil {
 		return nil, err
 	}
 	entries := make([]ct.LogEntry, len(resp.Entries))
-	for index, entry := range resp.Entries {
-		var leaf ct.MerkleTreeLeaf
-		if rest, err := tls.Unmarshal(entry.LeafInput, &leaf); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf for index %d: %v", index, err)
-		} else if len(rest) > 0 {
-			return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf for index %d", len(rest), index)
+	for i, entry := range resp.Entries {
+		index := start + int64(i)
+		logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+			return nil, err
 		}
-		entries[index].Leaf = leaf
-
-		var chain []ct.ASN1Cert
-		switch leaf.TimestampedEntry.EntryType {
-		case ct.X509LogEntryType:
-			var certChain ct.CertificateChain
-			if rest, err := tls.Unmarshal(entry.ExtraData, &certChain); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal ExtraData for index %d: %v", index, err)
-			} else if len(rest) > 0 {
-				return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain for index %d", len(rest), index)
-			}
-			chain = certChain.Entries
-
-			entries[index].X509Cert, err = leaf.X509Certificate()
-			if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
-				return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
-			}
-
-		case ct.PrecertLogEntryType:
-			var precertChain ct.PrecertChainEntry
-			if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry for index %d: %v", index, err)
-			} else if len(rest) > 0 {
-				return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry for index %d", len(rest), index)
-			}
-			chain = precertChain.CertificateChain
-
-			tbsCert, err := leaf.Precertificate()
-			if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
-				return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
-			}
-			entries[index].Precert = &ct.Precertificate{
-				Submitted:      precertChain.PreCertificate,
-				IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
-				TBSCertificate: tbsCert,
-			}
-
-		default:
-			return nil, fmt.Errorf("saw unknown entry type at index %d: %v", index, leaf.TimestampedEntry.EntryType)
-		}
-		entries[index].Chain = chain
-		entries[index].Index = start + int64(index)
+		entries[i] = *logEntry
 	}
 	return entries, nil
 }
