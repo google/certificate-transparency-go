@@ -26,7 +26,6 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -109,14 +108,14 @@ type fetchRange struct {
 // false.
 // Fatal errors will cause the function to return true.
 // When err is nil, this method does nothing.
-func (s *Scanner) isCertErrorFatal(err error, entryType ct.LogEntryType, index int64) bool {
+func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64) bool {
 	if err == nil {
 		// No error to handle
 		return false
 	} else if _, ok := err.(x509.NonFatalErrors); ok {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
-		s.Log(fmt.Sprintf("Non-fatal error in %+v at index %d: %s", entryType, index, err.Error()))
+		s.Log(fmt.Sprintf("Non-fatal error in %+v at index %d: %s", logEntry.Leaf.TimestampedEntry.EntryType, index, err.Error()))
 		return false
 	}
 	return true
@@ -126,77 +125,29 @@ func (s *Scanner) isCertErrorFatal(err error, entryType ct.LogEntryType, index i
 func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	atomic.AddInt64(&s.certsProcessed, 1)
 
-	// NOTE: This function is a port of LogClient.GetEntries, with support for
-	// graceful error handling.
-
-	var leaf ct.MerkleTreeLeaf
-	if rest, err := tls.Unmarshal(entry.LeafInput, &leaf); err != nil {
-		return fmt.Errorf("failed to unmarshal MerkleTreeLeaf: %v", err)
-	} else if len(rest) > 0 {
-		return fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf", len(rest))
+	logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+	if s.isCertErrorFatal(err, logEntry, index) {
+		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
 	}
 
-	switch entryType := leaf.TimestampedEntry.EntryType; entryType {
-	case ct.X509LogEntryType:
+	switch {
+	case logEntry.X509Cert != nil:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return nil
 		}
-
-		var certChain ct.CertificateChain
-		if rest, err := tls.Unmarshal(entry.ExtraData, &certChain); err != nil {
-			return fmt.Errorf("failed to unmarshal ExtraData: %v", err)
-		} else if len(rest) > 0 {
-			return fmt.Errorf("trailing data (%d bytes) after CertificateChain", len(rest))
+		if s.opts.Matcher.CertificateMatches(logEntry.X509Cert) {
+			foundCert(logEntry)
 		}
-
-		cert, err := leaf.X509Certificate()
-		if s.isCertErrorFatal(err, entryType, index) {
-			return fmt.Errorf("failed to parse certificate in MerkleTreeLeaf: %v", err)
-		}
-
-		if s.opts.Matcher.CertificateMatches(cert) {
-			foundCert(&ct.LogEntry{
-				Index:    index,
-				Leaf:     leaf,
-				X509Cert: cert,
-				Chain:    certChain.Entries,
-			})
-		}
-		return nil
-
-	case ct.PrecertLogEntryType:
-		var precertChain ct.PrecertChainEntry
-		if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
-			return fmt.Errorf("failed to unmarshal PrecertChainEntry: %v", err)
-		} else if len(rest) > 0 {
-			return fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry", len(rest))
-		}
-
-		tbsCert, err := leaf.Precertificate()
-		if s.isCertErrorFatal(err, entryType, index) {
-			return fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf: %v", err)
-		}
-		precert := &ct.Precertificate{
-			Submitted:      precertChain.PreCertificate,
-			IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
-			TBSCertificate: tbsCert,
-		}
-
-		if s.opts.Matcher.PrecertificateMatches(precert) {
-			foundPrecert(&ct.LogEntry{
-				Index:   index,
-				Leaf:    leaf,
-				Precert: precert,
-				Chain:   precertChain.CertificateChain,
-			})
+	case logEntry.Precert != nil:
+		if s.opts.Matcher.PrecertificateMatches(logEntry.Precert) {
+			foundPrecert(logEntry)
 		}
 		atomic.AddInt64(&s.precertsSeen, 1)
-		return nil
-
 	default:
-		return fmt.Errorf("saw unknown entry type: %v", entryType)
+		return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
 	}
+	return nil
 }
 
 // Worker function to match certs.
