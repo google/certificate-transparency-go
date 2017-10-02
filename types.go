@@ -116,6 +116,7 @@ type ASN1Cert struct {
 }
 
 // LogID holds the hash of the Log's public key (section 3.2).
+// TODO(pphaneuf): Users should be migrated to the one in the logid package.
 type LogID struct {
 	KeyID [sha256.Size]byte
 }
