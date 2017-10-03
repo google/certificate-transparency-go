@@ -84,6 +84,6 @@ func (l LogID) Bytes() []byte {
 }
 
 // String base64-encodes a LogID for ease of debugging.
-func (l *LogID) String() string {
-	return fmt.Sprintf("logid:[%s]", base64.StdEncoding.EncodeToString(l[:]))
+func (l LogID) String() string {
+	return fmt.Sprintf("logid:[%s]", base64.StdEncoding.EncodeToString(l.Bytes()))
 }
