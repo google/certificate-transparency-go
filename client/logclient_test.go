@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -166,6 +167,40 @@ func TestGetEntries(t *testing.T) {
 	}
 }
 
+func TestGetEntriesErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		start, end int64
+		rsp, want  string
+	}{
+		{start: 1, end: 2, rsp: "", want: "EOF"},
+		{start: 0, end: -1, want: "end should be >= 0"},
+		{start: 3, end: 2, want: "start should be <= end"},
+		{start: 4, end: 5, rsp: "not-json", want: "invalid"},
+		{start: 5, end: 6, rsp: `{"entries":[{"leaf_input":"bogus","extra_data":"bogus"}]}`, want: "illegal base64"},
+		{start: 6, end: 7, rsp: `{"entries":[{"leaf_input":"bbbb","extra_data":"bbbb"}]}`, want: "failed to unmarshal"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-entries", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetEntries(ctx, test.start, test.end)
+		if err == nil {
+			t.Errorf("GetEntries(%d, %d)=%+v, nil; want nil, %q", test.start, test.end, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetEntries(%d, %d)=nil, %q; want nil, %q", test.start, test.end, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetEntries(%d, %d)=%+v, _; want nil, _", test.start, test.end, got)
+		}
+	}
+}
+
 func TestGetSTH(t *testing.T) {
 	ts := serveRspAt(t, "/ct/v1/get-sth",
 		fmt.Sprintf(`{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
@@ -207,6 +242,39 @@ func TestGetSTH(t *testing.T) {
 	}
 	if bytes.Compare(sth.TreeHeadSignature.Signature, wantDS.Signature) != 0 {
 		t.Errorf("GetSTH().TreeHeadSignature.Signature=%v; want %v", wantDS.Signature, sth.TreeHeadSignature.Signature)
+	}
+}
+
+func TestGetSTHErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"bogus","tree_head_signature":"bogus"}`, want: "illegal base64"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"bbbb","tree_head_signature":"bbbb"}`, want: "hash is invalid length"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"tncuLXiPAo711IOxjaYTwLmwbSyyE8hEcRhaOXvFb3g=","tree_head_signature":"bbbb"}`, want: "syntax error"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"tncuLXiPAo711IOxjaYTwLmwbSyyE8hEcRhaOXvFb3g=","tree_head_signature":"BAMARjBEAiAi5045/h8Yvs1mNlsYskWvuFbu2A6hO2J45KDFfOR1OwIgZ2jq8iFCwKuTbcIgsBB1ibHEupv97CeAQynK0Dw2PT8bbbb="}`, want: "trailing data"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-sth", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetSTH(ctx)
+		if err == nil {
+			t.Errorf("GetSTH()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetSTH()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetSTH()=%+v, _; want nil, _", got)
+		}
 	}
 }
 
@@ -434,6 +502,38 @@ func TestGetSTHConsistency(t *testing.T) {
 	}
 }
 
+func TestGetSTHConsistencyErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		first, second uint64
+		rsp, want     string
+	}{
+		{first: 1, second: 2, rsp: "", want: "EOF"},
+		{first: 1, second: 2, rsp: "not-json", want: "invalid"},
+		{first: 1, second: 2, rsp: `{"consistency":["bogus"]}`, want: "illegal base64"},
+		{first: 1, second: 2, rsp: `{"consistency":["2SyPbmCNzn9l7dhWVz1uz6nW7DB7p0EkSsfH9M+qU5E=",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-sth-consistency", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetSTHConsistency(ctx, test.first, test.second)
+		if err == nil {
+			t.Errorf("GetSTHConsistency(%d, %d)=%+v, nil; want nil, %q", test.first, test.second, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetSTHConsistency(%d, %d)=nil, %q; want nil, %q", test.first, test.second, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetSTHConsistency(%d, %d)=%+v, _; want nil, _", test.first, test.second, got)
+		}
+	}
+}
+
 func TestGetProofByHash(t *testing.T) {
 	hs := serveRspAt(t, "/ct/v1/get-proof-by-hash", ProofByHashResp)
 	defer hs.Close()
@@ -459,6 +559,38 @@ func TestGetProofByHash(t *testing.T) {
 	}
 }
 
+func TestGetProofByHashErrors(t *testing.T) {
+	ctx := context.Background()
+	aHash := dh("4a9e8edbe5ce2d2da69d483edb45186675d4be37b649d40923b156a7d1277463")
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"leaf_index": 17, "audit_path":["bogus"]}`, want: "illegal base64"},
+		{rsp: `{"leaf_index": 17, "audit_path":["bbbb",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-proof-by-hash", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetProofByHash(ctx, aHash, 100)
+		if err == nil {
+			t.Errorf("GetProofByHash()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetProofByHash()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetProofByHash()=%+v, _; want nil, _", got)
+		}
+	}
+}
+
 func TestGetAcceptedRoots(t *testing.T) {
 	hs := serveRspAt(t, "/ct/v1/get-roots", GetRootsResp)
 	defer hs.Close()
@@ -472,5 +604,36 @@ func TestGetAcceptedRoots(t *testing.T) {
 		t.Errorf("GetAcceptedRoots()=nil,%q; want roots,nil", err.Error())
 	} else if len(certs) < 1 {
 		t.Errorf("len(GetAcceptedRoots())=0; want > 1")
+	}
+}
+
+func TestGetAcceptedRootsErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"certificates":["bogus"]}`, want: "illegal base64"},
+		{rsp: `{"certificates":["bbbb",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-roots", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetAcceptedRoots(ctx)
+		if err == nil {
+			t.Errorf("GetAcceptedRoots()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetAcceptedRoots()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetAcceptedRoots()=%+v, _; want nil, _", got)
+		}
 	}
 }
