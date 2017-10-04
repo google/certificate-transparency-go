@@ -94,66 +94,65 @@ func b64(s string) []byte {
 	return b
 }
 
-// Create a test CT server that returns canned responses for the various CT entrypoints.
-func ctServer(t *testing.T) *httptest.Server {
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/ct/v1/get-sth":
-			fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
-				ValidSTHResponseTreeSize,
-				int64(ValidSTHResponseTimestamp),
-				ValidSTHResponseSHA256RootHash,
-				ValidSTHResponseTreeHeadSignature)
-		case r.URL.Path == "/ct/v1/get-entries":
-			q := r.URL.Query()
-			numRE := regexp.MustCompile("[0-9]+")
-			if !numRE.MatchString(q["start"][0]) || !numRE.MatchString(q["end"][0]) {
-				t.Fatalf("Invalid parameter: start=%q, end=%q", q["start"][0], q["end"][0])
-			}
-			fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`,
-				PrecertEntryB64,
-				PrecertEntryExtraDataB64,
-				CertEntryB64,
-				CertEntryExtraDataB64)
-		case r.URL.Path == "/ct/v1/get-sth-consistency":
-			w.Write([]byte(GetSTHConsistencyResp))
-		case r.URL.Path == "/ct/v1/get-proof-by-hash":
-			w.Write([]byte(ProofByHashResp))
-		case r.URL.Path == "/ct/v1/get-roots":
-			w.Write([]byte(GetRootsResp))
-		case r.URL.Path == "/ct/v1/add-chain":
-			var sct ct.SignedCertificateTimestamp
-			_, err := tls.Unmarshal(testdata.TestCertProof, &sct)
-			if err != nil {
-				t.Fatalf("Failed to tls-unmarshal test certificate proof: %v", err)
-			}
-			data, err := json.Marshal(sct)
-			if err != nil {
-				t.Fatalf("Failed to json-marshal test certificate proof: %v", err)
-			}
-			w.Write(data)
-		case r.URL.Path == "/ct/v1/add-pre-chain":
-			var sct ct.SignedCertificateTimestamp
-			_, err := tls.Unmarshal(testdata.TestPreCertProof, &sct)
-			if err != nil {
-				t.Fatalf("Failed to tls-unmarshal test precertificate proof: %v", err)
-			}
-			data, err := json.Marshal(sct)
-			if err != nil {
-				t.Fatalf("Failed to json-marshal test precertificate proof: %v", err)
-			}
-			w.Write(data)
-		case r.URL.Path == "/ct/v1/add-json":
-			w.Write([]byte(AddJSONResp))
-		default:
+// TODO(drysdale): use t.Helper() on all the helpers below when we shift to Go 1.9
+
+// serveHandlerAt returns a test HTTP server that only expects requests at the given path, and invokes
+// the provided handler for that path.
+func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter, *http.Request)) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == path {
+			handler(w, r)
+		} else {
 			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
 		}
 	}))
-	return hs
+}
+
+// serveRspAt returns a test HTTP server that returns a canned response body rsp for a given path.
+func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
+	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, rsp)
+	})
+}
+
+func sctToJSON(rawSCT []byte) ([]byte, error) {
+	var sct ct.SignedCertificateTimestamp
+	_, err := tls.Unmarshal(rawSCT, &sct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tls-unmarshal test certificate proof: %v", err)
+	}
+	data, err := json.Marshal(sct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to json-marshal test certificate proof: %v", err)
+	}
+	return data, nil
+}
+
+// serveSCTAt returns a test HTTP server that returns the given SCT as a canned response for
+// a given path.
+func serveSCTAt(t *testing.T, path string, rawSCT []byte) *httptest.Server {
+	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
+		data, err := sctToJSON(rawSCT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write(data)
+	})
 }
 
 func TestGetEntries(t *testing.T) {
-	ts := ctServer(t)
+	ts := serveHandlerAt(t, "/ct/v1/get-entries", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		numRE := regexp.MustCompile("[0-9]+")
+		if !numRE.MatchString(q["start"][0]) || !numRE.MatchString(q["end"][0]) {
+			t.Fatalf("Invalid parameter: start=%q, end=%q", q["start"][0], q["end"][0])
+		}
+		fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`,
+			PrecertEntryB64,
+			PrecertEntryExtraDataB64,
+			CertEntryB64,
+			CertEntryExtraDataB64)
+	})
 	defer ts.Close()
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -168,7 +167,12 @@ func TestGetEntries(t *testing.T) {
 }
 
 func TestGetSTH(t *testing.T) {
-	ts := ctServer(t)
+	ts := serveRspAt(t, "/ct/v1/get-sth",
+		fmt.Sprintf(`{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
+			ValidSTHResponseTreeSize,
+			int64(ValidSTHResponseTimestamp),
+			ValidSTHResponseSHA256RootHash,
+			ValidSTHResponseTreeHeadSignature))
 	defer ts.Close()
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -207,10 +211,13 @@ func TestGetSTH(t *testing.T) {
 }
 
 func TestAddChainRetries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping retry test in short mode")
+	}
 	retryAfter := 0 * time.Second
 	currentFailures := 0
 	failuresBeforeSuccess := 0
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	hs := serveHandlerAt(t, "/ct/v1/add-chain", func(w http.ResponseWriter, r *http.Request) {
 		if failuresBeforeSuccess > 0 && currentFailures < failuresBeforeSuccess {
 			currentFailures++
 			if retryAfter != 0 {
@@ -227,7 +234,7 @@ func TestAddChainRetries(t *testing.T) {
 		if err != nil {
 			return
 		}
-	}))
+	})
 	defer hs.Close()
 
 	certBytes, err := base64.StdEncoding.DecodeString(SubmissionCertB64)
@@ -325,7 +332,7 @@ func TestAddChainRetries(t *testing.T) {
 }
 
 func TestAddChain(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveSCTAt(t, "/ct/v1/add-chain", testdata.TestCertProof)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
 	if err != nil {
@@ -346,7 +353,7 @@ func TestAddChain(t *testing.T) {
 }
 
 func TestAddPreChain(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveSCTAt(t, "/ct/v1/add-pre-chain", testdata.TestPreCertProof)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
 	if err != nil {
@@ -371,7 +378,7 @@ func TestAddPreChain(t *testing.T) {
 }
 
 func TestAddJSON(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/add-json", AddJSONResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -399,7 +406,7 @@ func TestAddJSON(t *testing.T) {
 }
 
 func TestGetSTHConsistency(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-sth-consistency", GetSTHConsistencyResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -428,7 +435,7 @@ func TestGetSTHConsistency(t *testing.T) {
 }
 
 func TestGetProofByHash(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-proof-by-hash", ProofByHashResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -453,7 +460,7 @@ func TestGetProofByHash(t *testing.T) {
 }
 
 func TestGetAcceptedRoots(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-roots", GetRootsResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
