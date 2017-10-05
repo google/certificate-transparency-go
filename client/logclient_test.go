@@ -201,6 +201,47 @@ func TestGetEntriesErrors(t *testing.T) {
 	}
 }
 
+func TestGetRawEntriesErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		start, end int64
+		rsp, want  string
+	}{
+		{start: 1, end: 2, rsp: "", want: "EOF"},
+		{start: 0, end: -1, want: "end should be >= 0"},
+		{start: 3, end: 2, want: "start should be <= end"},
+		{start: 4, end: 5, rsp: "not-json", want: "invalid"},
+		{start: 5, end: 6, rsp: `{"entries":[{"leaf_input":"bogus","extra_data":"bogus"}]}`, want: "illegal base64"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-entries", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetRawEntries(ctx, test.start, test.end)
+		if err == nil {
+			t.Errorf("GetRawEntries(%d, %d)=%+v, nil; want nil, %q", test.start, test.end, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetRawEntries(%d, %d)=nil, %q; want nil, %q", test.start, test.end, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetRawEntries(%d, %d)=%+v, _; want nil, _", test.start, test.end, got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetRawEntries(%d, %d)=nil, .(%T); want nil, .(RspError)", test.start, test.end, err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetRawEntries(%d, %d)=nil, .Body=%q; want nil, .Body=%q", test.start, test.end, rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
 func TestGetSTH(t *testing.T) {
 	ts := serveRspAt(t, "/ct/v1/get-sth",
 		fmt.Sprintf(`{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
@@ -274,6 +315,14 @@ func TestGetSTHErrors(t *testing.T) {
 		}
 		if got != nil {
 			t.Errorf("GetSTH()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetSTH()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetSTH()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
 		}
 	}
 }
@@ -531,6 +580,14 @@ func TestGetSTHConsistencyErrors(t *testing.T) {
 		if got != nil {
 			t.Errorf("GetSTHConsistency(%d, %d)=%+v, _; want nil, _", test.first, test.second, got)
 		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetSTHConsistency(%d, %d)=nil, .(%T); want nil, .(RspError)", test.first, test.second, err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetSTHConsistency(%d, %d)=nil, .Body=%q; want nil, .Body=%q", test.first, test.second, rspErr.Body, test.rsp)
+			}
+		}
 	}
 }
 
@@ -588,6 +645,14 @@ func TestGetProofByHashErrors(t *testing.T) {
 		if got != nil {
 			t.Errorf("GetProofByHash()=%+v, _; want nil, _", got)
 		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetProofByHash()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetProofByHash()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
+		}
 	}
 }
 
@@ -634,6 +699,14 @@ func TestGetAcceptedRootsErrors(t *testing.T) {
 		}
 		if got != nil {
 			t.Errorf("GetAcceptedRoots()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetAcceptedRoots()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetAcceptedRoots()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
 		}
 	}
 }
