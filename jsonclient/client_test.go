@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -305,30 +304,38 @@ func TestPostAndParse(t *testing.T) {
 	}
 }
 
-func TestPostAndParseWithRetry(t *testing.T) {
-	jiffy := time.Millisecond
+// mockBackoff is not safe for concurrent usage
+type mockBackoff struct {
+	override time.Duration
+}
 
+func (mb *mockBackoff) set(o *time.Duration) time.Duration {
+	if o != nil {
+		mb.override = *o
+	}
+	return 0
+}
+func (mb *mockBackoff) decreaseMultiplier() {}
+func (mb *mockBackoff) until() time.Time    { return time.Time{} }
+
+func TestPostAndParseWithRetry(t *testing.T) {
 	tests := []struct {
-		uri          string
-		request      interface{}
-		deadlineSecs int // -1 indicates no deadline
-		expected     time.Duration
-		leeway       time.Duration
-		retryAfter   int // -1 indicates generate 503 with no Retry-After
-		failCount    int
-		errstr       string
+		uri             string
+		request         interface{}
+		deadlineSecs    int // -1 indicates no deadline
+		retryAfter      int // -1 indicates generate 503 with no Retry-After
+		failCount       int
+		errstr          string
+		expectedBackoff time.Duration // 0 indicates no expected backoff override set
 	}{
-		{"/retry", nil, -1, jiffy, 0, 0, 0, ""},
-		{"/error", TestParams{RespCode: 418}, 2, jiffy, 0, 0, 0, "teapot"},
-		{"/short%", nil, 2, 2 * time.Second, 0, 0, 0, "deadline exceeded"},
-		{"/retry", nil, -1, 7 * time.Second, 0, -1, 3, ""},
-		{"/retry", nil, 6, 5 * time.Second, 0, 5, 1, ""},
-		{"/retry", nil, 5, 5 * time.Second, 0, 10, 1, "deadline exceeded"},
-		{"/retry", nil, 10, 5 * time.Second, 0, 1, 5, ""},
-		{"/retry", nil, 1, 10 * jiffy, 0, 0, 10, ""},
-		{"/retry-rfc1123", nil, -1, 2 * time.Second, 1 * time.Second, 2, 1, ""},
+		{"/error", TestParams{RespCode: 418}, -1, 0, 0, "teapot", 0},
+		{"/short%", nil, 0, 0, 0, "deadline exceeded", 0},
+		{"/retry", nil, -1, 0, 1, "", 0},
+		{"/retry", nil, -1, 5, 1, "", 5 * time.Second},
+		{"/retry-rfc1123", nil, -1, 5, 1, "", 5 * time.Second},
 	}
 	for _, test := range tests {
+		fmt.Println(test)
 		ts := MockServer(t, test.failCount, test.retryAfter)
 		defer ts.Close()
 
@@ -336,6 +343,8 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		mb := mockBackoff{}
+		logClient.backoff = &mb
 		ctx := context.Background()
 		if test.deadlineSecs >= 0 {
 			var cancel context.CancelFunc
@@ -344,17 +353,8 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		}
 
 		var result TestStruct
-		started := time.Now()
 		httpRsp, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &result)
-		took := time.Since(started)
-
-		leeway := maxJitter * time.Duration(test.failCount+1)
-		if test.leeway > 0 {
-			leeway = test.leeway
-		}
-		if math.Abs(float64(took-test.expected)) > float64(leeway) {
-			t.Errorf("PostAndParseWithRetry() took %s; want ~%s", took, test.expected)
-		}
+		fmt.Println("o", mb.override)
 		if test.errstr != "" {
 			if err == nil {
 				t.Errorf("PostAndParseWithRetry()=%+v,nil; want error %q", result, test.errstr)
@@ -367,6 +367,9 @@ func TestPostAndParseWithRetry(t *testing.T) {
 			t.Errorf("PostAndParseWithRetry()=nil,%q; want no error", err.Error())
 		} else if httpRsp.StatusCode != http.StatusOK {
 			t.Errorf("PostAndParseWithRetry() got status %d; want OK(404)", httpRsp.StatusCode)
+		}
+		if test.expectedBackoff > 0 && !fuzzyDurationEquals(test.expectedBackoff, mb.override, time.Second) {
+			t.Errorf("Unexpected backoff override set: got: %s, wanted: %s", mb.override, test.expectedBackoff)
 		}
 	}
 }

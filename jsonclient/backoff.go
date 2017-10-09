@@ -1,8 +1,6 @@
 package jsonclient
 
 import (
-	"context"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -10,14 +8,13 @@ import (
 
 type backoff struct {
 	mu         sync.RWMutex
-	multiplier int64
+	multiplier uint
 	notBefore  time.Time
 }
 
 const (
 	// maximum backoff is 2^(maxMultiplier-1) = 128 seconds
 	maxMultiplier = 8
-	maxJitter     = 250 * time.Millisecond
 )
 
 func (b *backoff) set(override *time.Duration) time.Duration {
@@ -38,13 +35,12 @@ func (b *backoff) set(override *time.Duration) time.Duration {
 	if override != nil {
 		wait = *override
 	} else {
-		if b.multiplier <= maxMultiplier {
+		if b.multiplier < maxMultiplier {
 			b.multiplier++
 		}
-		wait = time.Second * time.Duration(math.Pow(2, float64(b.multiplier-1)))
+		wait = time.Second * time.Duration(1<<(b.multiplier-1))
 	}
-	notBefore := time.Now().Add(wait)
-	b.notBefore = notBefore
+	b.notBefore = time.Now().Add(wait)
 	return wait
 }
 
@@ -56,21 +52,11 @@ func (b *backoff) decreaseMultiplier() {
 	}
 }
 
-func (b *backoff) backoff(ctx context.Context) error {
+func (b *backoff) until() time.Time {
 	b.mu.RLock()
+	defer b.mu.RUnlock()
 	if b.notBefore.Before(time.Now()) {
-		b.mu.RUnlock()
-		return nil
+		return b.notBefore
 	}
-	// add jitter so everything that is waiting doesn't fire all at the same time
-	sleepDur := time.Until(b.notBefore)
-	b.mu.RUnlock()
-	sleepDur += time.Millisecond * time.Duration(rand.Intn(int(maxJitter.Seconds()*1000)))
-	backoffTimer := time.NewTimer(sleepDur)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-backoffTimer.C:
-	}
-	return nil
+	return b.notBefore.Add(time.Millisecond * time.Duration(rand.Intn(int(maxJitter.Seconds()*1000))))
 }
