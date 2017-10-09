@@ -34,17 +34,19 @@ import (
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
-var httpServersFlag = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
-var metricsServersFlag = flag.String("ct_metrics_servers", "localhost:8093", "Comma-separated list of (assumed interchangeable) metrics servers, each as address:port")
-var testDir = flag.String("testdata_dir", "testdata", "Name of directory with test data")
-var seed = flag.Int64("seed", -1, "Seed for random number generation")
-var logConfigFlag = flag.String("log_config", "", "File holding log config in JSON")
-var mmdFlag = flag.Duration("mmd", 30*time.Second, "MMD for tested logs")
-var skipStats = flag.Bool("skip_stats", false, "Skip checks of expected log statistics")
+var (
+	httpServers    = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
+	metricsServers = flag.String("ct_metrics_servers", "localhost:8093", "Comma-separated list of (assumed interchangeable) metrics servers, each as address:port")
+	testDir        = flag.String("testdata_dir", "testdata", "Name of directory with test data")
+	seed           = flag.Int64("seed", -1, "Seed for random number generation")
+	logConfig      = flag.String("log_config", "", "File holding log config in JSON")
+	mmd            = flag.Duration("mmd", 30*time.Second, "MMD for tested logs")
+	skipStats      = flag.Bool("skip_stats", false, "Skip checks of expected log statistics")
+)
 
 func TestLiveCTIntegration(t *testing.T) {
 	flag.Parse()
-	if *logConfigFlag == "" {
+	if *logConfig == "" {
 		t.Skip("Integration test skipped as no log config provided")
 	}
 	if *seed == -1 {
@@ -53,7 +55,7 @@ func TestLiveCTIntegration(t *testing.T) {
 	fmt.Printf("Today's test has been brought to you by the letters C and T and the number %#x\n", *seed)
 	rand.Seed(*seed)
 
-	cfgs, err := ctfe.LogConfigFromFile(*logConfigFlag)
+	cfgs, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
 		t.Fatalf("Failed to read log config: %v", err)
 	}
@@ -66,7 +68,7 @@ func TestLiveCTIntegration(t *testing.T) {
 			if !*skipStats {
 				stats = newLogStats(cfg.LogId)
 			}
-			if err := RunCTIntegrationForLog(cfg, *httpServersFlag, *metricsServersFlag, *testDir, *mmdFlag, stats); err != nil {
+			if err := RunCTIntegrationForLog(cfg, *httpServers, *metricsServers, *testDir, *mmd, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
 			}
 		})

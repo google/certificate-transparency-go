@@ -1,3 +1,10 @@
+*.iml
+*.swo
+*.swp
+*.tfstate
+*.tfstate.backup
+*~
+/.idea
 /chainfix
 /coverage.txt
 /createtree

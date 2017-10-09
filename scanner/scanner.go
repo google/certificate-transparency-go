@@ -89,10 +89,10 @@ type Scanner struct {
 
 // entryInfo represents information about a log entry
 type entryInfo struct {
-	// The log entry returned by the log server
-	entry ct.LogEntry
 	// The index of the entry containing the LeafInput in the log
 	index int64
+	// The log entry returned by the log server
+	entry ct.LeafEntry
 }
 
 // fetchRange represents a range of certs to fetch from a CT log
@@ -105,62 +105,49 @@ type fetchRange struct {
 // x509.ParseTBSCertificate() and determines if it's non-fatal or otherwise.
 // In the case of non-fatal errors, the error will be logged,
 // entriesWithNonFatalErrors will be incremented, and the return value will be
-// nil.
-// Fatal errors will be logged, unparsableEntires will be incremented, and the
-// fatal error itself will be returned.
+// false.
+// Fatal errors will cause the function to return true.
 // When err is nil, this method does nothing.
-func (s *Scanner) handleParseEntryError(err error, entryType ct.LogEntryType, index int64) error {
+func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64) bool {
 	if err == nil {
 		// No error to handle
-		return nil
-	}
-	switch err.(type) {
-	case x509.NonFatalErrors:
+		return false
+	} else if _, ok := err.(x509.NonFatalErrors); ok {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
-		s.Log(fmt.Sprintf("Non-fatal error in %+v at index %d: %s", entryType, index, err.Error()))
-	default:
-		atomic.AddInt64(&s.unparsableEntries, 1)
-		s.Log(fmt.Sprintf("Failed to parse in %+v at index %d : %s", entryType, index, err.Error()))
-		return err
+		s.Log(fmt.Sprintf("Non-fatal error in %+v at index %d: %s", logEntry.Leaf.TimestampedEntry.EntryType, index, err.Error()))
+		return false
 	}
-	return nil
+	return true
 }
 
 // Processes the given entry in the specified log.
-func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
+func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	atomic.AddInt64(&s.certsProcessed, 1)
-	switch entry.Leaf.TimestampedEntry.EntryType {
-	case ct.X509LogEntryType:
+
+	logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+	if s.isCertErrorFatal(err, logEntry, index) {
+		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
+	}
+
+	switch {
+	case logEntry.X509Cert != nil:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
-			return
+			return nil
 		}
-		cert, err := x509.ParseCertificate(entry.Leaf.TimestampedEntry.X509Entry.Data)
-		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
-			// We hit an unparseable entry, already logged inside handleParseEntryError()
-			return
+		if s.opts.Matcher.CertificateMatches(logEntry.X509Cert) {
+			foundCert(logEntry)
 		}
-		if s.opts.Matcher.CertificateMatches(cert) {
-			entry.X509Cert = cert
-			foundCert(&entry)
-		}
-	case ct.PrecertLogEntryType:
-		c, err := x509.ParseTBSCertificate(entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate)
-		if err = s.handleParseEntryError(err, entry.Leaf.TimestampedEntry.EntryType, entry.Index); err != nil {
-			// We hit an unparseable entry, already logged inside handleParseEntryError()
-			return
-		}
-		precert := &ct.Precertificate{
-			Raw:            entry.Chain[0].Data,
-			TBSCertificate: *c,
-			IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash}
-		if s.opts.Matcher.PrecertificateMatches(precert) {
-			entry.Precert = precert
-			foundPrecert(&entry)
+	case logEntry.Precert != nil:
+		if s.opts.Matcher.PrecertificateMatches(logEntry.Precert) {
+			foundPrecert(logEntry)
 		}
 		atomic.AddInt64(&s.precertsSeen, 1)
+	default:
+		return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
 	}
+	return nil
 }
 
 // Worker function to match certs.
@@ -168,7 +155,10 @@ func (s *Scanner) processEntry(entry ct.LogEntry, foundCert func(*ct.LogEntry), 
 // Returns true over the done channel when the entries channel is closed.
 func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	for e := range entries {
-		s.processEntry(e.entry, foundCert, foundPrecert)
+		if err := s.processEntry(e.index, e.entry, foundCert, foundPrecert); err != nil {
+			atomic.AddInt64(&s.unparsableEntries, 1)
+			s.Log(fmt.Sprintf("Failed to parse entry at index %d: %s", e.index, err.Error()))
+		}
 	}
 }
 
@@ -183,14 +173,13 @@ func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entr
 		success := false
 		// TODO(alcutter): give up after a while:
 		for !success {
-			logEntries, err := s.logClient.GetEntries(ctx, r.start, r.end)
+			resp, err := s.logClient.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
 				s.Log(fmt.Sprintf("Problem fetching from log: %s", err.Error()))
 				continue
 			}
-			for _, logEntry := range logEntries {
-				logEntry.Index = r.start
-				entries <- entryInfo{logEntry, r.start}
+			for _, leafEntry := range resp.Entries {
+				entries <- entryInfo{r.start, leafEntry}
 				r.start++
 			}
 			if r.start > r.end {

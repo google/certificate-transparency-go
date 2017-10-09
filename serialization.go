@@ -199,3 +199,57 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 	}
 	return false
 }
+
+// LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data after JSON parsing)
+// into a LogEntry object (which includes x509.Certificate objects, after TLS and ASN.1 parsing).
+// Note that this function may return a valid LogEntry object and a non-nil error value, when
+// the error indicates a non-fatal parsing error (of type x509.NonFatalErrors).
+func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
+	var leaf MerkleTreeLeaf
+	if rest, err := tls.Unmarshal(leafEntry.LeafInput, &leaf); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf for index %d: %v", index, err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf for index %d", len(rest), index)
+	}
+
+	var err error
+	entry := LogEntry{Index: index, Leaf: leaf}
+	switch leaf.TimestampedEntry.EntryType {
+	case X509LogEntryType:
+		var certChain CertificateChain
+		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &certChain); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal ExtraData for index %d: %v", index, err)
+		} else if len(rest) > 0 {
+			return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain for index %d", len(rest), index)
+		}
+		entry.Chain = certChain.Entries
+		entry.X509Cert, err = leaf.X509Certificate()
+		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+			return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
+		}
+
+	case PrecertLogEntryType:
+		var precertChain PrecertChainEntry
+		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &precertChain); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry for index %d: %v", index, err)
+		} else if len(rest) > 0 {
+			return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry for index %d", len(rest), index)
+		}
+		entry.Chain = precertChain.CertificateChain
+		var tbsCert *x509.Certificate
+		tbsCert, err = leaf.Precertificate()
+		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+			return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
+		}
+		entry.Precert = &Precertificate{
+			Submitted:      precertChain.PreCertificate,
+			IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
+			TBSCertificate: tbsCert,
+		}
+
+	default:
+		return nil, fmt.Errorf("saw unknown entry type at index %d: %v", index, leaf.TimestampedEntry.EntryType)
+	}
+	// err may hold a x509.NonFatalErrors object.
+	return &entry, err
+}
