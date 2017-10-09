@@ -23,19 +23,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 )
+
+type backoffer interface {
+	set(*time.Duration) time.Duration
+	decreaseMultiplier()
+	backoff(context.Context) error
+}
 
 // JSONClient provides common functionality for interacting with a JSON server
 // that uses cryptographic signatures.
@@ -44,69 +47,7 @@ type JSONClient struct {
 	httpClient *http.Client          // used to interact with the server via HTTP
 	Verifier   *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
 	logger     Logger                // interface to use for logging warnings and errors
-
-	multiplier int64
-	until      *time.Time
-	mu         sync.RWMutex
-}
-
-const (
-	maxBackoff = time.Second * 128
-	jitter     = 250
-)
-
-func (c *JSONClient) setBackoff(override *time.Duration) time.Duration {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.until != nil {
-		return time.Until(*c.until)
-	}
-	var wait time.Duration
-	if override != nil {
-		wait = *override
-	} else {
-		c.multiplier++
-		wait = time.Second * time.Duration(math.Pow(2, float64(c.multiplier-1)))
-		if wait > maxBackoff {
-			wait = maxBackoff
-		}
-	}
-	until := time.Now().Add(wait)
-	c.until = &until
-	go func() {
-		time.Sleep(wait)
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		c.until = nil
-	}()
-	return wait
-}
-
-func (c *JSONClient) decreaseBackoffMultiplier() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.multiplier > 0 {
-		c.multiplier--
-	}
-}
-
-func (c *JSONClient) backoff(ctx context.Context) error {
-	c.mu.RLock()
-	if c.until == nil {
-		c.mu.RUnlock()
-		return nil
-	}
-	until := time.Until(*c.until)
-	c.mu.RUnlock()
-	// add jitter so everything doesn't fire off all at once
-	until += time.Millisecond * time.Duration(rand.Intn(jitter))
-	backoffTimer := time.NewTimer(until)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-backoffTimer.C:
-	}
-	return nil
+	b          backoffer             // object used to store and calculate backoff information
 }
 
 // Logger is a simple logging interface used to log internal errors and warnings
@@ -184,6 +125,7 @@ func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 		httpClient: hc,
 		Verifier:   verifier,
 		logger:     logger,
+		b:          &backoff{},
 	}, nil
 }
 
@@ -269,18 +211,18 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		return nil, errors.New("context.Context required")
 	}
 	for {
-		if err := c.backoff(ctx); err != nil {
+		if err := c.b.backoff(ctx); err != nil {
 			return nil, err
 		}
 		httpRsp, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
-			wait := c.setBackoff(nil)
+			wait := c.b.set(nil)
 			c.logger.Printf("Request failed, backing-off for %s: %s", wait, err)
 			continue
 		}
 		switch {
 		case httpRsp.StatusCode == http.StatusOK:
-			c.decreaseBackoffMultiplier()
+			c.b.decreaseMultiplier()
 			return httpRsp, nil
 		case httpRsp.StatusCode == http.StatusRequestTimeout:
 			// Request timeout, retry immediately
@@ -298,7 +240,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 					backoff = &b
 				}
 			}
-			wait := c.setBackoff(backoff)
+			wait := c.b.set(backoff)
 			c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", wait, httpRsp.Status)
 		default:
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)

@@ -348,10 +348,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		httpRsp, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &result)
 		took := time.Since(started)
 
-		leeway := time.Millisecond * jitter
-		if test.failCount > 0 {
-			leeway += time.Millisecond * time.Duration(jitter*test.failCount)
-		}
+		leeway := maxJitter * time.Duration(test.failCount+1)
 		if test.leeway > 0 {
 			leeway = test.leeway
 		}
