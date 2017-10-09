@@ -194,22 +194,24 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 func TestGetAndParse(t *testing.T) {
 	rc := regexp.MustCompile
 	tests := []struct {
-		uri    string
-		params map[string]string
-		status int
-		result TestStruct
-		errstr *regexp.Regexp
+		uri      string
+		params   map[string]string
+		status   int
+		result   TestStruct
+		errstr   *regexp.Regexp
+		wantBody bool
 	}{
 		{uri: "/short%", errstr: rc("invalid URL escape")},
-		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected EOF")},
-		{uri: "/error", params: map[string]string{"rc": "404"}, status: http.StatusNotFound},
-		{uri: "/error", params: map[string]string{"rc": "403"}, status: http.StatusForbidden},
-		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}},
+		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected EOF"), wantBody: true},
+		{uri: "/error", params: map[string]string{"rc": "404"}, status: http.StatusNotFound, wantBody: true},
+		{uri: "/error", params: map[string]string{"rc": "403"}, status: http.StatusForbidden, wantBody: true},
+		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}, wantBody: true},
 		{
-			uri:    "/struct/params",
-			status: http.StatusOK,
-			params: map[string]string{"tree_size": "42", "timestamp": "88", "data": "abcd"},
-			result: TestStruct{42, 88, "abcd"},
+			uri:      "/struct/params",
+			status:   http.StatusOK,
+			params:   map[string]string{"tree_size": "42", "timestamp": "88", "data": "abcd"},
+			result:   TestStruct{42, 88, "abcd"},
+			wantBody: true,
 		},
 	}
 
@@ -224,12 +226,15 @@ func TestGetAndParse(t *testing.T) {
 
 	for _, test := range tests {
 		var result TestStruct
-		httpRsp, err := logClient.GetAndParse(ctx, test.uri, test.params, &result)
+		httpRsp, body, err := logClient.GetAndParse(ctx, test.uri, test.params, &result)
+		if gotBody := (body != nil); gotBody != test.wantBody {
+			t.Errorf("GetAndParse(%q) got body? %v, want? %v", test.uri, gotBody, test.wantBody)
+		}
 		if test.errstr != nil {
 			if err == nil {
-				t.Errorf("GetAndParse(%q)=%+v,nil; want error matching %q", test.uri, result, test.errstr)
+				t.Errorf("GetAndParse(%q)=%+v,_,nil; want error matching %q", test.uri, result, test.errstr)
 			} else if !test.errstr.MatchString(err.Error()) {
-				t.Errorf("GetAndParse(%q)=nil,%q; want error matching %q", test.uri, err.Error(), test.errstr)
+				t.Errorf("GetAndParse(%q)=nil,_,%q; want error matching %q", test.uri, err.Error(), test.errstr)
 			}
 			continue
 		}
@@ -238,10 +243,10 @@ func TestGetAndParse(t *testing.T) {
 		}
 		if test.status == http.StatusOK {
 			if err != nil {
-				t.Errorf("GetAndParse(%q)=nil,%q; want %+v", test.uri, err.Error(), result)
+				t.Errorf("GetAndParse(%q)=nil,_,%q; want %+v", test.uri, err.Error(), result)
 			}
 			if !reflect.DeepEqual(result, test.result) {
-				t.Errorf("GetAndParse(%q)=%+v,nil; want %+v", test.uri, result, test.result)
+				t.Errorf("GetAndParse(%q)=%+v,_,nil; want %+v", test.uri, result, test.result)
 			}
 		}
 	}
@@ -250,23 +255,25 @@ func TestGetAndParse(t *testing.T) {
 func TestPostAndParse(t *testing.T) {
 	rc := regexp.MustCompile
 	tests := []struct {
-		uri     string
-		request interface{}
-		status  int
-		result  TestStruct
-		errstr  *regexp.Regexp
+		uri      string
+		request  interface{}
+		status   int
+		result   TestStruct
+		errstr   *regexp.Regexp
+		wantBody bool
 	}{
 		{uri: "/short%", errstr: rc("invalid URL escape")},
 		{uri: "/struct/params", request: json.Number(`invalid`), errstr: rc("invalid number literal")},
-		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected end of JSON")},
-		{uri: "/error", request: TestParams{RespCode: 404}, status: http.StatusNotFound},
-		{uri: "/error", request: TestParams{RespCode: 403}, status: http.StatusForbidden},
-		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}},
+		{uri: "/malformed", status: http.StatusOK, errstr: rc("unexpected end of JSON"), wantBody: true},
+		{uri: "/error", request: TestParams{RespCode: 404}, status: http.StatusNotFound, wantBody: true},
+		{uri: "/error", request: TestParams{RespCode: 403}, status: http.StatusForbidden, wantBody: true},
+		{uri: "/struct/path", status: http.StatusOK, result: TestStruct{11, 99, ""}, wantBody: true},
 		{
-			uri:     "/struct/params",
-			status:  http.StatusOK,
-			request: TestStruct{42, 88, "abcd"},
-			result:  TestStruct{42, 88, "abcd"},
+			uri:      "/struct/params",
+			status:   http.StatusOK,
+			request:  TestStruct{42, 88, "abcd"},
+			result:   TestStruct{42, 88, "abcd"},
+			wantBody: true,
 		},
 	}
 
@@ -281,7 +288,10 @@ func TestPostAndParse(t *testing.T) {
 
 	for _, test := range tests {
 		var result TestStruct
-		httpRsp, err := logClient.PostAndParse(ctx, test.uri, test.request, &result)
+		httpRsp, body, err := logClient.PostAndParse(ctx, test.uri, test.request, &result)
+		if gotBody := (body != nil); gotBody != test.wantBody {
+			t.Errorf("GetAndParse(%q) returned body %v, wanted %v", test.uri, gotBody, test.wantBody)
+		}
 		if test.errstr != nil {
 			if err == nil {
 				t.Errorf("PostAndParse(%q)=%+v,nil; want error matching %q", test.uri, result, test.errstr)
@@ -353,8 +363,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		}
 
 		var result TestStruct
-		httpRsp, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &result)
-		fmt.Println("o", mb.override)
+		httpRsp, _, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &result)
 		if test.errstr != "" {
 			if err == nil {
 				t.Errorf("PostAndParseWithRetry()=%+v,nil; want error %q", result, test.errstr)
@@ -383,15 +392,15 @@ func TestContextRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result TestStruct
-	_, err = logClient.GetAndParse(nil, "/struct/path", nil, &result)
+	_, _, err = logClient.GetAndParse(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("GetAndParse() succeeded with empty Context")
 	}
-	_, err = logClient.PostAndParse(nil, "/struct/path", nil, &result)
+	_, _, err = logClient.PostAndParse(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("PostAndParse() succeeded with empty Context")
 	}
-	_, err = logClient.PostAndParseWithRetry(nil, "/struct/path", nil, &result)
+	_, _, err = logClient.PostAndParseWithRetry(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("PostAndParseWithRetry() succeeded with empty Context")
 	}

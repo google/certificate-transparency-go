@@ -26,6 +26,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,66 +95,65 @@ func b64(s string) []byte {
 	return b
 }
 
-// Create a test CT server that returns canned responses for the various CT entrypoints.
-func ctServer(t *testing.T) *httptest.Server {
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/ct/v1/get-sth":
-			fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
-				ValidSTHResponseTreeSize,
-				int64(ValidSTHResponseTimestamp),
-				ValidSTHResponseSHA256RootHash,
-				ValidSTHResponseTreeHeadSignature)
-		case r.URL.Path == "/ct/v1/get-entries":
-			q := r.URL.Query()
-			numRE := regexp.MustCompile("[0-9]+")
-			if !numRE.MatchString(q["start"][0]) || !numRE.MatchString(q["end"][0]) {
-				t.Fatalf("Invalid parameter: start=%q, end=%q", q["start"][0], q["end"][0])
-			}
-			fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`,
-				PrecertEntryB64,
-				PrecertEntryExtraDataB64,
-				CertEntryB64,
-				CertEntryExtraDataB64)
-		case r.URL.Path == "/ct/v1/get-sth-consistency":
-			w.Write([]byte(GetSTHConsistencyResp))
-		case r.URL.Path == "/ct/v1/get-proof-by-hash":
-			w.Write([]byte(ProofByHashResp))
-		case r.URL.Path == "/ct/v1/get-roots":
-			w.Write([]byte(GetRootsResp))
-		case r.URL.Path == "/ct/v1/add-chain":
-			var sct ct.SignedCertificateTimestamp
-			_, err := tls.Unmarshal(testdata.TestCertProof, &sct)
-			if err != nil {
-				t.Fatalf("Failed to tls-unmarshal test certificate proof: %v", err)
-			}
-			data, err := json.Marshal(sct)
-			if err != nil {
-				t.Fatalf("Failed to json-marshal test certificate proof: %v", err)
-			}
-			w.Write(data)
-		case r.URL.Path == "/ct/v1/add-pre-chain":
-			var sct ct.SignedCertificateTimestamp
-			_, err := tls.Unmarshal(testdata.TestPreCertProof, &sct)
-			if err != nil {
-				t.Fatalf("Failed to tls-unmarshal test precertificate proof: %v", err)
-			}
-			data, err := json.Marshal(sct)
-			if err != nil {
-				t.Fatalf("Failed to json-marshal test precertificate proof: %v", err)
-			}
-			w.Write(data)
-		case r.URL.Path == "/ct/v1/add-json":
-			w.Write([]byte(AddJSONResp))
-		default:
+// TODO(drysdale): use t.Helper() on all the helpers below when we shift to Go 1.9
+
+// serveHandlerAt returns a test HTTP server that only expects requests at the given path, and invokes
+// the provided handler for that path.
+func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter, *http.Request)) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == path {
+			handler(w, r)
+		} else {
 			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
 		}
 	}))
-	return hs
+}
+
+// serveRspAt returns a test HTTP server that returns a canned response body rsp for a given path.
+func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
+	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, rsp)
+	})
+}
+
+func sctToJSON(rawSCT []byte) ([]byte, error) {
+	var sct ct.SignedCertificateTimestamp
+	_, err := tls.Unmarshal(rawSCT, &sct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tls-unmarshal test certificate proof: %v", err)
+	}
+	data, err := json.Marshal(sct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to json-marshal test certificate proof: %v", err)
+	}
+	return data, nil
+}
+
+// serveSCTAt returns a test HTTP server that returns the given SCT as a canned response for
+// a given path.
+func serveSCTAt(t *testing.T, path string, rawSCT []byte) *httptest.Server {
+	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
+		data, err := sctToJSON(rawSCT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Write(data)
+	})
 }
 
 func TestGetEntries(t *testing.T) {
-	ts := ctServer(t)
+	ts := serveHandlerAt(t, "/ct/v1/get-entries", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		numRE := regexp.MustCompile("[0-9]+")
+		if !numRE.MatchString(q["start"][0]) || !numRE.MatchString(q["end"][0]) {
+			t.Fatalf("Invalid parameter: start=%q, end=%q", q["start"][0], q["end"][0])
+		}
+		fmt.Fprintf(w, `{"entries":[{"leaf_input": "%s","extra_data": "%s"},{"leaf_input": "%s","extra_data": "%s"}]}`,
+			PrecertEntryB64,
+			PrecertEntryExtraDataB64,
+			CertEntryB64,
+			CertEntryExtraDataB64)
+	})
 	defer ts.Close()
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -167,8 +167,88 @@ func TestGetEntries(t *testing.T) {
 	}
 }
 
+func TestGetEntriesErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		start, end int64
+		rsp, want  string
+	}{
+		{start: 1, end: 2, rsp: "", want: "EOF"},
+		{start: 0, end: -1, want: "end should be >= 0"},
+		{start: 3, end: 2, want: "start should be <= end"},
+		{start: 4, end: 5, rsp: "not-json", want: "invalid"},
+		{start: 5, end: 6, rsp: `{"entries":[{"leaf_input":"bogus","extra_data":"bogus"}]}`, want: "illegal base64"},
+		{start: 6, end: 7, rsp: `{"entries":[{"leaf_input":"bbbb","extra_data":"bbbb"}]}`, want: "failed to unmarshal"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-entries", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetEntries(ctx, test.start, test.end)
+		if err == nil {
+			t.Errorf("GetEntries(%d, %d)=%+v, nil; want nil, %q", test.start, test.end, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetEntries(%d, %d)=nil, %q; want nil, %q", test.start, test.end, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetEntries(%d, %d)=%+v, _; want nil, _", test.start, test.end, got)
+		}
+	}
+}
+
+func TestGetRawEntriesErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		start, end int64
+		rsp, want  string
+	}{
+		{start: 1, end: 2, rsp: "", want: "EOF"},
+		{start: 0, end: -1, want: "end should be >= 0"},
+		{start: 3, end: 2, want: "start should be <= end"},
+		{start: 4, end: 5, rsp: "not-json", want: "invalid"},
+		{start: 5, end: 6, rsp: `{"entries":[{"leaf_input":"bogus","extra_data":"bogus"}]}`, want: "illegal base64"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-entries", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetRawEntries(ctx, test.start, test.end)
+		if err == nil {
+			t.Errorf("GetRawEntries(%d, %d)=%+v, nil; want nil, %q", test.start, test.end, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetRawEntries(%d, %d)=nil, %q; want nil, %q", test.start, test.end, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetRawEntries(%d, %d)=%+v, _; want nil, _", test.start, test.end, got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetRawEntries(%d, %d)=nil, .(%T); want nil, .(RspError)", test.start, test.end, err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetRawEntries(%d, %d)=nil, .Body=%q; want nil, .Body=%q", test.start, test.end, rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
 func TestGetSTH(t *testing.T) {
-	ts := ctServer(t)
+	ts := serveRspAt(t, "/ct/v1/get-sth",
+		fmt.Sprintf(`{"tree_size": %d, "timestamp": %d, "sha256_root_hash": "%s", "tree_head_signature": "%s"}`,
+			ValidSTHResponseTreeSize,
+			int64(ValidSTHResponseTimestamp),
+			ValidSTHResponseSHA256RootHash,
+			ValidSTHResponseTreeHeadSignature))
 	defer ts.Close()
 	client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -206,11 +286,55 @@ func TestGetSTH(t *testing.T) {
 	}
 }
 
+func TestGetSTHErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"bogus","tree_head_signature":"bogus"}`, want: "illegal base64"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"bbbb","tree_head_signature":"bbbb"}`, want: "hash is invalid length"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"tncuLXiPAo711IOxjaYTwLmwbSyyE8hEcRhaOXvFb3g=","tree_head_signature":"bbbb"}`, want: "syntax error"},
+		{rsp: `{"tree_size":228163,"timestamp":1507127718502,"sha256_root_hash":"tncuLXiPAo711IOxjaYTwLmwbSyyE8hEcRhaOXvFb3g=","tree_head_signature":"BAMARjBEAiAi5045/h8Yvs1mNlsYskWvuFbu2A6hO2J45KDFfOR1OwIgZ2jq8iFCwKuTbcIgsBB1ibHEupv97CeAQynK0Dw2PT8bbbb="}`, want: "trailing data"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-sth", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetSTH(ctx)
+		if err == nil {
+			t.Errorf("GetSTH()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetSTH()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetSTH()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetSTH()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetSTH()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
 func TestAddChainRetries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping retry test in short mode")
+	}
 	retryAfter := 0 * time.Second
 	currentFailures := 0
 	failuresBeforeSuccess := 0
-	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	hs := serveHandlerAt(t, "/ct/v1/add-chain", func(w http.ResponseWriter, r *http.Request) {
 		if failuresBeforeSuccess > 0 && currentFailures < failuresBeforeSuccess {
 			currentFailures++
 			if retryAfter != 0 {
@@ -227,7 +351,7 @@ func TestAddChainRetries(t *testing.T) {
 		if err != nil {
 			return
 		}
-	}))
+	})
 	defer hs.Close()
 
 	certBytes, err := base64.StdEncoding.DecodeString(SubmissionCertB64)
@@ -325,7 +449,7 @@ func TestAddChainRetries(t *testing.T) {
 }
 
 func TestAddChain(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveSCTAt(t, "/ct/v1/add-chain", testdata.TestCertProof)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
 	if err != nil {
@@ -346,7 +470,7 @@ func TestAddChain(t *testing.T) {
 }
 
 func TestAddPreChain(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveSCTAt(t, "/ct/v1/add-pre-chain", testdata.TestPreCertProof)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{PublicKey: testdata.LogPublicKeyPEM})
 	if err != nil {
@@ -371,7 +495,7 @@ func TestAddPreChain(t *testing.T) {
 }
 
 func TestAddJSON(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/add-json", AddJSONResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -399,7 +523,7 @@ func TestAddJSON(t *testing.T) {
 }
 
 func TestGetSTHConsistency(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-sth-consistency", GetSTHConsistencyResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -427,8 +551,48 @@ func TestGetSTHConsistency(t *testing.T) {
 	}
 }
 
+func TestGetSTHConsistencyErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		first, second uint64
+		rsp, want     string
+	}{
+		{first: 1, second: 2, rsp: "", want: "EOF"},
+		{first: 1, second: 2, rsp: "not-json", want: "invalid"},
+		{first: 1, second: 2, rsp: `{"consistency":["bogus"]}`, want: "illegal base64"},
+		{first: 1, second: 2, rsp: `{"consistency":["2SyPbmCNzn9l7dhWVz1uz6nW7DB7p0EkSsfH9M+qU5E=",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-sth-consistency", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetSTHConsistency(ctx, test.first, test.second)
+		if err == nil {
+			t.Errorf("GetSTHConsistency(%d, %d)=%+v, nil; want nil, %q", test.first, test.second, got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetSTHConsistency(%d, %d)=nil, %q; want nil, %q", test.first, test.second, err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetSTHConsistency(%d, %d)=%+v, _; want nil, _", test.first, test.second, got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetSTHConsistency(%d, %d)=nil, .(%T); want nil, .(RspError)", test.first, test.second, err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetSTHConsistency(%d, %d)=nil, .Body=%q; want nil, .Body=%q", test.first, test.second, rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
 func TestGetProofByHash(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-proof-by-hash", ProofByHashResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -452,8 +616,48 @@ func TestGetProofByHash(t *testing.T) {
 	}
 }
 
+func TestGetProofByHashErrors(t *testing.T) {
+	ctx := context.Background()
+	aHash := dh("4a9e8edbe5ce2d2da69d483edb45186675d4be37b649d40923b156a7d1277463")
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"leaf_index": 17, "audit_path":["bogus"]}`, want: "illegal base64"},
+		{rsp: `{"leaf_index": 17, "audit_path":["bbbb",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-proof-by-hash", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetProofByHash(ctx, aHash, 100)
+		if err == nil {
+			t.Errorf("GetProofByHash()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetProofByHash()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetProofByHash()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetProofByHash()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetProofByHash()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
 func TestGetAcceptedRoots(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveRspAt(t, "/ct/v1/get-roots", GetRootsResp)
 	defer hs.Close()
 	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
 	if err != nil {
@@ -465,5 +669,44 @@ func TestGetAcceptedRoots(t *testing.T) {
 		t.Errorf("GetAcceptedRoots()=nil,%q; want roots,nil", err.Error())
 	} else if len(certs) < 1 {
 		t.Errorf("len(GetAcceptedRoots())=0; want > 1")
+	}
+}
+
+func TestGetAcceptedRootsErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"certificates":["bogus"]}`, want: "illegal base64"},
+		{rsp: `{"certificates":["bbbb",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-roots", test.rsp)
+		defer ts.Close()
+		client, err := New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := client.GetAcceptedRoots(ctx)
+		if err == nil {
+			t.Errorf("GetAcceptedRoots()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetAcceptedRoots()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetAcceptedRoots()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(RspError); !ok {
+				t.Errorf("GetAcceptedRoots()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetAcceptedRoots()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
+		}
 	}
 }

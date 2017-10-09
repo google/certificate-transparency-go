@@ -17,6 +17,8 @@ package client
 import (
 	"context"
 	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -333,7 +335,18 @@ func TestIndexByDate(t *testing.T) {
 }
 
 func TestTemporalAddChain(t *testing.T) {
-	hs := ctServer(t)
+	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ct/v1/add-chain":
+			data, _ := sctToJSON(testdata.TestCertProof)
+			w.Write(data)
+		case "/ct/v1/add-pre-chain":
+			data, _ := sctToJSON(testdata.TestPreCertProof)
+			w.Write(data)
+		default:
+			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
+		}
+	}))
 	defer hs.Close()
 
 	cert, err := x509util.CertificateFromPEM(testdata.TestCertPEM)
@@ -437,7 +450,7 @@ func TestTemporalAddChain(t *testing.T) {
 }
 
 func TestTemporalAddChainErrors(t *testing.T) {
-	hs := ctServer(t)
+	hs := serveSCTAt(t, "/ct/v1/add-chain", testdata.TestCertProof)
 	defer hs.Close()
 
 	cfg := configpb.TemporalLogConfig{
