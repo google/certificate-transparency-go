@@ -6,7 +6,7 @@ os:
   - osx
 
 go:
-  - 1.8
+  - 1.9
 
 env:
   - GOFLAGS=
