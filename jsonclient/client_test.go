@@ -125,6 +125,7 @@ type TestParams struct {
 }
 
 func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/struct/path":

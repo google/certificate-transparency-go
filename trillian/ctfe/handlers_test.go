@@ -33,7 +33,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
@@ -109,6 +109,7 @@ type handlerTestInfo struct {
 
 // setupTest creates mock objects and contexts.  Caller should invoke info.mockCtrl.Finish().
 func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTestInfo {
+	t.Helper()
 	info := handlerTestInfo{
 		mockCtrl: gomock.NewController(t),
 		roots:    NewPEMCertPool(),
@@ -1100,38 +1101,38 @@ func TestGetSTHConsistency(t *testing.T) {
 		errStr        string
 	}{
 		{
-			req:  "",
-			want: http.StatusBadRequest,
+			req:    "",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'first' is required",
 		},
 		{
-			req:  "first=apple&second=orange",
-			want: http.StatusBadRequest,
+			req:    "first=apple&second=orange",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'first' is malformed",
 		},
 		{
-			req:  "first=1&last=2",
-			want: http.StatusBadRequest,
+			req:    "first=1&last=2",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'second' is required",
 		},
 		{
-			req:  "first=1&second=a",
-			want: http.StatusBadRequest,
+			req:    "first=1&second=a",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'second' is malformed",
 		},
 		{
-			req:  "first=a&second=2",
-			want: http.StatusBadRequest,
+			req:    "first=a&second=2",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'first' is malformed",
 		},
 		{
-			req:  "first=-1&second=10",
-			want: http.StatusBadRequest,
+			req:    "first=-1&second=10",
+			want:   http.StatusBadRequest,
 			errStr: "first and second params cannot be <0: -1 10",
 		},
 		{
-			req:  "first=10&second=-11",
-			want: http.StatusBadRequest,
+			req:    "first=10&second=-11",
+			want:   http.StatusBadRequest,
 			errStr: "first and second params cannot be <0: 10 -11",
 		},
 		{
@@ -1145,28 +1146,28 @@ func TestGetSTHConsistency(t *testing.T) {
 		},
 		{
 			// Check that unrecognized parameters are ignored.
-			req:  "first=0&second=1&third=2&fourth=3",
-			want: http.StatusOK,
+			req:     "first=0&second=1&third=2&fourth=3",
+			want:    http.StatusOK,
 			httpRsp: &ct.GetSTHConsistencyResponse{},
 		},
 		{
-			req:  "first=998&second=997",
-			want: http.StatusBadRequest,
+			req:    "first=998&second=997",
+			want:   http.StatusBadRequest,
 			errStr: "invalid first, second params: 998 997",
 		},
 		{
-			req:  "first=1000&second=200",
-			want: http.StatusBadRequest,
+			req:    "first=1000&second=200",
+			want:   http.StatusBadRequest,
 			errStr: "invalid first, second params: 1000 200",
 		},
 		{
-			req:  "first=10",
-			want: http.StatusBadRequest,
+			req:    "first=10",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'second' is required",
 		},
 		{
-			req:  "second=20",
-			want: http.StatusBadRequest,
+			req:    "second=20",
+			want:   http.StatusBadRequest,
 			errStr: "parameter 'first' is required",
 		},
 		{
@@ -1465,6 +1466,7 @@ func TestGetEntryAndProof(t *testing.T) {
 }
 
 func createJSONChain(t *testing.T, p PEMCertPool) io.Reader {
+	t.Helper()
 	var req ct.AddChainRequest
 	for _, rawCert := range p.RawCertificates() {
 		req.Chain = append(req.Chain, rawCert.Raw)
@@ -1484,6 +1486,7 @@ func createJSONChain(t *testing.T, p PEMCertPool) io.Reader {
 }
 
 func logLeavesForCert(t *testing.T, certs []*x509.Certificate, merkleLeaf *ct.MerkleTreeLeaf, isPrecert bool) []*trillian.LogLeaf {
+	t.Helper()
 	leafData, err := tls.Marshal(*merkleLeaf)
 	if err != nil {
 		t.Fatalf("failed to serialize leaf: %v", err)
@@ -1525,16 +1528,19 @@ func (d dlMatcher) String() string {
 }
 
 func makeAddPrechainRequest(t *testing.T, c LogContext, body io.Reader) *httptest.ResponseRecorder {
+	t.Helper()
 	handler := AppHandler{Context: c, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-pre-chain", body)
 }
 
 func makeAddChainRequest(t *testing.T, c LogContext, body io.Reader) *httptest.ResponseRecorder {
+	t.Helper()
 	handler := AppHandler{Context: c, Handler: addChain, Name: "AddChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-chain", body)
 }
 
 func makeAddChainRequestInternal(t *testing.T, handler AppHandler, path string, body io.Reader) *httptest.ResponseRecorder {
+	t.Helper()
 	req, err := http.NewRequest("POST", fmt.Sprintf("http://example.com/ct/v1/%s", path), body)
 	if err != nil {
 		t.Fatalf("Failed to create POST request: %v", err)
@@ -1557,6 +1563,7 @@ func makeGetRootResponseForTest(stamp, treeSize int64, hash []byte) *trillian.Ge
 }
 
 func loadCertsIntoPoolOrDie(t *testing.T, certs []string) *PEMCertPool {
+	t.Helper()
 	pool := NewPEMCertPool()
 	for _, cert := range certs {
 		if !pool.AppendCertsFromPEM([]byte(cert)) {

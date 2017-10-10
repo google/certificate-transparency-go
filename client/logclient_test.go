@@ -95,11 +95,10 @@ func b64(s string) []byte {
 	return b
 }
 
-// TODO(drysdale): use t.Helper() on all the helpers below when we shift to Go 1.9
-
 // serveHandlerAt returns a test HTTP server that only expects requests at the given path, and invokes
 // the provided handler for that path.
 func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter, *http.Request)) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == path {
 			handler(w, r)
@@ -111,6 +110,7 @@ func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter,
 
 // serveRspAt returns a test HTTP server that returns a canned response body rsp for a given path.
 func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
+	t.Helper()
 	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, rsp)
 	})
@@ -132,6 +132,7 @@ func sctToJSON(rawSCT []byte) ([]byte, error) {
 // serveSCTAt returns a test HTTP server that returns the given SCT as a canned response for
 // a given path.
 func serveSCTAt(t *testing.T, path string, rawSCT []byte) *httptest.Server {
+	t.Helper()
 	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
 		data, err := sctToJSON(rawSCT)
 		if err != nil {

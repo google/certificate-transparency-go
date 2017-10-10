@@ -162,6 +162,7 @@ func closeAndDeleteStorage(s *Storage) {
 }
 
 func mustCreateSignatureVerifiers(t *testing.T) SignatureVerifierMap {
+	t.Helper()
 	m := make(SignatureVerifierMap)
 	key, id, _, err := ct.PublicKeyFromPEM([]byte(pubKey))
 	if err != nil {
@@ -176,6 +177,7 @@ func mustCreateSignatureVerifiers(t *testing.T) SignatureVerifierMap {
 }
 
 func sctFeedbackFromString(t *testing.T, s string) SCTFeedback {
+	t.Helper()
 	json := json.NewDecoder(strings.NewReader(s))
 	var f SCTFeedback
 	if err := json.Decode(&f); err != nil {
@@ -185,6 +187,7 @@ func sctFeedbackFromString(t *testing.T, s string) SCTFeedback {
 }
 
 func sthPollinationFromString(t *testing.T, s string) STHPollination {
+	t.Helper()
 	json := json.NewDecoder(strings.NewReader(s))
 	var f STHPollination
 	if err := json.Decode(&f); err != nil {
@@ -194,6 +197,7 @@ func sthPollinationFromString(t *testing.T, s string) STHPollination {
 }
 
 func expectStorageHasFeedback(t *testing.T, s *Storage, chain []string, sct string) {
+	t.Helper()
 	sctID, err := s.getSCTID(sct)
 	if err != nil {
 		t.Fatalf("Failed to look up ID for SCT %v: %v", sct, err)
@@ -206,6 +210,7 @@ func expectStorageHasFeedback(t *testing.T, s *Storage, chain []string, sct stri
 }
 
 func mustGet(t *testing.T, f func() (int64, error)) int64 {
+	t.Helper()
 	v, err := f()
 	if err != nil {
 		t.Fatalf("Got error while calling %p: %v", f, err)
