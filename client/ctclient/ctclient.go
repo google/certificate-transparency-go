@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -30,7 +31,6 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
-	"golang.org/x/net/context"
 )
 
 var logURI = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log base URI")

@@ -16,6 +16,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -35,7 +36,6 @@ import (
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
-	"golang.org/x/net/context"
 )
 
 func dh(s string) []byte {

@@ -15,6 +15,7 @@
 package jsonclient
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -27,8 +28,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/google/certificate-transparency-go/testdata"
 )
