@@ -43,9 +43,6 @@ const (
 	sthCount = 10
 	sctCount = 10
 
-	// Maximum number of entries to request.
-	maxEntriesCount = uint64(10)
-
 	// How far beyond current tree size to request for invalid requests.
 	invalidStretch = int64(1000000)
 )
@@ -105,8 +102,10 @@ type HammerConfig struct {
 	Signer crypto.Signer
 	// ClientPool provides the clients used to make requests.
 	ClientPool ClientPool
-	// Bias values to favor particular log operations
+	// Bias values to favor particular log operations.
 	EPBias HammerBias
+	// Range of how many entries to get.
+	MinGetEntries, MaxGetEntries int
 	// Number of operations to perform.
 	Operations uint64
 	// Rate limiter
@@ -254,6 +253,12 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 		mf = monitoring.InertMetricFactory{}
 	}
 	once.Do(func() { setupMetrics(mf) })
+	if cfg.MinGetEntries == 0 {
+		cfg.MinGetEntries = 1
+	}
+	if cfg.MaxGetEntries <= cfg.MinGetEntries {
+		cfg.MaxGetEntries = cfg.MinGetEntries + 300
+	}
 	if cfg.EmitInterval == 0 {
 		cfg.EmitInterval = defaultEmitSeconds * time.Second
 	}
@@ -489,7 +494,8 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 		glog.V(3).Infof("%s: skipping get-entries as no earlier STH", s.cfg.LogCfg.Prefix)
 		return errSkip{}
 	}
-	count := uint64(1 + rand.Intn(int(maxEntriesCount-1)))
+	span := s.cfg.MaxGetEntries - s.cfg.MinGetEntries
+	count := uint64(s.cfg.MinGetEntries + rand.Intn(int(span)))
 	if count > s.sth[0].TreeSize {
 		count = s.sth[0].TreeSize
 	}
