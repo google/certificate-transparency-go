@@ -494,15 +494,16 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 		glog.V(3).Infof("%s: skipping get-entries as no earlier STH", s.cfg.LogCfg.Prefix)
 		return errSkip{}
 	}
-	span := s.cfg.MaxGetEntries - s.cfg.MinGetEntries
-	count := uint64(s.cfg.MinGetEntries + rand.Intn(int(span)))
-	if count > s.sth[0].TreeSize {
-		count = s.sth[0].TreeSize
-	}
 	// Entry indices are zero-based.
-	first := int64(s.sth[0].TreeSize - count)
-	last := int64(s.sth[0].TreeSize) - 1
-	entries, err := s.client().GetEntries(ctx, first, last)
+	first := rand.Intn(int(s.sth[0].TreeSize))
+	span := s.cfg.MaxGetEntries - s.cfg.MinGetEntries
+	count := s.cfg.MinGetEntries + rand.Intn(int(span))
+	last := first + count
+	if last >= int(s.sth[0].TreeSize) {
+		last = int(s.sth[0].TreeSize) - 1
+		count = last - first + 1
+	}
+	entries, err := s.client().GetEntries(ctx, int64(first), int64(last))
 	if err != nil {
 		return fmt.Errorf("failed to get-entries(%d,%d): %v", first, last, err)
 	}
