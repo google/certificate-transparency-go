@@ -15,12 +15,12 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
-	"golang.org/x/net/context"
 )
 
 // GetRawEntries exposes the /ct/v1/get-entries result with only the JSON parsing done.
