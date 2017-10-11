@@ -507,9 +507,6 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get-entries(%d,%d): %v", first, last, err)
 	}
-	if len(entries) < int(count) {
-		return fmt.Errorf("get-entries(%d,%d) returned %d entries; want %d", first, last, len(entries), count)
-	}
 	for i, entry := range entries {
 		leaf := entry.Leaf
 		ts := leaf.TimestampedEntry
@@ -523,7 +520,7 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 			return fmt.Errorf("leaf[%d].ts.EntryType=%v; want {X509,Precert}LogEntryType", i, ts.EntryType)
 		}
 	}
-	glog.V(2).Infof("%s: Got entries [%d:%d+1]\n", s.cfg.LogCfg.Prefix, first, last)
+	glog.V(2).Infof("%s: Got entries [%d:%d)\n", s.cfg.LogCfg.Prefix, first, first+len(entries))
 	return nil
 }
 
