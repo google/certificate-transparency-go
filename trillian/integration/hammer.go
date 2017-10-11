@@ -171,6 +171,12 @@ type pendingCerts struct {
 	certs [sctCount]*submittedCert
 }
 
+func (pc *pendingCerts) empty() bool {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return pc.certs[0] == nil
+}
+
 // tryAppendCert locks mu, checks whether it's possible to append the cert, and
 // appends it if so.
 func (pc *pendingCerts) tryAppendCert(now time.Time, mmd time.Duration, submitted *submittedCert) {
@@ -245,6 +251,8 @@ type hammerState struct {
 	// keeps the same elements.  Instead, the oldest entry is removed (and a space
 	// created) when we are able to get an inclusion proof for it.
 	pending pendingCerts
+	// Operations that are required to fix dependencies.
+	nextOp []ctfe.EntrypointName
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -266,7 +274,8 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 		cfg.Limiter = unLimited{}
 	}
 	state := hammerState{
-		cfg: cfg,
+		cfg:    cfg,
+		nextOp: make([]ctfe.EntrypointName, 0),
 	}
 	return &state, nil
 }
@@ -280,6 +289,11 @@ func (s *hammerState) lastTreeSize() uint64 {
 		return 0
 	}
 	return s.sth[0].TreeSize
+}
+
+func (s *hammerState) needOps(ops ...ctfe.EntrypointName) {
+	glog.V(2).Infof("need operations %+v to satisfy dependencies", ops)
+	s.nextOp = append(s.nextOp, ops...)
 }
 
 // addMultiple calls the passed in function a random number
@@ -423,12 +437,19 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 		return fmt.Errorf("failed to get-sth for current tree: %v", err)
 	}
 	which := rand.Intn(sthCount)
-	if s.sth[which] == nil || s.sth[which].TreeSize == 0 {
+	if s.sth[which] == nil {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
+		s.needOps(ctfe.GetSTHName)
+		return errSkip{}
+	}
+	if s.sth[which].TreeSize == 0 {
+		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
+		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
 		return errSkip{}
 	}
 	if s.sth[which].TreeSize == sthNow.TreeSize {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as same size (%d)", s.cfg.LogCfg.Prefix, sthNow.TreeSize)
+		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
 		return errSkip{}
 	}
 
@@ -490,8 +511,19 @@ func (s *hammerState) getProofByHashInvalid(ctx context.Context) error {
 }
 
 func (s *hammerState) getEntries(ctx context.Context) error {
-	if s.sth[0] == nil || s.sth[0].TreeSize == 0 {
+	if s.sth[0] == nil {
 		glog.V(3).Infof("%s: skipping get-entries as no earlier STH", s.cfg.LogCfg.Prefix)
+		s.needOps(ctfe.GetSTHName)
+		return errSkip{}
+	}
+	if s.sth[0].TreeSize == 0 {
+		if s.pending.empty() {
+			glog.V(3).Infof("%s: skipping get-entries as tree size 0", s.cfg.LogCfg.Prefix)
+			s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
+			return errSkip{}
+		}
+		glog.V(3).Infof("%s: skipping get-entries as STH stale", s.cfg.LogCfg.Prefix)
+		s.needOps(ctfe.GetSTHName)
 		return errSkip{}
 	}
 	// Entry indices are zero-based.
@@ -579,11 +611,6 @@ func (s *hammerState) String() string {
 	return fmt.Sprintf("%10s: lastSTH.size=%s ops: total=%d invalid=%d errs=%v%s", s.cfg.LogCfg.Prefix, sthSize(s.sth[0]), totalReqs, totalInvalidReqs, totalErrs, details)
 }
 
-func isSkip(e error) bool {
-	_, ok := e.(errSkip)
-	return ok
-}
-
 func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
 	s.cfg.Limiter.Wait()
 	status := http.StatusOK
@@ -633,21 +660,24 @@ func (s *hammerState) performInvalidOp(ctx context.Context, ep ctfe.EntrypointNa
 	return fmt.Errorf("internal error: unknown entrypoint %s", ep)
 }
 
-func (s *hammerState) chooseOp() ctfe.EntrypointName {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.cfg.EPBias.Choose()
+func (s *hammerState) chooseOp() (ctfe.EntrypointName, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.nextOp) > 0 {
+		ep := s.nextOp[0]
+		s.nextOp = s.nextOp[1:]
+		return ep, false
+	}
+	ep := s.cfg.EPBias.Choose()
+	return ep, s.cfg.EPBias.Invalid(ep)
 }
 
-func (s *hammerState) chooseInvalid(ep ctfe.EntrypointName) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.cfg.EPBias.Invalid(ep)
-}
-
-func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
-	ep := s.chooseOp()
-	if s.chooseInvalid(ep) {
+// Perform a random operation on the log, retrying if necessary. If non-empty, the
+// returned entrypoint should be performed next to unblock dependencies.
+func (s *hammerState) retryOneOp(ctx context.Context) error {
+	ep, invalid := s.chooseOp()
+	if invalid {
 		glog.V(3).Infof("perform invalid %s operation", ep)
 		invalidReqs.Inc(s.label(), string(ep))
 		return s.performInvalidOp(ctx, ep)
@@ -657,6 +687,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 	status := http.StatusOK
 	deadline := time.Now().Add(maxRetryDuration)
 
+	var err error
 	done := false
 	for !done {
 		s.mu.Lock()
@@ -670,6 +701,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) (err error) {
 			done = true
 		case errSkip:
 			status = http.StatusFailedDependency
+			glog.V(2).Infof("operation %s was skipped", ep)
 			err = nil
 			done = true
 		default:
