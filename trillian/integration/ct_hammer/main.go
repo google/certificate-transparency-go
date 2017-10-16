@@ -50,6 +50,7 @@ var (
 	maxGetEntries     = flag.Int("max_get_entries", 500, "Maximum get-entries request size")
 	maxParallelChains = flag.Int("max_parallel_chains", 2, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
 	limit             = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
+	ignoreErrors      = flag.Bool("ignore_errors", false, "Whether to ignore errors and retry the operation")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
@@ -184,6 +185,7 @@ func main() {
 			Operations:        *operations,
 			Limiter:           newLimiter(*limit),
 			MaxParallelChains: *maxParallelChains,
+			IgnoreErrors:      *ignoreErrors,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()
