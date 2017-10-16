@@ -692,8 +692,10 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	for !done {
 		s.mu.Lock()
 
+		start := time.Now()
 		reqs.Inc(s.label(), string(ep))
 		status, err = s.performOp(ctx, ep)
+		period := time.Now().Sub(start)
 
 		switch err.(type) {
 		case nil:
@@ -707,7 +709,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		default:
 			errs.Inc(s.label(), string(ep))
 			if s.cfg.IgnoreErrors {
-				glog.Warningf("%s: op %v failed (will retry): %v", s.cfg.LogCfg.Prefix, ep, err)
+				glog.Warningf("%s: op %v failed after %v (will retry): %v", s.cfg.LogCfg.Prefix, ep, period, err)
 			} else {
 				done = true
 			}
