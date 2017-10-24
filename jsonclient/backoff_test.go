@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jsonclient
 
 import (
@@ -32,15 +46,12 @@ func TestBackoff(t *testing.T) {
 		n := time.Now()
 		interval := b.set(nil)
 		if interval != time.Second*(1<<i) {
-			t.Fatalf("backoff.set() returned an unexpected duration. wanted: %s, got: %s", time.Second*(1<<i), interval)
+			t.Fatalf("backoff.set(nil)=%v; want %v", interval, time.Second*(1<<i))
 		}
 		expected := n.Add(interval)
-		if !fuzzyTimeEquals(expected, b.notBefore, testLeeway) {
-			t.Fatalf("backoff.notBefore is not expected time. wanted: %s (+/- 10µs), got: %s", expected, b.notBefore)
-		}
 		until := b.until()
-		if !fuzzyTimeEquals(expected, until, maxJitter) {
-			t.Fatalf("backoff.until() returned an unexpected time. wanted: %s (+ 0-250ms), got: %s", until, expected)
+		if !fuzzyTimeEquals(expected, until, time.Millisecond) {
+			t.Fatalf("backoff.until()=%v; want %v (+ 0-250ms)", expected, until)
 		}
 
 		// reset notBefore
@@ -51,7 +62,7 @@ func TestBackoff(t *testing.T) {
 	b.notBefore = time.Time{}
 	nb := b.until()
 	if !nb.Equal(time.Time{}) {
-		t.Fatalf("backoff.until didn't return the exact backoff.notBefore when it was in the past: got: %s, wanted: %s", nb, b.until())
+		t.Fatalf("backoff.until=%v; want %v", b.until(), nb)
 	}
 
 	// Test that multiplier doesn't go above maxMultiplier
@@ -59,37 +70,10 @@ func TestBackoff(t *testing.T) {
 	b.notBefore = time.Time{}
 	interval := b.set(nil)
 	if b.multiplier > maxMultiplier {
-		t.Fatalf("backoff.set() increased the multiplier more than maxMultiplier. got: %d, expected: %d", b.multiplier, maxMultiplier)
+		t.Fatalf("backoff.multiplier=%v; want %v", b.multiplier, maxMultiplier)
 	}
-	if interval > time.Second*(1<<maxMultiplier) {
-		t.Fatalf("backoff.set() returned a interval larger than 128s. got: %s", interval)
-	}
-
-	// Test the override with smaller interval
-	b.multiplier = 0
-	b.notBefore = time.Now().Add(time.Hour)
-	o := time.Second * 1800
-	interval = b.set(&o)
-	if !fuzzyDurationEquals(time.Hour, interval, testLeeway) {
-		t.Fatalf("backoff.set() with override returned unexpected interval. got: %s, wanted: %s", interval, time.Hour)
-	}
-
-	// Test the override with larger interval
-	b.multiplier = 0
-	b.notBefore = time.Now().Add(time.Hour)
-	o = time.Second * 7200
-	interval = b.set(&o)
-	if !fuzzyDurationEquals(2*time.Hour, interval, testLeeway) {
-		t.Fatalf("backoff.set() with override returned unexpected interval. got: %s, wanted: %s", interval, 2*time.Hour)
-	}
-
-	// Test the override with current notBefore in the past
-	b.multiplier = 0
-	b.notBefore = time.Time{}
-	o = time.Second * 7200
-	interval = b.set(&o)
-	if !fuzzyDurationEquals(2*time.Hour, interval, testLeeway) {
-		t.Fatalf("backoff.set() with override returned unexpected interval. got: %s, wanted: %s", interval, 2*time.Hour)
+	if interval > time.Second*(1<<(maxMultiplier-1)) {
+		t.Fatalf("backoff.set(nil)=%v; want %v", interval, 1<<(maxMultiplier-1)*time.Second)
 	}
 
 	// Test decreaseMultiplier properly decreases the multiplier
@@ -97,12 +81,44 @@ func TestBackoff(t *testing.T) {
 	b.notBefore = time.Time{}
 	b.decreaseMultiplier()
 	if b.multiplier != 0 {
-		t.Fatalf("backoff.decreaseMultiplier() returned unexpected multiplier. got: %d, wanted: %d", b.multiplier, 0)
+		t.Fatalf("backoff.multiplier=%v; want %v", b.multiplier, 0)
 	}
 
 	// Test decreaseMultiplier doesn't reduce multiplier below 0
 	b.decreaseMultiplier()
 	if b.multiplier != 0 {
-		t.Fatalf("backoff.decreaseMultiplier() returned unexpected multiplier. got: %d, wanted: %d", b.multiplier, 0)
+		t.Fatalf("backoff.multiplier=%v; want %v", b.multiplier, 0)
+	}
+}
+
+func TestBackoffOverride(t *testing.T) {
+	b := backoff{}
+	for _, tc := range []struct {
+		notBefore        time.Time
+		override         time.Duration
+		expectedInterval time.Duration
+	}{
+		{
+			notBefore:        time.Now().Add(time.Hour),
+			override:         time.Second * 1800,
+			expectedInterval: time.Hour,
+		},
+		{
+			notBefore:        time.Now().Add(time.Hour),
+			override:         time.Second * 7200,
+			expectedInterval: 2 * time.Hour,
+		},
+		{
+			notBefore:        time.Time{},
+			override:         time.Second * 7200,
+			expectedInterval: 2 * time.Hour,
+		},
+	} {
+		b.multiplier = 0
+		b.notBefore = tc.notBefore
+		interval := b.set(&tc.override)
+		if !fuzzyDurationEquals(tc.expectedInterval, interval, testLeeway) {
+			t.Fatalf("backoff.set(%v)=%v; want %v", tc.override, interval, tc.expectedInterval)
+		}
 	}
 }

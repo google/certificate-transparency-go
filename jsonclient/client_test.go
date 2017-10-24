@@ -338,14 +338,53 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		errstr          string
 		expectedBackoff time.Duration // 0 indicates no expected backoff override set
 	}{
-		{"/error", TestParams{RespCode: 418}, -1, 0, 0, "teapot", 0},
-		{"/short%", nil, 0, 0, 0, "deadline exceeded", 0},
-		{"/retry", nil, -1, 0, 1, "", 0},
-		{"/retry", nil, -1, 5, 1, "", 5 * time.Second},
-		{"/retry-rfc1123", nil, -1, 5, 1, "", 5 * time.Second},
+		{
+			uri:             "/error",
+			request:         TestParams{RespCode: 418},
+			deadlineSecs:    -1,
+			retryAfter:      0,
+			failCount:       0,
+			errstr:          "teapot",
+			expectedBackoff: 0,
+		},
+		{
+			uri:             "/short%",
+			request:         nil,
+			deadlineSecs:    0,
+			retryAfter:      0,
+			failCount:       0,
+			errstr:          "deadline exceeded",
+			expectedBackoff: 0,
+		},
+		{
+			uri:             "/retry",
+			request:         nil,
+			deadlineSecs:    -1,
+			retryAfter:      0,
+			failCount:       1,
+			errstr:          "",
+			expectedBackoff: 0,
+		},
+		{
+			uri:             "/retry",
+			request:         nil,
+			deadlineSecs:    -1,
+			retryAfter:      5,
+			failCount:       1,
+			errstr:          "",
+			expectedBackoff: 5 * time.Second,
+		},
+		{
+			uri:             "/retry-rfc1123",
+			request:         nil,
+			deadlineSecs:    -1,
+			retryAfter:      5,
+			failCount:       1,
+			errstr:          "",
+			expectedBackoff: 5 * time.Second,
+		},
 	}
 	for _, test := range tests {
-		fmt.Println(test)
 		ts := MockServer(t, test.failCount, test.retryAfter)
 		defer ts.Close()
 
