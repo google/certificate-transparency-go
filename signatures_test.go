@@ -146,6 +146,7 @@ const (
 )
 
 func mustDehex(t *testing.T, h string) []byte {
+	t.Helper()
 	r, err := hex.DecodeString(h)
 	if err != nil {
 		t.Fatalf("Failed to decode hex string (%s): %v", h, err)
@@ -154,6 +155,7 @@ func mustDehex(t *testing.T, h string) []byte {
 }
 
 func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateTimestamp {
+	t.Helper()
 	var ds DigitallySigned
 	if _, err := tls.Unmarshal(mustDehex(t, sig), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
@@ -169,14 +171,17 @@ func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateT
 }
 
 func sigTestSCTEC(t *testing.T) SignedCertificateTimestamp {
+	t.Helper()
 	return sigTestSCTWithSignature(t, sigTestCertSCTSignatureEC, sigTestKeyIDEC)
 }
 
 func sigTestSCTRSA(t *testing.T) SignedCertificateTimestamp {
+	t.Helper()
 	return sigTestSCTWithSignature(t, sigTestCertSCTSignatureRSA, sigTestKeyIDEC)
 }
 
 func sigTestECPublicKey(t *testing.T) crypto.PublicKey {
+	t.Helper()
 	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKeyPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestEC256PublicKey: %v", err)
@@ -185,6 +190,7 @@ func sigTestECPublicKey(t *testing.T) crypto.PublicKey {
 }
 
 func sigTestECPublicKey2(t *testing.T) crypto.PublicKey {
+	t.Helper()
 	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestEC256PublicKey2PEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestEC256PublicKey2: %v", err)
@@ -193,6 +199,7 @@ func sigTestECPublicKey2(t *testing.T) crypto.PublicKey {
 }
 
 func sigTestRSAPublicKey(t *testing.T) crypto.PublicKey {
+	t.Helper()
 	pk, _, _, err := PublicKeyFromPEM([]byte(sigTestRSAPublicKeyPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse sigTestRSAPublicKey: %v", err)
@@ -201,6 +208,7 @@ func sigTestRSAPublicKey(t *testing.T) crypto.PublicKey {
 }
 
 func sigTestCertLogEntry(t *testing.T) LogEntry {
+	t.Helper()
 	return LogEntry{
 		Index: 0,
 		Leaf: MerkleTreeLeaf{
@@ -216,6 +224,7 @@ func sigTestCertLogEntry(t *testing.T) LogEntry {
 }
 
 func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
+	t.Helper()
 	var ds DigitallySigned
 	if _, err := tls.Unmarshal(mustDehex(t, sigTestDefaultSTHSignature), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
@@ -232,6 +241,7 @@ func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
 }
 
 func mustCreateSignatureVerifier(t *testing.T, pk crypto.PublicKey) SignatureVerifier {
+	t.Helper()
 	sv, err := NewSignatureVerifier(pk)
 	if err != nil {
 		t.Fatalf("Failed to create SignatureVerifier: %v", err)
@@ -248,6 +258,7 @@ func corruptBytes(b []byte) {
 }
 
 func expectVerifySCTToFail(t *testing.T, sv SignatureVerifier, sct SignedCertificateTimestamp, msg string) {
+	t.Helper()
 	if err := sv.VerifySCTSignature(sct, sigTestCertLogEntry(t)); err == nil {
 		t.Fatal(msg)
 	}
@@ -287,6 +298,7 @@ func TestVerifySCTSignatureFailsForUnknownHashAlgorithm(t *testing.T) {
 }
 
 func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
+	t.Helper()
 	entry := sigTestCertLogEntry(t)
 	for i := range entry.Leaf.TimestampedEntry.X509Entry.Data {
 		old := entry.Leaf.TimestampedEntry.X509Entry.Data[i]
@@ -303,6 +315,7 @@ func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCe
 }
 
 func testVerifySCTSignatureFailsForIncorrectSignature(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
+	t.Helper()
 	corruptBytes(sct.Signature.Signature)
 	expectVerifySCTToFail(t, sv, sct, "Incorrectly verified corrupt signature")
 }
@@ -352,12 +365,14 @@ func TestVerifySCTSignatureFailsForSignatureCreatedWithDifferentKey(t *testing.T
 }
 
 func expectVerifySTHToPass(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+	t.Helper()
 	if err := v.VerifySTHSignature(sth); err != nil {
 		t.Fatalf("Incorrectly failed to verify STH signature: %v", err)
 	}
 }
 
 func expectVerifySTHToFail(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+	t.Helper()
 	if err := v.VerifySTHSignature(sth); err == nil {
 		t.Fatal("Incorrectly verified STH signature")
 	}

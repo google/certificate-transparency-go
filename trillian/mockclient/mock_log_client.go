@@ -5,9 +5,9 @@
 package mockclient
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	trillian "github.com/google/trillian"
-	context "golang.org/x/net/context"
 	grpc "google.golang.org/grpc"
 	reflect "reflect"
 )

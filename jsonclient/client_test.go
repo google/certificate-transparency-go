@@ -15,6 +15,7 @@
 package jsonclient
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -27,8 +28,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/google/certificate-transparency-go/testdata"
 )
@@ -126,6 +125,7 @@ type TestParams struct {
 }
 
 func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
+	t.Helper()
 	mu := sync.Mutex{}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()

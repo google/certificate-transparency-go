@@ -145,6 +145,7 @@ func defaultExtensions() []byte {
 }
 
 func defaultCertificateSCTSignatureInput(t *testing.T) []byte {
+	t.Helper()
 	r, err := hex.DecodeString(defaultCertificateSCTSignatureInputHexString)
 	if err != nil {
 		t.Fatalf("failed to decode defaultCertificateSCTSignatureInputHexString: %v", err)
@@ -168,6 +169,7 @@ func defaultCertificateLogEntry() LogEntry {
 }
 
 func defaultPrecertSCTSignatureInput(t *testing.T) []byte {
+	t.Helper()
 	r, err := hex.DecodeString(defaultPrecertSCTSignatureInputHexString)
 	if err != nil {
 		t.Fatalf("failed to decode defaultPrecertSCTSignatureInputHexString: %v", err)

@@ -276,6 +276,7 @@ func TestNotAfterRange(t *testing.T) {
 // Builds a chain of DER-encoded certs.
 // Note: ordering is important
 func pemsToDERChain(t *testing.T, pemCerts []string) [][]byte {
+	t.Helper()
 	chain := make([][]byte, 0, len(pemCerts))
 	for _, pemCert := range pemCerts {
 		cert := pemToCert(t, pemCert)
@@ -285,6 +286,7 @@ func pemsToDERChain(t *testing.T, pemCerts []string) [][]byte {
 }
 
 func pemToCert(t *testing.T, pemData string) *x509.Certificate {
+	t.Helper()
 	bytes, rest := pem.Decode([]byte(pemData))
 	if len(rest) > 0 {
 		t.Fatalf("Extra data after PEM: %v", rest)

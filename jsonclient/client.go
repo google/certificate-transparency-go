@@ -16,6 +16,7 @@ package jsonclient
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/json"
@@ -31,7 +32,6 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
-	"golang.org/x/net/context"
 	"golang.org/x/net/context/ctxhttp"
 )
 
