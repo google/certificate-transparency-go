@@ -46,9 +46,7 @@ type backoffer interface {
 	// decreaseMultiplier reduces the current backoff multiplier, typically on success.
 	decreaseMultiplier()
 	// until returns the time until which the client should wait before making a request,
-	// it may be in the past in which case it should be ignored. It adds between 0 and
-	// maxJitter milliseconds of jitter to the returned time in order to prevent multiple
-	// requests firing at once when the current backoff interval expires.
+	// it may be in the past in which case it should be ignored.
 	until() time.Time
 }
 

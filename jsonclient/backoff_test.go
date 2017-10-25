@@ -58,13 +58,6 @@ func TestBackoff(t *testing.T) {
 		b.notBefore = time.Time{}
 	}
 
-	// Test until returns the exact time without jitter if notBefore is in the past
-	b.notBefore = time.Time{}
-	nb := b.until()
-	if !nb.Equal(time.Time{}) {
-		t.Fatalf("backoff.until=%v; want %v", b.until(), nb)
-	}
-
 	// Test that multiplier doesn't go above maxMultiplier
 	b.multiplier = maxMultiplier
 	b.notBefore = time.Time{}
