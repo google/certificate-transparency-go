@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const testLeeway = 10 * time.Microsecond
+const testLeeway = 25 * time.Microsecond
 
 func fuzzyTimeEquals(a, b time.Time, leeway time.Duration) bool {
 	diff := math.Abs(float64(a.Sub(b).Nanoseconds()))
