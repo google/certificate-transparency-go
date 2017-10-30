@@ -361,12 +361,8 @@ func TestAddChainRetries(t *testing.T) {
 	}
 	chain := []ct.ASN1Cert{{Data: certBytes}}
 
-	client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
 	const leeway = time.Millisecond * 100
-	const leewayRatio = 0.1 // 10%
+	const leewayRatio = 0.2 // 20%
 
 	tests := []struct {
 		deadlineLength        time.Duration // -1 indicates no deadline
@@ -384,7 +380,7 @@ func TestAddChainRetries(t *testing.T) {
 		},
 		{
 			deadlineLength:        -1,
-			expected:              7 * time.Second, /* 1 + 2 + 4 */
+			expected:              7 * time.Second, // 1 + 2 + 4
 			retryAfter:            -1,
 			failuresBeforeSuccess: 3,
 			success:               true,
@@ -421,6 +417,10 @@ func TestAddChainRetries(t *testing.T) {
 
 	for i, test := range tests {
 		deadline := context.Background()
+		client, err := New(hs.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
+		}
 		if test.deadlineLength >= 0 {
 			var cancel context.CancelFunc
 			deadline, cancel = context.WithDeadline(context.Background(), time.Now().Add(test.deadlineLength))
