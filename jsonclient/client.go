@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -34,6 +35,21 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
+const maxJitter = 250 * time.Millisecond
+
+type backoffer interface {
+	// set adjusts/increases the current backoff interval (typically on retryable failure);
+	// if the optional parameter is provided, this will be used as the interval if it is greater
+	// than the currently set interval.  Returns the current wait period so that it can be
+	// logged along with any error message.
+	set(*time.Duration) time.Duration
+	// decreaseMultiplier reduces the current backoff multiplier, typically on success.
+	decreaseMultiplier()
+	// until returns the time until which the client should wait before making a request,
+	// it may be in the past in which case it should be ignored.
+	until() time.Time
+}
+
 // JSONClient provides common functionality for interacting with a JSON server
 // that uses cryptographic signatures.
 type JSONClient struct {
@@ -41,6 +57,7 @@ type JSONClient struct {
 	httpClient *http.Client          // used to interact with the server via HTTP
 	Verifier   *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
 	logger     Logger                // interface to use for logging warnings and errors
+	backoff    backoffer             // object used to store and calculate backoff information
 }
 
 // Logger is a simple logging interface used to log internal errors and warnings
@@ -118,6 +135,7 @@ func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 		httpClient: hc,
 		Verifier:   verifier,
 		logger:     logger,
+		backoff:    &backoff{},
 	}, nil
 }
 
@@ -206,15 +224,20 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	return httpRsp, body, nil
 }
 
-var maxBackoffInterval = 128 * time.Second
-
-func calculateBackoff(interval time.Duration) (time.Duration, time.Duration) {
-	backoff := interval
-	interval *= 2
-	if interval > maxBackoffInterval {
-		interval = maxBackoffInterval
+// waitForBackoff blocks until the defined backoff interval or context has expired, if the returned
+// not before time is in the past it returns immediately.
+func (c *JSONClient) waitForBackoff(ctx context.Context) error {
+	dur := time.Until(c.backoff.until().Add(time.Millisecond * time.Duration(rand.Intn(int(maxJitter.Seconds()*1000)))))
+	if dur < 0 {
+		dur = 0
 	}
-	return backoff, interval
+	backoffTimer := time.NewTimer(dur)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-backoffTimer.C:
+	}
+	return nil
 }
 
 // PostAndParseWithRetry makes a HTTP POST call, but retries (with backoff) on
@@ -224,54 +247,39 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 	if ctx == nil {
 		return nil, nil, errors.New("context.Context required")
 	}
-	// Retry after 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 128s, ....
-	backoffInterval := 1 * time.Second
-	backoffSeconds := time.Duration(0)
 	for {
-		err := backoffForRetry(ctx, backoffSeconds)
-		if err != nil {
-			return nil, nil, err
-		}
-		if backoffSeconds > 0 {
-			backoffSeconds = time.Duration(0)
-		}
 		httpRsp, body, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
-			backoffSeconds, backoffInterval = calculateBackoff(backoffInterval)
-			c.logger.Printf("Request failed, backing-off for %s: %s", backoffSeconds, err)
-			continue
-		}
-		switch {
-		case httpRsp.StatusCode == http.StatusOK:
-			return httpRsp, body, nil
-		case httpRsp.StatusCode == http.StatusRequestTimeout:
-			// Request timeout, retry immediately
-			c.logger.Printf("Request timed out, retrying immediately")
-		case httpRsp.StatusCode == http.StatusServiceUnavailable:
-			// Retry
-			backoffSeconds, backoffInterval = calculateBackoff(backoffInterval)
-			// Retry-After may be either a number of seconds as a int or a RFC 1123
-			// date string (RFC 7231 Section 7.1.3)
-			if retryAfter := httpRsp.Header.Get("Retry-After"); retryAfter != "" {
-				if seconds, err := strconv.Atoi(retryAfter); err == nil {
-					backoffSeconds = time.Duration(seconds) * time.Second
-				} else if date, err := time.Parse(time.RFC1123, retryAfter); err == nil {
-					backoffSeconds = date.Sub(time.Now())
+			wait := c.backoff.set(nil)
+			c.logger.Printf("Request failed, backing-off for %s: %s", wait, err)
+		} else {
+			switch {
+			case httpRsp.StatusCode == http.StatusOK:
+				return httpRsp, body, nil
+			case httpRsp.StatusCode == http.StatusRequestTimeout:
+				// Request timeout, retry immediately
+				c.logger.Printf("Request timed out, retrying immediately")
+			case httpRsp.StatusCode == http.StatusServiceUnavailable:
+				var backoff *time.Duration
+				// Retry-After may be either a number of seconds as a int or a RFC 1123
+				// date string (RFC 7231 Section 7.1.3)
+				if retryAfter := httpRsp.Header.Get("Retry-After"); retryAfter != "" {
+					if seconds, err := strconv.Atoi(retryAfter); err == nil {
+						b := time.Duration(seconds) * time.Second
+						backoff = &b
+					} else if date, err := time.Parse(time.RFC1123, retryAfter); err == nil {
+						b := date.Sub(time.Now())
+						backoff = &b
+					}
 				}
+				wait := c.backoff.set(backoff)
+				c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", wait, httpRsp.Status)
+			default:
+				return nil, body, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 			}
-			c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", backoffSeconds, httpRsp.Status)
-		default:
-			return nil, body, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
+		}
+		if err := c.waitForBackoff(ctx); err != nil {
+			return nil, nil, err
 		}
 	}
-}
-
-func backoffForRetry(ctx context.Context, d time.Duration) error {
-	backoffTimer := time.NewTimer(d)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-backoffTimer.C:
-	}
-	return nil
 }
