@@ -18,6 +18,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/integration"
@@ -87,27 +89,37 @@ func main() {
 		glog.Exitf("Failed to read log config: %v", err)
 	}
 
-	// Retrieve the test data.
-	caChain, err := integration.GetChain(*testDir, "int-ca.cert")
-	if err != nil {
-		glog.Exitf("failed to load certificate: %v", err)
+	var caChain, leafChain []ct.ASN1Cert
+	var signer crypto.Signer
+	var leafCert, caCert *x509.Certificate
+	if *testDir != "" {
+		// Retrieve the test data.
+		caChain, err = integration.GetChain(*testDir, "int-ca.cert")
+		if err != nil {
+			glog.Exitf("failed to load certificate: %v", err)
+		}
+		leafChain, err = integration.GetChain(*testDir, "leaf01.chain")
+		if err != nil {
+			glog.Exitf("failed to load certificate: %v", err)
+		}
+		signer, err = integration.MakeSigner(*testDir)
+		if err != nil {
+			glog.Exitf("failed to retrieve signer for re-signing: %v", err)
+		}
+		leafCert, err = x509.ParseCertificate(leafChain[0].Data)
+		if err != nil {
+			glog.Exitf("failed to parse leaf certificate to build precert from: %v", err)
+		}
+		caCert, err = x509.ParseCertificate(caChain[0].Data)
+		if err != nil {
+			glog.Exitf("failed to parse issuer for precert: %v", err)
+		}
+	} else {
+		glog.Warningf("Warning: add-[pre-]chain operations disabled as no test data provided")
+		*addChainBias = 0
+		*addPreChainBias = 0
 	}
-	leafChain, err := integration.GetChain(*testDir, "leaf01.chain")
-	if err != nil {
-		glog.Exitf("failed to load certificate: %v", err)
-	}
-	signer, err := integration.MakeSigner(*testDir)
-	if err != nil {
-		glog.Exitf("failed to retrieve signer for re-signing: %v", err)
-	}
-	leafCert, err := x509.ParseCertificate(leafChain[0].Data)
-	if err != nil {
-		glog.Exitf("failed to parse leaf certificate to build precert from: %v", err)
-	}
-	caCert, err := x509.ParseCertificate(caChain[0].Data)
-	if err != nil {
-		glog.Exitf("failed to parse issuer for precert: %v", err)
-	}
+
 	bias := integration.HammerBias{
 		Bias: map[ctfe.EntrypointName]int{
 			ctfe.AddChainName:          *addChainBias,
