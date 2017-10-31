@@ -67,3 +67,14 @@ message LogConfig {
   // one of those defined in the LogBackendSet.
   string log_backend_name = 11;
 }
+
+// LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
+// that they can easily be parsed as a single proto.
+message LogMultiConfig {
+  // The set of backends that this configuration will use to send requests to.
+  // The names of the backends in the LogBackendSet must all be distinct.
+  LogBackendSet backends = 1;
+  // The set of logs that will use the above backends. All the protos in this
+  // LogConfigSet must set a valid log_backend_name for the config to be usable.
+  LogConfigSet log_configs = 2;
+}
