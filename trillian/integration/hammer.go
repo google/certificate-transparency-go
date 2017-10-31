@@ -667,7 +667,9 @@ func (s *hammerState) chooseOp() (ctfe.EntrypointName, bool) {
 	if len(s.nextOp) > 0 {
 		ep := s.nextOp[0]
 		s.nextOp = s.nextOp[1:]
-		return ep, false
+		if s.cfg.EPBias.Bias[ep] > 0 {
+			return ep, false
+		}
 	}
 	ep := s.cfg.EPBias.Choose()
 	return ep, s.cfg.EPBias.Invalid(ep)
