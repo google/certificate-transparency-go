@@ -207,14 +207,14 @@ func (m *LogConfig) GetLogBackendName() string {
 	return ""
 }
 
-// LogMultiConfig wraps up a backend set and corresponding log config set so that
-// they can be easily parsed as a single proto.
+// LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
+// that they can easily be parsed as a single proto.
 type LogMultiConfig struct {
 	// The set of backends that this configuration will use to send requests to.
-	// The names of the backends in the set must all be distinct.
+	// The names of the backends in the LogBackendSet must all be distinct.
 	Backends *LogBackendSet `protobuf:"bytes,1,opt,name=backends" json:"backends,omitempty"`
-	// The set of logs that will use the above backends. All the proto in this LogConfigSet
-	// must set log_backend_name for the config to be valid.
+	// The set of logs that will use the above backends. All the protos in this
+	// LogConfigSet must set a valid log_backend_name for the config to be usable.
 	LogConfigs *LogConfigSet `protobuf:"bytes,2,opt,name=log_configs,json=logConfigs" json:"log_configs,omitempty"`
 }
 
