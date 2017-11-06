@@ -43,6 +43,7 @@ import (
 var (
 	httpServers       = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
 	testDir           = flag.String("testdata_dir", "testdata", "Name of directory with test data")
+	leafNotAfter      = flag.String("leaf_not_after", "", "Not-After date to use for leaf certs, RFC3339/ISO-8601 format (e.g. 2017-11-26T12:29:19Z)")
 	metricsEndpoint   = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
 	seed              = flag.Int64("seed", -1, "Seed for random number generation")
 	logConfig         = flag.String("log_config", "", "File holding log config in JSON")
@@ -113,6 +114,14 @@ func main() {
 		caCert, err = x509.ParseCertificate(caChain[0].Data)
 		if err != nil {
 			glog.Exitf("failed to parse issuer for precert: %v", err)
+		}
+		if *leafNotAfter != "" {
+			notAfter, err := time.Parse(time.RFC3339, *leafNotAfter)
+			if err != nil {
+				glog.Exitf("Failed to parse leaf notAfter: %v", err)
+			}
+			glog.Infof("Using %v as notAfter date for generated leaf certificates", notAfter)
+			leafCert.NotAfter = notAfter
 		}
 	} else {
 		glog.Warningf("Warning: add-[pre-]chain operations disabled as no test data provided")
