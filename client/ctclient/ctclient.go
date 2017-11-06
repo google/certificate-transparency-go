@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -29,6 +30,8 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/merkletree"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 )
@@ -104,10 +107,19 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Calculate the leaf hash
+	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
+	leafData, err := tls.Marshal(*leafEntry)
+	if err != nil {
+		log.Fatalf("Failed to tls.Marshal leaf: %v", err)
+	}
+	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+
 	// Display the SCT
 	when := ctTimestampToTime(sct.Timestamp)
 	fmt.Printf("%v: Uploaded chain of %d certs to %v log at %v\n", when, len(chain), sct.SCTVersion, *logURI)
-	fmt.Printf("%v\n", signatureToString(&sct.Signature))
+	fmt.Printf("LeafHash: %x\n", leafHash)
+	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
 }
 
 func getRoots(ctx context.Context, logClient *client.LogClient) {
