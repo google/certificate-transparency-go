@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -257,6 +257,136 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		}
 		if got, want := gotOpts.acceptOnlyCA, test.cfg.AcceptOnlyCa; got != want {
 			t.Errorf("%v: handler acceptOnlyCA %v, want %v", test.desc, got, want)
+		}
+	}
+}
+
+func TestValidateLogMultiConfig(t *testing.T) {
+	var tests = []struct {
+		desc   string
+		cfg    configpb.LogMultiConfig
+		errStr string
+	}{
+		{
+			desc:   "missing backend name",
+			errStr: "empty name",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{BackendSpec: "testspec"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{},
+				},
+			},
+		},
+		{
+			desc:   "missing backend spec",
+			errStr: "empty backend",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{},
+				},
+			},
+		},
+		{
+			desc:   "missing name and spec spec",
+			errStr: "empty name",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{},
+				},
+			},
+		},
+		{
+			desc:   "dup backend name",
+			errStr: "duplicate backend",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "dup", BackendSpec: "testspec"},
+						{Name: "dup", BackendSpec: "testspec"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{},
+				},
+			},
+		},
+		{
+			desc:   "missing backend reference",
+			errStr: "empty backend",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log2"},
+					},
+				},
+			},
+		},
+		{
+			desc:   "undefined backend reference",
+			errStr: "undefined backend",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log2"},
+					},
+				},
+			},
+		},
+		{
+			desc: "valid config",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+						{Name: "log2", BackendSpec: "testspec2"},
+						{Name: "log3", BackendSpec: "testspec3"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log1"},
+						{LogBackendName: "log2"},
+						{LogBackendName: "log3"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		_, err := ValidateLogMultiConfig(&test.cfg)
+
+		if len(test.errStr) == 0 && err != nil {
+			t.Errorf("ValidateLogMultiConfig()=%v, want: nil (%v)", err, test.desc)
+			continue
+		}
+
+		if len(test.errStr) > 0 && (err == nil || !strings.Contains(err.Error(), test.errStr)) {
+			t.Errorf("ValidateLogMultiConfig()=%v, want: %v (%v)", err, test.errStr, test.desc)
 		}
 	}
 }
