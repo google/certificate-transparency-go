@@ -145,3 +145,35 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	handlers := logCtx.Handlers(cfg.Prefix)
 	return &handlers, nil
 }
+
+// ValidateLogMultiConfig checks that a config is valid for use with multiple
+// backend log servers. The backend set must define a set of log backends
+// with distinct (non empty) names and non empty backend specs. The log configs
+// must all specify a log backend and each must be one of those defined in
+// the backend set. On success returns a map from backend name to its backend
+// config proto.
+func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
+	// Check the backends have unique non empty names and build the map.
+	backendMap := make(map[string]*configpb.LogBackend)
+	for _, backend := range cfg.Backends.Backend {
+		if len(backend.Name) == 0 {
+			return nil, fmt.Errorf("empty name for backend: %v", backend)
+		}
+		if len(backend.BackendSpec) == 0 {
+			return nil, fmt.Errorf("empty backend_spec for backend: %v", backend)
+		}
+		if _, ok := backendMap[backend.Name]; ok {
+			return nil, fmt.Errorf("duplicate backend name: %v", backend)
+		}
+		backendMap[backend.Name] = backend
+	}
+
+	// Check that logs all reference a defined backend.
+	for _, logCfg := range cfg.LogConfigs.Config {
+		if _, ok := backendMap[logCfg.LogBackendName]; !ok {
+			return nil, fmt.Errorf("log config: references undefined backend: %v", logCfg)
+		}
+	}
+
+	return backendMap, nil
+}
