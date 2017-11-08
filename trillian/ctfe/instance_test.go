@@ -381,12 +381,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		_, err := ValidateLogMultiConfig(&test.cfg)
 
 		if len(test.errStr) == 0 && err != nil {
-			t.Errorf("TestValidateLogMultiConfig: got: err=%v, want: nil (%v)", err, test.desc)
+			t.Errorf("ValidateLogMultiConfig()=%v, want: nil (%v)", err, test.desc)
 			continue
 		}
 
 		if len(test.errStr) > 0 && (err == nil || !strings.Contains(err.Error(), test.errStr)) {
-			t.Errorf("TestValidateLogMultiConfig: got: err=%v, want: %v (%v)", err, test.errStr, test.desc)
+			t.Errorf("ValidateLogMultiConfig()=%v, want: %v (%v)", err, test.errStr, test.desc)
 		}
 	}
 }

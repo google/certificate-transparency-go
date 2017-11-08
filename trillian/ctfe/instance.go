@@ -171,7 +171,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 	// Check that logs all reference a defined backend.
 	for _, logCfg := range cfg.LogConfigs.Config {
 		if _, ok := backendMap[logCfg.LogBackendName]; !ok {
-			return nil, fmt.Errorf("log config: references undefined backend: %v", logCfg)
+			return nil, fmt.Errorf("log config: references undefined backend: %s: %v", logCfg.LogBackendName, logCfg)
 		}
 	}
 
