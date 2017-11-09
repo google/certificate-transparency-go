@@ -81,11 +81,11 @@ func OidFromNamedCurve(curve elliptic.Curve) asn1.ObjectIdentifier {
 
 // OID values for X.509 extensions.
 var (
-	OidExtensionArc                        = asn1.ObjectIdentifier{2, 5, 29} // id-ce RFC5280 s4.2.1
-	OidExtensionSubjectKeyId               = asn1.ObjectIdentifier{2, 5, 29, 14}
+	OidExtensionArc                        = asn1.ObjectIdentifier{2, 5, 29}     // id-ce RFC5280 s4.2.1
+	OidExtensionSubjectKeyId               = asn1.ObjectIdentifier{2, 5, 29, 14} // nolint: golint
 	OidExtensionKeyUsage                   = asn1.ObjectIdentifier{2, 5, 29, 15}
 	OidExtensionExtendedKeyUsage           = asn1.ObjectIdentifier{2, 5, 29, 37}
-	OidExtensionAuthorityKeyId             = asn1.ObjectIdentifier{2, 5, 29, 35}
+	OidExtensionAuthorityKeyId             = asn1.ObjectIdentifier{2, 5, 29, 35} // nolint:golint
 	OidExtensionBasicConstraints           = asn1.ObjectIdentifier{2, 5, 29, 19}
 	OidExtensionSubjectAltName             = asn1.ObjectIdentifier{2, 5, 29, 17}
 	OidExtensionCertificatePolicies        = asn1.ObjectIdentifier{2, 5, 29, 32}

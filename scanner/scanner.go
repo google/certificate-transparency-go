@@ -30,7 +30,7 @@ import (
 )
 
 // ScannerOptions holds configuration options for the Scanner
-type ScannerOptions struct {
+type ScannerOptions struct { // nolint:golint
 	// Custom matcher for x509 Certificates, functor will be called for each
 	// Certificate found during scanning.
 	Matcher Matcher

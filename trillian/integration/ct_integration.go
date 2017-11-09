@@ -237,6 +237,7 @@ func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tb
 // RunCTIntegrationForLog tests against the log with configuration cfg, with a set
 // of comma-separated server addresses given by servers, assuming that testdir holds
 // a variety of test data files.
+// nolint: gocyclo
 func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, testdir string, mmd time.Duration, stats *logStats) error {
 	ctx := context.Background()
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
