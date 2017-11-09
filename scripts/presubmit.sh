@@ -1,57 +1,48 @@
 #!/bin/bash
 #
-# Presubmit checks.
+# Presubmit checks for certificate-transparency-go.
+#
 # Checks for lint errors, spelling, licensing, correct builds / tests and so on.
 # Flags may be specified to allow suppressing of checks or automatic fixes, try
 # `scripts/presubmit.sh --help` for details.
+#
+# Globals:
+#   GO_TEST_PARALLELISM: max processes to use for Go tests. Optional (defaults
+#       to 10).
+#   GO_TEST_TIMEOUT: timeout for 'go test'. Optional (defaults to 5m).
 set -eu
 
-check_deps() {
-  local failed=0
-  check_cmd golint github.com/golang/lint/golint || failed=10
-  check_cmd misspell github.com/client9/misspell/cmd/misspell || failed=11
-  check_cmd gocyclo github.com/fzipp/gocyclo || failed=12
-  return $failed
+
+check_pkg() {
+  local cmd="$1"
+  local pkg="$2"
+  check_cmd "$cmd" "try running 'go get -u $pkg'"
 }
 
 check_cmd() {
   local cmd="$1"
-  local repo="$2"
+  local msg="$2"
   if ! type -p "${cmd}" > /dev/null; then
-    echo "${cmd} not found, try to 'go get -u ${repo}'"
+    echo "${cmd} not found, ${msg}"
     return 1
   fi
 }
 
-run_linter() {
-  local cmd="$1"
-  local srcs="$2"
-  local exceptions="${3:-noexceptions}"
-
-  declare -a results
-  mapfile -t results < <(printf '%s\n' ${srcs} | xargs -I'{}' bash -c "${cmd} {}" 2>&1 | egrep -v "${exceptions}")
-  if [ ${#results[@]} -eq 0 ]; then
-    return
-  fi
-  for result in "${results[@]}"; do
-    echo "${result}"
-  done
-  return 1
-}
-
 usage() {
-  echo "$0 [--fix] [--no-build] [--no-linters]"
+  echo "$0 [--coverage] [--fix] [--no-build] [--no-linters] [--no-generate]"
 }
 
 main() {
-  check_deps
-
+  local coverage=0
   local fix=0
   local run_build=1
-  local run_linters=1
+  local run_lint=1
   local run_generate=1
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      --coverage)
+        coverage=1
+        ;;
       --fix)
         fix=1
         ;;
@@ -63,7 +54,7 @@ main() {
         run_build=0
         ;;
       --no-linters)
-        run_linters=0
+        run_lint=0
         ;;
       --no-generate)
         run_generate=0
@@ -76,21 +67,19 @@ main() {
     shift 1
   done
 
-  local go_dirs="$(go list ./... | \
-    grep -v /vendor/)"
-  local go_srcs="$(find . -name '*.go' | \
-    grep -v mock_ | \
-    grep -v x509/ | \
-    grep -v asn1/ | \
-    grep -v vendor/ | \
-    grep -v .pb.go | \
-    tr '\n' ' ')"
-  local proto_srcs="$(find . -name '*.proto' | \
-    grep -v vendor/ | \
-    tr '\n' ' ')"
+  cd "$(dirname "$0")"  # at scripts/
+  cd ..  # at top level
 
   if [[ "$fix" -eq 1 ]]; then
-    check_cmd goimports golang.org/x/tools/cmd/goimports
+    check_pkg goimports golang.org/x/tools/cmd/goimports || exit 1
+
+    local go_srcs="$(find . -name '*.go' | \
+      grep -v vendor/ | \
+      grep -v mock_ | \
+      grep -v .pb.go | \
+      grep -v x509/ | \
+      grep -v asn1/ | \
+      tr '\n' ' ')"
 
     echo 'running gofmt'
     gofmt -s -w ${go_srcs}
@@ -105,45 +94,60 @@ main() {
     fi
 
     echo 'running go build'
-    go build ${go_dirs}
+    go build ${goflags} ./...
 
     echo 'running go test'
-    echo "" > coverage.txt
-    for d in ${go_dirs}; do
-      go test -timeout=5m -short -coverprofile=profile.out -covermode=atomic ${goflags} $d
-      if [ -f profile.out ]; then
-        cat profile.out >> coverage.txt
-        rm profile.out
+
+    # Individual package profiles are written to "$profile.out" files under
+    # /tmp/ct_profile.
+    # An aggregate profile is created at /tmp/coverage.txt.
+    mkdir -p /tmp/ct_profile
+    rm -f /tmp/ct_profile/*
+
+    for d in $(go list ./...); do
+      # Create a different -coverprofile for each test (if enabled)
+      local coverflags=
+      if [[ ${coverage} -eq 1 ]]; then
+        # Transform $d to a smaller, valid file name.
+        # For example:
+        # * github.com/google/certificate-transparency-go becomes c-t-go.out
+        # * github.com/google/certificate-transparency-go/cmd/createtree/keys becomes
+        #   c-t-go-cmd-createtree-keys.out
+        local profile="${d}.out"
+        profile="${profile#github.com/*/}"
+        profile="${profile//\//-}"
+        profile="${profile/certificate-transparency-go/c-t-go}"
+        coverflags="-covermode=atomic -coverprofile='/tmp/ct_profile/${profile}'"
       fi
-    done
-    cp coverage.txt /tmp
+
+      # Do not run go test in the loop, instead echo it so we can use xargs to
+      # add some parallelism.
+      echo go test \
+          -short \
+          -timeout=${GO_TEST_TIMEOUT:-5m} \
+          ${coverflags} \
+          ${goflags} "$d"
+    done | xargs -I '{}' -P ${GO_TEST_PARALLELISM:-10} bash -c '{}'
+
+    [[ ${coverage} -eq 1 ]] && \
+      cat /tmp/ct_profile/*.out > /tmp/coverage.txt
   fi
 
-  if [[ "${run_linters}" -eq 1 ]]; then
-    echo 'running golint'
-    run_linter "golint" "${go_srcs}" "ct.CTExtensions|OidExtensionSubjectKeyId|OidExtensionAuthorityKeyId|merkletree.MerkleTreeInterface|scanner.ScannerOptions"
+  if [[ "${run_lint}" -eq 1 ]]; then
+    check_cmd gometalinter \
+      'have you installed github.com/alecthomas/gometalinter?' || exit 1
 
-    echo 'running go vet'
-    run_linter "go vet" "${go_srcs}"
-
-    echo 'running gocyclo'
-    run_linter "gocyclo -over 40" "${go_srcs}" "RunCTIntegrationForLog"
-
-    echo 'running misspell'
-    run_linter "misspell -error -i cancelled,CANCELLED -locale US" "${go_srcs}"
-
-    echo 'checking license header'
-    local nolicense="$(grep -L 'Apache License' ${go_srcs} ${proto_srcs})"
-    if [[ "${nolicense}" ]]; then
-      echo "Missing license header in: ${nolicense}"
-      exit 2
-    fi
+    echo 'running gometalinter'
+    gometalinter --config=gometalinter.json ./...
   fi
 
   if [[ "${run_generate}" -eq 1 ]]; then
+    check_cmd protoc 'have you installed protoc?'
+    check_pkg mockgen github.com/golang/mock/mockgen || exit 1
+
     echo 'running go generate'
-    go generate -run="mockgen" ${go_dirs}
-    go generate -run="protoc" ${go_dirs}
+    go generate -run="protoc" ./...
+    go generate -run="mockgen" ./...
   fi
 }
 
