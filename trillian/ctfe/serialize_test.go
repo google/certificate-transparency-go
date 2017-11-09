@@ -19,7 +19,6 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
@@ -29,9 +28,6 @@ import (
 )
 
 func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
 	cert, err := x509util.CertificateFromPEM(testonly.LeafSignedByFakeIntermediateCertPEM)
 	if err != nil {
 		t.Fatalf("failed to set up test cert: %v", err)
@@ -87,9 +83,6 @@ func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
 }
 
 func TestSignV1SCTForPrecertificate(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
 	cert, err := x509util.CertificateFromPEM(testonly.PrecertPEMValid)
 	_, ok := err.(x509.NonFatalErrors)
 
@@ -128,9 +121,6 @@ func TestSignV1SCTForPrecertificate(t *testing.T) {
 	}
 
 	// Additional checks that the MerkleTreeLeaf we built is correct
-	keyHash := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
-
-	// Additional checks that the MerkleTreeLeaf we built is correct
 	if got, want := leaf.Version, ct.V1; got != want {
 		t.Fatalf("Got a %v leaf, expected a %v leaf", got, want)
 	}
@@ -143,6 +133,7 @@ func TestSignV1SCTForPrecertificate(t *testing.T) {
 	if got, want := got.Timestamp, leaf.TimestampedEntry.Timestamp; got != want {
 		t.Fatalf("Entry / sct timestamp mismatch; got %v, expected %v", got, want)
 	}
+	keyHash := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 	if got, want := keyHash[:], leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash[:]; !bytes.Equal(got, want) {
 		t.Fatalf("Issuer key hash bytes mismatch, got %v, expected %v", got, want)
 	}
@@ -150,4 +141,36 @@ func TestSignV1SCTForPrecertificate(t *testing.T) {
 	if got, want := leaf.TimestampedEntry.PrecertEntry.TBSCertificate, defangedTBS; !bytes.Equal(got, want) {
 		t.Fatalf("TBS cert mismatch, got %v, expected %v", got, want)
 	}
+}
+
+func TestSignV1TreeHead(t *testing.T) {
+	signer, err := setupSigner(fakeSignature)
+	if err != nil {
+		t.Fatalf("could not create signer: %v", err)
+	}
+
+	sth := ct.SignedTreeHead{
+		Version:   ct.V1,
+		TreeSize:  10,
+		Timestamp: 1512993312000,
+	}
+	if err := signV1TreeHead(signer, &sth); err != nil {
+		t.Errorf("signV1TreeHead()=%v; want nil", err)
+	}
+	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, fakeSignature); diff != "" {
+		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+	}
+
+	// Signing the same contents should get the same cached signature regardless.
+	signer, err = setupSigner([]byte("different sig"))
+	if err != nil {
+		t.Fatalf("could not create signer: %v", err)
+	}
+	if err := signV1TreeHead(signer, &sth); err != nil {
+		t.Errorf("signV1TreeHead()=%v; want nil", err)
+	}
+	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, fakeSignature); diff != "" {
+		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+	}
+
 }

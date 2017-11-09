@@ -15,12 +15,39 @@
 package ctfe
 
 import (
+	"bytes"
 	"fmt"
+	"sync"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/crypto"
 )
+
+// Cache the last signature generated for an STH, to reduce re-signing and slightly
+// reduce the chances of being able to fingerprint get-sth users by their STH signature
+// value.
+var (
+	lastSTHMu        sync.RWMutex
+	lastSTHBytes     []byte
+	lastSTHSignature ct.DigitallySigned
+)
+
+func setLastSTHSignature(sthBytes []byte, sig ct.DigitallySigned) {
+	lastSTHMu.Lock()
+	defer lastSTHMu.Unlock()
+	lastSTHBytes = sthBytes
+	lastSTHSignature = sig
+}
+
+func getLastSTHSignature(sthBytes []byte) (ct.DigitallySigned, bool) {
+	lastSTHMu.RLock()
+	defer lastSTHMu.RUnlock()
+	if !bytes.Equal(sthBytes, lastSTHBytes) {
+		return ct.DigitallySigned{}, false
+	}
+	return lastSTHSignature, true
+}
 
 // signV1TreeHead signs a tree head for CT. The input STH should have been built from a
 // backend response and already checked for validity.
@@ -28,6 +55,10 @@ func signV1TreeHead(signer *crypto.Signer, sth *ct.SignedTreeHead) error {
 	sthBytes, err := ct.SerializeSTHSignatureInput(*sth)
 	if err != nil {
 		return err
+	}
+	if sig, ok := getLastSTHSignature(sthBytes); ok {
+		sth.TreeHeadSignature = sig
+		return nil
 	}
 
 	signature, err := signer.Sign(sthBytes)
@@ -43,6 +74,7 @@ func signV1TreeHead(signer *crypto.Signer, sth *ct.SignedTreeHead) error {
 		},
 		Signature: signature.Signature,
 	}
+	setLastSTHSignature(sthBytes, sth.TreeHeadSignature)
 	return nil
 }
 
