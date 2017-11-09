@@ -737,7 +737,7 @@ func HammerCTLog(cfg HammerConfig) error {
 	ticker := time.NewTicker(cfg.EmitInterval)
 
 	go func(c <-chan time.Time) {
-		for _ = range c {
+		for range c {
 			glog.Info(s.String())
 		}
 	}(ticker.C)

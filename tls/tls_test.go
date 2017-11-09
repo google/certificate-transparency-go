@@ -196,16 +196,16 @@ func TestUnmarshalMarshalWithParamsRoundTrip(t *testing.T) {
 		{"080001020101020304", "",
 			&testSliceOfStructs{
 				Vals: []testVariant{
-					testVariant{Which: 0, Val16: newUint16(0x0102)},
-					testVariant{Which: 1, Val32: newUint32(0x01020304)},
+					{Which: 0, Val16: newUint16(0x0102)},
+					{Which: 1, Val32: newUint32(0x01020304)},
 				},
 			},
 		},
 		{"000a00030102030003040506", "",
 			&testSliceOfSlices{
 				Inners: []testInnerType{
-					testInnerType{Val: []byte{1, 2, 3}},
-					testInnerType{Val: []byte{4, 5, 6}},
+					{Val: []byte{1, 2, 3}},
+					{Val: []byte{4, 5, 6}},
 				},
 			},
 		},
@@ -342,7 +342,7 @@ func TestMarshalWithParamsFailures(t *testing.T) {
 		{testChoiceNotPointer{Which: 0, Val: 7}, "", "choice field not a pointer"},
 		{testDuplicateSelectorVal{Which: 0, Val: newUint16(1)}, "", "duplicate selector value"},
 		{testNonByteSlice{Vals: []uint16{1, 2, 3, 4}}, "", "too large"},
-		{testSliceOfStructs{[]testVariant{testVariant{Which: 3}}}, "", "unhandled value for selector"},
+		{testSliceOfStructs{[]testVariant{{Which: 3}}}, "", "unhandled value for selector"},
 		{nonEnumAlias(0x0102), "", "unsupported type"},
 	}
 	for _, test := range tests {
