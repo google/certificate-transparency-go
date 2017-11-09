@@ -49,6 +49,7 @@ install:
 
 script:
   - set -e
+  - export TRILLIAN_SQL_DRIVER=mysql
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PRESUBMIT_OPTS=--no-linters; fi
   - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
