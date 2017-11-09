@@ -28,6 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/google/trillian/storage/testdb"
 
 	// Register PEMKeyFile and PrivateKey ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -83,6 +84,10 @@ const (
 )
 
 func TestInProcessCTIntegration(t *testing.T) {
+	if provider := testdb.Default(); !provider.IsMySQL() {
+		t.Skipf("Skipping CT integration test, SQL driver is %q", provider.Driver)
+	}
+
 	pubKeyDER, err := loadPublicKey(pubKeyPEMFile)
 	if err != nil {
 		t.Fatalf("Could not load public key: %v", err)
