@@ -35,7 +35,7 @@ import (
 // LogConfigFromFile creates a slice of LogConfig options from the given
 // filename, which should contain text-protobuf encoded configuration data.
 func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
-	cfgText, err := readConfig(filename)
+	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
 // filename, which should contain text-protobuf encoded configuration data.
 // Does not do full validation of the config but checks that it is non empty.
 func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
-	cfgText, err := readConfig(filename)
+	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -69,19 +69,6 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 		return nil, errors.New("config is missing backends and/or log configs")
 	}
 	return &cfg, nil
-}
-
-func readConfig(f string) ([]byte, error) {
-	if len(f) == 0 {
-		return nil, errors.New("log config filename empty")
-	}
-
-	cfgText, err := ioutil.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read log config: %v", err)
-	}
-
-	return cfgText, nil
 }
 
 var stringToKeyUsage = map[string]x509.ExtKeyUsage{
@@ -179,8 +166,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 // backend log servers. The backend set must define a set of log backends
 // with distinct (non empty) names and non empty backend specs. The log configs
 // must all specify a log backend and each must be one of those defined in
-// the backend set. On success returns a map from backend name to its backend
-// config proto.
+// the backend set.
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)
@@ -210,21 +196,13 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 // ToMultiLogConfig creates a multi backend config proto from the data
 // loaded from a single backend configuration file. All the log configs
 // reference a default backend spec as provided.
-func ToMultiLogConfig(cfg []*configpb.LogConfig, beSpec string) (*configpb.LogMultiConfig, map[string]*configpb.LogBackend) {
-	defaultName := "default"
-	mCfg := new(configpb.LogMultiConfig)
-	mCfg.LogConfigs = new(configpb.LogConfigSet)
-	mCfg.LogConfigs.Config = cfg
-	defaultBackend := new(configpb.LogBackend)
-	defaultBackend.Name = defaultName
-	defaultBackend.BackendSpec = beSpec
-	mCfg.Backends = new(configpb.LogBackendSet)
-	mCfg.Backends.Backend = []*configpb.LogBackend{defaultBackend}
+func ToMultiLogConfig(cfg []*configpb.LogConfig, beSpec string) *configpb.LogMultiConfig {
+	defaultBackend := &configpb.LogBackend{Name: "default", BackendSpec: beSpec}
 	for _, c := range cfg {
-		c.LogBackendName = defaultName
+		c.LogBackendName = defaultBackend.Name
 	}
-	beMap := make(map[string]*configpb.LogBackend)
-	beMap[defaultName] = defaultBackend
-
-	return mCfg, beMap
+	return &configpb.LogMultiConfig{
+		LogConfigs: &configpb.LogConfigSet{Config: cfg},
+		Backends:   &configpb.LogBackendSet{Backend: []*configpb.LogBackend{defaultBackend}},
+	}
 }

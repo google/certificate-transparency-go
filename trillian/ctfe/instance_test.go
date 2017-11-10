@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -435,14 +435,10 @@ func TestToMultiLogConfig(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got, beMap := ToMultiLogConfig(test.cfg, "spec")
+		got := ToMultiLogConfig(test.cfg, "spec")
 
 		if !proto.Equal(got, test.want) {
 			t.Errorf("TestToMultiLogConfig() got: %v, want: %v (%v)", got, test.want, test.desc)
-		}
-		// Should always produce a 1 element size backend map
-		if got, want := len(beMap), 1; got != want {
-			t.Errorf("TestToMultiLogConfig() backend map size got: %v, want: %v (%v)", got, want, test.desc)
 		}
 	}
 }

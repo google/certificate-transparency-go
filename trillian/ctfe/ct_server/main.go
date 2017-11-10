@@ -47,10 +47,10 @@ import (
 var (
 	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
-	rpcBackend         = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
+	rpcBackend         = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
 	rpcDeadline        = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	logConfig          = flag.String("log_config", "", "File holding log config in JSON")
+	logConfig          = flag.String("log_config", "", "File holding log config in text proto format")
 	maxGetEntries      = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
@@ -66,18 +66,22 @@ func main() {
 	}
 
 	var cfg *configpb.LogMultiConfig
-	var beMap map[string]*configpb.LogBackend
 	var err error
 	// Get log config from file before we start. This is a different proto
 	// type if we're using a multi backend configuration (no rpcBackend set
-	// in flags). The single backend config is converted to a multi config so
+	// in flags). The single-backend config is converted to a multi config so
 	// they can be treated the same.
 	if len(*rpcBackend) > 0 {
-		cfg, beMap, err = readCfg(*logConfig, *rpcBackend)
+		cfg, err = readCfg(*logConfig, *rpcBackend)
 	} else {
-		cfg, beMap, err = readMultiCfg(*logConfig)
+		cfg, err = readMultiCfg(*logConfig)
 	}
 
+	if err != nil {
+		glog.Exitf("Failed to read config: %v", err)
+	}
+
+	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
 	if err != nil {
 		glog.Exitf("Invalid config: %v", err)
 	}
@@ -122,24 +126,24 @@ func main() {
 		res = util.FixedBackendResolver{}
 	}
 
-	// Dial all our log backends. If there's only one of them we use the
-	// blocking option as we can't serve until connected.
+	// Dial all our log backends.
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for _, be := range beMap {
 		glog.Infof("Dialling backend: %v", be)
 		var conn *grpc.ClientConn
 		bal := grpc.RoundRobin(res)
+		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancer(bal)}
 		if len(beMap) == 1 {
-			conn, err = grpc.Dial(be.BackendSpec, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
-		} else {
-			conn, err = grpc.Dial(be.BackendSpec, grpc.WithInsecure(), grpc.WithBalancer(bal))
+			// If there's only one of them we use the blocking option as we can't
+			// serve anything until connected.
+			opts = append(opts, grpc.WithBlock())
 		}
+		conn, err := grpc.Dial(be.BackendSpec, opts...)
 		if err != nil {
 			glog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
 		defer conn.Close()
-		client := trillian.NewTrillianLogClient(conn)
-		clientMap[be.Name] = client
+		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
 	}
 
 	// Register handlers for all the configured logs using the correct RPC
@@ -218,25 +222,20 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	return nil
 }
 
-func readMultiCfg(filename string) (*configpb.LogMultiConfig, map[string]*configpb.LogBackend, error) {
+func readMultiCfg(filename string) (*configpb.LogMultiConfig, error) {
 	cfg, err := ctfe.MultiLogConfigFromFile(filename)
 	if err != nil {
-		return nil, nil, err
-	}
-	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
-	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return cfg, beMap, nil
+	return cfg, nil
 }
 
-func readCfg(filename string, backendSpec string) (*configpb.LogMultiConfig, map[string]*configpb.LogBackend, error) {
+func readCfg(filename string, backendSpec string) (*configpb.LogMultiConfig, error) {
 	cfg, err := ctfe.LogConfigFromFile(filename)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	mCfg, beMap := ctfe.ToMultiLogConfig(cfg, backendSpec)
-	return mCfg, beMap, nil
+	return ctfe.ToMultiLogConfig(cfg, backendSpec), nil
 }
