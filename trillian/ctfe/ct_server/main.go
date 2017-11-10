@@ -130,7 +130,6 @@ func main() {
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for _, be := range beMap {
 		glog.Infof("Dialling backend: %v", be)
-		var conn *grpc.ClientConn
 		bal := grpc.RoundRobin(res)
 		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancer(bal)}
 		if len(beMap) == 1 {

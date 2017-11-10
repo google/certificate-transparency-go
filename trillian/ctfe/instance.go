@@ -194,7 +194,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 }
 
 // ToMultiLogConfig creates a multi backend config proto from the data
-// loaded from a single backend configuration file. All the log configs
+// loaded from a single-backend configuration file. All the log configs
 // reference a default backend spec as provided.
 func ToMultiLogConfig(cfg []*configpb.LogConfig, beSpec string) *configpb.LogMultiConfig {
 	defaultBackend := &configpb.LogBackend{Name: "default", BackendSpec: beSpec}
