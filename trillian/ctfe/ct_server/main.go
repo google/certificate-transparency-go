@@ -47,10 +47,10 @@ import (
 var (
 	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:6963", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
-	rpcBackend         = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified)")
+	rpcBackend         = flag.String("log_rpc_server", "localhost:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
 	rpcDeadline        = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	logConfig          = flag.String("log_config", "", "File holding log config in JSON")
+	logConfig          = flag.String("log_config", "", "File holding log config in text proto format")
 	maxGetEntries      = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
@@ -65,10 +65,25 @@ func main() {
 		ctfe.MaxGetEntriesAllowed = *maxGetEntries
 	}
 
-	// Get log config from file before we start.
-	cfg, err := ctfe.LogConfigFromFile(*logConfig)
+	var cfg *configpb.LogMultiConfig
+	var err error
+	// Get log config from file before we start. This is a different proto
+	// type if we're using a multi backend configuration (no rpcBackend set
+	// in flags). The single-backend config is converted to a multi config so
+	// they can be treated the same.
+	if len(*rpcBackend) > 0 {
+		cfg, err = readCfg(*logConfig, *rpcBackend)
+	} else {
+		cfg, err = readMultiCfg(*logConfig)
+	}
+
 	if err != nil {
-		glog.Exitf("Failed to read log config: %v", err)
+		glog.Exitf("Failed to read config: %v", err)
+	}
+
+	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
+	if err != nil {
+		glog.Exitf("Invalid config: %v", err)
 	}
 
 	glog.CopyStandardLogTo("WARNING")
@@ -79,9 +94,6 @@ func main() {
 		metricsAt = *httpEndpoint
 	}
 
-	// TODO(Martin2112): Support TLS and other stuff for RPC client and http server, this is just to
-	// get started. Uses a blocking connection so we don't start serving before we're connected
-	// to backend.
 	var res naming.Resolver
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
@@ -113,23 +125,35 @@ func main() {
 		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
 		res = util.FixedBackendResolver{}
 	}
-	bal := grpc.RoundRobin(res)
-	conn, err := grpc.Dial(*rpcBackend, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithBalancer(bal))
-	if err != nil {
-		glog.Exitf("Could not connect to rpc server: %v", err)
-	}
-	defer conn.Close()
-	client := trillian.NewTrillianLogClient(conn)
 
-	for _, c := range cfg {
-		handlers, err := ctfe.SetUpInstance(ctx, client, c, *rpcDeadline, prometheus.MetricFactory{})
+	// Dial all our log backends.
+	clientMap := make(map[string]trillian.TrillianLogClient)
+	for _, be := range beMap {
+		glog.Infof("Dialling backend: %v", be)
+		bal := grpc.RoundRobin(res)
+		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancer(bal)}
+		if len(beMap) == 1 {
+			// If there's only one of them we use the blocking option as we can't
+			// serve anything until connected.
+			opts = append(opts, grpc.WithBlock())
+		}
+		conn, err := grpc.Dial(be.BackendSpec, opts...)
+		if err != nil {
+			glog.Exitf("Could not dial RPC server: %v: %v", be, err)
+		}
+		defer conn.Close()
+		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
+	}
+
+	// Register handlers for all the configured logs using the correct RPC
+	// client.
+	for _, c := range cfg.LogConfigs.Config {
+		setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c)
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
-		for path, handler := range *handlers {
-			http.Handle(path, handler)
-		}
 	}
+
 	if metricsAt != *httpEndpoint {
 		// Run a separate handler for metrics.
 		go func() {
@@ -147,13 +171,13 @@ func main() {
 	if *getSTHInterval > 0 {
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes that are not triggered by us.
-		for _, c := range cfg {
+		for _, c := range cfg.LogConfigs.Config {
 			ticker := time.NewTicker(*getSTHInterval)
 			go func(c *configpb.LogConfig) {
 				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
 				for t := range ticker.C {
 					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
-					if _, err := ctfe.GetTreeHead(ctx, client, c.LogId, c.Prefix); err != nil {
+					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix); err != nil {
 						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
 					}
 				}
@@ -184,4 +208,33 @@ func awaitSignal(doneFn func()) {
 	glog.Flush()
 
 	doneFn()
+}
+
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
+	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, deadline, prometheus.MetricFactory{})
+	if err != nil {
+		return err
+	}
+	for path, handler := range *handlers {
+		http.Handle(path, handler)
+	}
+	return nil
+}
+
+func readMultiCfg(filename string) (*configpb.LogMultiConfig, error) {
+	cfg, err := ctfe.MultiLogConfigFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func readCfg(filename string, backendSpec string) (*configpb.LogMultiConfig, error) {
+	cfg, err := ctfe.LogConfigFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return ctfe.ToMultiLogConfig(cfg, backendSpec), nil
 }

@@ -23,9 +23,10 @@ import (
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -387,6 +388,57 @@ func TestValidateLogMultiConfig(t *testing.T) {
 
 		if len(test.errStr) > 0 && (err == nil || !strings.Contains(err.Error(), test.errStr)) {
 			t.Errorf("ValidateLogMultiConfig()=%v, want: %v (%v)", err, test.errStr, test.desc)
+		}
+	}
+}
+
+func TestToMultiLogConfig(t *testing.T) {
+	var tests = []struct {
+		desc string
+		cfg  []*configpb.LogConfig
+		want *configpb.LogMultiConfig
+	}{
+		{
+			desc: "one valid log config",
+			cfg: []*configpb.LogConfig{
+				{LogId: 1, Prefix: "test"},
+			},
+			want: &configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					Backend: []*configpb.LogBackend{{Name: "default", BackendSpec: "spec"}},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					Config: []*configpb.LogConfig{{Prefix: "test", LogId: 1, LogBackendName: "default"}},
+				},
+			},
+		},
+		{
+			desc: "three valid log configs",
+			cfg: []*configpb.LogConfig{
+				{LogId: 1, Prefix: "test1"},
+				{LogId: 2, Prefix: "test2"},
+				{LogId: 3, Prefix: "test3"},
+			},
+			want: &configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					Backend: []*configpb.LogBackend{{Name: "default", BackendSpec: "spec"}},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					Config: []*configpb.LogConfig{
+						{Prefix: "test1", LogId: 1, LogBackendName: "default"},
+						{Prefix: "test2", LogId: 2, LogBackendName: "default"},
+						{Prefix: "test3", LogId: 3, LogBackendName: "default"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		got := ToMultiLogConfig(test.cfg, "spec")
+
+		if !proto.Equal(got, test.want) {
+			t.Errorf("TestToMultiLogConfig() got: %v, want: %v (%v)", got, test.want, test.desc)
 		}
 	}
 }
