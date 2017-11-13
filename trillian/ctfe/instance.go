@@ -65,7 +65,7 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 		return nil, fmt.Errorf("failed to parse multi-backend log config: %v", err)
 	}
 
-	if len(cfg.LogConfigs.Config) == 0 || len(cfg.Backends.Backend) == 0 {
+	if len(cfg.LogConfigs.GetConfig()) == 0 || len(cfg.Backends.GetBackend()) == 0 {
 		return nil, errors.New("config is missing backends and/or log configs")
 	}
 	return &cfg, nil
