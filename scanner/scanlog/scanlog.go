@@ -41,6 +41,9 @@ var matchSubjectRegex = flag.String("match_subject_regex", ".*", "Regex to match
 var matchIssuerRegex = flag.String("match_issuer_regex", "", "Regex to match in issuer CN")
 var precertsOnly = flag.Bool("precerts_only", false, "Only match precerts")
 var serialNumber = flag.String("serial_number", "", "Serial number of certificate of interest")
+var parseErrors = flag.Bool("parse_errors", false, "Only match certificates with parse errors")
+var nfParseErrors = flag.Bool("non_fatal_errors", false, "Treat non-fatal parse errors as also matching (with --parse_errors)")
+var validateErrors = flag.Bool("validate_errors", false, "Only match certificates with validation errors")
 var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
 var numWorkers = flag.Int("num_workers", 2, "Number of concurrent matchers")
 var parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
@@ -89,7 +92,15 @@ func createRegexes(regexValue string) (*regexp.Regexp, *regexp.Regexp) {
 	return certRegex, precertRegex
 }
 
-func createMatcherFromFlags() (scanner.Matcher, error) {
+func createMatcherFromFlags(logClient *client.LogClient) (interface{}, error) {
+	if *parseErrors {
+		return scanner.CertParseFailMatcher{MatchNonFatalErrs: *nfParseErrors}, nil
+	}
+	if *validateErrors {
+		matcher := scanner.CertVerifyFailMatcher{}
+		matcher.PopulateRoots(context.TODO(), logClient)
+		return matcher, nil
+	}
 	if *matchIssuerRegex != "" {
 		certRegex, precertRegex := createRegexes(*matchIssuerRegex)
 		return scanner.MatchIssuerRegex{
@@ -128,7 +139,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	matcher, err := createMatcherFromFlags()
+	matcher, err := createMatcherFromFlags(logClient)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -15,15 +15,19 @@
 package scanner
 
 import (
+	"context"
+	"log"
 	"math/big"
 	"regexp"
+	"time"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// Matcher describes how to match certificates and precertificates; clients should implement this interface
-// to perform their own match criteria.
+// Matcher describes how to match certificates and precertificates, based solely on the parsed [pre-]certificate;
+// clients should implement this interface to perform their own match criteria.
 type Matcher interface {
 	// CertificateMatches is called by the scanner for each X509 Certificate found in the log.
 	// The implementation should return true if the passed Certificate is interesting, and false otherwise.
@@ -126,4 +130,96 @@ func (m MatchIssuerRegex) CertificateMatches(c *x509.Certificate) bool {
 // PrecertificateMatches returns true if the given precert's CN matches.
 func (m MatchIssuerRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	return m.PrecertificateIssuerRegex.FindStringIndex(p.TBSCertificate.Issuer.CommonName) != nil
+}
+
+// LeafMatcher describes how to match log entries, based on the Log LeafEntry
+// (which includes the unparsed [pre-]certificate; clients should implement this
+// interface to perform their own match criteria.
+type LeafMatcher interface {
+	Matches(*ct.LeafEntry) bool
+}
+
+// CertParseFailMatcher is a LeafMatcher which will match any Certificate or Precertificate that
+// triggered an error on parsing.
+type CertParseFailMatcher struct {
+	MatchNonFatalErrs bool
+}
+
+// Matches returns true for parse errors.
+func (m CertParseFailMatcher) Matches(leaf *ct.LeafEntry) bool {
+	_, err := ct.LogEntryFromLeaf(1, leaf)
+	if err != nil {
+		if _, ok := err.(x509.NonFatalErrors); ok {
+			return m.MatchNonFatalErrs
+		}
+		return true
+	}
+	return false
+}
+
+// CertVerifyFailMatcher is a LeafMatcher which will match any Certificate or Precertificate that fails
+// validation.  The PopulateRoots() method should be called before use.
+type CertVerifyFailMatcher struct {
+	roots *x509.CertPool
+}
+
+// PopulateRoots adds the accepted roots for the log to the pool for validation.
+func (m *CertVerifyFailMatcher) PopulateRoots(ctx context.Context, logClient *client.LogClient) {
+	if m.roots != nil {
+		return
+	}
+	m.roots = x509.NewCertPool()
+	roots, err := logClient.GetAcceptedRoots(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, root := range roots {
+		cert, _ := x509.ParseCertificate(root.Data)
+		if cert != nil {
+			m.roots.AddCert(cert)
+		} else {
+			log.Fatal(err)
+		}
+	}
+}
+
+// Matches returns true for validation errors.
+func (m CertVerifyFailMatcher) Matches(leaf *ct.LeafEntry) bool {
+	entry, _ := ct.LogEntryFromLeaf(1, leaf)
+	if entry == nil {
+		// Can't validate if we can't parse
+		return false
+	}
+	// Validate the [pre-]certificate as of just before its expiry.
+	var notBefore time.Time
+	if entry.X509Cert != nil {
+		notBefore = entry.X509Cert.NotAfter
+	} else {
+		notBefore = entry.Precert.TBSCertificate.NotAfter
+	}
+	when := notBefore.Add(-1 * time.Second)
+	opts := x509.VerifyOptions{
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		Roots:         m.roots,
+		Intermediates: x509.NewCertPool(),
+		CurrentTime:   when,
+	}
+	for ii, cert := range entry.Chain {
+		intermediate, err := x509.ParseCertificate(cert.Data)
+		if intermediate == nil {
+			log.Printf("Intermediate %d fails to parse: %v", ii, err)
+			return true
+		}
+		opts.Intermediates.AddCert(intermediate)
+	}
+	if entry.X509Cert != nil {
+		_, err := entry.X509Cert.Verify(opts)
+		if err != nil {
+			log.Printf("Cert fails to validate as of %v: %v", opts.CurrentTime, err)
+			return true
+		}
+		return false
+	}
+	// TODO(drysdale) add precert validation
+	return false
 }

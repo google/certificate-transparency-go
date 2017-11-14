@@ -32,8 +32,9 @@ import (
 // ScannerOptions holds configuration options for the Scanner
 type ScannerOptions struct { // nolint:golint
 	// Custom matcher for x509 Certificates, functor will be called for each
-	// Certificate found during scanning.
-	Matcher Matcher
+	// Certificate found during scanning.  Should be a Matcher or LeafMatcher
+	// implementation.
+	Matcher interface{}
 
 	// Match precerts only (Matcher still applies to precerts)
 	PrecertOnly bool
@@ -125,6 +126,17 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	atomic.AddInt64(&s.certsProcessed, 1)
 
+	switch matcher := s.opts.Matcher.(type) {
+	case Matcher:
+		return s.processMatcherEntry(matcher, index, entry, foundCert, foundPrecert)
+	case LeafMatcher:
+		return s.processMatcherLeafEntry(matcher, index, entry, foundCert, foundPrecert)
+	default:
+		return fmt.Errorf("Unexpected matcher type %T", matcher)
+	}
+}
+
+func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	logEntry, err := ct.LogEntryFromLeaf(index, &entry)
 	if s.isCertErrorFatal(err, logEntry, index) {
 		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
@@ -136,16 +148,39 @@ func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return nil
 		}
-		if s.opts.Matcher.CertificateMatches(logEntry.X509Cert) {
+		if matcher.CertificateMatches(logEntry.X509Cert) {
 			foundCert(logEntry)
 		}
 	case logEntry.Precert != nil:
-		if s.opts.Matcher.PrecertificateMatches(logEntry.Precert) {
+		if matcher.PrecertificateMatches(logEntry.Precert) {
 			foundPrecert(logEntry)
 		}
 		atomic.AddInt64(&s.precertsSeen, 1)
 	default:
 		return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
+	}
+	return nil
+}
+
+func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+	if matcher.Matches(&entry) {
+		logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+		if logEntry == nil {
+			return fmt.Errorf("failed to build log entry: %v", err)
+		}
+		switch {
+		case logEntry.X509Cert != nil:
+			if s.opts.PrecertOnly {
+				// Only interested in precerts and this is an X.509 cert, early-out.
+				return nil
+			}
+			foundCert(logEntry)
+		case logEntry.Precert != nil:
+			foundPrecert(logEntry)
+			atomic.AddInt64(&s.precertsSeen, 1)
+		default:
+			return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
+		}
 	}
 	return nil
 }
