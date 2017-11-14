@@ -40,9 +40,10 @@ const (
 
 // idToError gives a template x509.Error for each defined ErrorID; where the Summary
 // field may hold format specifiers that take field parameters.
-var idToError = map[ErrorID]Error{
+var idToError map[ErrorID]Error
 
-	ErrInvalidCertList: Error{
+var errorInfo = []Error{
+	{
 		ID:       ErrInvalidCertList,
 		Summary:  "x509: failed to parse CertificateList: %v",
 		Field:    "CertificateList",
@@ -50,7 +51,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertList: Error{
+	{
 		ID:       ErrTrailingCertList,
 		Summary:  "x509: trailing data after CertificateList",
 		Field:    "CertificateList",
@@ -59,14 +60,14 @@ var idToError = map[ErrorID]Error{
 		Fatal:    true,
 	},
 
-	ErrUnexpectedlyCriticalCertListExtension: Error{
+	{
 		ID:       ErrUnexpectedlyCriticalCertListExtension,
 		Summary:  "x509: certificate list extension %v marked critical but expected to be non-critical",
 		Field:    "tbsCertList.crlExtensions.*.critical",
 		SpecRef:  "RFC 5280 s5.2",
 		Category: MalformedCRL,
 	},
-	ErrUnexpectedlyNonCriticalCertListExtension: Error{
+	{
 		ID:       ErrUnexpectedlyNonCriticalCertListExtension,
 		Summary:  "x509: certificate list extension %v marked non-critical but expected to be critical",
 		Field:    "tbsCertList.crlExtensions.*.critical",
@@ -74,7 +75,7 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 	},
 
-	ErrInvalidCertListAuthKeyID: Error{
+	{
 		ID:       ErrInvalidCertListAuthKeyID,
 		Summary:  "x509: failed to unmarshal certificate-list authority key-id: %v",
 		Field:    "tbsCertList.crlExtensions.*.AuthorityKeyIdentifier",
@@ -82,7 +83,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertListAuthKeyID: Error{
+	{
 		ID:       ErrTrailingCertListAuthKeyID,
 		Summary:  "x509: trailing data after certificate list auth key ID",
 		Field:    "tbsCertList.crlExtensions.*.AuthorityKeyIdentifier",
@@ -90,7 +91,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidCertListIssuerAltName: Error{
+	{
 		ID:       ErrInvalidCertListIssuerAltName,
 		Summary:  "x509: failed to parse CRL issuer alt name: %v",
 		Field:    "tbsCertList.crlExtensions.*.IssuerAltName",
@@ -98,7 +99,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidCertListCRLNumber: Error{
+	{
 		ID:       ErrInvalidCertListCRLNumber,
 		Summary:  "x509: failed to unmarshal certificate-list crl-number: %v",
 		Field:    "tbsCertList.crlExtensions.*.CRLNumber",
@@ -106,7 +107,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertListCRLNumber: Error{
+	{
 		ID:       ErrTrailingCertListCRLNumber,
 		Summary:  "x509: trailing data after certificate list crl-number",
 		Field:    "tbsCertList.crlExtensions.*.CRLNumber",
@@ -114,7 +115,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrNegativeCertListCRLNumber: Error{
+	{
 		ID:       ErrNegativeCertListCRLNumber,
 		Summary:  "x509: negative certificate list crl-number: %d",
 		Field:    "tbsCertList.crlExtensions.*.CRLNumber",
@@ -122,7 +123,7 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 		Fatal:    true,
 	},
-	ErrInvalidCertListDeltaCRL: Error{
+	{
 		ID:       ErrInvalidCertListDeltaCRL,
 		Summary:  "x509: failed to unmarshal certificate-list delta-crl: %v",
 		Field:    "tbsCertList.crlExtensions.*.BaseCRLNumber",
@@ -130,7 +131,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertListDeltaCRL: Error{
+	{
 		ID:       ErrTrailingCertListDeltaCRL,
 		Summary:  "x509: trailing data after certificate list delta-crl",
 		Field:    "tbsCertList.crlExtensions.*.BaseCRLNumber",
@@ -138,7 +139,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrNegativeCertListDeltaCRL: Error{
+	{
 		ID:       ErrNegativeCertListDeltaCRL,
 		Summary:  "x509: negative certificate list base-crl-number: %d",
 		Field:    "tbsCertList.crlExtensions.*.BaseCRLNumber",
@@ -146,7 +147,7 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 		Fatal:    true,
 	},
-	ErrInvalidCertListIssuingDP: Error{
+	{
 		ID:       ErrInvalidCertListIssuingDP,
 		Summary:  "x509: failed to unmarshal certificate list issuing distribution point: %v",
 		Field:    "tbsCertList.crlExtensions.*.IssuingDistributionPoint",
@@ -154,7 +155,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertListIssuingDP: Error{
+	{
 		ID:       ErrTrailingCertListIssuingDP,
 		Summary:  "x509: trailing data after certificate list issuing distribution point",
 		Field:    "tbsCertList.crlExtensions.*.IssuingDistributionPoint",
@@ -162,7 +163,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrCertListIssuingDPMultipleTypes: Error{
+	{
 		ID:       ErrCertListIssuingDPMultipleTypes,
 		Summary:  "x509: multiple cert types set in issuing-distribution-point: user:%v CA:%v attr:%v",
 		Field:    "tbsCertList.crlExtensions.*.IssuingDistributionPoint",
@@ -171,7 +172,7 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 		Fatal:    true,
 	},
-	ErrCertListIssuingDPInvalidFullName: Error{
+	{
 		ID:       ErrCertListIssuingDPInvalidFullName,
 		Summary:  "x509: failed to parse CRL issuing-distribution-point fullName: %v",
 		Field:    "tbsCertList.crlExtensions.*.IssuingDistributionPoint.distributionPoint",
@@ -179,7 +180,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidCertListFreshestCRL: Error{
+	{
 		ID:       ErrInvalidCertListFreshestCRL,
 		Summary:  "x509: failed to unmarshal certificate list freshestCRL: %v",
 		Field:    "tbsCertList.crlExtensions.*.FreshestCRL",
@@ -187,7 +188,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidCertListAuthInfoAccess: Error{
+	{
 		ID:       ErrInvalidCertListAuthInfoAccess,
 		Summary:  "x509: failed to unmarshal certificate list authority info access: %v",
 		Field:    "tbsCertList.crlExtensions.*.AuthorityInfoAccess",
@@ -195,7 +196,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingCertListAuthInfoAccess: Error{
+	{
 		ID:       ErrTrailingCertListAuthInfoAccess,
 		Summary:  "x509: trailing data after certificate list authority info access",
 		Field:    "tbsCertList.crlExtensions.*.AuthorityInfoAccess",
@@ -203,7 +204,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrUnhandledCriticalCertListExtension: Error{
+	{
 		ID:       ErrUnhandledCriticalCertListExtension,
 		Summary:  "x509: unhandled critical extension in certificate list: %v",
 		Field:    "tbsCertList.revokedCertificates.crlExtensions.*",
@@ -213,14 +214,14 @@ var idToError = map[ErrorID]Error{
 		Fatal:    true,
 	},
 
-	ErrUnexpectedlyCriticalRevokedCertExtension: Error{
+	{
 		ID:       ErrUnexpectedlyCriticalRevokedCertExtension,
 		Summary:  "x509: revoked certificate extension %v marked critical but expected to be non-critical",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.critical",
 		SpecRef:  "RFC 5280 s5.3",
 		Category: MalformedCRL,
 	},
-	ErrUnexpectedlyNonCriticalRevokedCertExtension: Error{
+	{
 		ID:       ErrUnexpectedlyNonCriticalRevokedCertExtension,
 		Summary:  "x509: revoked certificate extension %v marked non-critical but expected to be critical",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.critical",
@@ -228,7 +229,7 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 	},
 
-	ErrInvalidRevocationReason: Error{
+	{
 		ID:       ErrInvalidRevocationReason,
 		Summary:  "x509: failed to parse revocation reason: %v",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.CRLReason",
@@ -236,7 +237,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingRevocationReason: Error{
+	{
 		ID:       ErrTrailingRevocationReason,
 		Summary:  "x509: trailing data after revoked certificate reason",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.CRLReason",
@@ -244,7 +245,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidRevocationInvalidityDate: Error{
+	{
 		ID:       ErrInvalidRevocationInvalidityDate,
 		Summary:  "x509: failed to parse revoked certificate invalidity date: %v",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.InvalidityDate",
@@ -252,7 +253,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrTrailingRevocationInvalidityDate: Error{
+	{
 		ID:       ErrTrailingRevocationInvalidityDate,
 		Summary:  "x509: trailing data after revoked certificate invalidity date",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.InvalidityDate",
@@ -260,7 +261,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrInvalidRevocationIssuer: Error{
+	{
 		ID:       ErrInvalidRevocationIssuer,
 		Summary:  "x509: failed to parse revocation issuer %v",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*.CertificateIssuer",
@@ -268,7 +269,7 @@ var idToError = map[ErrorID]Error{
 		Category: InvalidASN1Content,
 		Fatal:    true,
 	},
-	ErrUnhandledCriticalRevokedCertExtension: Error{
+	{
 		ID:       ErrUnhandledCriticalRevokedCertExtension,
 		Summary:  "x509: unhandled critical extension in revoked certificate: %v",
 		Field:    "tbsCertList.revokedCertificates.crlEntryExtensions.*",
@@ -277,6 +278,13 @@ var idToError = map[ErrorID]Error{
 		Category: MalformedCRL,
 		Fatal:    true,
 	},
+}
+
+func init() {
+	idToError = make(map[ErrorID]Error, len(errorInfo))
+	for _, info := range errorInfo {
+		idToError[info.ID] = info
+	}
 }
 
 // NewError builds a new x509.Error based on the template for the given id.
