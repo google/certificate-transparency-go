@@ -205,6 +205,8 @@ type LogContext struct {
 	// TimeSource is a util.TimeSource that can be injected for testing
 	TimeSource util.TimeSource
 
+	// Instance-wide options
+	instanceOpts InstanceOptions
 	// logID is the tree ID that identifies this log in node storage
 	logID int64
 	// urlPrefix is the prefix for URLs for this log
@@ -220,18 +222,18 @@ type LogContext struct {
 }
 
 // NewLogContext creates a new instance of LogContext.
-func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, rpcDeadline time.Duration, timeSource util.TimeSource, mf monitoring.MetricFactory) *LogContext {
+func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, instanceOpts InstanceOptions, timeSource util.TimeSource) *LogContext {
 	ctx := &LogContext{
 		logID:          logID,
 		urlPrefix:      prefix,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
 		rpcClient:      rpcClient,
 		signer:         signer,
-		rpcDeadline:    rpcDeadline,
 		TimeSource:     timeSource,
+		instanceOpts:   instanceOpts,
 		validationOpts: validationOpts,
 	}
-	once.Do(func() { setupMetrics(mf) })
+	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
 	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))
 
 	return ctx
@@ -324,7 +326,7 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	rsp, err := c.rpcClient.QueueLeaves(ctx, &req)
 	glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v", c.LogPrefix, method, err)
 	if err != nil {
-		return toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
+		return c.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
 	}
 	if rsp == nil {
 		return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
@@ -458,7 +460,7 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 		rsp, err := c.rpcClient.GetConsistencyProof(ctx, &req)
 		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", c.LogPrefix, err)
 		if err != nil {
-			return toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
+			return c.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
 		}
 
 		// Additional sanity checks, none of the hashes in the returned path should be empty
@@ -518,7 +520,7 @@ func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r 
 	}
 	rsp, err := c.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
-		return toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
+		return c.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
 	}
 
 	// Additional sanity checks
@@ -570,7 +572,7 @@ func getEntries(ctx context.Context, c LogContext, w http.ResponseWriter, r *htt
 	}
 	rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
 	if err != nil {
-		return toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
+		return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
 	}
 
 	// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
@@ -636,7 +638,7 @@ func getEntryAndProof(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	req := trillian.GetEntryAndProofRequest{LogId: c.logID, LeafIndex: leafIndex, TreeSize: treeSize}
 	rsp, err := c.rpcClient.GetEntryAndProof(ctx, &req)
 	if err != nil {
-		return toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
+		return c.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
 	}
 
 	// Apply some checks that we got reasonable data from the backend
@@ -675,7 +677,7 @@ func sendHTTPError(w http.ResponseWriter, statusCode int, err error) {
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
 func getRPCDeadlineTime(c LogContext) time.Time {
-	return c.TimeSource.Now().Add(c.rpcDeadline)
+	return c.TimeSource.Now().Add(c.instanceOpts.Deadline)
 }
 
 // verifyAddChain is used by add-chain and add-pre-chain. It does the checks that the supplied
@@ -972,7 +974,13 @@ func checkAuditPath(path [][]byte) bool {
 	return true
 }
 
-func toHTTPStatus(err error) int {
+func (c LogContext) toHTTPStatus(err error) int {
+	if c.instanceOpts.ErrorMapper != nil {
+		if status, ok := c.instanceOpts.ErrorMapper(err); ok {
+			return status
+		}
+	}
+
 	rpcStatus, ok := status.FromError(err)
 	if !ok {
 		return http.StatusInternalServerError
