@@ -395,6 +395,8 @@ func rsaPSSParameters(hashFunc crypto.Hash) asn1.RawValue {
 	return asn1.RawValue{FullBytes: serialized}
 }
 
+// SignatureAlgorithmFromAI converts an PKIX algorithm identifier to the
+// equivalent local constant.
 func SignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 	if !ai.Algorithm.Equal(oidSignatureRSAPSS) {
 		for _, details := range signatureAlgorithmDetails {
