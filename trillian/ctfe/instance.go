@@ -86,9 +86,18 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 	"NetscapeServerGatedCrypto":  x509.ExtKeyUsageNetscapeServerGatedCrypto,
 }
 
+// InstanceOptions describes the options for a log instance.
+type InstanceOptions struct {
+	Deadline      time.Duration
+	MetricFactory monitoring.MetricFactory
+	// ErrorMapper converts an error from an RPC request to an HTTP status, plus
+	// a boolean to indicate whether the conversion succeeded.
+	ErrorMapper func(error) (int, bool)
+}
+
 // SetUpInstance sets up a log instance that uses the specified client to communicate
 // with the Trillian RPC back end.
-func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, deadline time.Duration, mf monitoring.MetricFactory) (*PathHandlers, error) {
+func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts InstanceOptions) (*PathHandlers, error) {
 	// Check config validity.
 	if len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
@@ -156,7 +165,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		extKeyUsages:  keyUsages,
 	}
 	// Create and register the handlers using the RPC client we just set up
-	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, validationOpts, client, signer, deadline, new(util.SystemTimeSource), mf)
+	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, validationOpts, client, signer, opts, new(util.SystemTimeSource))
 
 	handlers := logCtx.Handlers(cfg.Prefix)
 	return &handlers, nil

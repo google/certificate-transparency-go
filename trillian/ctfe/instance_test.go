@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -156,8 +156,9 @@ func TestSetUpInstance(t *testing.T) {
 		},
 	}
 
+	opts := InstanceOptions{Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 	for _, test := range tests {
-		if _, err := SetUpInstance(ctx, nil, &test.cfg, time.Second, monitoring.InertMetricFactory{}); err != nil {
+		if _, err := SetUpInstance(ctx, nil, &test.cfg, opts); err != nil {
 			if test.errStr == "" {
 				t.Errorf("(%v).SetUpInstance()=_,%v; want _,nil", test.desc, err)
 			} else if !strings.Contains(err.Error(), test.errStr) {
@@ -238,8 +239,9 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		},
 	}
 
+	opts := InstanceOptions{Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 	for _, test := range tests {
-		h, err := SetUpInstance(ctx, nil, &test.cfg, time.Second, monitoring.InertMetricFactory{})
+		h, err := SetUpInstance(ctx, nil, &test.cfg, opts)
 		if err != nil {
 			t.Errorf("%v: SetUpInstance() = %v, want no error", test.desc, err)
 			continue

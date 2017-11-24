@@ -121,7 +121,8 @@ func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTe
 		rejectExpired: false,
 		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
-	info.c = *NewLogContext(0x42, "test", vOpts, info.client, signer, time.Millisecond*500, fakeTimeSource, monitoring.InertMetricFactory{})
+	iOpts := InstanceOptions{Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}}
+	info.c = *NewLogContext(0x42, "test", vOpts, info.client, signer, iOpts, fakeTimeSource)
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {
