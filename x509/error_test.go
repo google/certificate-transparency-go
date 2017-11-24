@@ -158,7 +158,7 @@ func TestErrorsAppend(t *testing.T) {
 		t.Errorf("Errors().Error()=%q; want %q", got, want)
 	}
 	if got, want := errs.Empty(), true; got != want {
-		t.Errorf("Errors().Empty()=%q; want %q", got, want)
+		t.Errorf("Errors().Empty()=%t; want %t", got, want)
 	}
 	errs.Errs = append(errs.Errs, x509.Error{
 		Summary: "Error",
@@ -168,7 +168,7 @@ func TestErrorsAppend(t *testing.T) {
 		t.Errorf("Errors(%+v).Error=%q; want %q", errs, got, want)
 	}
 	if got, want := errs.Empty(), false; got != want {
-		t.Errorf("Errors().Empty()=%q; want %q", got, want)
+		t.Errorf("Errors().Empty()=%t; want %t", got, want)
 	}
 }
 
