@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package x509util includes utility code for working with X.509
-// certificates from the x509 package.
 package x509util
 
 import (
