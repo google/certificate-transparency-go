@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -272,7 +272,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 	}{
 		{
 			desc:   "missing backend name",
-			errStr: "empty name",
+			errStr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					[]*configpb.LogBackend{
@@ -286,7 +286,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		},
 		{
 			desc:   "missing backend spec",
-			errStr: "empty backend",
+			errStr: "empty backend_spec",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					[]*configpb.LogBackend{
@@ -299,8 +299,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "missing name and spec spec",
-			errStr: "empty name",
+			desc:   "missing backend name and spec",
+			errStr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					[]*configpb.LogBackend{
@@ -354,7 +354,43 @@ func TestValidateLogMultiConfig(t *testing.T) {
 				},
 				LogConfigs: &configpb.LogConfigSet{
 					[]*configpb.LogConfig{
+						{LogBackendName: "log2", Prefix: "prefix"},
+					},
+				},
+			},
+		},
+		{
+			desc:   "empty log prefix",
+			errStr: "empty prefix",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log1", Prefix: "prefix1"},
 						{LogBackendName: "log2"},
+						{LogBackendName: "log3", Prefix: "prefix3"},
+					},
+				},
+			},
+		},
+		{
+			desc:   "dup log prefix",
+			errStr: "duplicate prefix",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log1", Prefix: "prefix1"},
+						{LogBackendName: "log1", Prefix: "prefix2"},
+						{LogBackendName: "log1", Prefix: "prefix1"},
 					},
 				},
 			},
@@ -371,9 +407,9 @@ func TestValidateLogMultiConfig(t *testing.T) {
 				},
 				LogConfigs: &configpb.LogConfigSet{
 					[]*configpb.LogConfig{
-						{LogBackendName: "log1"},
-						{LogBackendName: "log2"},
-						{LogBackendName: "log3"},
+						{LogBackendName: "log1", Prefix: "prefix1"},
+						{LogBackendName: "log2", Prefix: "prefix2"},
+						{LogBackendName: "log3", Prefix: "prefix3"},
 					},
 				},
 			},
