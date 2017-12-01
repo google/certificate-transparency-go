@@ -172,14 +172,20 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 }
 
 // ValidateLogMultiConfig checks that a config is valid for use with multiple
-// backend log servers. The backend set must define a set of log backends
-// with distinct (non empty) names and non empty backend specs. The log configs
-// must all specify a log backend and each must be one of those defined in
-// the backend set. The prefixes of configured logs must all be distinct and
-// must not be empty.
+// backend log servers. The rules applied are:
+//
+// 1. The backend set must define a set of log backends with distinct
+// (non empty) names and non empty backend specs.
+// 2. The log configs must all specify a log backend and each must be one of
+// those defined in the backend set.
+// 3. The prefixes of configured logs must all be distinct and must not be
+// empty.
+// 4. The set of tree ids for each configured backend must be distinct.
+// 5. The backend specs must all be distinct.
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)
+	bSpecMap := make(map[string]bool)
 	for _, backend := range cfg.Backends.Backend {
 		if len(backend.Name) == 0 {
 			return nil, fmt.Errorf("empty backend name: %v", backend)
@@ -190,12 +196,17 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 		if _, ok := backendMap[backend.Name]; ok {
 			return nil, fmt.Errorf("duplicate backend name: %v", backend)
 		}
+		if ok := bSpecMap[backend.BackendSpec]; ok {
+			return nil, fmt.Errorf("duplicate backend spec: %v", backend)
+		}
 		backendMap[backend.Name] = backend
+		bSpecMap[backend.BackendSpec] = true
 	}
 
 	// Check that logs all reference a defined backend and there are no duplicate
 	// or empty prefixes.
 	logNameMap := make(map[string]bool)
+	logIDMap := make(map[string]bool)
 	for _, logCfg := range cfg.LogConfigs.Config {
 		if len(logCfg.Prefix) == 0 {
 			return nil, fmt.Errorf("log config: empty prefix: %v", logCfg)
@@ -207,6 +218,11 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 			return nil, fmt.Errorf("log config: references undefined backend: %s: %v", logCfg.LogBackendName, logCfg)
 		}
 		logNameMap[logCfg.Prefix] = true
+		logIDKey := fmt.Sprintf("%s-%d", logCfg.LogBackendName, logCfg.LogId)
+		if ok := logIDMap[logIDKey]; ok {
+			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
+		}
+		logIDMap[logIDKey] = true
 	}
 
 	return backendMap, nil
