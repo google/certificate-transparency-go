@@ -176,12 +176,12 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 //
 // 1. The backend set must define a set of log backends with distinct
 // (non empty) names and non empty backend specs.
-// 2. The log configs must all specify a log backend and each must be one of
+// 3. The backend specs must all be distinct.
+// 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
-// 3. The prefixes of configured logs must all be distinct and must not be
+// 4. The prefixes of configured logs must all be distinct and must not be
 // empty.
-// 4. The set of tree ids for each configured backend must be distinct.
-// 5. The backend specs must all be distinct.
+// 5. The set of tree ids for each configured backend must be distinct.
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)

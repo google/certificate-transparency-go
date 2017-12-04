@@ -381,6 +381,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 				Backends: &configpb.LogBackendSet{
 					[]*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
+						{Name: "log2", BackendSpec: "testspec2"},
+						{Name: "log3", BackendSpec: "testspec3"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
