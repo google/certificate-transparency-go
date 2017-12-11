@@ -162,7 +162,8 @@ func TestSignV1TreeHead(t *testing.T) {
 	}
 
 	// Signing the same contents should get the same cached signature regardless.
-	signer, err = setupSigner([]byte("different sig"))
+	secondSig := []byte("different sig")
+	signer, err = setupSigner(secondSig)
 	if err != nil {
 		t.Fatalf("could not create signer: %v", err)
 	}
@@ -170,6 +171,15 @@ func TestSignV1TreeHead(t *testing.T) {
 		t.Errorf("signV1TreeHead()=%v; want nil", err)
 	}
 	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, fakeSignature); diff != "" {
+		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+	}
+
+	// But changing the contents does change the signature.
+	sth.TreeSize = 11
+	if err := signV1TreeHead(signer, &sth); err != nil {
+		t.Errorf("signV1TreeHead()=%v; want nil", err)
+	}
+	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, secondSig); diff != "" {
 		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
 	}
 
