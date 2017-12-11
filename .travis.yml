@@ -1,12 +1,7 @@
 sudo: false
 language: go
-
-os:
-  - linux
-  - osx
-
-go:
-  - 1.9
+os: linux
+go: 1.9
 
 env:
   - GOFLAGS=
@@ -16,8 +11,6 @@ env:
 
 matrix:
   fast_finish: true
-  allow_failures:
-    - os: osx
 
 install:
   - |
@@ -34,7 +27,6 @@ install:
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
   - go get -d -t ./...
-  - if [[ $TRAVIS_OS_NAME == "osx" ]]; then brew update > /dev/null && brew install mariadb && mysql.server start; fi
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install
   - go get -u github.com/golang/protobuf/proto
@@ -51,7 +43,6 @@ script:
   - set -e
   - export TRILLIAN_SQL_DRIVER=mysql
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
-  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then export PRESUBMIT_OPTS=--no-linters; fi
   - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
   - |
       # Check re-generation didn't change anything
