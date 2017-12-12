@@ -22,13 +22,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"strconv"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 )
@@ -536,6 +539,29 @@ func CertificateToString(cert *x509.Certificate) string {
 		// TODO(drysdale): Display other GeneralNames types
 	}
 
+	count, critical = OIDInExtensions(x509.OIDExtensionCTSCT, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            RFC6962 Certificate Transparency SCT:"))
+		showCritical(critical)
+		for i, sctData := range cert.SCTList.SCTList {
+			result.WriteString(fmt.Sprintf("              SCT [%d]:\n", i))
+			var sct ct.SignedCertificateTimestamp
+			_, err := tls.Unmarshal(sctData.Val, &sct)
+			if err != nil {
+				appendHexData(&result, sctData.Val, 16, "                  ")
+				result.WriteString("\n")
+				continue
+			}
+			result.WriteString(fmt.Sprintf("                  Version: %d\n", sct.SCTVersion))
+			result.WriteString(fmt.Sprintf("                  LogID: %s\n", base64.StdEncoding.EncodeToString(sct.LogID.KeyID[:])))
+			result.WriteString(fmt.Sprintf("                  Timestamp: %d\n", sct.Timestamp))
+			result.WriteString(fmt.Sprintf("                  Signature: %s\n", sct.Signature.Algorithm))
+			result.WriteString(fmt.Sprintf("                  Signature:\n"))
+			appendHexData(&result, sct.Signature.Signature, 16, "                    ")
+			result.WriteString("\n")
+		}
+	}
+
 	for _, ext := range cert.Extensions {
 		// Skip extensions that are already cracked out
 		if oidAlreadyPrinted(ext.Id) {
@@ -567,7 +593,8 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionCertificatePolicies) ||
 		oid.Equal(x509.OIDExtensionNameConstraints) ||
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
-		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) {
+		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionCTSCT) {
 		return true
 	}
 	return false
