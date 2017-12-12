@@ -431,6 +431,104 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:   "start not set",
+			errStr: "start and limit must",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1, NotAfterStart: &timestamp.Timestamp{Seconds: 23}},
+					},
+				},
+			},
+		},
+		{
+			desc:   "limit not set",
+			errStr: "start and limit must",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1, NotAfterLimit: &timestamp.Timestamp{Seconds: 23}},
+					},
+				},
+			},
+		},
+		{
+			desc:   "start timestamp invalid",
+			errStr: "invalid start",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{
+							LogBackendName: "log1",
+							Prefix:         "prefix1",
+							LogId:          1,
+							NotAfterStart:  &timestamp.Timestamp{Seconds: 23, Nanos: -50},
+							NotAfterLimit:  &timestamp.Timestamp{Seconds: 23},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:   "limit timestamp invalid",
+			errStr: "invalid limit",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{
+							LogBackendName: "log1",
+							Prefix:         "prefix1",
+							LogId:          1,
+							NotAfterStart:  &timestamp.Timestamp{Seconds: 23},
+							NotAfterLimit:  &timestamp.Timestamp{Seconds: 23, Nanos: -50},
+						},
+					},
+				},
+			},
+		},
+		{
+			desc:   "limit before start",
+			errStr: "before start",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{
+							LogBackendName: "log1",
+							Prefix:         "prefix1",
+							LogId:          1,
+							NotAfterStart:  &timestamp.Timestamp{Seconds: 23},
+							NotAfterLimit:  &timestamp.Timestamp{Seconds: 22},
+						},
+					},
+				},
+			},
+		},
+		{
 			desc: "valid config",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
@@ -464,6 +562,27 @@ func TestValidateLogMultiConfig(t *testing.T) {
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 999},
 						{LogBackendName: "log2", Prefix: "prefix2", LogId: 999},
 						{LogBackendName: "log3", Prefix: "prefix3", LogId: 999},
+					},
+				},
+			},
+		},
+		{
+			desc: "valid config with time range",
+			cfg: configpb.LogMultiConfig{
+				Backends: &configpb.LogBackendSet{
+					[]*configpb.LogBackend{
+						{Name: "log1", BackendSpec: "testspec1"},
+					},
+				},
+				LogConfigs: &configpb.LogConfigSet{
+					[]*configpb.LogConfig{
+						{
+							LogBackendName: "log1",
+							Prefix:         "prefix1",
+							LogId:          1,
+							NotAfterStart:  &timestamp.Timestamp{Seconds: 23},
+							NotAfterLimit:  &timestamp.Timestamp{Seconds: 24},
+						},
 					},
 				},
 			},
