@@ -179,9 +179,9 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 // 3. The backend specs must all be distinct.
 // 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
-// 4. If NotBeforeStart or NotBeforeLimit is set for a log then the other value
-// must be set. Both values must be valid timestamp protos. NotBeforeLimit
-// must not be before NotBeforeStart.
+// 4. If NotBeforeStart or NotBeforeLimit are set for a log then these fields
+// must be valid timestamp protos. If both are set then NotBeforeLimit must
+// not be before NotBeforeStart.
 // 5. The prefixes of configured logs must all be distinct and must not be
 // empty.
 // 6. The set of tree ids for each configured backend must be distinct.
@@ -226,18 +226,16 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
 		}
 		if start, limit := logCfg.GetNotAfterStart(), logCfg.GetNotAfterLimit(); start != nil || limit != nil {
-			if (start != nil && limit == nil) || (start == nil && limit != nil) {
-				return nil, fmt.Errorf("log config: both start and limit must be set for: %v", logCfg)
-			}
+			// If ptypes.Timestamp(nil) didn't return an error this would be simpler.
 			tStart, err := ptypes.Timestamp(start)
-			if err != nil {
-				return nil, fmt.Errorf("log_config: invalid start timestamp %v for: %v", start, logCfg)
+			if start != nil && err != nil {
+				return nil, fmt.Errorf("log_config: invalid start timestamp %v for: %v", err, logCfg)
 			}
 			tLimit, err := ptypes.Timestamp(limit)
-			if err != nil {
-				return nil, fmt.Errorf("log_config: invalid limit timestamp %v for: %v", limit, logCfg)
+			if limit != nil && err != nil {
+				return nil, fmt.Errorf("log_config: invalid limit timestamp %v for: %v", err, logCfg)
 			}
-			if tLimit.Before(tStart) {
+			if start != nil && limit != nil && tLimit.Before(tStart) {
 				return nil, fmt.Errorf("log_config: limit before start for: %v", logCfg)
 			}
 		}
