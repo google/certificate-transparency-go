@@ -224,6 +224,14 @@ var (
 		"640000013ddb27df9300000403004730450220482f6751af35dba65436be1fd6" +
 		"640f3dbf9a41429495924530288fa3e5e23e06022100e4edc0db3ac572b1e2f5" +
 		"e8ab6a680653987dcf41027dfeffa105519d89edbf08")
+
+	// TestCertB64LeafHash is the base64-encoded leaf hash of TestCertPEM with
+	// TestCertProof as the corresponding SCT.
+	TestCertB64LeafHash = "BKZLZGMbAnDW0gQWjNJNCyS2IgweWn76YW3tFlu3AuY="
+
+	// TestPreCertB64LeafHash is the base64-encoded leaf hash of TestPreCertPEM
+	// with TestPreCertProof as the corresponding SCT.
+	TestPreCertB64LeafHash = "mbk+d5FDW3oNZJCbOi828rqC3hf+qhigTWVGcXEZq1U="
 )
 
 func dh(h string) []byte {
