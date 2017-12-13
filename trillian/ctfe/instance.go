@@ -176,12 +176,15 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 //
 // 1. The backend set must define a set of log backends with distinct
 // (non empty) names and non empty backend specs.
-// 3. The backend specs must all be distinct.
+// 2. The backend specs must all be distinct.
 // 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
-// 4. The prefixes of configured logs must all be distinct and must not be
+// 4. If NotBeforeStart or NotBeforeLimit are set for a log then these fields
+// must be valid timestamp protos. If both are set then NotBeforeLimit must
+// not be before NotBeforeStart.
+// 5. The prefixes of configured logs must all be distinct and must not be
 // empty.
-// 5. The set of tree ids for each configured backend must be distinct.
+// 6. The set of tree ids for each configured backend must be distinct.
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)
@@ -204,7 +207,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 	}
 
 	// Check that logs all reference a defined backend and there are no duplicate
-	// or empty prefixes.
+	// or empty prefixes. Apply other LogConfig specific checks.
 	logNameMap := make(map[string]bool)
 	logIDMap := make(map[string]bool)
 	for _, logCfg := range cfg.LogConfigs.Config {
@@ -221,6 +224,26 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 		logIDKey := fmt.Sprintf("%s-%d", logCfg.LogBackendName, logCfg.LogId)
 		if ok := logIDMap[logIDKey]; ok {
 			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
+		}
+		var err error
+		var tStart time.Time
+		start := logCfg.GetNotAfterStart()
+		if start != nil {
+			tStart, err = ptypes.Timestamp(start)
+			if err != nil {
+				return nil, fmt.Errorf("log_config: invalid start timestamp %v for: %v", err, logCfg)
+			}
+		}
+		var tLimit time.Time
+		limit := logCfg.GetNotAfterLimit()
+		if limit != nil {
+			tLimit, err = ptypes.Timestamp(limit)
+			if err != nil {
+				return nil, fmt.Errorf("log_config: invalid limit timestamp %v for: %v", err, logCfg)
+			}
+		}
+		if start != nil && limit != nil && tLimit.Before(tStart) {
+			return nil, fmt.Errorf("log_config: limit before start for: %v", logCfg)
 		}
 		logIDMap[logIDKey] = true
 	}
