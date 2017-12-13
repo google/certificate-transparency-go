@@ -176,7 +176,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 //
 // 1. The backend set must define a set of log backends with distinct
 // (non empty) names and non empty backend specs.
-// 3. The backend specs must all be distinct.
+// 2. The backend specs must all be distinct.
 // 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
 // 4. If NotBeforeStart or NotBeforeLimit are set for a log then these fields
@@ -225,19 +225,25 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 		if ok := logIDMap[logIDKey]; ok {
 			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
 		}
-		if start, limit := logCfg.GetNotAfterStart(), logCfg.GetNotAfterLimit(); start != nil || limit != nil {
-			// If ptypes.Timestamp(nil) didn't return an error this would be simpler.
-			tStart, err := ptypes.Timestamp(start)
-			if start != nil && err != nil {
+		var err error
+		var tStart time.Time
+		start := logCfg.GetNotAfterStart()
+		if start != nil {
+			tStart, err = ptypes.Timestamp(start)
+			if err != nil {
 				return nil, fmt.Errorf("log_config: invalid start timestamp %v for: %v", err, logCfg)
 			}
-			tLimit, err := ptypes.Timestamp(limit)
-			if limit != nil && err != nil {
+		}
+		var tLimit time.Time
+		limit := logCfg.GetNotAfterLimit()
+		if limit != nil {
+			tLimit, err = ptypes.Timestamp(limit)
+			if err != nil {
 				return nil, fmt.Errorf("log_config: invalid limit timestamp %v for: %v", err, logCfg)
 			}
-			if start != nil && limit != nil && tLimit.Before(tStart) {
-				return nil, fmt.Errorf("log_config: limit before start for: %v", logCfg)
-			}
+		}
+		if start != nil && limit != nil && tLimit.Before(tStart) {
+			return nil, fmt.Errorf("log_config: limit before start for: %v", logCfg)
 		}
 		logIDMap[logIDKey] = true
 	}
