@@ -485,7 +485,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to parse issuer for precert: %v", err)
 	}
-	prechain, tbs, err := makePrecertChain(chain[1], issuer, signer)
+	prechain, tbs, err := makePrecertChain(chain[1], issuer, signer, time.Time{} /*  notAfter */)
 	if err != nil {
 		return fmt.Errorf("failed to build pre-certificate: %v", err)
 	}
@@ -604,7 +604,7 @@ func checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) erro
 
 // makePrecertChain builds a precert chain based from the given cert chain and cert, converting and
 // re-signing relative to the given issuer.
-func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
+func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, []byte, error) {
 	prechain := make([]ct.ASN1Cert, len(chain))
 	copy(prechain[1:], chain[1:])
 
@@ -612,6 +612,7 @@ func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer cryp
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
 	}
+	cert.NotAfter = notAfter
 
 	prechain[0].Data, err = buildNewPrecertData(cert, issuer, signer)
 	if err != nil {
@@ -729,7 +730,10 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 
 // makeCertChain builds a new cert chain based from the given cert chain, changing SubjectKeyId and
 // re-signing relative to the given issuer.
-func makeCertChain(chain []ct.ASN1Cert, cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, error) {
+func makeCertChain(chain []ct.ASN1Cert, template, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, error) {
+	cert := *template
+	cert.NotAfter = notAfter
+
 	newchain := make([]ct.ASN1Cert, len(chain))
 	copy(newchain[1:], chain[1:])
 
@@ -742,7 +746,7 @@ func makeCertChain(chain []ct.ASN1Cert, cert, issuer *x509.Certificate, signer c
 
 	// Create a fresh certificate, signed by the intermediate CA.
 	var err error
-	newchain[0].Data, err = x509.CreateCertificate(cryptorand.Reader, cert, issuer, cert.PublicKey, signer)
+	newchain[0].Data, err = x509.CreateCertificate(cryptorand.Reader, &cert, issuer, cert.PublicKey, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create certificate: %v", err)
 	}
