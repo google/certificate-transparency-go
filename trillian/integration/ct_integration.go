@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
@@ -459,7 +459,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	corruptChain := make([]ct.ASN1Cert, len(chain[1]))
 	copy(corruptChain, chain[1])
 	corruptAt := len(corruptChain[0].Data) - 3
-	corruptChain[0].Data[corruptAt] = (corruptChain[0].Data[corruptAt] + 1)
+	corruptChain[0].Data[corruptAt] = corruptChain[0].Data[corruptAt] + 1
 	if sct, err := t.client().AddChain(ctx, corruptChain); err == nil {
 		return fmt.Errorf("got AddChain(corrupt-cert)=(%+v,nil); want (nil,error)", sct)
 	}

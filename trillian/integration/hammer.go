@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
@@ -150,7 +150,7 @@ func (hb HammerBias) Invalid(ep ctfe.EntrypointName) bool {
 	if chance <= 0 {
 		return false
 	}
-	return (rand.Intn(chance) == 0)
+	return rand.Intn(chance) == 0
 }
 
 type submittedCert struct {
