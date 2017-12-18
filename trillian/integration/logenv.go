@@ -71,7 +71,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
-		opts := ctfe.InstanceOptions{Deadline: 10 * time.Second, MetricFactory: prometheus.MetricFactory{}}
+		opts := ctfe.InstanceOptions{Deadline: 10 * time.Second, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
 		for _, cfg := range cfgs {
 			handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 			if err != nil {
