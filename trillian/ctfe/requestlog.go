@@ -72,18 +72,23 @@ type RequestLog interface {
 type DefaultRequestLog struct {
 }
 
+// Start logs the start of request processing.
 func (dlr *DefaultRequestLog) Start(ctx context.Context) {
 	glog.V(vLevel).Info("RL: Start")
 }
 
+// LogPrefix logs the prefix of the CT log that this request is for.
 func (dlr *DefaultRequestLog) LogPrefix(p string) {
 	glog.V(vLevel).Infof("RL: LogPrefix: %s", p)
 }
 
+// AddDERToChain logs the raw bytes of a submitted certificate.
 func (dlr *DefaultRequestLog) AddDERToChain(d []byte) {
 	glog.V(vLevel).Infof("RL: Cert DER: %s", hex.EncodeToString(d))
 }
 
+// AddCertToChain logs some issuer / subject / timing fields from a
+// certificate that is part of a submitted chain.
 func (dlr *DefaultRequestLog) AddCertToChain(c *x509.Certificate) {
 	glog.V(vLevel).Infof("RL: Cert: Sub: %s Iss: %s notBef: %s notAft: %s",
 		x509util.NameToString(c.Subject),
@@ -92,26 +97,32 @@ func (dlr *DefaultRequestLog) AddCertToChain(c *x509.Certificate) {
 		c.NotAfter.Format(time.RFC1123Z))
 }
 
+// FirstAndSecond logs request parameters.
 func (dlr *DefaultRequestLog) FirstAndSecond(f, s int64) {
 	glog.V(vLevel).Infof("RL: First: %d Second: %d", f, s)
 }
 
+// StartAndEnd logs request parameters.
 func (dlr *DefaultRequestLog) StartAndEnd(s, e int64) {
 	glog.V(vLevel).Infof("RL: Start: %d End: %d", s, e)
 }
 
+// LeafIndex logs request parameters.
 func (dlr *DefaultRequestLog) LeafIndex(li int64) {
 	glog.V(vLevel).Infof("RL: LeafIndex: %d", li)
 }
 
+// TreeSize logs request parameters.
 func (dlr *DefaultRequestLog) TreeSize(ts int64) {
 	glog.V(vLevel).Infof("RL: TreeSize: %d", ts)
 }
 
+// LeafHash logs request parameters.
 func (dlr *DefaultRequestLog) LeafHash(lh []byte) {
 	glog.V(vLevel).Infof("RL: LeafHash: %s", hex.EncodeToString(lh))
 }
 
+// Status logs the response HTTP status code after processing completes.
 func (dlr *DefaultRequestLog) Status(s int) {
 	glog.V(vLevel).Infof("RL: Status: d", s)
 }
