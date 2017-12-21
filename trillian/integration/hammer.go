@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
@@ -35,6 +34,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 const defaultEmitSeconds = 10

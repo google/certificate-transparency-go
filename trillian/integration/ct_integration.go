@@ -36,7 +36,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
@@ -50,6 +49,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 
+	ct "github.com/google/certificate-transparency-go"
 	keyspem "github.com/google/trillian/crypto/keys/pem"
 )
 
