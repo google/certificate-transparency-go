@@ -30,18 +30,21 @@ var verbose = flag.Bool("verbose", false, "Verbose output")
 
 func main() {
 	flag.Parse()
+
+	// Build a list of possible CA certs from command line arguments.
 	var caCerts []*x509.Certificate
 	if *caFile != "" {
 		caDataList, err := x509util.ReadPossiblePEMFile(*caFile, "CERTIFICATE")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: Failed to read CA cert data: %v\n", *caFile, err)
+			os.Exit(1)
 		}
 		for _, caData := range caDataList {
 			certs, err := x509.ParseCertificates(caData)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %v\n", *caFile, err)
 			}
-			if len(caCerts) == 0 {
+			if len(certs) == 0 {
 				fmt.Fprintf(os.Stderr, "%s: no certificates found\n", *caFile)
 			}
 			caCerts = append(caCerts, certs[0])
@@ -72,12 +75,21 @@ func main() {
 				fmt.Print(x509util.CRLToString(certList))
 			}
 		}
-		for _, caCert := range caCerts {
-			for _, certList := range crls {
+		for _, certList := range crls {
+			verified := (len(caCerts) == 0)
+			var verifyErr error
+			for _, caCert := range caCerts {
 				if err := caCert.CheckCertificateListSignature(certList); err != nil {
-					fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, err)
-					errcount++
+					verifyErr = err
+				} else {
+					verifyErr = nil
+					verified = true
+					break
 				}
+			}
+			if !verified {
+				fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, verifyErr)
+				errcount++
 			}
 		}
 	}
