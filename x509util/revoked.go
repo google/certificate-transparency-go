@@ -24,7 +24,8 @@ import (
 	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
-func revocationReasonToString(reason x509.RevocationReasonCode) string {
+// RevocationReasonToString generates a string describing a revocation reason code.
+func RevocationReasonToString(reason x509.RevocationReasonCode) string {
 	switch reason {
 	case x509.Unspecified:
 		return "Unspecified"
@@ -145,7 +146,7 @@ func CRLToString(crl *x509.CertificateList) string {
 		if count > 0 {
 			result.WriteString(fmt.Sprintf("            X509v3 CRL Reason Code:"))
 			showCritical(critical)
-			result.WriteString(fmt.Sprintf("                %s\n", revocationReasonToString(c.RevocationReason)))
+			result.WriteString(fmt.Sprintf("                %s\n", RevocationReasonToString(c.RevocationReason)))
 		}
 		count, critical = OIDInExtensions(x509.OIDExtensionInvalidityDate, c.Extensions)
 		if count > 0 {
