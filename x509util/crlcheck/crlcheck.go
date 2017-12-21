@@ -25,8 +25,11 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
-var caFile = flag.String("ca", "", "CA certificate file")
-var verbose = flag.Bool("verbose", false, "Verbose output")
+var (
+	caFile  = flag.String("ca", "", "CA certificate file")
+	verbose = flag.Bool("verbose", false, "Verbose output")
+	strict  = flag.Bool("strict", false, "Strict validation of CRL contents")
+)
 
 func main() {
 	flag.Parse()
@@ -60,35 +63,9 @@ func main() {
 			continue
 		}
 
-		var crls []*x509.CertificateList
 		for _, data := range dataList {
-			certList, err := x509.ParseCertificateListDER(data)
-			if err != nil {
+			if err := processCRL(data, caCerts); err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %v\n", filename, err)
-				errcount++
-			}
-			if certList == nil {
-				continue
-			}
-			crls = append(crls, certList)
-			if *verbose {
-				fmt.Print(x509util.CRLToString(certList))
-			}
-		}
-		for _, certList := range crls {
-			verified := (len(caCerts) == 0)
-			var verifyErr error
-			for _, caCert := range caCerts {
-				if err := caCert.CheckCertificateListSignature(certList); err != nil {
-					verifyErr = err
-				} else {
-					verifyErr = nil
-					verified = true
-					break
-				}
-			}
-			if !verified {
-				fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, verifyErr)
 				errcount++
 			}
 		}
@@ -96,4 +73,33 @@ func main() {
 	if errcount > 0 {
 		os.Exit(1)
 	}
+}
+
+func processCRL(data []byte, caCerts []*x509.Certificate) error {
+	certList, err := x509.ParseCertificateListDER(data)
+	if certList == nil {
+		return fmt.Errorf("parse error: %v", err)
+	}
+	if err != nil && *strict {
+		return fmt.Errorf("strict parse error: %v", err)
+	}
+	if *verbose {
+		fmt.Print(x509util.CRLToString(certList))
+	}
+
+	verified := (len(caCerts) == 0)
+	var verifyErr error
+	for _, caCert := range caCerts {
+		if err := caCert.CheckCertificateListSignature(certList); err != nil {
+			verifyErr = err
+		} else {
+			verifyErr = nil
+			verified = true
+			break
+		}
+	}
+	if !verified {
+		return fmt.Errorf("verification error: %v", verifyErr)
+	}
+	return nil
 }
