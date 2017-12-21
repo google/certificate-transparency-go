@@ -275,13 +275,11 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{BackendSpec: "testspec"},
 					},
 				},
-				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{},
-				},
+				LogConfigs: &configpb.LogConfigSet{},
 			},
 		},
 		{
@@ -289,13 +287,11 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "empty backend_spec",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1"},
 					},
 				},
-				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{},
-				},
+				LogConfigs: &configpb.LogConfigSet{},
 			},
 		},
 		{
@@ -303,13 +299,11 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{},
 					},
 				},
-				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{},
-				},
+				LogConfigs: &configpb.LogConfigSet{},
 			},
 		},
 		{
@@ -317,14 +311,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "duplicate backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "dup", BackendSpec: "testspec"},
 						{Name: "dup", BackendSpec: "testspec"},
 					},
 				},
-				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{},
-				},
+				LogConfigs: &configpb.LogConfigSet{},
 			},
 		},
 		{
@@ -332,14 +324,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "duplicate backend spec",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "backend1", BackendSpec: "testspec"},
 						{Name: "backend2", BackendSpec: "testspec"},
 					},
 				},
-				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{},
-				},
+				LogConfigs: &configpb.LogConfigSet{},
 			},
 		},
 		{
@@ -347,12 +337,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "empty backend",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log2"},
 					},
 				},
@@ -363,12 +353,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "undefined backend",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log2", Prefix: "prefix"},
 					},
 				},
@@ -379,14 +369,14 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "empty prefix",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 						{Name: "log2", BackendSpec: "testspec2"},
 						{Name: "log3", BackendSpec: "testspec3"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1"},
 						{LogBackendName: "log2"},
 						{LogBackendName: "log3", Prefix: "prefix3"},
@@ -399,12 +389,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "duplicate prefix",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1},
 						{LogBackendName: "log1", Prefix: "prefix2", LogId: 2},
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 3},
@@ -417,12 +407,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "dup tree id",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1},
 						{LogBackendName: "log1", Prefix: "prefix2", LogId: 1},
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1},
@@ -435,12 +425,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "invalid start",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{
 							LogBackendName: "log1",
 							Prefix:         "prefix1",
@@ -457,12 +447,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "invalid limit",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{
 							LogBackendName: "log1",
 							Prefix:         "prefix1",
@@ -479,12 +469,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			errStr: "before start",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{
 							LogBackendName: "log1",
 							Prefix:         "prefix1",
@@ -500,14 +490,14 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			desc: "valid config",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 						{Name: "log2", BackendSpec: "testspec2"},
 						{Name: "log3", BackendSpec: "testspec3"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1},
 						{LogBackendName: "log2", Prefix: "prefix2", LogId: 2},
 						{LogBackendName: "log3", Prefix: "prefix3", LogId: 3},
@@ -519,14 +509,14 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			desc: "valid config dup ids on different backends",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 						{Name: "log2", BackendSpec: "testspec2"},
 						{Name: "log3", BackendSpec: "testspec3"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 999},
 						{LogBackendName: "log2", Prefix: "prefix2", LogId: 999},
 						{LogBackendName: "log3", Prefix: "prefix3", LogId: 999},
@@ -538,12 +528,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			desc: "valid config - only not after start set",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1, NotAfterStart: &timestamp.Timestamp{Seconds: 23}},
 					},
 				},
@@ -553,12 +543,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			desc: "valid config - only not after limit set",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{LogBackendName: "log1", Prefix: "prefix1", LogId: 1, NotAfterLimit: &timestamp.Timestamp{Seconds: 23}},
 					},
 				},
@@ -568,12 +558,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			desc: "valid config with time range",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
-					[]*configpb.LogBackend{
+					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
 					},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					[]*configpb.LogConfig{
+					Config: []*configpb.LogConfig{
 						{
 							LogBackendName: "log1",
 							Prefix:         "prefix1",

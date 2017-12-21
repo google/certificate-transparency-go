@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/integration"
@@ -38,6 +37,8 @@ import (
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 var (
@@ -115,18 +116,18 @@ func main() {
 		if err != nil {
 			glog.Exitf("failed to parse issuer for precert: %v", err)
 		}
-		if *leafNotAfter != "" {
-			notAfter, err := time.Parse(time.RFC3339, *leafNotAfter)
-			if err != nil {
-				glog.Exitf("Failed to parse leaf notAfter: %v", err)
-			}
-			glog.Infof("Using %v as notAfter date for generated leaf certificates", notAfter)
-			leafCert.NotAfter = notAfter
-		}
 	} else {
 		glog.Warningf("Warning: add-[pre-]chain operations disabled as no test data provided")
 		*addChainBias = 0
 		*addPreChainBias = 0
+	}
+
+	var notAfterOverride time.Time
+	if *leafNotAfter != "" {
+		notAfterOverride, err = time.Parse(time.RFC3339, *leafNotAfter)
+		if err != nil {
+			glog.Exitf("Failed to parse leaf notAfter: %v", err)
+		}
 	}
 
 	bias := integration.HammerBias{
@@ -207,6 +208,7 @@ func main() {
 			Limiter:           newLimiter(*limit),
 			MaxParallelChains: *maxParallelChains,
 			IgnoreErrors:      *ignoreErrors,
+			NotAfterOverride:  notAfterOverride,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()

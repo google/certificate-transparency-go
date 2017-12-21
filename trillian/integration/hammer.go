@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
@@ -34,6 +34,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 const defaultEmitSeconds = 10
@@ -117,6 +119,9 @@ type HammerConfig struct {
 	EmitInterval time.Duration
 	// IgnoreErrors controls whether a hammer run fails immediately on any error.
 	IgnoreErrors bool
+	// NotAfterOverride is used as cert and precert's NotAfter if not zeroed.
+	// It takes precedence over automatic NotAfter fixing for temporal logs.
+	NotAfterOverride time.Time
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -150,7 +155,7 @@ func (hb HammerBias) Invalid(ep ctfe.EntrypointName) bool {
 	if chance <= 0 {
 		return false
 	}
-	return (rand.Intn(chance) == 0)
+	return rand.Intn(chance) == 0
 }
 
 type submittedCert struct {
@@ -253,6 +258,8 @@ type hammerState struct {
 	pending pendingCerts
 	// Operations that are required to fix dependencies.
 	nextOp []ctfe.EntrypointName
+	// notAfter is the NotAfter time used for new certs and precerts.
+	notAfter time.Time
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -273,11 +280,42 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	if cfg.Limiter == nil {
 		cfg.Limiter = unLimited{}
 	}
+
+	notAfter, err := getNotAfter(cfg)
+	if err != nil {
+		return nil, err
+	}
+	glog.Infof("%v: using NotAfter = %v", cfg.LogCfg.Prefix, notAfter)
+
 	state := hammerState{
-		cfg:    cfg,
-		nextOp: make([]ctfe.EntrypointName, 0),
+		cfg:      cfg,
+		nextOp:   make([]ctfe.EntrypointName, 0),
+		notAfter: notAfter,
 	}
 	return &state, nil
+}
+
+// getNotAfter returns the NotAfter time to be used on new certs.
+// If cfg.NotAfterOverride is non-zero, it takes precedence and is returned.
+// If cfg.LogCfg is a temporal log, the halfway point between its NotAfterStart and NotAfterLimit is
+// returned.
+// Otherwise a zeroed time is returned.
+func getNotAfter(cfg *HammerConfig) (time.Time, error) {
+	if cfg.NotAfterOverride.UnixNano() > 0 {
+		return cfg.NotAfterOverride, nil
+	}
+	if cfg.LogCfg.NotAfterStart == nil || cfg.LogCfg.NotAfterLimit == nil {
+		return time.Time{}, nil
+	}
+	start, err := ptypes.Timestamp(cfg.LogCfg.NotAfterStart)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error parsing NotAfterStart for %v: %v", cfg.LogCfg.Prefix, cfg.LogCfg.NotAfterStart)
+	}
+	limit, err := ptypes.Timestamp(cfg.LogCfg.NotAfterLimit)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error parsing NotAfterLimit for %v: %v", cfg.LogCfg.Prefix, cfg.LogCfg.NotAfterLimit)
+	}
+	return time.Unix(0, (limit.UnixNano()-start.UnixNano())/2+start.UnixNano()), nil
 }
 
 func (s *hammerState) client() *client.LogClient {
@@ -322,7 +360,7 @@ func (s *hammerState) addMultiple(ctx context.Context, addOne func(context.Conte
 }
 
 func (s *hammerState) addChain(ctx context.Context) error {
-	chain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	chain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh cert: %v", err)
 	}
@@ -356,7 +394,7 @@ func (s *hammerState) addChain(ctx context.Context) error {
 
 func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	// Invalid because it's a pre-cert chain, not a cert chain.
-	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer)
+	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh cert: %v", err)
 	}
@@ -368,7 +406,7 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 }
 
 func (s *hammerState) addPreChain(ctx context.Context) error {
-	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer)
+	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
 	}
@@ -405,7 +443,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 
 func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
 	// Invalid because it's a cert chain, not a pre-cert chain.
-	prechain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer)
+	prechain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
 	if err != nil {
 		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
 	}
