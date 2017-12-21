@@ -63,6 +63,8 @@ func main() {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %v\n", filename, err)
 				errcount++
+			}
+			if certList == nil {
 				continue
 			}
 			crls = append(crls, certList)
