@@ -124,5 +124,5 @@ func (dlr *DefaultRequestLog) LeafHash(lh []byte) {
 
 // Status logs the response HTTP status code after processing completes.
 func (dlr *DefaultRequestLog) Status(s int) {
-	glog.V(vLevel).Infof("RL: Status: d", s)
+	glog.V(vLevel).Infof("RL: Status: %d", s)
 }
