@@ -93,6 +93,7 @@ type InstanceOptions struct {
 	// ErrorMapper converts an error from an RPC request to an HTTP status, plus
 	// a boolean to indicate whether the conversion succeeded.
 	ErrorMapper func(error) (int, bool)
+	RequestLog  RequestLog
 }
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate
@@ -164,8 +165,14 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		acceptOnlyCA:  cfg.AcceptOnlyCa,
 		extKeyUsages:  keyUsages,
 	}
-	// Create and register the handlers using the RPC client we just set up
-	logCtx := NewLogContext(cfg.LogId, cfg.Prefix, validationOpts, client, signer, opts, new(util.SystemTimeSource))
+	// Create and register the handlers using the RPC client we just set up.
+	logCtx := NewLogContext(cfg.LogId,
+		cfg.Prefix,
+		validationOpts,
+		client,
+		signer,
+		opts,
+		new(util.SystemTimeSource))
 
 	handlers := logCtx.Handlers(cfg.Prefix)
 	return &handlers, nil

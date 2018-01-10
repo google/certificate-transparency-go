@@ -211,7 +211,7 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
-	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}}
+	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
 		return err
