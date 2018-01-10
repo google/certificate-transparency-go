@@ -34,8 +34,8 @@ const vLevel = 9
 type RequestLog interface {
 	// Start will be called once at the beginning of handling each request.
 	// The supplied context will be the one used for request processing and
-	// can be used by the logger to set values.
-	Start(context.Context)
+	// can be used by the logger to set values on the returned context.
+	Start(context.Context) context.Context
 	// LogPrefix will be called once per request to set the log prefix.
 	LogPrefix(string)
 	// AddDERToChain will be called once for each certificate in a submitted
@@ -73,8 +73,9 @@ type DefaultRequestLog struct {
 }
 
 // Start logs the start of request processing.
-func (dlr *DefaultRequestLog) Start(ctx context.Context) {
+func (dlr *DefaultRequestLog) Start(ctx context.Context) context.Context {
 	glog.V(vLevel).Info("RL: Start")
+	return ctx
 }
 
 // LogPrefix logs the prefix of the CT log that this request is for.

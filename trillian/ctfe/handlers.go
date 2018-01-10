@@ -137,7 +137,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	label1 := string(a.Name)
 	reqsCounter.Inc(label0, label1)
 	startTime := a.Context.TimeSource.Now()
-	a.Context.requestLog.Start(r.Context())
+	logCtx := a.Context.requestLog.Start(r.Context())
 	a.Context.requestLog.LogPrefix(a.Context.LogPrefix)
 	defer func() {
 		latency := a.Context.TimeSource.Now().Sub(startTime).Seconds()
@@ -163,7 +163,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Many/most of the handlers forward the request on to the Log RPC server; impose a deadline
 	// on this onward request.
-	ctx, cancel := context.WithDeadline(r.Context(), getRPCDeadlineTime(a.Context))
+	ctx, cancel := context.WithDeadline(logCtx, getRPCDeadlineTime(a.Context))
 	defer cancel()
 
 	status, err := a.Handler(ctx, a.Context, w, r)
