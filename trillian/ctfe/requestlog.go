@@ -37,34 +37,34 @@ type RequestLog interface {
 	// can be used by the logger to set values on the returned context.
 	Start(context.Context) context.Context
 	// LogPrefix will be called once per request to set the log prefix.
-	LogPrefix(string)
+	LogPrefix(context.Context, string)
 	// AddDERToChain will be called once for each certificate in a submitted
 	// chain. It's called early in request processing so the supplied bytes
 	// have not been checked for validity. Calls will be in order of the
 	// certificates as presented in the request with the root last.
-	AddDERToChain([]byte)
+	AddDERToChain(context.Context, []byte)
 	// AddCertToChain will be called once for each certificate in the chain
 	// after it has been parsed and verified. Calls will be in order of the
 	// certificates as presented in the request with the root last.
-	AddCertToChain(*x509.Certificate)
+	AddCertToChain(context.Context, *x509.Certificate)
 	// FirstAndSecond will be called once for a consistency proof request with
 	// the first and second tree sizes involved (if they parse correctly).
-	FirstAndSecond(int64, int64)
+	FirstAndSecond(context.Context, int64, int64)
 	// StartAndEnd will be called once for a get entries request with the
 	// endpoints of the range requested (if they parse correctly).
-	StartAndEnd(int64, int64)
+	StartAndEnd(context.Context, int64, int64)
 	// LeafIndex will be called once with the index of a leaf being requested
 	// by get entry and proof (if the request params parse correctly).
-	LeafIndex(int64)
+	LeafIndex(context.Context, int64)
 	// TreeSize will be called once with the requested tree size for get entry
 	// and proof requests (if the request params parse correctly).
-	TreeSize(int64)
+	TreeSize(context.Context, int64)
 	// LeafHash will be called once for get proof by hash requests with the
 	// requested hash value (if the parameters parse correctly).
-	LeafHash([]byte)
+	LeafHash(context.Context, []byte)
 	// Status will be called once to set the HTTP status code that was the
 	// the result after the request has been handled.
-	Status(int)
+	Status(context.Context, int)
 }
 
 // DefaultRequestLog is an implementation of RequestLog that does nothing
@@ -79,51 +79,51 @@ func (dlr *DefaultRequestLog) Start(ctx context.Context) context.Context {
 }
 
 // LogPrefix logs the prefix of the CT log that this request is for.
-func (dlr *DefaultRequestLog) LogPrefix(p string) {
+func (dlr *DefaultRequestLog) LogPrefix(c context.Context, p string) {
 	glog.V(vLevel).Infof("RL: LogPrefix: %s", p)
 }
 
 // AddDERToChain logs the raw bytes of a submitted certificate.
-func (dlr *DefaultRequestLog) AddDERToChain(d []byte) {
+func (dlr *DefaultRequestLog) AddDERToChain(c context.Context, d []byte) {
 	glog.V(vLevel).Infof("RL: Cert DER: %s", hex.EncodeToString(d))
 }
 
 // AddCertToChain logs some issuer / subject / timing fields from a
 // certificate that is part of a submitted chain.
-func (dlr *DefaultRequestLog) AddCertToChain(c *x509.Certificate) {
+func (dlr *DefaultRequestLog) AddCertToChain(c context.Context, cert *x509.Certificate) {
 	glog.V(vLevel).Infof("RL: Cert: Sub: %s Iss: %s notBef: %s notAft: %s",
-		x509util.NameToString(c.Subject),
-		x509util.NameToString(c.Issuer),
-		c.NotBefore.Format(time.RFC1123Z),
-		c.NotAfter.Format(time.RFC1123Z))
+		x509util.NameToString(cert.Subject),
+		x509util.NameToString(cert.Issuer),
+		cert.NotBefore.Format(time.RFC1123Z),
+		cert.NotAfter.Format(time.RFC1123Z))
 }
 
 // FirstAndSecond logs request parameters.
-func (dlr *DefaultRequestLog) FirstAndSecond(f, s int64) {
+func (dlr *DefaultRequestLog) FirstAndSecond(c context.Context, f, s int64) {
 	glog.V(vLevel).Infof("RL: First: %d Second: %d", f, s)
 }
 
 // StartAndEnd logs request parameters.
-func (dlr *DefaultRequestLog) StartAndEnd(s, e int64) {
+func (dlr *DefaultRequestLog) StartAndEnd(c context.Context, s, e int64) {
 	glog.V(vLevel).Infof("RL: Start: %d End: %d", s, e)
 }
 
 // LeafIndex logs request parameters.
-func (dlr *DefaultRequestLog) LeafIndex(li int64) {
+func (dlr *DefaultRequestLog) LeafIndex(c context.Context, li int64) {
 	glog.V(vLevel).Infof("RL: LeafIndex: %d", li)
 }
 
 // TreeSize logs request parameters.
-func (dlr *DefaultRequestLog) TreeSize(ts int64) {
+func (dlr *DefaultRequestLog) TreeSize(c context.Context, ts int64) {
 	glog.V(vLevel).Infof("RL: TreeSize: %d", ts)
 }
 
 // LeafHash logs request parameters.
-func (dlr *DefaultRequestLog) LeafHash(lh []byte) {
+func (dlr *DefaultRequestLog) LeafHash(c context.Context, lh []byte) {
 	glog.V(vLevel).Infof("RL: LeafHash: %s", hex.EncodeToString(lh))
 }
 
 // Status logs the response HTTP status code after processing completes.
-func (dlr *DefaultRequestLog) Status(s int) {
+func (dlr *DefaultRequestLog) Status(c context.Context, s int) {
 	glog.V(vLevel).Infof("RL: Status: %d", s)
 }
