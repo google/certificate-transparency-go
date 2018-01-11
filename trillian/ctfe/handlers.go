@@ -137,8 +137,8 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	label1 := string(a.Name)
 	reqsCounter.Inc(label0, label1)
 	startTime := a.Context.TimeSource.Now()
-	a.Context.requestLog.Start(r.Context())
-	a.Context.requestLog.LogPrefix(a.Context.LogPrefix)
+	logCtx := a.Context.requestLog.Start(r.Context())
+	a.Context.requestLog.LogPrefix(logCtx, a.Context.LogPrefix)
 	defer func() {
 		latency := a.Context.TimeSource.Now().Sub(startTime).Seconds()
 		rspLatency.Observe(latency, label0, label1, strconv.Itoa(status))
@@ -147,7 +147,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != a.Method {
 		glog.Warningf("%s: %s wrong HTTP method: %v", a.Context.LogPrefix, a.Name, r.Method)
 		sendHTTPError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed: %s", r.Method))
-		a.Context.requestLog.Status(http.StatusMethodNotAllowed)
+		a.Context.requestLog.Status(logCtx, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -156,18 +156,18 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		if err := r.ParseForm(); err != nil {
 			sendHTTPError(w, http.StatusBadRequest, fmt.Errorf("failed to parse form data: %v", err))
-			a.Context.requestLog.Status(http.StatusBadRequest)
+			a.Context.requestLog.Status(logCtx, http.StatusBadRequest)
 			return
 		}
 	}
 
 	// Many/most of the handlers forward the request on to the Log RPC server; impose a deadline
 	// on this onward request.
-	ctx, cancel := context.WithDeadline(r.Context(), getRPCDeadlineTime(a.Context))
+	ctx, cancel := context.WithDeadline(logCtx, getRPCDeadlineTime(a.Context))
 	defer cancel()
 
 	status, err := a.Handler(ctx, a.Context, w, r)
-	a.Context.requestLog.Status(status)
+	a.Context.requestLog.Status(ctx, status)
 	glog.V(2).Infof("%s: %s <= status=%d", a.Context.LogPrefix, a.Name, status)
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
@@ -311,14 +311,14 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	}
 	// Log the DERs now because they might not parse as valid X.509.
 	for _, der := range addChainReq.Chain {
-		c.requestLog.AddDERToChain(der)
+		c.requestLog.AddDERToChain(ctx, der)
 	}
 	chain, err := verifyAddChain(c, addChainReq, w, isPrecert)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to verify add-chain contents: %v", err)
 	}
 	for _, cert := range chain {
-		c.requestLog.AddCertToChain(cert)
+		c.requestLog.AddCertToChain(ctx, cert)
 	}
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
@@ -466,7 +466,7 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to parse consistency range: %v", err)
 	}
-	c.requestLog.FirstAndSecond(first, second)
+	c.requestLog.FirstAndSecond(ctx, first, second)
 	var jsonRsp ct.GetSTHConsistencyResponse
 	if first != 0 {
 		req := trillian.GetConsistencyProofRequest{LogId: c.logID, FirstTreeSize: first, SecondTreeSize: second}
@@ -523,8 +523,8 @@ func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r 
 	if err != nil || treeSize < 1 {
 		return http.StatusBadRequest, fmt.Errorf("get-proof-by-hash: missing or invalid tree_size: %v", r.FormValue(getProofParamTreeSize))
 	}
-	c.requestLog.LeafHash(leafHash)
-	c.requestLog.TreeSize(treeSize)
+	c.requestLog.LeafHash(ctx, leafHash)
+	c.requestLog.TreeSize(ctx, treeSize)
 
 	// Per RFC 6962 section 4.5 the API returns a single proof. This should be the lowest leaf index
 	// Because we request order by sequence and we only passed one hash then the first result is
@@ -581,7 +581,7 @@ func getEntries(ctx context.Context, c LogContext, w http.ResponseWriter, r *htt
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %v", err)
 	}
-	c.requestLog.StartAndEnd(start, end)
+	c.requestLog.StartAndEnd(ctx, start, end)
 
 	// Now make a request to the backend to get the relevant leaves
 	req := trillian.GetLeavesByIndexRequest{
@@ -652,8 +652,8 @@ func getEntryAndProof(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to parse get-entry-and-proof params: %v", err)
 	}
-	c.requestLog.LeafIndex(leafIndex)
-	c.requestLog.TreeSize(treeSize)
+	c.requestLog.LeafIndex(ctx, leafIndex)
+	c.requestLog.TreeSize(ctx, treeSize)
 
 	req := trillian.GetEntryAndProofRequest{LogId: c.logID, LeafIndex: leafIndex, TreeSize: treeSize}
 	rsp, err := c.rpcClient.GetEntryAndProof(ctx, &req)
