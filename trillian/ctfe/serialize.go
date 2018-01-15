@@ -83,7 +83,7 @@ func buildV1SCT(signer *crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCerti
 	sctInput := ct.SignedCertificateTimestamp{
 		SCTVersion: ct.V1,
 		Timestamp:  leaf.TimestampedEntry.Timestamp,
-		Extensions: ct.CTExtensions{},
+		Extensions: leaf.TimestampedEntry.Extensions,
 	}
 	data, err := ct.SerializeSCTSignatureInput(sctInput, ct.LogEntry{Leaf: *leaf})
 	if err != nil {
@@ -113,7 +113,7 @@ func buildV1SCT(signer *crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCerti
 		SCTVersion: ct.V1,
 		LogID:      ct.LogID{KeyID: logID},
 		Timestamp:  sctInput.Timestamp,
-		Extensions: ct.CTExtensions{},
+		Extensions: sctInput.Extensions,
 		Signature:  digitallySigned,
 	}, nil
 }
