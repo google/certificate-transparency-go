@@ -55,6 +55,7 @@ var (
 	maxParallelChains = flag.Int("max_parallel_chains", 2, "Maximum number of chains to add in parallel (will always add at least 1 chain)")
 	limit             = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
 	ignoreErrors      = flag.Bool("ignore_errors", false, "Whether to ignore errors and retry the operation")
+	maxRetry          = flag.Duration("max_retry", 60*time.Second, "How long to keep retrying when ignore_errors is set")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
@@ -208,6 +209,7 @@ func main() {
 			Limiter:           newLimiter(*limit),
 			MaxParallelChains: *maxParallelChains,
 			IgnoreErrors:      *ignoreErrors,
+			MaxRetryDuration:  *maxRetry,
 			NotAfterOverride:  notAfterOverride,
 		}
 		go func(cfg integration.HammerConfig) {

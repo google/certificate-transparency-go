@@ -38,8 +38,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
-const defaultEmitSeconds = 10
-
 const (
 	// How many STHs and SCTs to hold on to.
 	sthCount = 10
@@ -48,8 +46,6 @@ const (
 	// How far beyond current tree size to request for invalid requests.
 	invalidStretch = int64(1000000)
 )
-
-var maxRetryDuration = 60 * time.Second
 
 var (
 	// Metrics are all per-log (label "logid"), but may also be
@@ -119,6 +115,8 @@ type HammerConfig struct {
 	EmitInterval time.Duration
 	// IgnoreErrors controls whether a hammer run fails immediately on any error.
 	IgnoreErrors bool
+	// MaxRetryDuration governs how long to keep retrying when IgnoreErrors is true.
+	MaxRetryDuration time.Duration
 	// NotAfterOverride is used as cert and precert's NotAfter if not zeroed.
 	// It takes precedence over automatic NotAfter fixing for temporal logs.
 	NotAfterOverride time.Time
@@ -275,10 +273,13 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 		cfg.MaxGetEntries = cfg.MinGetEntries + 300
 	}
 	if cfg.EmitInterval == 0 {
-		cfg.EmitInterval = defaultEmitSeconds * time.Second
+		cfg.EmitInterval = 10 * time.Second
 	}
 	if cfg.Limiter == nil {
 		cfg.Limiter = unLimited{}
+	}
+	if cfg.MaxRetryDuration == 0 {
+		cfg.MaxRetryDuration = 60 * time.Second
 	}
 
 	notAfter, err := getNotAfter(cfg)
@@ -725,7 +726,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 
 	glog.V(3).Infof("perform %s operation", ep)
 	status := http.StatusOK
-	deadline := time.Now().Add(maxRetryDuration)
+	deadline := time.Now().Add(s.cfg.MaxRetryDuration)
 
 	var err error
 	done := false
@@ -757,8 +758,8 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 
 		s.mu.Unlock()
 
-		if time.Now().After(deadline) {
-			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err %v", s.cfg.LogCfg.Prefix, ep, maxRetryDuration, err)
+		if err != nil && time.Now().After(deadline) {
+			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
 			done = true
 		}
 	}
