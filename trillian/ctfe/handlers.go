@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -41,6 +42,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// TODO(drysdale): remove this flag once everything has migrated to ByRange
+var getByRange = flag.Bool("by_range", false, "Use trillian.GetEntriesByRange for get-entries processing")
 
 const (
 	// HTTP content type header
@@ -608,28 +612,53 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 	c.RequestLog.StartAndEnd(ctx, start, end)
 
 	// Now make a request to the backend to get the relevant leaves
-	req := trillian.GetLeavesByIndexRequest{
-		LogId:     c.logID,
-		LeafIndex: buildIndicesForRange(start, end),
-	}
-	rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
-	if err != nil {
-		return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
-	}
+	var leaves []*trillian.LogLeaf
+	if *getByRange {
+		count := end + 1 - start
+		req := trillian.GetLeavesByRangeRequest{
+			LogId:      c.logID,
+			StartIndex: start,
+			Count:      count,
+		}
+		rsp, err := c.rpcClient.GetLeavesByRange(ctx, &req)
+		if err != nil {
+			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
+		}
+		// Do some sanity checks on the result.
+		if len(rsp.Leaves) > int(count) {
+			return http.StatusInternalServerError, fmt.Errorf("backend returned too many leaves: %d vs [%d,%d]", len(rsp.Leaves), start, end)
+		}
+		for i, leaf := range rsp.Leaves {
+			if leaf.LeafIndex != start+int64(i) {
+				return http.StatusInternalServerError, fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
+			}
+		}
+		leaves = rsp.Leaves
+	} else {
+		req := trillian.GetLeavesByIndexRequest{
+			LogId:     c.logID,
+			LeafIndex: buildIndicesForRange(start, end),
+		}
+		rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
+		if err != nil {
+			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
+		}
 
-	// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
-	// because each leaf comes with an index).  CT doesn't expose an index field and so
-	// needs to return leaves in order.  Therefore, sort the results (and check for missing
-	// or duplicate indices along the way).
-	if err := sortLeafRange(rsp, start, end); err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("backend get-entries range invalid: %v", err)
+		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
+		// because each leaf comes with an index).  CT doesn't expose an index field and so
+		// needs to return leaves in order.  Therefore, sort the results (and check for missing
+		// or duplicate indices along the way).
+		if err := sortLeafRange(rsp, start, end); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("backend get-entries range invalid: %v", err)
+		}
+		leaves = rsp.Leaves
 	}
 
 	// Now we've checked the RPC response and it seems to be valid we need
 	// to serialize the leaves in JSON format for the HTTP response. Doing a
 	// round trip via the leaf deserializer gives us another chance to
 	// prevent bad / corrupt data from reaching the client.
-	jsonRsp, err := marshalGetEntriesResponse(c, rsp)
+	jsonRsp, err := marshalGetEntriesResponse(c, leaves)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %v", err)
 	}
@@ -979,10 +1008,10 @@ func sortLeafRange(rsp *trillian.GetLeavesByIndexResponse, start, end int64) err
 
 // marshalGetEntriesResponse does the conversion from the backend response to the one we need for
 // an RFC compliant JSON response to the client.
-func marshalGetEntriesResponse(c *LogContext, rsp *trillian.GetLeavesByIndexResponse) (ct.GetEntriesResponse, error) {
+func marshalGetEntriesResponse(c *LogContext, leaves []*trillian.LogLeaf) (ct.GetEntriesResponse, error) {
 	jsonRsp := ct.GetEntriesResponse{}
 
-	for _, leaf := range rsp.Leaves {
+	for _, leaf := range leaves {
 		// We're only deserializing it to ensure it's valid, don't need the result. We still
 		// return the data if it fails to deserialize as otherwise the root hash could not
 		// be verified. However this indicates a potentially serious failure in log operation
