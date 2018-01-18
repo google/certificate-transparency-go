@@ -815,7 +815,7 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 		SCTVersion: ct.Version(sct.SCTVersion),
 		Timestamp:  sct.Timestamp,
 		ID:         logID[:],
-		Extensions: "",
+		Extensions: base64.StdEncoding.EncodeToString(sct.Extensions),
 		Signature:  sig,
 	}
 
