@@ -603,7 +603,7 @@ func TestGetSTH(t *testing.T) {
 	}
 }
 
-func TestGetEntries(t *testing.T) {
+func runTestGetEntries(t *testing.T) {
 	// Create a couple of valid serialized ct.MerkleTreeLeaf objects
 	merkleLeaf1 := ct.MerkleTreeLeaf{
 		Version:  ct.V1,
@@ -635,7 +635,7 @@ func TestGetEntries(t *testing.T) {
 		descr  string
 		req    string
 		want   int
-		rpcRsp *trillian.GetLeavesByIndexResponse
+		leaves []*trillian.LogLeaf
 		rpcErr error
 		errStr string
 	}{
@@ -682,43 +682,35 @@ func TestGetEntries(t *testing.T) {
 			errStr: "bang",
 		},
 		{
-			descr: "backend extra leaves",
-			req:   "start=1&end=2",
-			want:  http.StatusInternalServerError,
-			rpcRsp: &trillian.GetLeavesByIndexResponse{
-				Leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 2}, {LeafIndex: 3}},
-			},
+			descr:  "backend extra leaves",
+			req:    "start=1&end=2",
+			want:   http.StatusInternalServerError,
+			leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 2}, {LeafIndex: 3}},
 			errStr: "too many leaves",
 		},
 		{
-			descr: "backend non-contiguous range",
-			req:   "start=1&end=2",
-			want:  http.StatusInternalServerError,
-			rpcRsp: &trillian.GetLeavesByIndexResponse{
-				Leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 3}},
-			},
+			descr:  "backend non-contiguous range",
+			req:    "start=1&end=2",
+			want:   http.StatusInternalServerError,
+			leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 3}},
 			errStr: "unexpected leaf index",
 		},
 		{
 			descr: "backend leaf corrupt",
 			req:   "start=1&end=2",
 			want:  http.StatusOK,
-			rpcRsp: &trillian.GetLeavesByIndexResponse{
-				Leaves: []*trillian.LogLeaf{
-					{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: []byte("NOT A MERKLE TREE LEAF")},
-					{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: []byte("NOT A MERKLE TREE LEAF")},
-				},
+			leaves: []*trillian.LogLeaf{
+				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: []byte("NOT A MERKLE TREE LEAF")},
+				{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: []byte("NOT A MERKLE TREE LEAF")},
 			},
 		},
 		{
 			descr: "leaves ok",
 			req:   "start=1&end=2",
 			want:  http.StatusOK,
-			rpcRsp: &trillian.GetLeavesByIndexResponse{
-				Leaves: []*trillian.LogLeaf{
-					{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes1, ExtraData: []byte("extra1")},
-					{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes2, ExtraData: []byte("extra2")},
-				},
+			leaves: []*trillian.LogLeaf{
+				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes1, ExtraData: []byte("extra1")},
+				{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes2, ExtraData: []byte("extra2")},
 			},
 		},
 	}
@@ -733,8 +725,14 @@ func TestGetEntries(t *testing.T) {
 			t.Errorf("Failed to create request: %v", err)
 			continue
 		}
-		if test.rpcRsp != nil || test.rpcErr != nil {
-			info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}}).Return(test.rpcRsp, test.rpcErr)
+		if len(test.leaves) > 0 || test.rpcErr != nil {
+			if *getByRange {
+				rsp := trillian.GetLeavesByRangeResponse{Leaves: test.leaves}
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2}).Return(&rsp, test.rpcErr)
+			} else {
+				rsp := trillian.GetLeavesByIndexResponse{Leaves: test.leaves}
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}}).Return(&rsp, test.rpcErr)
+			}
 		}
 
 		w := httptest.NewRecorder()
@@ -761,22 +759,22 @@ func TestGetEntries(t *testing.T) {
 			t.Errorf("len(rspMap)=%d; want 1", got)
 		}
 		entries := jsonMap["entries"]
-		if got, want := len(entries), len(test.rpcRsp.Leaves); got != want {
+		if got, want := len(entries), len(test.leaves); got != want {
 			t.Errorf("len(rspMap['entries']=%d; want %d", got, want)
 			continue
 		}
 		for i := 0; i < len(entries); i++ {
-			if got, want := string(entries[i].LeafInput), string(test.rpcRsp.Leaves[i].LeafValue); got != want {
+			if got, want := string(entries[i].LeafInput), string(test.leaves[i].LeafValue); got != want {
 				t.Errorf("rspMap['entries'][%d].LeafInput=%s; want %s", i, got, want)
 			}
-			if got, want := string(entries[i].ExtraData), string(test.rpcRsp.Leaves[i].ExtraData); got != want {
+			if got, want := string(entries[i].ExtraData), string(test.leaves[i].ExtraData); got != want {
 				t.Errorf("rspMap['entries'][%d].ExtraData=%s; want %s", i, got, want)
 			}
 		}
 	}
 }
 
-func TestGetEntriesRanges(t *testing.T) {
+func runTestGetEntriesRanges(t *testing.T) {
 	var tests = []struct {
 		desc   string
 		start  int64
@@ -852,7 +850,11 @@ func TestGetEntriesRanges(t *testing.T) {
 			if end == 0 {
 				end = test.end
 			}
-			info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end)}).Return(nil, errors.New("RPCMADE"))
+			if *getByRange {
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start}).Return(nil, errors.New("RPCMADE"))
+			} else {
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end)}).Return(nil, errors.New("RPCMADE"))
+			}
 		}
 
 		path := fmt.Sprintf("/ct/v1/get-entries?start=%d&end=%d", test.start, test.end)
@@ -872,6 +874,29 @@ func TestGetEntriesRanges(t *testing.T) {
 			t.Errorf("getEntries(%d, %d)=%q; expect RPCMADE for test %s", test.start, test.end, w.Body, test.desc)
 		}
 	}
+}
+
+func runGetEntriesVariants(t *testing.T, fn func(t *testing.T)) {
+	t.Helper()
+	defer func(val bool) {
+		*getByRange = val
+	}(*getByRange)
+	for _, val := range []bool{false, true} {
+		*getByRange = val
+		name := "ByIndex"
+		if *getByRange {
+			name = "ByName"
+		}
+		t.Run(name, fn)
+	}
+}
+
+func TestGetEntriesRanges(t *testing.T) {
+	runGetEntriesVariants(t, runTestGetEntriesRanges)
+}
+
+func TestGetEntries(t *testing.T) {
+	runGetEntriesVariants(t, runTestGetEntries)
 }
 
 func TestSortLeafRange(t *testing.T) {
