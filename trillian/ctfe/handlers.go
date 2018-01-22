@@ -123,8 +123,8 @@ type PathHandlers map[string]AppHandler
 // AppHandler holds a LogContext and a handler function that uses it, and is
 // an implementation of the http.Handler interface.
 type AppHandler struct {
-	Context LogContext
-	Handler func(context.Context, LogContext, http.ResponseWriter, *http.Request) (int, error)
+	Context *LogContext
+	Handler func(context.Context, *LogContext, http.ResponseWriter, *http.Request) (int, error)
 	Name    EntrypointName
 	Method  string // http.MethodGet or http.MethodPost
 }
@@ -250,7 +250,7 @@ func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances
 // to handle those entrypoints.
-func (c LogContext) Handlers(prefix string) PathHandlers {
+func (c *LogContext) Handlers(prefix string) PathHandlers {
 	if !strings.HasPrefix(prefix, "/") {
 		prefix = "/" + prefix
 	}
@@ -269,7 +269,7 @@ func (c LogContext) Handlers(prefix string) PathHandlers {
 	}
 }
 
-func parseBodyAsJSONChain(c LogContext, r *http.Request) (ct.AddChainRequest, error) {
+func parseBodyAsJSONChain(c *LogContext, r *http.Request) (ct.AddChainRequest, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		glog.V(1).Infof("%s: Failed to read request body: %v", c.LogPrefix, err)
@@ -293,7 +293,7 @@ func parseBodyAsJSONChain(c LogContext, r *http.Request) (ct.AddChainRequest, er
 
 // addChainInternal is called by add-chain and add-pre-chain as the logic involved in
 // processing these requests is almost identical
-func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request, isPrecert bool) (int, error) {
+func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request, isPrecert bool) (int, error) {
 	var method EntrypointName
 	var etype ct.LogEntryType
 	if isPrecert {
@@ -376,11 +376,11 @@ func addChainInternal(ctx context.Context, c LogContext, w http.ResponseWriter, 
 	return http.StatusOK, nil
 }
 
-func addChain(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func addChain(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	return addChainInternal(ctx, c, w, r, false)
 }
 
-func addPreChain(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func addPreChain(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	return addChainInternal(ctx, c, w, r, true)
 }
 
@@ -423,7 +423,7 @@ func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID i
 	return &sth, nil
 }
 
-func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSTH(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	sth, err := GetTreeHead(ctx, c.rpcClient, c.logID, c.LogPrefix)
 	if err != nil {
 		return http.StatusInternalServerError, err
@@ -461,7 +461,7 @@ func getSTH(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Re
 	return http.StatusOK, nil
 }
 
-func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSTHConsistency(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	first, second, err := parseGetSTHConsistencyRange(r)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to parse consistency range: %v", err)
@@ -508,7 +508,7 @@ func getSTHConsistency(ctx context.Context, c LogContext, w http.ResponseWriter,
 	return http.StatusOK, nil
 }
 
-func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Accept any non empty hash that decodes from base64 and let the backend validate it further
 	hash := r.FormValue(getProofParamHash)
 	if len(hash) == 0 {
@@ -573,7 +573,7 @@ func getProofByHash(ctx context.Context, c LogContext, w http.ResponseWriter, r 
 	return http.StatusOK, nil
 }
 
-func getEntries(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
 	// size and prefer to let the backend handle this case
@@ -625,7 +625,7 @@ func getEntries(ctx context.Context, c LogContext, w http.ResponseWriter, r *htt
 	return http.StatusOK, nil
 }
 
-func getRoots(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getRoots(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Pull out the raw certificates from the parsed versions
 	rawCerts := make([][]byte, 0, len(c.validationOpts.trustedRoots.RawCertificates()))
 	for _, cert := range c.validationOpts.trustedRoots.RawCertificates() {
@@ -646,7 +646,7 @@ func getRoots(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.
 
 // See RFC 6962 Section 4.8. This is mostly used for debug purposes rather than by normal
 // CT clients.
-func getEntryAndProof(ctx context.Context, c LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
+func getEntryAndProof(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Ensure both numeric params are present and look reasonable.
 	leafIndex, treeSize, err := parseGetEntryAndProofParams(r)
 	if err != nil {
@@ -696,7 +696,7 @@ func sendHTTPError(w http.ResponseWriter, statusCode int, err error) {
 }
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
-func getRPCDeadlineTime(c LogContext) time.Time {
+func getRPCDeadlineTime(c *LogContext) time.Time {
 	return c.TimeSource.Now().Add(c.instanceOpts.Deadline)
 }
 
@@ -704,7 +704,7 @@ func getRPCDeadlineTime(c LogContext) time.Time {
 // cert is of the correct type and chains to a trusted root.
 // TODO(Martin2112): This may not implement all the RFC requirements. Check what is provided
 // by fixchain (called by this code) plus the ones here to make sure that it is compliant.
-func verifyAddChain(c LogContext, req ct.AddChainRequest, w http.ResponseWriter, expectingPrecert bool) ([]*x509.Certificate, error) {
+func verifyAddChain(c *LogContext, req ct.AddChainRequest, w http.ResponseWriter, expectingPrecert bool) ([]*x509.Certificate, error) {
 	// We already checked that the chain is not empty so can move on to verification
 	validPath, err := ValidateChain(req.Chain, c.validationOpts)
 	if err != nil {
@@ -733,7 +733,7 @@ func verifyAddChain(c LogContext, req ct.AddChainRequest, w http.ResponseWriter,
 
 // buildLogLeafForAddChain is also used by add-pre-chain and does the hashing to build a
 // LogLeaf that will be sent to the backend
-func buildLogLeafForAddChain(c LogContext, merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate) (trillian.LogLeaf, error) {
+func buildLogLeafForAddChain(c *LogContext, merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate) (trillian.LogLeaf, error) {
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
 		glog.Warningf("%s: Failed to serialize Merkle leaf: %v", c.LogPrefix, err)
@@ -955,7 +955,7 @@ func sortLeafRange(rsp *trillian.GetLeavesByIndexResponse, start, end int64) err
 
 // marshalGetEntriesResponse does the conversion from the backend response to the one we need for
 // an RFC compliant JSON response to the client.
-func marshalGetEntriesResponse(c LogContext, rsp *trillian.GetLeavesByIndexResponse) (ct.GetEntriesResponse, error) {
+func marshalGetEntriesResponse(c *LogContext, rsp *trillian.GetLeavesByIndexResponse) (ct.GetEntriesResponse, error) {
 	jsonRsp := ct.GetEntriesResponse{}
 
 	for _, leaf := range rsp.Leaves {
@@ -994,7 +994,7 @@ func checkAuditPath(path [][]byte) bool {
 	return true
 }
 
-func (c LogContext) toHTTPStatus(err error) int {
+func (c *LogContext) toHTTPStatus(err error) int {
 	if c.instanceOpts.ErrorMapper != nil {
 		if status, ok := c.instanceOpts.ErrorMapper(err); ok {
 			return status
