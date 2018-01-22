@@ -22,8 +22,11 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
+	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/google/trillian/crypto"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/kylelemons/godebug/pretty"
 )
 
@@ -144,10 +147,11 @@ func TestSignV1SCTForPrecertificate(t *testing.T) {
 }
 
 func TestSignV1TreeHead(t *testing.T) {
-	signer, err := setupSigner(fakeSignature)
+	privKey, err := pem.UnmarshalPrivateKey(testdata.DemoPrivateKey, testdata.DemoPrivateKeyPass)
 	if err != nil {
 		t.Fatalf("could not create signer: %v", err)
 	}
+	signer := crypto.NewSHA256Signer(privKey)
 
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
@@ -155,32 +159,47 @@ func TestSignV1TreeHead(t *testing.T) {
 		Timestamp: 1512993312000,
 	}
 	if err := signV1TreeHead(signer, &sth); err != nil {
-		t.Errorf("signV1TreeHead()=%v; want nil", err)
+		t.Fatalf("signV1TreeHead()=%v; want nil", err)
 	}
-	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, fakeSignature); diff != "" {
-		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
-	}
+	prevSig := make([]byte, len(sth.TreeHeadSignature.Signature))
+	copy(prevSig, sth.TreeHeadSignature.Signature)
 
 	// Signing the same contents should get the same cached signature regardless.
-	secondSig := []byte("different sig")
-	signer, err = setupSigner(secondSig)
-	if err != nil {
-		t.Fatalf("could not create signer: %v", err)
-	}
-	if err := signV1TreeHead(signer, &sth); err != nil {
-		t.Errorf("signV1TreeHead()=%v; want nil", err)
-	}
-	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, fakeSignature); diff != "" {
-		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+	for i := 0; i < 5; i++ {
+		if err := signV1TreeHead(signer, &sth); err != nil {
+			t.Fatalf("signV1TreeHead()=%v; want nil", err)
+		}
+		sig := make([]byte, len(sth.TreeHeadSignature.Signature))
+		copy(sig, sth.TreeHeadSignature.Signature)
+
+		if diff := pretty.Compare(prevSig, sig); diff != "" {
+			t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+		}
 	}
 
 	// But changing the contents does change the signature.
-	sth.TreeSize = 11
-	if err := signV1TreeHead(signer, &sth); err != nil {
-		t.Errorf("signV1TreeHead()=%v; want nil", err)
-	}
-	if diff := pretty.Compare(sth.TreeHeadSignature.Signature, secondSig); diff != "" {
-		t.Fatalf("signV1TreeHead().TreeHeadSignature mismatched, diff:\n%v", diff)
+	for i := 0; i < 5; i++ {
+		sth.TreeSize = uint64(11 + i)
+		if err := signV1TreeHead(signer, &sth); err != nil {
+			t.Errorf("signV1TreeHead()=%v; want nil", err)
+		}
+		sig := make([]byte, len(sth.TreeHeadSignature.Signature))
+		copy(sig, sth.TreeHeadSignature.Signature)
+
+		if bytes.Equal(prevSig, sig) {
+			t.Fatalf("signV1TreeHead(size=%d).TreeHeadSignature unexpectedly matched", sth.TreeSize)
+		}
+		prevSig := sig
+
+		// Repeating should again return the cached signature.
+		if err := signV1TreeHead(signer, &sth); err != nil {
+			t.Errorf("signV1TreeHead(size=%d)=%v; want nil", sth.TreeSize, err)
+		}
+		sig = make([]byte, len(sth.TreeHeadSignature.Signature))
+		copy(sig, sth.TreeHeadSignature.Signature)
+		if diff := pretty.Compare(prevSig, sig); diff != "" {
+			t.Fatalf("signV1TreeHead(size=%d).TreeHeadSignature mismatched, diff:\n%v", sth.TreeSize, diff)
+		}
 	}
 
 }
