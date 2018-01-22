@@ -104,7 +104,7 @@ type handlerTestInfo struct {
 	notAfterStart time.Time
 	notAfterEnd   time.Time
 	client        *mockclient.MockTrillianLogClient
-	c             LogContext
+	c             *LogContext
 }
 
 // setupTest creates mock objects and contexts.  Caller should invoke info.mockCtrl.Finish().
@@ -122,7 +122,7 @@ func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTe
 		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 	iOpts := InstanceOptions{Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}, RequestLog: new(DefaultRequestLog)}
-	info.c = *NewLogContext(0x42, "test", vOpts, info.client, signer, iOpts, fakeTimeSource)
+	info.c = NewLogContext(0x42, "test", vOpts, info.client, signer, iOpts, fakeTimeSource)
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {
@@ -1528,13 +1528,13 @@ func (d dlMatcher) String() string {
 	return fmt.Sprintf("deadline is %v", fakeDeadlineTime)
 }
 
-func makeAddPrechainRequest(t *testing.T, c LogContext, body io.Reader) *httptest.ResponseRecorder {
+func makeAddPrechainRequest(t *testing.T, c *LogContext, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
 	handler := AppHandler{Context: c, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-pre-chain", body)
 }
 
-func makeAddChainRequest(t *testing.T, c LogContext, body io.Reader) *httptest.ResponseRecorder {
+func makeAddChainRequest(t *testing.T, c *LogContext, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
 	handler := AppHandler{Context: c, Handler: addChain, Name: "AddChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-chain", body)
