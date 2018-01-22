@@ -203,3 +203,39 @@ func TestSignV1TreeHead(t *testing.T) {
 	}
 
 }
+
+func TestSignV1TreeHeadDifferentSigners(t *testing.T) {
+	privKey, err := pem.UnmarshalPrivateKey(testdata.DemoPrivateKey, testdata.DemoPrivateKeyPass)
+	if err != nil {
+		t.Fatalf("could not create signer1: %v", err)
+	}
+	signer1 := crypto.NewSHA256Signer(privKey)
+
+	signer2, err := setupSigner(fakeSignature)
+	if err != nil {
+		t.Fatalf("could not create signer2: %v", err)
+	}
+
+	sth := ct.SignedTreeHead{
+		Version:   ct.V1,
+		TreeSize:  10,
+		Timestamp: 1512993312000,
+	}
+
+	if err := signV1TreeHead(signer1, &sth); err != nil {
+		t.Fatalf("signV1TreeHead(signer1)=%v; want nil", err)
+	}
+	sig1 := make([]byte, len(sth.TreeHeadSignature.Signature))
+	copy(sig1, sth.TreeHeadSignature.Signature)
+
+	if err := signV1TreeHead(signer2, &sth); err != nil {
+		t.Fatalf("signV1TreeHead(signer2)=%v; want nil", err)
+	}
+	sig2 := make([]byte, len(sth.TreeHeadSignature.Signature))
+	copy(sig2, sth.TreeHeadSignature.Signature)
+
+	// Check that different signers on the same contents give different results.
+	if bytes.Equal(sig1, sig2) {
+		t.Fatal("signV1TreeHead().TreeHeadSignature unexpectedly matched")
+	}
+}
