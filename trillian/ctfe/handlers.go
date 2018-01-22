@@ -15,6 +15,7 @@
 package ctfe
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -227,6 +228,13 @@ type LogContext struct {
 	signer *crypto.Signer
 	// rpcDeadline is the deadline that will be set on all backend RPC requests
 	rpcDeadline time.Duration
+
+	// Cache the last signature generated for an STH, to reduce re-signing
+	// and slightly reduce the chances of being able to fingerprint get-sth
+	// users by their STH signature value.
+	lastSTHMu        sync.RWMutex
+	lastSTHBytes     []byte
+	lastSTHSignature ct.DigitallySigned
 }
 
 // NewLogContext creates a new instance of LogContext.
@@ -246,6 +254,22 @@ func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts
 	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))
 
 	return ctx
+}
+
+func (c *LogContext) setLastSTHSignature(sthBytes []byte, sig ct.DigitallySigned) {
+	c.lastSTHMu.Lock()
+	defer c.lastSTHMu.Unlock()
+	c.lastSTHBytes = sthBytes
+	c.lastSTHSignature = sig
+}
+
+func (c *LogContext) getLastSTHSignature(sthBytes []byte) (ct.DigitallySigned, bool) {
+	c.lastSTHMu.RLock()
+	defer c.lastSTHMu.RUnlock()
+	if !bytes.Equal(sthBytes, c.lastSTHBytes) {
+		return ct.DigitallySigned{}, false
+	}
+	return c.lastSTHSignature, true
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances
@@ -430,7 +454,7 @@ func getSTH(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.R
 	}
 
 	// Add the signature over the STH contents.
-	err = signV1TreeHead(c.signer, sth)
+	err = c.signV1TreeHead(c.signer, sth)
 	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
 		return http.StatusInternalServerError, fmt.Errorf("failed to sign tree head: %v", err)
 	}
