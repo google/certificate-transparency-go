@@ -152,7 +152,7 @@ func TestSignV1TreeHead(t *testing.T) {
 		t.Fatalf("could not create signer: %v", err)
 	}
 	signer := crypto.NewSHA256Signer(privKey)
-	c := NewLogContext(6962, "test-log", CertValidationOpts{}, nil, signer, InstanceOptions{}, fakeTimeSource)
+	c := &LogContext{logID: 6962, signer: signer}
 
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
@@ -211,13 +211,13 @@ func TestSignV1TreeHeadDifferentSigners(t *testing.T) {
 		t.Fatalf("could not create signer1: %v", err)
 	}
 	signer1 := crypto.NewSHA256Signer(privKey)
-	c1 := NewLogContext(6962, "test-log", CertValidationOpts{}, nil, signer1, InstanceOptions{}, fakeTimeSource)
+	c1 := &LogContext{logID: 6962, signer: signer1}
 
 	signer2, err := setupSigner(fakeSignature)
 	if err != nil {
 		t.Fatalf("could not create signer2: %v", err)
 	}
-	c2 := NewLogContext(6962, "test-log", CertValidationOpts{}, nil, signer2, InstanceOptions{}, fakeTimeSource)
+	c2 := &LogContext{logID: 6963, signer: signer2}
 
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
