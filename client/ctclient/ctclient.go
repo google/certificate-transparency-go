@@ -39,6 +39,7 @@ import (
 
 var (
 	logURI    = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log base URI")
+	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
 	certChain = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	textOut   = flag.Bool("text", true, "Display certificates as text")
@@ -122,9 +123,15 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 
 	// Display the SCT
 	when := ctTimestampToTime(sct.Timestamp)
-	fmt.Printf("%v: Uploaded chain of %d certs to %v log at %v\n", when, len(chain), sct.SCTVersion, *logURI)
+	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %v\n", len(chain), sct.SCTVersion, *logURI, when)
 	fmt.Printf("LeafHash: %x\n", leafHash)
 	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
+
+	age := time.Now().Sub(when)
+	if age > *logMMD {
+		// SCT's timestamp is old enough that the certificate should be included.
+		getInclusionProofForHash(ctx, logClient, leafHash[:])
+	}
 }
 
 func getRoots(ctx context.Context, logClient *client.LogClient) {
@@ -166,6 +173,14 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 }
 
 func getInclusionProof(ctx context.Context, logClient *client.LogClient) {
+	hash, err := hex.DecodeString(*leafHash)
+	if err != nil || len(hash) != 32 {
+		log.Fatal("No valid --leaf_hash supplied in hex")
+	}
+	getInclusionProofForHash(ctx, logClient, hash)
+}
+
+func getInclusionProofForHash(ctx context.Context, logClient *client.LogClient, hash []byte) {
 	var sth *ct.SignedTreeHead
 	size := *treeSize
 	if size <= 0 {
@@ -177,10 +192,6 @@ func getInclusionProof(ctx context.Context, logClient *client.LogClient) {
 		size = int64(sth.TreeSize)
 	}
 	// Display the inclusion proof.
-	hash, err := hex.DecodeString(*leafHash)
-	if err != nil || len(hash) != 32 {
-		log.Fatal("No valid --leaf_hash supplied in hex")
-	}
 	rsp, err := logClient.GetProofByHash(ctx, hash, uint64(size))
 	if err != nil {
 		log.Fatalf("Failed to get-proof-by-hash: %v", err)
