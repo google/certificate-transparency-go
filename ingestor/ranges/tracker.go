@@ -20,6 +20,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Tracker tracks a range of integer indices which may be split into a set
@@ -49,6 +50,7 @@ type Tracker struct {
 	start, end int64         // the extent of the range being tracked [start, end]
 	wm         watermarks    // the low, mid and high water marks (see below)
 	subRanges  subRangeSlice // the ranges recorded so far - kept sorted by subRange.first
+	startTime  time.Time     // timestamp recorded when Tracker created
 }
 
 // watermarks encapsulates a set of three watermarks that are calculated when
@@ -122,6 +124,9 @@ func (srs subRangeSlice) Swap(i, j int) {
 	srs[i].last, srs[j].last = srs[j].last, srs[i].last
 }
 
+// timeNow may be replaced in tests.
+var timeNow = time.Now
+
 // NewTracker returns a Tracker for the range [start, end].
 func NewTracker(start, end int64) (*Tracker, error) {
 	if start > end {
@@ -131,9 +136,10 @@ func NewTracker(start, end int64) (*Tracker, error) {
 		return nil, fmt.Errorf("want start >= 0, got %d]", start)
 	}
 	return &Tracker{
-		start: start,
-		end:   end,
-		wm:    watermarks{lo: -1, mid: -1, hi: -1},
+		start:     start,
+		end:       end,
+		wm:        watermarks{lo: -1, mid: -1, hi: -1},
+		startTime: timeNow(),
 	}, nil
 }
 
@@ -177,10 +183,23 @@ func (rt *Tracker) PartiallyCompleteUpto() int64 {
 	return rt.wm.mid
 }
 
+func (rt *Tracker) progressSummary() string {
+	switch {
+	case rt.IsComplete():
+		return "100% complete"
+	case !rt.IsPartiallyComplete():
+		return "0% complete"
+	}
+	fractionComplete := float32(rt.wm.mid+1-rt.start) / float32(rt.end-rt.start)
+	elapsed := float32(timeNow().Sub(rt.startTime))
+	remain := elapsed/fractionComplete - elapsed
+	return fmt.Sprintf("%2.1f%% complete, done in %v", 100.0*fractionComplete, time.Duration(remain))
+}
+
 // String returns a printable representation of the Tracker.
 func (rt *Tracker) String() string {
-	return fmt.Sprintf("<expected range [start %d, end %d] watermarks %v #subranges %d>",
-		rt.start, rt.end, rt.wm, len(rt.subRanges))
+	return fmt.Sprintf("<expected range [start %d, end %d] watermarks %v #subranges %d %s>",
+		rt.start, rt.end, rt.wm, len(rt.subRanges), rt.progressSummary())
 }
 
 // DebugString returns a verbose printable representation of the Tracker, including details of all added subranges, for debug use.
@@ -190,6 +209,6 @@ func (rt *Tracker) DebugString() string {
 		srs = append(srs, sr.String())
 	}
 
-	return fmt.Sprintf("<expected range [start %d, end %d] watermarks %v subranges [%v]>",
-		rt.start, rt.end, rt.wm, strings.Join(srs, " "))
+	return fmt.Sprintf("<expected range [start %d, end %d] watermarks %v subranges [%v] %s>",
+		rt.start, rt.end, rt.wm, strings.Join(srs, " "), rt.progressSummary())
 }
