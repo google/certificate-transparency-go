@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	logURI    = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log base URI")
+	logURI    = flag.String("log_uri", "http://ct.googleapis.com/rocketeer", "CT log base URI")
 	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
 	certChain = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
