@@ -186,13 +186,9 @@ func (rt *Tracker) PartiallyCompleteUpto() int64 {
 func (rt *Tracker) progressSummary() string {
 	switch {
 	case rt.IsComplete():
-		{
-			return "100% complete"
-		}
+		return "100% complete"
 	case !rt.IsPartiallyComplete():
-		{
-			return "0% complete"
-		}
+		return "0% complete"
 	}
 	fractionComplete := float32(rt.wm.mid+1-rt.start) / float32(rt.end-rt.start)
 	elapsed := float32(timeNow().Sub(rt.startTime))
