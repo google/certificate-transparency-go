@@ -1033,9 +1033,6 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 			return nil, fmt.Errorf("pre-cert has no authority-key-id extension to update")
 		}
 		tbs.Extensions[keyAt].Value = issuerKeyID
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal new auth key ID: %v", err)
-		}
 	}
 
 	data, err := asn1.Marshal(tbs)
