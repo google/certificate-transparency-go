@@ -2,6 +2,7 @@
 # Requires github.com/google/trillian/integration/functions.sh
 
 declare -a CT_SERVER_PIDS
+declare -a CT_TREEIDS
 CT_SERVERS=
 CT_CFG=
 
@@ -75,7 +76,8 @@ ct_prep_test() {
 # Parameters:
 #   - location of admin server instance
 # Populates:
-#   - CT_CFG : configuration file for CT personality
+#   - CT_CFG     : configuration file for CT personality
+#   - CT_TREEIDS : IDs of trees being used for the logs
 ct_provision() {
   local admin_server="$1"
 
@@ -84,8 +86,9 @@ ct_provision() {
 
   sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.cfg > "${CT_CFG}"
 
-  echo 'Building createtree'
+  echo 'Building createtree / freezetree'
   go build ${GOFLAGS} github.com/google/trillian/cmd/createtree/
+  go build ${GOFLAGS} github.com/google/trillian/cmd/freezetree/
 
   num_logs=$(grep -c '@TREE_ID@' "${CT_CFG}")
   for i in $(seq ${num_logs}); do
@@ -100,11 +103,29 @@ ct_provision() {
     # Need suffix for sed -i to cope with both GNU and non-GNU (e.g. OS X) sed.
     sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" "${CT_CFG}"
     rm -f "${CT_CFG}.bak"
+    # Keep track of the IDs being used for the logs.
+    CT_TREEIDS+=("${tree_id}")
   done
 
   echo "CT configuration:"
   cat "${CT_CFG}"
   echo
+}
+
+# ct_freeze freezes the logs in the configuration via the admin API.
+# Parameters:
+#   - location of admin server instance
+# Assumes CT_TREEIDS was set by ct_provision
+ct_freeze() {
+  local admin_server="$1"
+
+  for tree_id in "${CT_TREEIDS[@]}"; do
+    echo "Freezing tree with id: ${tree_id}"
+    tree_state=$(./freezetree \
+      --admin_server="${admin_server}" \
+      --tree_id="${tree_id}")
+    echo "Tree ${tree_id} is ${tree_state}"
+  done
 }
 
 # ct_stop_test closes the running processes for a CT tests.

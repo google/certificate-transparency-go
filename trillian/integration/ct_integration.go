@@ -589,6 +589,103 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	return nil
 }
 
+// RunCTIntegrationForFrozenLog tests against the log with configuration cfg,
+// with a set of comma-separated server addresses given by servers, assuming
+// that testdir holds a variety of test data files and that the log is in a
+// frozen state after the successful completion of the tests in
+// RunCTIntegrationForLog.
+// nolint: gocyclo
+func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServers, testdir string, mmd time.Duration, stats *logStats) error {
+	ctx := context.Background()
+	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
+	if err != nil {
+		return fmt.Errorf("failed to create pool: %v", err)
+	}
+	t := testInfo{
+		prefix:         cfg.Prefix,
+		cfg:            cfg,
+		metricsServers: metricsServers,
+		stats:          stats,
+		pool:           pool,
+	}
+
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("unexpected stats check: %v", err)
+	}
+
+	// Stage 0: get accepted roots, which should just be the fake CA.
+	roots, err := t.client().GetAcceptedRoots(ctx)
+	t.stats.done(ctfe.GetRootsName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
+	}
+	if len(roots) != 1 {
+		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", len(roots))
+	}
+
+	// Stage 1: get the STH, which should not be empty. Number of entries is
+	// not fixed as a random no of certs is submitted to each log.
+	sth0, err := t.client().GetSTH(ctx)
+	t.stats.done(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+	}
+	if sth0.Version != 0 {
+		return fmt.Errorf("sth.Version=%v; want V1(0)", sth0.Version)
+	}
+	if sth0.TreeSize == 0 {
+		return fmt.Errorf("sth.TreeSize=%d; want >0", sth0.TreeSize)
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth0.Timestamp), sth0.TreeSize, sth0.SHA256RootHash)
+
+	// Stage 2: add a single cert (the intermediate CA), get an SCT. Expect
+	// it to fail with a 403 error.
+	var scts [21]*ct.SignedCertificateTimestamp // 0=int-ca, 1-20=leaves
+	var chain [21][]ct.ASN1Cert
+	chain[0], err = GetChain(testdir, "int-ca.cert")
+	if err != nil {
+		return fmt.Errorf("failed to load certificate: %v", err)
+	}
+	scts[0], err = t.client().AddChain(ctx, chain[0])
+	t.stats.done(ctfe.AddChainName, 403)
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+	}
+
+	// Stage 3: build and add a pre-certificate. Expect it to fail with a 403
+	// error.
+	chain[1], err = GetChain(testdir, "leaf01.chain")
+	if err != nil {
+		return fmt.Errorf("failed to load certificate: %v", err)
+	}
+	signer, err := MakeSigner(testdir)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
+	}
+	issuer, err := x509.ParseCertificate(chain[0][0].Data)
+	if err != nil {
+		return fmt.Errorf("failed to parse issuer for precert: %v", err)
+	}
+	prechain, _, err := makePrecertChain(chain[1], issuer, signer, time.Time{} /*  notAfter */)
+	if err != nil {
+		return fmt.Errorf("failed to build pre-certificate: %v", err)
+	}
+	_, err = t.client().AddPreChain(ctx, prechain)
+	t.stats.done(ctfe.AddPreChainName, 403)
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		return fmt.Errorf("got AddPreChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+	}
+
+	// Temporary sleep to check signing
+	time.Sleep(20 * time.Second)
+
+	// Final stats check.
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("unexpected stats check: %v", err)
+	}
+	return nil
+}
+
 // timeFromMS converts a timestamp in milliseconds (as used in CT) to a time.Time.
 func timeFromMS(ts uint64) time.Time {
 	secs := int64(ts / 1000)
@@ -873,30 +970,26 @@ func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
 	ls.rsps[string(ep)][strconv.Itoa(rc)]++
 }
 
-func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
-	if ls == nil {
-		return nil
-	}
+func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, error) {
 	reqsRE := regexp.MustCompile(reqStatsRE)
 	rspsRE := regexp.MustCompile(rspStatsRE)
 
-	ctx := context.Background()
 	got := newLogStats(int64(ls.logID))
 	for _, s := range strings.Split(servers, ",") {
 		httpReq, err := http.NewRequest(http.MethodGet, "http://"+s+"/metrics", nil)
 		if err != nil {
-			return fmt.Errorf("failed to build GET request: %v", err)
+			return nil, fmt.Errorf("failed to build GET request: %v", err)
 		}
 		c := new(http.Client)
 
 		httpRsp, err := ctxhttp.Do(ctx, c, httpReq)
 		if err != nil {
-			return fmt.Errorf("getting stats failed: %v", err)
+			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}
 		defer httpRsp.Body.Close()
 		defer ioutil.ReadAll(httpRsp.Body)
 		if httpRsp.StatusCode != http.StatusOK {
-			return fmt.Errorf("got HTTP Status %q", httpRsp.Status)
+			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
 
 		scanner := bufio.NewScanner(httpRsp.Body)
@@ -926,6 +1019,18 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 		}
 	}
 
+	return got, nil
+}
+
+func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
+	if ls == nil {
+		return nil
+	}
+	ctx := context.Background()
+	got, err := ls.fromServer(ctx, servers)
+	if err != nil {
+		return err
+	}
 	// Now compare accumulated actual stats with what we expect to see.
 	if !reflect.DeepEqual(got.reqs, ls.reqs) {
 		return fmt.Errorf("got reqs %+v; want %+v", got.reqs, ls.reqs)

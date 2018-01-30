@@ -31,6 +31,8 @@ import (
 	"github.com/google/trillian/storage/testdb"
 
 	// Register PEMKeyFile and PrivateKey ProtoHandlers
+	"errors"
+
 	_ "github.com/google/trillian/crypto/keys/der/proto"
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
@@ -45,10 +47,9 @@ var (
 	skipStats      = flag.Bool("skip_stats", false, "Skip checks of expected log statistics")
 )
 
-func TestLiveCTIntegration(t *testing.T) {
-	flag.Parse()
+func commonSetup() ([]*configpb.LogConfig, error) {
 	if *logConfig == "" {
-		t.Skip("Integration test skipped as no log config provided")
+		return nil, errors.New("Integration test skipped as no log config provided")
 	}
 	if *seed == -1 {
 		*seed = time.Now().UTC().UnixNano() & 0xFFFFFFFF
@@ -58,9 +59,17 @@ func TestLiveCTIntegration(t *testing.T) {
 
 	cfgs, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
-		t.Fatalf("Failed to read log config: %v", err)
+		return nil, fmt.Errorf("Failed to read log config: %v", err)
 	}
+	return cfgs, nil
+}
 
+func TestLiveCTIntegration(t *testing.T) {
+	flag.Parse()
+	cfgs, err := commonSetup()
+	if err != nil {
+		t.Fatalf("test setup failed: %v", err)
+	}
 	for _, cfg := range cfgs {
 		cfg := cfg // capture config
 		t.Run(cfg.Prefix, func(t *testing.T) {
@@ -70,6 +79,31 @@ func TestLiveCTIntegration(t *testing.T) {
 				stats = newLogStats(cfg.LogId)
 			}
 			if err := RunCTIntegrationForLog(cfg, *httpServers, *metricsServers, *testDir, *mmd, stats); err != nil {
+				t.Errorf("%s: failed: %v", cfg.Prefix, err)
+			}
+		})
+	}
+}
+
+func TestLiveFrozenCTIntegration(t *testing.T) {
+	flag.Parse()
+	cfgs, err := commonSetup()
+	if err != nil {
+		t.Fatalf("test setup failed: %v", err)
+	}
+	for _, cfg := range cfgs {
+		cfg := cfg // capture config
+		t.Run(cfg.Prefix, func(t *testing.T) {
+			t.Parallel()
+			var stats *logStats
+			if !*skipStats {
+				stats = newLogStats(cfg.LogId)
+				stats, err = stats.fromServer(context.Background(), *metricsServers)
+				if err != nil {
+					t.Fatalf("failed to get stats from server: %v", err)
+				}
+			}
+			if err := RunCTIntegrationForFrozenLog(cfg, *httpServers, *metricsServers, *testDir, *mmd, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
 			}
 		})

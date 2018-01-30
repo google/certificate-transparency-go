@@ -31,6 +31,27 @@ RESULT=$?
 set -e
 popd
 
+# Initial test run failed? Clean up and exit if so
+if [[ "${RESULT}" != "0" ]]; then
+  ct_stop_test
+  TO_KILL=()
+
+  exit $RESULT
+fi
+
+# Now freeze all the trees that we're using in this test run
+echo "Freezing Logs"
+ct_freeze "${RPC_SERVER_1}"
+
+# Now do extra tests on the frozen logs. If freezing failed then they will
+# still be writable and that test will fail.
+pushd "${INTEGRATION_DIR}"
+set +e
+go test -v -run ".*LiveFrozenCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
+RESULT=$?
+set -e
+popd
+
 ct_stop_test
 TO_KILL=()
 
