@@ -111,7 +111,10 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 		sct, err = logClient.AddChain(ctx, chain)
 	}
 	if err != nil {
-		log.Fatal(err)
+		if err, ok := err.(client.RspError); ok {
+			log.Fatalf("Upload failed: %q, detail:\n  %s", err, string(err.Body))
+		}
+		log.Fatalf("Upload failed: %q", err)
 	}
 	// Calculate the leaf hash
 	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
