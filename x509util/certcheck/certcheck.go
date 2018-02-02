@@ -18,7 +18,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -35,16 +34,18 @@ var revokecheck = flag.Bool("check_revocation", false, "Check revocation status 
 
 func addCerts(filename string, pool *x509.CertPool) {
 	if filename != "" {
-		data, err := ioutil.ReadFile(filename)
+		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
 			log.Fatalf("Failed to read certificate file: %v\n", err)
 		}
-		roots, err := x509.ParseCertificates(data)
-		if err != nil {
-			log.Fatalf("Failed to parse certificate from %s: %v\n", filename, err)
-		}
-		for _, cert := range roots {
-			pool.AddCert(cert)
+		for _, data := range dataList {
+			certs, err := x509.ParseCertificates(data)
+			if err != nil {
+				log.Fatalf("Failed to parse certificate from %s: %v\n", filename, err)
+			}
+			for _, cert := range certs {
+				pool.AddCert(cert)
+			}
 		}
 	}
 }
