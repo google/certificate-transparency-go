@@ -520,10 +520,16 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	t.stats.done(ctfe.GetSTHConsistencyName, 400)
 	fmt.Printf("%s: GetSTHConsistency(2,299)=(nil,_)\n", t.prefix)
 
-	// Stage 16: invalid inclusion proof
+	// Stage 16: invalid inclusion proof; expect a client.RspError{404}.
 	wrong := sha256.Sum256([]byte("simply wrong"))
 	if rsp, err := t.client().GetProofByHash(ctx, wrong[:], sthN1.TreeSize); err == nil {
 		return fmt.Errorf("got GetProofByHash(wrong, size=%d)=(%v,nil); want (nil,_)", sthN1.TreeSize, rsp)
+	} else if rspErr, ok := err.(client.RspError); ok {
+		if rspErr.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("got GetProofByHash(wrong)=_, %d; want (nil, 404)", rspErr.StatusCode)
+		}
+	} else {
+		return fmt.Errorf("got GetProofByHash(wrong)=%+v (%T); want (client.RspError)", err, err)
 	}
 	t.stats.done(ctfe.GetProofByHashName, 404)
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,_)\n", t.prefix, sthN1.TreeSize)
