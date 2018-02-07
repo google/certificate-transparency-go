@@ -629,7 +629,8 @@ func showUnhandledExtensions(result *bytes.Buffer, cert *x509.Certificate) {
 		}
 		result.WriteString(fmt.Sprintf("            %v:", ext.Id))
 		showCritical(result, ext.Critical)
-		result.WriteString("                .....\n")
+		appendHexData(result, ext.Value, 16, "                ")
+		result.WriteString("\n")
 	}
 }
 
