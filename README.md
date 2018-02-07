@@ -9,6 +9,7 @@ This repository holds Go code related to
 repository requires Go version 1.9.
 
  - [Repository Structure](#repository-structure)
+ - [Trillian CT Personality](#trillian-ct-personality)
  - [Working on the Code](#working-on-the-code)
      - [Rebuilding Generated Code](#rebuilding-generated-code)
      - [Updating Vendor Code](#updating-vendor-code)
