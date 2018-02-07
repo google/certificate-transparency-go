@@ -424,6 +424,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	showCertPolicies(&result, cert)
 	showCRLDPs(&result, cert)
 	showAuthInfoAccess(&result, cert)
+	showCTPoison(&result, cert)
 	showCTSCT(&result, cert)
 
 	showUnhandledExtensions(&result, cert)
@@ -586,6 +587,15 @@ func showAuthInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showCTPoison(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionCTPoison, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            RFC6962 Pre-Certificate Poison:"))
+		showCritical(result, critical)
+		result.WriteString("                .....\n")
+	}
+}
+
 func showCTSCT(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(x509.OIDExtensionCTSCT, cert.Extensions)
 	if count > 0 {
@@ -641,6 +651,7 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionNameConstraints) ||
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionCTPoison) ||
 		oid.Equal(x509.OIDExtensionCTSCT) {
 		return true
 	}
