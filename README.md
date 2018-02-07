@@ -19,7 +19,7 @@ go get github.com/google/certificate-transparency-go/scanner
 To compile the log scanner run:
 
 ```bash
-go build github.com/google/certificate-transparency-go/scanner/main/scanner.go
+go get github.com/google/certificate-transparency-go/scanner/scanlog
 ```
 
 # Contributing
