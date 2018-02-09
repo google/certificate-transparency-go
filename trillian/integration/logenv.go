@@ -26,9 +26,12 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
+	"github.com/google/trillian/client"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/testonly/integration"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	stestonly "github.com/google/trillian/storage/testonly"
 )
 
 // CTLogEnv is a test environment that contains both a log server and a CT personality
@@ -53,11 +56,14 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 
 	// Provision the logs.
 	for _, cfg := range cfgs {
-		logID, err := logEnv.CreateLog()
+		tree, err := client.CreateAndInitTree(ctx,
+			&trillian.CreateTreeRequest{Tree: stestonly.LogTree},
+			logEnv.Admin, nil, logEnv.Log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to provision log %d: %v", cfg.LogId, err)
 		}
-		cfg.LogId = logID
+
+		cfg.LogId = tree.TreeId
 	}
 
 	// Start the CT personality.
