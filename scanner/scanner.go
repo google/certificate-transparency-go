@@ -283,19 +283,34 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	}
 	s.Log(fmt.Sprintf("Got STH with %d certs", latestSth.TreeSize))
 
+	// TODO: cleanup Ticker and goroutine on return.
 	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
 	fetches := make(chan fetchRange, 1000)
 	jobs := make(chan entryInfo, 100000)
 	go func() {
+		slidingWindow := make([]int64, 15)
+		i, previousCount := 0, int64(0)
 		for range ticker.C {
 			certsProcessed := atomic.LoadInt64(&s.certsProcessed)
-			throughput := float64(certsProcessed) / time.Since(startTime).Seconds()
+			slidingWindow[i%15], previousCount = certsProcessed-previousCount, certsProcessed
+
+			windowTotal := int64(0)
+			for _, v := range slidingWindow {
+				windowTotal += v
+			}
+			windowSeconds := 15
+			if i < 15 {
+				windowSeconds = i + 1
+			}
+
+			throughput := float64(windowTotal) / float64(windowSeconds)
 			remainingCerts := int64(latestSth.TreeSize) - int64(s.opts.StartIndex) - certsProcessed
 			remainingSeconds := int(float64(remainingCerts) / throughput)
 			remainingString := humanTime(remainingSeconds)
-			s.Log(fmt.Sprintf("Processed: %d certs (to index %d). Throughput: %3.2f ETA: %s\n", certsProcessed,
+			s.Log(fmt.Sprintf("Processed: %d certs (to index %d). Throughput (last 15s): %3.2f ETA: %s\n", certsProcessed,
 				s.opts.StartIndex+int64(certsProcessed), throughput, remainingString))
+			i++
 		}
 	}()
 
