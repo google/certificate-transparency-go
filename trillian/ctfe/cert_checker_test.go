@@ -99,6 +99,9 @@ func TestValidateChain(t *testing.T) {
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeRootCACertPEM)) {
+		t.Fatal("failed to load fake root")
+	}
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
 		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
@@ -133,6 +136,16 @@ func TestValidateChain(t *testing.T) {
 		{
 			desc:        "valid-chain",
 			chain:       pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			wantPathLen: 3,
+		},
+		{
+			desc:        "valid-chain-with-policyconstraints",
+			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithPolicyConstraintsCertPEM}),
+			wantPathLen: 3,
+		},
+		{
+			desc:        "valid-chain-with-policyconstraints-inc-root",
+			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithPolicyConstraintsCertPEM, testonly.FakeRootCACertPEM}),
 			wantPathLen: 3,
 		},
 	}
