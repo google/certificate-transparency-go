@@ -148,6 +148,16 @@ func TestValidateChain(t *testing.T) {
 			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithPolicyConstraintsCertPEM, testonly.FakeRootCACertPEM}),
 			wantPathLen: 3,
 		},
+		{
+			desc:        "valid-chain-with-nameconstraints",
+			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithNameConstraintsCertPEM}),
+			wantPathLen: 3,
+		},
+		{
+			desc:    "chain-with-invalid-nameconstraints",
+			chain:   pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
+			wantErr: true,
+		},
 	}
 	for _, test := range tests {
 		gotPath, err := ValidateChain(test.chain, validateOpts)

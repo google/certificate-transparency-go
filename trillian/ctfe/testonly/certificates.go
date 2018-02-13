@@ -771,16 +771,130 @@ hkjOPQQDAgNHADBEAiBMqieP2YMydkAXoagAHbzRRbJTxkd3SPHDiWhd9H9cUgIg
 OWhAXP3wKuI/NEWzGS3jTVjNdkIZCc9cHOXxceA5Yrk=
 -----END CERTIFICATE-----`
 
-// LeafCertPEM is a leaf cert signed by FakeIntermediateWithPolicyConstraintsCertPEM,
-// taken from ../../testdata/leaf01.cert.
+// FakeIntermediateWithNameConstraintsCertPEM is an intermediate CA cert that includes a
+// critical NameConstraints extension that disallows the leaf below; based on ../../testdata/int-ca.cert.
+//  Data:
+//      Version: 3 (0x2)
+//      Serial Number: 1111638594 (0x42424242)
+//  Signature Algorithm: ecdsa-with-SHA256
+//      Issuer: C=GB, ST=London, L=London, O=Google, OU=Eng, CN=FakeCertificateAuthority
+//      Validity
+//          Not Before: Feb 13 11:33:08 2018 GMT
+//          Not After : Dec 23 11:33:08 2027 GMT
+//      Subject: C=GB, ST=London, L=London, O=Google, OU=Eng, CN=FakeIntermediateAuthority
+//      Subject Public Key Info:
+//          Public Key Algorithm: id-ecPublicKey
+//              Public-Key: (256 bit)
+//              pub:
+//                  04:f1:bf:2d:e8:8c:66:40:e3:a8:d1:54:e0:42:49:
+//                  02:cb:dd:47:08:85:c2:67:41:4c:eb:f7:87:cd:8d:
+//                  a3:09:c8:18:cc:2e:30:53:16:32:aa:d5:9c:08:73:
+//                  c6:76:fa:fa:3a:38:e9:34:35:9c:51:d1:ee:12:81:
+//                  5d:98:5f:5d:5d
+//              ASN1 OID: prime256v1
+//              NIST CURVE: P-256
+//      X509v3 extensions:
+//          X509v3 Subject Key Identifier:
+//              01:02:03:04
+//          X509v3 Authority Key Identifier:
+//              keyid:01:02:03:04
+//          X509v3 Basic Constraints: critical
+//              CA:TRUE, pathlen:10
+//          X509v3 Key Usage: critical
+//              Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment, Key Agreement, Certificate Sign, CRL Sign, Encipher Only, Decipher Only
+//          X509v3 Name Constraints:
+//              Permitted:
+//                DNS:.csr.pem
+//  Signature Algorithm: ecdsa-with-SHA256
+//       30:46:02:21:00:fd:11:41:d8:1f:2b:b5:49:8e:27:6e:70:93:
+//       2c:f1:c2:e7:b0:a2:40:e2:c6:89:45:fc:99:a5:9b:dc:21:fb:
+//       f6:02:21:00:b7:4f:98:bf:1f:dc:92:e7:db:7c:aa:33:7a:40:
+//       36:1d:58:19:aa:96:3d:5e:5b:46:5f:47:f6:e3:7d:75:19:4f
+const FakeIntermediateWithNameConstraintsCertPEM string = `
+-----BEGIN CERTIFICATE-----
+MIICNjCCAdugAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
+MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
+ZTEMMAoGA1UECxMDRW5nMSEwHwYDVQQDExhGYWtlQ2VydGlmaWNhdGVBdXRob3Jp
+dHkwHhcNMTgwMjEzMTEzMzA4WhcNMjcxMjIzMTEzMzA4WjByMQswCQYDVQQGEwJH
+QjEPMA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdv
+b2dsZTEMMAoGA1UECxMDRW5nMSIwIAYDVQQDExlGYWtlSW50ZXJtZWRpYXRlQXV0
+aG9yaXR5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8b8t6IxmQOOo0VTgQkkC
+y91HCIXCZ0FM6/eHzY2jCcgYzC4wUxYyqtWcCHPGdvr6OjjpNDWcUdHuEoFdmF9d
+XaNgMF4wDQYDVR0OBAYEBAECAwQwDwYDVR0jBAgwBoAEAQIDBDASBgNVHRMBAf8E
+CDAGAQH/AgEKMA8GA1UdDwEB/wQFAwMH/4AwFwYDVR0eBBAwDqAMMAqCCC5jc3Iu
+cGVtMAoGCCqGSM49BAMCA0kAMEYCIQD9EUHYHyu1SY4nbnCTLPHC57CiQOLGiUX8
+maWb3CH79gIhALdPmL8f3JLn23yqM3pANh1YGaqWPV5bRl9H9uN9dRlP
+-----END CERTIFICATE-----`
+
+// FakeIntermediateWithInvalidNameConstraintsCertPEM is an intermediate CA cert that includes a
+// critical NameConstraints extension that disallows the leaf below; based on ../../testdata/int-ca.cert.
+//  Data:
+//      Version: 3 (0x2)
+//      Serial Number: 1111638594 (0x42424242)
+//  Signature Algorithm: ecdsa-with-SHA256
+//      Issuer: C=GB, ST=London, L=London, O=Google, OU=Eng, CN=FakeCertificateAuthority
+//      Validity
+//          Not Before: Feb 13 11:42:37 2018 GMT
+//          Not After : Dec 23 11:42:37 2027 GMT
+//      Subject: C=GB, ST=London, L=London, O=Google, OU=Eng, CN=FakeIntermediateAuthority
+//      Subject Public Key Info:
+//          Public Key Algorithm: id-ecPublicKey
+//              Public-Key: (256 bit)
+//              pub:
+//                  04:f1:bf:2d:e8:8c:66:40:e3:a8:d1:54:e0:42:49:
+//                  02:cb:dd:47:08:85:c2:67:41:4c:eb:f7:87:cd:8d:
+//                  a3:09:c8:18:cc:2e:30:53:16:32:aa:d5:9c:08:73:
+//                  c6:76:fa:fa:3a:38:e9:34:35:9c:51:d1:ee:12:81:
+//                  5d:98:5f:5d:5d
+//              ASN1 OID: prime256v1
+//              NIST CURVE: P-256
+//      X509v3 extensions:
+//          X509v3 Subject Key Identifier:
+//              01:02:03:04
+//          X509v3 Authority Key Identifier:
+//              keyid:01:02:03:04
+//
+//          X509v3 Basic Constraints: critical
+//              CA:TRUE, pathlen:10
+//          X509v3 Key Usage: critical
+//              Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment, Key Agreement, Certificate Sign, CRL Sign, Encipher Only, Decipher Only
+//          X509v3 Name Constraints:
+//              Permitted:
+//                DNS:.xyzzy.pem
+//  Signature Algorithm: ecdsa-with-SHA256
+//       30:45:02:20:3f:0a:40:60:b6:9e:ea:a5:cd:eb:e4:0e:7c:bc:
+//       40:22:b2:e2:14:07:e8:ab:fa:4a:85:2a:41:18:20:f0:31:1a:
+//       02:21:00:a4:64:91:6d:79:47:79:0f:16:06:62:a9:88:8b:92:
+//       6d:40:fa:54:cb:c9:4f:bc:3f:53:27:e5:cd:12:16:53:7a
+const FakeIntermediateWithInvalidNameConstraintsCertPEM string = `
+-----BEGIN CERTIFICATE-----
+MIICNzCCAd2gAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
+MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
+ZTEMMAoGA1UECxMDRW5nMSEwHwYDVQQDExhGYWtlQ2VydGlmaWNhdGVBdXRob3Jp
+dHkwHhcNMTgwMjEzMTE0MjM3WhcNMjcxMjIzMTE0MjM3WjByMQswCQYDVQQGEwJH
+QjEPMA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdv
+b2dsZTEMMAoGA1UECxMDRW5nMSIwIAYDVQQDExlGYWtlSW50ZXJtZWRpYXRlQXV0
+aG9yaXR5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8b8t6IxmQOOo0VTgQkkC
+y91HCIXCZ0FM6/eHzY2jCcgYzC4wUxYyqtWcCHPGdvr6OjjpNDWcUdHuEoFdmF9d
+XaNiMGAwDQYDVR0OBAYEBAECAwQwDwYDVR0jBAgwBoAEAQIDBDASBgNVHRMBAf8E
+CDAGAQH/AgEKMA8GA1UdDwEB/wQFAwMH/4AwGQYDVR0eBBIwEKAOMAyCCi54eXp6
+eS5wZW0wCgYIKoZIzj0EAwIDSAAwRQIgPwpAYLae6qXN6+QOfLxAIrLiFAfoq/pK
+hSpBGCDwMRoCIQCkZJFteUd5DxYGYqmIi5JtQPpUy8lPvD9TJ+XNEhZTeg==
+-----END CERTIFICATE-----`
+
+// LeafCertPEM is a leaf cert signed by the key in:
+//  - FakeIntermediateWithPolicyConstraintsCertPEM
+//  - FakeIntermediateWithNameConstraintsCertPEM
+//  - FakeIntermediateWithInvalidNameConstraintsCertPEM
+// adapted from ../../testdata/leaf01.cert.
 //  Data:
 //      Version: 3 (0x2)
 //      Serial Number: 3735928559 (0xdeadbeef)
 //  Signature Algorithm: ecdsa-with-SHA256
 //      Issuer: C=GB, ST=London, L=London, O=Google, OU=Eng, CN=FakeIntermediateAuthority
 //      Validity
-//          Not Before: Dec  7 15:13:36 2016 GMT
-//          Not After : Jan 20 15:13:36 2024 GMT
+//          Not Before: Feb 13 11:38:39 2018 GMT
+//          Not After : Mar 28 11:38:39 2025 GMT
 //      Subject: C=GB, ST=London, O=Google, OU=Eng, CN=leaf01.csr.pem
 //      Subject Public Key Info:
 //          Public Key Algorithm: id-ecPublicKey
@@ -800,22 +914,25 @@ OWhAXP3wKuI/NEWzGS3jTVjNdkIZCc9cHOXxceA5Yrk=
 //              keyid:01:02:03:04
 //          X509v3 Key Usage: critical
 //              Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment, Key Agreement, Encipher Only, Decipher Only
+//          X509v3 Subject Alternative Name:
+//              DNS:leaf01.csr.pem
 //  Signature Algorithm: ecdsa-with-SHA256
-//       30:45:02:21:00:f6:ea:b8:98:1d:47:c8:f7:a9:22:bd:4b:df:
-//       43:1d:d3:9b:09:32:be:7d:ce:09:05:06:58:52:8e:01:e7:32:
-//       65:02:20:26:63:a5:ef:5a:34:35:25:d2:f5:5a:7c:90:7e:12:
-//       eb:b4:50:12:73:15:93:95:8f:13:31:31:c8:89:4e:a0:5a
+//       30:46:02:21:00:b5:2a:f3:39:1e:06:b7:77:b2:ad:a8:83:1b:
+//       83:38:64:5e:3a:25:51:e9:57:1f:00:53:72:db:08:11:65:3d:
+//       f4:02:21:00:a1:4e:5d:b5:9a:8b:10:6e:15:a3:2a:bd:d9:80:
+//       91:96:7c:1a:4f:8f:91:dc:44:9f:13:ff:57:f0:5e:ce:32:34
 const LeafCertPEM string = `
 -----BEGIN CERTIFICATE-----
-MIIB/jCCAaSgAwIBAgIFAN6tvu8wCgYIKoZIzj0EAwIwcjELMAkGA1UEBhMCR0Ix
+MIICGjCCAb+gAwIBAgIFAN6tvu8wCgYIKoZIzj0EAwIwcjELMAkGA1UEBhMCR0Ix
 DzANBgNVBAgTBkxvbmRvbjEPMA0GA1UEBxMGTG9uZG9uMQ8wDQYDVQQKEwZHb29n
 bGUxDDAKBgNVBAsTA0VuZzEiMCAGA1UEAxMZRmFrZUludGVybWVkaWF0ZUF1dGhv
-cml0eTAeFw0xNjEyMDcxNTEzMzZaFw0yNDAxMjAxNTEzMzZaMFYxCzAJBgNVBAYT
+cml0eTAeFw0xODAyMTMxMTM4MzlaFw0yNTAzMjgxMTM4MzlaMFYxCzAJBgNVBAYT
 AkdCMQ8wDQYDVQQIDAZMb25kb24xDzANBgNVBAoMBkdvb2dsZTEMMAoGA1UECwwD
 RW5nMRcwFQYDVQQDDA5sZWFmMDEuY3NyLnBlbTBZMBMGByqGSM49AgEGCCqGSM49
 AwEHA0IABOs3TlJFnEbVqLjF7Vi5MCmmcIppoCZcni9uuGsjbIThRjqYNoJEpYoX
-i0GCMvQt4Ahbfgc4UvxHVignm+1gi6yjQzBBMB0GA1UdDgQWBBQ/si9B/BGa042m
-hYCEhq5+cy5pXTAPBgNVHSMECDAGgAQBAgMEMA8GA1UdDwEB/wQFAwMH+YAwCgYI
-KoZIzj0EAwIDSAAwRQIhAPbquJgdR8j3qSK9S99DHdObCTK+fc4JBQZYUo4B5zJl
-AiAmY6XvWjQ1JdL1WnyQfhLrtFAScxWTlY8TMTHIiU6gWg==
+i0GCMvQt4Ahbfgc4UvxHVignm+1gi6yjXjBcMB0GA1UdDgQWBBQ/si9B/BGa042m
+hYCEhq5+cy5pXTAPBgNVHSMECDAGgAQBAgMEMA8GA1UdDwEB/wQFAwMH+YAwGQYD
+VR0RBBIwEIIObGVhZjAxLmNzci5wZW0wCgYIKoZIzj0EAwIDSQAwRgIhALUq8zke
+Brd3sq2ogxuDOGReOiVR6VcfAFNy2wgRZT30AiEAoU5dtZqLEG4Voyq92YCRlnwa
+T4+R3ESfE/9X8F7OMjQ=
 -----END CERTIFICATE-----`
