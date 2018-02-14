@@ -220,10 +220,10 @@ func (pc *pendingCerts) canAppend(now time.Time, mmd time.Duration) bool {
 	return now.After(nextTime)
 }
 
-// popIfMMDPassed returns the oldest submitted certificate (and removes it) if the
-// maximum merge delay has passed, i.e. it is expected to be integrated as of now.
-// This function locks mu.
-func (pc *pendingCerts) popIfMMDPassed(now time.Time) *submittedCert {
+// oldestIfMMDPassed returns the oldest submitted certificate if the maximum
+// merge delay has passed, i.e. it is expected to be integrated as of now.  This
+// function locks mu.
+func (pc *pendingCerts) oldestIfMMDPassed(now time.Time) *submittedCert {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
@@ -235,13 +235,20 @@ func (pc *pendingCerts) popIfMMDPassed(now time.Time) *submittedCert {
 		// Oldest cert not due to be integrated yet, so neither will any others.
 		return nil
 	}
+	return submitted
+}
+
+// dropOldest removes the oldest submitted certificate.
+func (pc *pendingCerts) dropOldest() {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
 	// Can pop the oldest cert and shuffle the others along, which make room for
 	// another cert to be stored.
 	for i := 0; i < (sctCount - 1); i++ {
 		pc.certs[i] = pc.certs[i+1]
 	}
 	pc.certs[sctCount-1] = nil
-	return submitted
 }
 
 // hammerState tracks the operations that have been performed during a test run, including
@@ -522,7 +529,7 @@ func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
 }
 
 func (s *hammerState) getProofByHash(ctx context.Context) error {
-	submitted := s.pending.popIfMMDPassed(time.Now())
+	submitted := s.pending.oldestIfMMDPassed(time.Now())
 	if submitted == nil {
 		// No SCT that is guaranteed to be integrated, so move on.
 		return errSkip{}
@@ -540,6 +547,7 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], submitted.leafData); err != nil {
 		return fmt.Errorf("failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 	}
+	s.pending.dropOldest()
 	return nil
 }
 
@@ -759,7 +767,8 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		default:
 			errs.Inc(s.label(), string(ep))
 			if s.cfg.IgnoreErrors {
-				glog.Warningf("%s: op %v failed after %v (will retry): %v", s.cfg.LogCfg.Prefix, ep, period, err)
+				left := deadline.Sub(time.Now())
+				glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
 			} else {
 				done = true
 			}
@@ -768,7 +777,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		s.mu.Unlock()
 
 		if err != nil && time.Now().After(deadline) {
-			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
+			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err: %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
 			done = true
 		}
 	}
