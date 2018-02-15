@@ -35,6 +35,42 @@ func (m *MockTrillianLogClient) EXPECT() *MockTrillianLogClientMockRecorder {
 	return m.recorder
 }
 
+// AddSequencedLeaf mocks base method
+func (m *MockTrillianLogClient) AddSequencedLeaf(arg0 context.Context, arg1 *trillian.AddSequencedLeafRequest, arg2 ...grpc.CallOption) (*trillian.AddSequencedLeafResponse, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddSequencedLeaf", varargs...)
+	ret0, _ := ret[0].(*trillian.AddSequencedLeafResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSequencedLeaf indicates an expected call of AddSequencedLeaf
+func (mr *MockTrillianLogClientMockRecorder) AddSequencedLeaf(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSequencedLeaf", reflect.TypeOf((*MockTrillianLogClient)(nil).AddSequencedLeaf), varargs...)
+}
+
+// AddSequencedLeaves mocks base method
+func (m *MockTrillianLogClient) AddSequencedLeaves(arg0 context.Context, arg1 *trillian.AddSequencedLeavesRequest, arg2 ...grpc.CallOption) (*trillian.AddSequencedLeavesResponse, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddSequencedLeaves", varargs...)
+	ret0, _ := ret[0].(*trillian.AddSequencedLeavesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSequencedLeaves indicates an expected call of AddSequencedLeaves
+func (mr *MockTrillianLogClientMockRecorder) AddSequencedLeaves(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSequencedLeaves", reflect.TypeOf((*MockTrillianLogClient)(nil).AddSequencedLeaves), varargs...)
+}
+
 // GetConsistencyProof mocks base method
 func (m *MockTrillianLogClient) GetConsistencyProof(arg0 context.Context, arg1 *trillian.GetConsistencyProofRequest, arg2 ...grpc.CallOption) (*trillian.GetConsistencyProofResponse, error) {
 	varargs := []interface{}{arg0, arg1}
