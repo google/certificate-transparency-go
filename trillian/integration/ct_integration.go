@@ -63,7 +63,7 @@ const (
 // context.
 // In particular it increases the number of reusable connections to the same
 // host. This helps to prevent starvation of ports through TIME_WAIT when
-// using the hammer with a high numer of parallel chain submissions.
+// using the hammer with a high number of parallel chain submissions.
 var DefaultTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
