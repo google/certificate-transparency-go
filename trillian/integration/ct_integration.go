@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -57,6 +58,25 @@ const (
 	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} (\d+)$`
 	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
 )
+
+// DefaultTransport is a http Transport more suited for use in the hammer
+// context.
+// In particular it increases the number of reusable connections to the same
+// host. This helps to prevent starvation of ports through TIME_WAIT when
+// using the hammer with a high numer of parallel chain submissions.
+var DefaultTransport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}).DialContext,
+	MaxIdleConns:          100,
+	MaxIdleConnsPerHost:   100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
 
 // Verifier is used to verify Merkle tree calculations.
 var Verifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
@@ -89,9 +109,11 @@ func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (Cli
 		PublicKeyDER: pubKey.GetDer(),
 	}
 
+	hc := &http.Client{Transport: DefaultTransport}
+
 	var pool RandomPool
 	for _, s := range strings.Split(servers, ",") {
-		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), nil, opts)
+		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), hc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LogClient instance: %v", err)
 		}
