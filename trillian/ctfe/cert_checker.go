@@ -114,9 +114,29 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		}
 	}
 
+	// If the first intermediate has the CertificateTransparency EKU, remove it
+	// so that it doesn't affect EKU validity calculations.  In particular, if
+	// the pre-issuer has just the CT EKU, then it should act as if it has an
+	// empty set of EKUs (and so allow any usage in the leaf).
+	var originalEKUs []x509.ExtKeyUsage
+	if len(chain) > 1 {
+		for i, eku := range chain[1].ExtKeyUsage {
+			if eku == x509.ExtKeyUsageCertificateTransparency {
+				originalEKUs = chain[1].ExtKeyUsage
+				chain[1].ExtKeyUsage = append(chain[1].ExtKeyUsage[:i], chain[1].ExtKeyUsage[i+1:]...)
+				break
+			}
+		}
+	}
+
 	chains, err := chain[0].Verify(verifyOpts)
 	if err != nil {
 		return nil, err
+	}
+
+	// Restore any EKUs we have modified.
+	if originalEKUs != nil {
+		chain[1].ExtKeyUsage = originalEKUs
 	}
 
 	if len(chains) == 0 {
