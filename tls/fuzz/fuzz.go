@@ -60,8 +60,8 @@ type Something struct {
 // for fuzzing the parsing of TLS-encoded data.
 func Fuzz(data []byte) int {
 	var result Outer
-	if _, err := tls.Unmarshal(data, &result); err == nil {
-		return 1 // Lexically correct
+	if _, err := tls.Unmarshal(data, &result); err != nil {
+		return 0
 	}
-	return 0
+	return 1 // Lexically correct
 }
