@@ -46,6 +46,9 @@ var (
 	getFirst  = flag.Int64("first", -1, "First entry to get")
 	getLast   = flag.Int64("last", -1, "Last entry to get")
 	treeSize  = flag.Int64("size", -1, "Tree size to query at")
+	treeHash  = flag.String("tree_hash", "", "Tree hash to check against (as hex string)")
+	prevSize  = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
+	prevHash  = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string)")
 	leafHash  = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
 )
 
@@ -178,7 +181,7 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 
 func getInclusionProof(ctx context.Context, logClient *client.LogClient) {
 	hash, err := hex.DecodeString(*leafHash)
-	if err != nil || len(hash) != 32 {
+	if err != nil || len(hash) != sha256.Size {
 		log.Fatal("No valid --leaf_hash supplied in hex")
 	}
 	getInclusionProofForHash(ctx, logClient, hash)
@@ -217,6 +220,66 @@ func getInclusionProofForHash(ctx context.Context, logClient *client.LogClient, 
 	}
 }
 
+func getConsistencyProof(ctx context.Context, logClient *client.LogClient) {
+	if *treeSize <= 0 {
+		log.Fatal("No valid --size supplied")
+	}
+	if *prevSize <= 0 {
+		log.Fatal("No valid --prev_size supplied")
+	}
+	var hash1, hash2 []byte
+	if *prevHash != "" {
+		var err error
+		hash1, err = hex.DecodeString(*prevHash)
+		if err != nil {
+			log.Fatalf("Invalid --prev_hash: %v", err)
+		}
+		if l := len(hash1); l != sha256.Size {
+			log.Fatalf("Invalid --prev_hash length: %d", l)
+		}
+	}
+	if *treeHash != "" {
+		var err error
+		hash2, err = hex.DecodeString(*treeHash)
+		if err != nil {
+			log.Fatalf("Invalid --tree_hash: %v", err)
+		}
+		if l := len(hash2); l != sha256.Size {
+			log.Fatalf("invalid --tree_hash length: %d", l)
+		}
+	}
+	if (hash1 != nil) != (hash2 != nil) {
+		log.Fatalf("Need both --prev_hash and --tree_hash or neither")
+	}
+	getConsistencyProofBetween(ctx, logClient, *prevSize, *treeSize, hash1, hash2)
+}
+
+func getConsistencyProofBetween(ctx context.Context, logClient *client.LogClient, first, second int64, prevHash, treeHash []byte) {
+	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
+	if err != nil {
+		if err, ok := err.(client.RspError); ok {
+			log.Fatalf("get-sth-consistency failed: %q, detail:\n  %s", err, string(err.Body))
+		}
+		log.Fatalf("Failed to get-sth-consistency: %v", err)
+	}
+	fmt.Printf("Consistency proof from size %d to size %d:\n", first, second)
+	for _, e := range proof {
+		fmt.Printf("  %x\n", e)
+	}
+	if prevHash == nil || treeHash == nil {
+		return
+	}
+	// We have tree hashes so we can verify the proof.
+	verifier := merkletree.NewMerkleVerifier(func(data []byte) []byte {
+		hash := sha256.Sum256(data)
+		return hash[:]
+	})
+	if err := verifier.VerifyConsistencyProof(first, second, prevHash, treeHash, proof); err != nil {
+		log.Fatalf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
+	}
+	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
+}
+
 func showRawCert(cert ct.ASN1Cert) {
 	if *textOut {
 		c, err := x509.ParseCertificate(cert.Data)
@@ -248,11 +311,12 @@ func dieWithUsage(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
 		"where cmd is one of:\n"+
-		"   sth         retrieve signed tree head\n"+
-		"   upload      upload cert chain and show SCT (needs -cert_chain)\n"+
-		"   getroots    show accepted roots\n"+
-		"   getentries  get log entries (needs -first and -last)\n"+
-		"   inclusion   get inclusion proof (needs -leaf_hash and optionally -size)\n")
+		"   sth           retrieve signed tree head\n"+
+		"   upload        upload cert chain and show SCT (needs -cert_chain)\n"+
+		"   getroots      show accepted roots\n"+
+		"   getentries    get log entries (needs -first and -last)\n"+
+		"   inclusion     get inclusion proof (needs -leaf_hash and optionally -size)\n"+
+		"   consistency   get consistency proof (needs -size and -prev_size, optionally -tree_hash and -prev_hash)\n")
 	os.Exit(1)
 }
 
@@ -299,6 +363,8 @@ func main() {
 		getEntries(ctx, logClient)
 	case "inclusion", "inclusion-proof":
 		getInclusionProof(ctx, logClient)
+	case "consistency":
+		getConsistencyProof(ctx, logClient)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
 	}
