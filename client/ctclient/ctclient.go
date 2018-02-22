@@ -46,10 +46,10 @@ var (
 	getFirst     = flag.Int64("first", -1, "First entry to get")
 	getLast      = flag.Int64("last", -1, "Last entry to get")
 	treeSize     = flag.Int64("size", -1, "Tree size to query at")
-	prevTreeSize = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
-	leafHash     = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
 	treeHash     = flag.String("tree_hash", "", "Tree hash to check against (as hex string)")
+	prevTreeSize = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
 	prevHash     = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string)")
+	leafHash     = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
 )
 
 func ctTimestampToTime(ts uint64) time.Time {
@@ -220,10 +220,10 @@ func getInclusionProofForHash(ctx context.Context, logClient *client.LogClient, 
 }
 
 func getConsistencyProof(ctx context.Context, logClient *client.LogClient) {
-	if *treeSize == -1 {
+	if *treeSize <= 0 {
 		log.Fatal("No valid --size supplied")
 	}
-	if *prevTreeSize == -1 {
+	if *prevTreeSize <= 0 {
 		log.Fatal("No valid --prev_size supplied")
 	}
 	var hash1, hash2 []byte
