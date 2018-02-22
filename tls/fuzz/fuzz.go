@@ -28,7 +28,7 @@ type Outer struct {
 	AnotherThing *Something   `tls:"selector:Sel,val:2"`
 }
 
-// OneOfEach has each basic type.
+// OneOfEach has each fixed length type.
 type OneOfEach struct {
 	Val8   uint8
 	Val16  uint16
