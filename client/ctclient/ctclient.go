@@ -230,22 +230,25 @@ func getConsistencyProof(ctx context.Context, logClient *client.LogClient) {
 	if *prevHash != "" {
 		var err error
 		hash1, err = hex.DecodeString(*prevHash)
-		if len(hash1) != 32 {
-			err = fmt.Errorf("invalid hash length %d", len(hash1))
-		}
 		if err != nil {
 			log.Fatalf("Invalid --prev_hash: %v", err)
+		}
+		if len(hash1) != 32 {
+			log.Fatalf("Invalid --prev_hash length %d", len(hash1))
 		}
 	}
 	if *treeHash != "" {
 		var err error
 		hash2, err = hex.DecodeString(*treeHash)
-		if len(hash1) != 32 {
-			err = fmt.Errorf("invalid hash length %d", len(hash2))
-		}
 		if err != nil {
 			log.Fatalf("Invalid --tree_hash: %v", err)
 		}
+		if len(hash2) != 32 {
+			log.Fatalf("invalid --tree_hash length %d", len(hash2))
+		}
+	}
+	if (hash1 == nil && hash2 != nil) || (hash1 != nil && hash2 == nil) {
+		log.Fatalf("Need both --prev_hash and --tree_hash or neither")
 	}
 	getConsistencyProofBetween(ctx, logClient, *prevTreeSize, *treeSize, hash1, hash2)
 }
@@ -307,11 +310,11 @@ func dieWithUsage(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
 		"where cmd is one of:\n"+
-		"   sth         retrieve signed tree head\n"+
-		"   upload      upload cert chain and show SCT (needs -cert_chain)\n"+
-		"   getroots    show accepted roots\n"+
-		"   getentries  get log entries (needs -first and -last)\n"+
-		"   inclusion   get inclusion proof (needs -leaf_hash and optionally -size)\n"+
+		"   sth           retrieve signed tree head\n"+
+		"   upload        upload cert chain and show SCT (needs -cert_chain)\n"+
+		"   getroots      show accepted roots\n"+
+		"   getentries    get log entries (needs -first and -last)\n"+
+		"   inclusion     get inclusion proof (needs -leaf_hash and optionally -size)\n"+
 		"   consistency   get consistency proof (needs -size and -prev_size, optionally -tree_hash and -prev_hash)\n")
 	os.Exit(1)
 }
