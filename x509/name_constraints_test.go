@@ -43,6 +43,7 @@ type nameConstraintsTest struct {
 	roots         []constraintsSpec
 	intermediates [][]constraintsSpec
 	leaf          leafSpec
+	requestedEKUs []ExtKeyUsage
 	expectedError string
 	noOpenSSL     bool
 }
@@ -1445,6 +1446,43 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 		expectedError: "\"https://example.com/test\" is excluded",
 	},
+
+	// #75: While serverAuth in a CA certificate permits clientAuth in a leaf,
+	// serverAuth in a leaf shouldn't permit clientAuth when requested in
+	// VerifyOptions.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			ekus: []string{"serverAuth"},
+		},
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageClientAuth},
+		expectedError: "incompatible key usage",
+	},
+
+	// #76: However, MSSGC in a leaf should match a request for serverAuth.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			ekus: []string{"msSGC"},
+		},
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+	},
 }
 
 func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
@@ -1782,6 +1820,7 @@ func TestConstraintCases(t *testing.T) {
 			Roots:         rootPool,
 			Intermediates: intermediatePool,
 			CurrentTime:   time.Unix(1500, 0),
+			KeyUsages:     test.requestedEKUs,
 		}
 		_, err = leafCert.Verify(verifyOpts)
 
