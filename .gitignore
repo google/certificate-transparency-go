@@ -17,6 +17,7 @@
 /dumpscts
 /etcdiscover
 /findlog
+/gosmin
 /gossip_server
 /preloader
 /scanlog
