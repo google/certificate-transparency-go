@@ -48,6 +48,9 @@ type ScannerOptions struct { // nolint:golint
 	// Number of concurrent fethers to run
 	ParallelFetch int
 
+	// Number of fetched entries to buffer on their way to the callbacks
+	BufferSize int
+
 	// Log entry index to start fetching & matching at
 	StartIndex int64
 
@@ -286,8 +289,8 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	// TODO: cleanup Ticker and goroutine on return.
 	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
-	fetches := make(chan fetchRange, 1000)
-	jobs := make(chan entryInfo, 100000)
+	fetches := make(chan fetchRange)
+	jobs := make(chan entryInfo, s.opts.BufferSize)
 	go func() {
 		slidingWindow := make([]int64, 15)
 		i, previousCount := 0, int64(0)
