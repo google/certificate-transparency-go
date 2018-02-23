@@ -22,6 +22,7 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -204,22 +205,62 @@ func (m CertVerifyFailMatcher) Matches(leaf *ct.LeafEntry) bool {
 		Intermediates: x509.NewCertPool(),
 		CurrentTime:   when,
 	}
+	chain := make([]*x509.Certificate, len(entry.Chain))
 	for ii, cert := range entry.Chain {
 		intermediate, err := x509.ParseCertificate(cert.Data)
 		if intermediate == nil {
 			log.Printf("Intermediate %d fails to parse: %v", ii, err)
 			return true
 		}
+		chain[ii] = intermediate
 		opts.Intermediates.AddCert(intermediate)
 	}
 	if entry.X509Cert != nil {
-		_, err := entry.X509Cert.Verify(opts)
-		if err != nil {
+		if _, err := entry.X509Cert.Verify(opts); err != nil {
 			log.Printf("Cert fails to validate as of %v: %v", opts.CurrentTime, err)
 			return true
 		}
 		return false
 	}
-	// TODO(drysdale) add precert validation
-	return false
+	if entry.Precert != nil {
+		precert, err := x509.ParseCertificate(entry.Precert.Submitted.Data)
+		if err != nil {
+			log.Printf("Precert fails to parse as of %v: %v", opts.CurrentTime, err)
+			return true
+		}
+		// Ignore unhandled poison extension.
+		dropUnhandledExtension(precert, x509.OIDExtensionCTPoison)
+
+		for i := 1; i < len(chain); i++ {
+			// PolicyConstraints is legal (and critical) but unparsed.
+			dropUnhandledExtension(chain[i], x509.OIDExtensionPolicyConstraints)
+		}
+
+		// Drop CT EKU from preissuer if present.
+		if len(chain) > 0 {
+			for i, eku := range chain[0].ExtKeyUsage {
+				if eku == x509.ExtKeyUsageCertificateTransparency {
+					chain[0].ExtKeyUsage = append(chain[0].ExtKeyUsage[:i], chain[0].ExtKeyUsage[i+1:]...)
+					break
+				}
+			}
+		}
+
+		if _, err := precert.Verify(opts); err != nil {
+			log.Printf("Precert fails to validate as of %v: %v", opts.CurrentTime, err)
+			return true
+		}
+		return false
+	}
+	log.Printf("Neither cert nor precert present!")
+	return true
+}
+
+func dropUnhandledExtension(cert *x509.Certificate, oid asn1.ObjectIdentifier) {
+	for j, extOID := range cert.UnhandledCriticalExtensions {
+		if extOID.Equal(oid) {
+			cert.UnhandledCriticalExtensions = append(cert.UnhandledCriticalExtensions[:j], cert.UnhandledCriticalExtensions[j+1:]...)
+			return
+		}
+	}
 }
