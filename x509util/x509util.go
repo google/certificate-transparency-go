@@ -31,6 +31,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
@@ -426,6 +427,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	showAuthInfoAccess(&result, cert)
 	showCTPoison(&result, cert)
 	showCTSCT(&result, cert)
+	showCTLogSTHInfo(&result, cert)
 
 	showUnhandledExtensions(&result, cert)
 	showSignature(&result, cert)
@@ -621,6 +623,30 @@ func showCTSCT(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showCTLogSTHInfo(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509ext.OIDExtensionCTSTH, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            Certificate Transparency STH:"))
+		showCritical(result, critical)
+		sthInfo, err := x509ext.LogSTHInfoFromCert(cert)
+		if err != nil {
+			result.WriteString(fmt.Sprintf("              Failed to decode STH:\n"))
+			return
+		}
+		result.WriteString(fmt.Sprintf("              LogURL: %s\n", string(sthInfo.LogURL)))
+		result.WriteString(fmt.Sprintf("              Version: %d\n", sthInfo.Version))
+		result.WriteString(fmt.Sprintf("              TreeSize: %d\n", sthInfo.TreeSize))
+		result.WriteString(fmt.Sprintf("              Timestamp: %d\n", sthInfo.Timestamp))
+		result.WriteString(fmt.Sprintf("              RootHash:\n"))
+		appendHexData(result, sthInfo.SHA256RootHash[:], 16, "                    ")
+		result.WriteString("\n")
+		result.WriteString(fmt.Sprintf("              TreeHeadSignature: %s\n", sthInfo.TreeHeadSignature.Algorithm))
+		result.WriteString(fmt.Sprintf("              TreeHeadSignature:\n"))
+		appendHexData(result, sthInfo.TreeHeadSignature.Signature, 16, "                    ")
+		result.WriteString("\n")
+	}
+}
+
 func showUnhandledExtensions(result *bytes.Buffer, cert *x509.Certificate) {
 	for _, ext := range cert.Extensions {
 		// Skip extensions that are already cracked out
@@ -653,7 +679,8 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
-		oid.Equal(x509.OIDExtensionCTSCT) {
+		oid.Equal(x509.OIDExtensionCTSCT) ||
+		oid.Equal(x509ext.OIDExtensionCTSTH) {
 		return true
 	}
 	return false
