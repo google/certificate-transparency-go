@@ -283,8 +283,8 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
 	}
-	if len(roots) != 1 {
-		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", len(roots))
+	if len(roots) > 2 {
+		return fmt.Errorf("len(GetAcceptedRoots())=%d; want <=2", len(roots))
 	}
 
 	// Stage 1: get the STH, which should be empty.

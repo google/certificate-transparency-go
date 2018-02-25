@@ -14,6 +14,7 @@ CT_COMBINED_CFG=
 #   - number of CT personality instances to run
 # Populates:
 #  - CT_SERVERS         : list of HTTP addresses (comma separated)
+#  - CT_SERVER_1        : first HTTP address
 #  - CT_METRICS_SERVERS : list of HTTP addresses (comma separated) serving metrics
 #  - CT_SERVER_PIDS     : bash array of CT HTTP server pids
 # in addition to the variables populated by log_prep_test.
@@ -41,6 +42,9 @@ ct_prep_test() {
     CT_SERVERS="${CT_SERVERS},localhost:${port}"
     local metrics_port=$(pick_unused_port ${port})
     CT_METRICS_SERVERS="${CT_METRICS_SERVERS},localhost:${metrics_port}"
+    if [[ $i -eq 0 ]]; then
+      CT_SERVER_1="localhost:${port}"
+    fi
 
     echo "Starting CT HTTP server on localhost:${port}, metrics on localhost:${metrics_port}"
     ./ct_server ${ETCD_OPTS} --log_config="${CT_COMBINED_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
@@ -132,7 +136,44 @@ ct_provision_cfg() {
   done
 }
 
-# ct_stop_test closes the running processes for a CT tests.
+# ct_gosmin_config generates a gosmin configuration file.
+# Parameters:
+#   - CT http server address
+# Populates:
+#   - GOSMIN_CFG : configuration file for gosmin program.
+ct_gosmin_config() {
+  local server="$1"
+
+  # Build config file with absolute paths
+  GOSMIN_CFG=$(mktemp ${TMPDIR}/gosmin-XXXXXX)
+  sed "s/@SERVER@/${server}/" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/gosmin.cfg > "${GOSMIN_CFG}"
+
+  echo "gosmin configuration at ${GOSMIN_CFG}:"
+  cat "${GOSMIN_CFG}"
+  echo
+}
+
+# ct_start_gosmin starts a gosmin instance.
+# Assumes the following variable is set:
+#   - GOSMIN_CFG : config file for gosmin instance.
+# Populates:
+#   - GOSMIN_PID : pid for gosmin instance.
+ct_start_gosmin() {
+  go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/gosmin
+  ./gosmin --config="${GOSMIN_CFG}" --logtostderr &
+  GOSMIN_PID=$!
+}
+
+# ct_stop_gosmin closes the running gosmin process for a CT test.
+# Assumes the following variable is set:
+#   - GOSMIN_PID : pid for gosmin instance.
+ct_stop_gosmin() {
+  if [[ "${GOSMIN_PID}" != "" ]]; then
+    kill_pid ${GOSMIN_PID}
+  fi
+}
+
+# ct_stop_test closes the running processes for a CT test.
 # Assumes the following variables are set, in addition to those needed by logStopTest:
 #  - CT_SERVER_PIDS  : bash array of CT HTTP server pids
 ct_stop_test() {
