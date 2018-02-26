@@ -64,6 +64,16 @@ func LogSTHInfoFromCert(cert *x509.Certificate) (*LogSTHInfo, error) {
 	return nil, errors.New("no STH extension found")
 }
 
+// HasSTHInfo indicates whether a certificate has embedded STH information.
+func HasSTHInfo(cert *x509.Certificate) bool {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(OIDExtensionCTSTH) {
+			return true
+		}
+	}
+	return false
+}
+
 // STHFromCert retrieves the STH embedded in a certificate; note the returned STH
 // does not have the LogID field filled in.
 func STHFromCert(cert *x509.Certificate) (*ct.SignedTreeHead, error) {

@@ -118,3 +118,17 @@ struct {
 The combination of the contents of this structure with the source log's public
 key allows for
 [STH consistency verification](https://tools.ietf.org/html/rfc6962.html#section-2.1.2).
+
+## Verification
+
+The STH entries stored in the destination log can be checked with the `goshawk`
+tool. This tool takes a log configuration file similar to the gossiper's
+configuration, describing:
+
+ - A single destination log to be scanned for STH-holding certificates.
+ - A set of source logs that will be checked for STH consistency.
+
+The tool scans the destination log and processes certificates that have the
+`LogSTHInfo` extension identified by OID 1.3.6.1.4.1.11129.2.4.5.  If the source
+URL for the STH is one that has been configured, then an STH consistency check
+is performed against a recent STH from that log.

@@ -51,3 +51,13 @@ message GossipConfig {
   // TODO(drysdale): investigate sensible ranges for this.
   int32 buffer_size = 5;
 }
+
+// GoshawkConfig describes the configuration of a gossiper.
+message GoshawkConfig {
+  // The source logs whose STHs will be checked.
+  repeated LogConfig source_log = 1;
+  // The destination log which will be scanned for minimal-gossip certificates.
+  LogConfig dest_log = 2;
+  // Number of STHs pending verification that can be buffered up for each source log.
+  int32 buffer_size = 5;
+}
