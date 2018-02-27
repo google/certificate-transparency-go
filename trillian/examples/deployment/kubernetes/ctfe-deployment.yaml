@@ -21,6 +21,7 @@ spec:
         - name: trillian-ctfe
           command: ["/go/bin/ct_server",
           "--http_endpoint=0.0.0.0:6962",
+          "--metrics_endpoint=0.0.0.0:6963",
           "--log_rpc_server=trillian-log:8090",
           "--log_config=/ctfe-config/ct_server.cfg",
           "--alsologtostderr"
@@ -32,7 +33,7 @@ spec:
               command:
               - curl
               - -f
-              - http://localhost:6962/metrics
+              - http://localhost:6963/metrics
             failureThreshold: 3
             periodSeconds: 30
             timeoutSeconds: 30
@@ -45,6 +46,8 @@ spec:
           ports:
           - containerPort: 6962
             name: http
+          - containerPort: 6963
+            name: metrics
           volumeMounts:
           - name: ctfe-config-volume
             mountPath: /ctfe-config
