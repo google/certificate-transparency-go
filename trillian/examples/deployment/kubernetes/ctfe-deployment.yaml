@@ -1,0 +1,61 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.3.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: trillian-ctfe
+  name: trillian-ctfe-deployment
+spec:
+  replicas: 3
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: trillian-ctfe
+    spec:
+      containers:
+        - name: trillian-ctfe
+          command: ["/go/bin/ct_server",
+          "--http_endpoint=0.0.0.0:6962",
+          "--log_rpc_server=trillian-log:8090",
+          "--log_config=/ctfe-config/ct_server.cfg",
+          "--alsologtostderr"
+          ]
+          image: gcr.io/trillian-opensource-ci/ctfe:latest
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+              - curl
+              - -f
+              - http://localhost:6962/metrics
+            failureThreshold: 3
+            periodSeconds: 30
+            timeoutSeconds: 30
+          env:
+            - name: CLOUD_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: ctfe-configmap
+                  key: cloud-project
+          ports:
+          - containerPort: 6962
+            name: http
+          volumeMounts:
+          - name: ctfe-config-volume
+            mountPath: /ctfe-config
+      volumes:
+        - name: ctfe-config-volume
+          configMap:
+            name: ctfe-configmap
+            items:
+            - key: ctfe-config-file
+              path: ct_server.cfg
+            - key: roots
+              path: roots
+      restartPolicy: Always
+status: {}
