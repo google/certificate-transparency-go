@@ -148,8 +148,7 @@ func main() {
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c)
-		if err != nil {
+		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c); err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 	}
