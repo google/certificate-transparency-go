@@ -12,6 +12,7 @@ HTTP_SERVER_COUNT=${3:-1}
 go build github.com/google/certificate-transparency-go/trillian/integration/ct_hammer
 ct_prep_test "${RPC_SERVER_COUNT}" "${LOG_SIGNER_COUNT}" "${HTTP_SERVER_COUNT}"
 ct_gosmin_config "${CT_SERVER_1}"
+ct_goshawk_config "${CT_SERVER_1}"
 
 # Cleanup for the Trillian components
 TO_DELETE="${TO_DELETE} ${ETCD_DB_DIR}"
@@ -30,6 +31,10 @@ ct_start_gosmin
 TO_DELETE="${TO_DELETE} ${GOSMIN_CFG}"
 TO_KILL+=(${GOSMIN_PID})
 
+# Start a goshawk instance
+ct_start_goshawk
+TO_DELETE="${TO_DELETE} ${GOSHAWK_CFG}"
+TO_KILL+=(${GOSHAWK_PID})
 
 metrics_port=$(pick_unused_port)
 echo "Running test(s) with metrics at localhost:${metrics_port}"
@@ -38,6 +43,7 @@ set +e
 RESULT=$?
 set -e
 
+ct_stop_goshawk
 ct_stop_gosmin
 ct_stop_test
 TO_KILL=()

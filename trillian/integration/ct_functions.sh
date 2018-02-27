@@ -173,6 +173,43 @@ ct_stop_gosmin() {
   fi
 }
 
+# ct_goshawk_config generates a gosmin configuration file.
+# Parameters:
+#   - CT http server address
+# Populates:
+#   - GOSHAWK_CFG : configuration file for gosmin program.
+ct_goshawk_config() {
+  local server="$1"
+
+  # Build config file with absolute paths
+  GOSHAWK_CFG=$(mktemp ${TMPDIR}/goshawk-XXXXXX)
+  sed "s/@SERVER@/${server}/" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/goshawk.cfg > "${GOSHAWK_CFG}"
+
+  echo "gosmin configuration at ${GOSHAWK_CFG}:"
+  cat "${GOSHAWK_CFG}"
+  echo
+}
+
+# ct_start_goshawk starts a goshawk instance.
+# Assumes the following variable is set:
+#   - GOSHAWK_CFG : config file for gosmin instance, shared with goshawk.
+# Populates:
+#   - GOSHAWK_PID : pid for gosmin instance.
+ct_start_goshawk() {
+  go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/goshawk
+  ./goshawk --config="${GOSHAWK_CFG}" --logtostderr &
+  GOSHAWK_PID=$!
+}
+
+# ct_stop_goshawk closes the running goshawk process for a CT test.
+# Assumes the following variable is set:
+#   - GOSHAWK_PID : pid for gosmin instance.
+ct_stop_goshawk() {
+  if [[ "${GOSHAWK_PID}" != "" ]]; then
+    kill_pid ${GOSHAWK_PID}
+  fi
+}
+
 # ct_stop_test closes the running processes for a CT test.
 # Assumes the following variables are set, in addition to those needed by logStopTest:
 #  - CT_SERVER_PIDS  : bash array of CT HTTP server pids
