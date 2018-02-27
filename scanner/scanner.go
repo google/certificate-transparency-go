@@ -245,6 +245,12 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 // For each precert found, calls foundPrecert with the corresponding LogEntry,
 // which includes the index of the entry and the precert.
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+	_, err := s.ScanLog(ctx, foundCert, foundPrecert)
+	return err
+}
+
+// ScanLog performs a scan against the Log, returning the count of scanned entries.
+func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) (int64, error) {
 	glog.V(1).Infof("Starting up Scanner...")
 	s.certsProcessed = 0
 	s.certsMatched = 0
@@ -254,7 +260,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 
 	sth, err := s.fetcher.Prepare(ctx)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	startTime := time.Now()
@@ -286,7 +292,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	close(entries) // Causes matcher workers to terminate.
 	wg.Wait()      // Wait until they terminate.
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	glog.V(1).Infof("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
@@ -294,7 +300,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	glog.V(1).Infof("Saw %d unparsable entries", atomic.LoadInt64(&s.unparsableEntries))
 	glog.V(1).Infof("Saw %d non-fatal errors", atomic.LoadInt64(&s.entriesWithNonFatalErrors))
 
-	return nil
+	return int64(s.fetcher.opts.EndIndex), nil
 }
 
 // NewScanner creates a Scanner instance using client to talk to the log,
