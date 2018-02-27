@@ -106,9 +106,15 @@ type LogConfig struct {
 	PrivateKey   *google_protobuf.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
 	// The public key is included for the convenience of test tools (and obviously
 	// should match the private key above); it is not used by the CT personality.
-	PublicKey     *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey" json:"public_key,omitempty"`
-	RejectExpired bool              `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired" json:"reject_expired,omitempty"`
-	ExtKeyUsages  []string          `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages" json:"ext_key_usages,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey" json:"public_key,omitempty"`
+	// If reject_expired is true then the certificate validity period will be
+	// checked against the current time during the validation of submissions.
+	// This will cause expired certificates to be rejected.
+	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired" json:"reject_expired,omitempty"`
+	// If set, ext_key_usages will restrict the set of such usages that the
+	// server will accept. By default all are accepted. The values specified
+	// must be ones known to the x509 package.
+	ExtKeyUsages []string `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages" json:"ext_key_usages,omitempty"`
 	// not_after_start defines the start of the range of acceptable NotAfter
 	// values, inclusive.
 	// Leaving this unset implies no lower bound to the range.
