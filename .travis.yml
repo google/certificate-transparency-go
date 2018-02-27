@@ -1,16 +1,19 @@
-sudo: false
+sudo: true  # required for CI push into Kubernetes.
 language: go
 os: linux
 go: 1.9
 
 env:
-  - GOFLAGS=
+  - GCE_CI=true GOFLAGS=
   - GOFLAGS=-race
   - GOFLAGS=      WITH_ETCD=true
   - GOFLAGS=-race WITH_ETCD=true
 
 matrix:
   fast_finish: true
+
+services:
+  - docker
 
 install:
   - |
@@ -64,3 +67,12 @@ script:
 after_success:
   - cp /tmp/coverage.txt .
   - bash <(curl -s https://codecov.io/bash)
+  - |
+      # Push up to GCE CI instance if we're running after a merge to master
+      if [[ $TRAVIS_PULL_REQUEST == “false” ]] && [[ $TRAVIS_BRANCH == “master” ]]; then
+        . scripts/install_cloud.sh
+        echo ${GCLOUD_SERVICE_KEY_CI} | base64 --decode -i > ${HOME}/gcloud-service-key.json
+        gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
+        rm ${HOME}/gcloud-service-key.json
+        . scripts/deploy_gce_ci.sh
+      fi
