@@ -59,6 +59,8 @@ const (
 	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
 )
 
+var zeroTime = time.Time{}
+
 // DefaultTransport is a http Transport more suited for use in the hammer
 // context.
 // In particular it increases the number of reusable connections to the same
@@ -641,6 +643,9 @@ func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer cryp
 		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
 	}
 	cert.NotAfter = notAfter
+	if cert.NotAfter == zeroTime {
+		cert.NotAfter = time.Now().Add(24 * time.Hour)
+	}
 
 	prechain[0].Data, err = buildNewPrecertData(cert, issuer, signer)
 	if err != nil {
@@ -761,6 +766,9 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 func makeCertChain(chain []ct.ASN1Cert, template, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, error) {
 	cert := *template
 	cert.NotAfter = notAfter
+	if cert.NotAfter == zeroTime {
+		cert.NotAfter = time.Now().Add(24 * time.Hour)
+	}
 
 	newchain := make([]ct.ASN1Cert, len(chain))
 	copy(newchain[1:], chain[1:])
