@@ -1,3 +1,17 @@
+// Copyright 2016 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package audit provides utility functions that may be useful to Certificate
 // Transparency Log clients.
 package audit
@@ -20,7 +34,7 @@ var emptyHash = [32]byte{}
 // precertificate at chain[0] that sct was issued for.
 //
 // If using this function to calculate the leaf hash for an X509 certificate
-// (i.e not a precertificate) then it is enough to just provide the end entity
+// (i.e. not a precertificate) then it is enough to just provide the end entity
 // certificate in chain.  However, if using this function to calculate the leaf
 // hash for a precertificate then the issuing certificate must also be provided
 // in chain.  When providing a certificate chain the leaf certificate must be at
@@ -40,7 +54,7 @@ func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) 
 // chain[0] that sct was issued for.
 //
 // If using this function to calculate the leaf hash for an X509 certificate
-// (i.e not a precertificate) then it is enough to just provide the end entity
+// (i.e. not a precertificate) then it is enough to just provide the end entity
 // certificate in chain.  However, if using this function to calculate the leaf
 // hash for a precertificate then the issuing certificate must also be provided
 // in chain.  When providing a certificate chain the leaf certificate must be at
@@ -89,7 +103,7 @@ func IsPrecert(cert *x509.Certificate) bool {
 // the certificate at chain[0], signed by the Log that the public key belongs
 // to.  If the SCT does not verify, an error will be returned.
 //
-// If using this function to verify an SCT for an X509 certificate (i.e not a
+// If using this function to verify an SCT for an X509 certificate (i.e. not a
 // precertificate) then it is enough to just provide the end entity certificate
 // in chain.  However, if using this function to verify an SCT for a
 // precertificate then the issuing certificate must also be provided in chain.
@@ -119,7 +133,7 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 // the public key belongs to.  If the SCT does not verify, an error will be
 // returned.
 //
-// If using this function to verify an SCT for an X509 certificate (i.e not a
+// If using this function to verify an SCT for an X509 certificate (i.e. not a
 // precertificate) then it is enough to just provide the end entity certificate
 // in chain.  However, if using this function to verify an SCT for a
 // precertificate then the issuing certificate must also be provided in chain.
