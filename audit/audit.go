@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2018 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -71,7 +72,7 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([3
 	}
 
 	certType := ct.X509LogEntryType
-	if IsPrecert(chain[0]) {
+	if chain[0].IsPrecertificate() {
 		certType = ct.PrecertLogEntryType
 	}
 	leaf, err := ct.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
@@ -83,19 +84,9 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([3
 		return emptyHash, fmt.Errorf("error tls-encoding MerkleTreeLeaf: %s", err)
 	}
 
-	data := append([]byte{0}, leafData...)
+	data := append([]byte{merkletree.LeafPrefix}, leafData...)
 	leafHash := sha256.Sum256(data)
 	return leafHash, nil
-}
-
-// IsPrecert checks whether the given certificate is a precertificate.
-func IsPrecert(cert *x509.Certificate) bool {
-	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(x509.OIDExtensionCTPoison) {
-			return true
-		}
-	}
-	return false
 }
 
 // VerifySCT takes the public key of a Certificate Transparency Log, a
@@ -103,14 +94,14 @@ func IsPrecert(cert *x509.Certificate) bool {
 // the certificate at chain[0], signed by the Log that the public key belongs
 // to.  If the SCT does not verify, an error will be returned.
 //
-// If using this function to verify an SCT for an X509 certificate (i.e. not a
+// If using this function to verify an SCT for an X.509 certificate (i.e. not a
 // precertificate) then it is enough to just provide the end entity certificate
 // in chain.  However, if using this function to verify an SCT for a
 // precertificate then the issuing certificate must also be provided in chain.
 // When providing a certificate chain the leaf certificate must be at chain[0].
 func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) error {
 	certType := ct.X509LogEntryType
-	if IsPrecert(chain[0]) {
+	if chain[0].IsPrecertificate() {
 		certType = ct.PrecertLogEntryType
 	}
 	leaf, err := ct.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
@@ -133,13 +124,13 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 // the public key belongs to.  If the SCT does not verify, an error will be
 // returned.
 //
-// If using this function to verify an SCT for an X509 certificate (i.e. not a
+// If using this function to verify an SCT for an X.509 certificate (i.e. not a
 // precertificate) then it is enough to just provide the end entity certificate
 // in chain.  However, if using this function to verify an SCT for a
 // precertificate then the issuing certificate must also be provided in chain.
 // When providing a certificate chain the leaf certificate must be at chain[0].
 func VerifySCTB64PublicKey(b64PubKey string, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) error {
-	pk, err := ParseB64PublicKey(b64PubKey)
+	pk, err := ct.ParseB64PublicKey(b64PubKey)
 	if err != nil {
 		return fmt.Errorf("error parsing public key: %s", err)
 	}

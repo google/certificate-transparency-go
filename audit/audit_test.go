@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2018 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 func TestLeafHash(t *testing.T) {
@@ -46,7 +47,7 @@ func TestLeafHash(t *testing.T) {
 
 	for _, test := range tests {
 		// Parse chain
-		chain, err := ParseChainFromPEM([]byte(test.chainPEM))
+		chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 		if err != nil {
 			t.Errorf("%s: error parsing certificate chain: %s", test.desc, err)
 			continue
@@ -101,7 +102,7 @@ func TestLeafHashErrors(t *testing.T) {
 
 	for _, test := range tests {
 		// Parse chain
-		chain, err := ParseChainFromPEM([]byte(test.chainPEM))
+		chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 		if err != nil {
 			t.Errorf("%s: error parsing certificate chain: %s", test.desc, err)
 			continue
@@ -128,37 +129,6 @@ func TestLeafHashErrors(t *testing.T) {
 		gotB64, err := B64LeafHash(chain, sct)
 		if gotB64 != "" || err == nil {
 			t.Errorf("%s: B64LeafHash(_,_) = %s, %v, want \"\", error", test.desc, gotB64, err)
-		}
-	}
-}
-
-func TestIsPrecert(t *testing.T) {
-	tests := []struct {
-		desc    string
-		certPEM string
-		want    bool
-	}{
-		{
-			desc:    "cert",
-			certPEM: testdata.TestCertPEM,
-			want:    false,
-		},
-		{
-			desc:    "precert",
-			certPEM: testdata.TestPreCertPEM,
-			want:    true,
-		},
-	}
-
-	for _, test := range tests {
-		cert, err := ParseCertificateFromPEM([]byte(test.certPEM))
-		if err != nil {
-			t.Errorf("%s: error parsing certificate: %s", test.desc, err)
-			continue
-		}
-
-		if got := IsPrecert(cert); got != test.want {
-			t.Errorf("IsPrecert(%s) = %t, want %t", test.desc, got, test.want)
 		}
 	}
 }
@@ -190,7 +160,7 @@ func TestVerifySCT(t *testing.T) {
 
 	for _, test := range tests {
 		// Parse chain
-		chain, err := ParseChainFromPEM([]byte(test.chainPEM))
+		chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 		if err != nil {
 			t.Errorf("%s: error parsing certificate chain: %s", test.desc, err)
 			continue
@@ -205,7 +175,7 @@ func TestVerifySCT(t *testing.T) {
 		}
 
 		// Test VerifySCT()
-		pk, err := ParseB64PublicKey(testdata.LogPublicKeyB64)
+		pk, err := ct.ParseB64PublicKey(testdata.LogPublicKeyB64)
 		if err != nil {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}

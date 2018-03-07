@@ -792,6 +792,20 @@ func (c *Certificate) Equal(other *Certificate) bool {
 	return bytes.Equal(c.Raw, other.Raw)
 }
 
+// IsPrecertificate checks whether the certificate is a precertificate, by
+// checking for the presence of the CT Poison extension.
+func (c *Certificate) IsPrecertificate() bool {
+	if c == nil {
+		return false
+	}
+	for _, ext := range c.Extensions {
+		if ext.Id.Equal(OIDExtensionCTPoison) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Certificate) hasSANExtension() bool {
 	return oidInExtensions(OIDExtensionSubjectAltName, c.Extensions)
 }

@@ -659,12 +659,74 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 	return false
 }
 
-// CertificateFromPEM takes a string representing a certificate in PEM format
-// and returns the corresponding x509.Certificate object.
-func CertificateFromPEM(pemBytes string) (*x509.Certificate, error) {
-	block, _ := pem.Decode([]byte(pemBytes))
+// CertificateFromPEM takes a certificate in PEM format and returns the
+// corresponding x509.Certificate object.
+func CertificateFromPEM(pemBytes []byte) (*x509.Certificate, error) {
+	block, rest := pem.Decode(pemBytes)
+	if len(rest) != 0 {
+		return nil, errors.New("trailing data found after PEM block")
+	}
 	if block == nil {
-		return nil, errors.New("failed to decode PEM")
+		return nil, errors.New("PEM block is nil")
+	}
+	if block.Type != "CERTIFICATE" {
+		return nil, errors.New("PEM block is not a CERTIFICATE")
 	}
 	return x509.ParseCertificate(block.Bytes)
+}
+
+// CertificatesFromPEM parses one or more certificates from the given PEM data.
+// The PEM certificates must be concatenated.  This function can be used for
+// parsing PEM-formatted certificate chains, but does not verify that the
+// resulting chain is a valid certificate chain.
+func CertificatesFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
+	var chain []*x509.Certificate
+	for {
+		var block *pem.Block
+		block, pemBytes = pem.Decode(pemBytes)
+		if block == nil {
+			return chain, nil
+		}
+		if block.Type != "CERTIFICATE" {
+			return nil, fmt.Errorf("PEM block is not a CERTIFICATE")
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, errors.New("failed to parse certificate")
+		}
+		chain = append(chain, cert)
+	}
+}
+
+// ParseSCTsFromSCTList parses each of the SCTs contained within an SCT list.
+func ParseSCTsFromSCTList(sctList *x509.SignedCertificateTimestampList) ([]*ct.SignedCertificateTimestamp, error) {
+	var scts []*ct.SignedCertificateTimestamp
+	for i, data := range sctList.SCTList {
+		var sct ct.SignedCertificateTimestamp
+		_, err := tls.Unmarshal(data.Val, &sct)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing SCT number %d: %s", i, err)
+		}
+		scts = append(scts, &sct)
+	}
+	return scts, nil
+}
+
+var pemCertificatePrefix = []byte("-----BEGIN CERTIFICATE")
+
+// ParseSCTsFromCertificate parses any SCTs that are embedded in the
+// certificate provided.  The certificate bytes provided can be either DER or
+// PEM, provided there is no leading garbage in the bytes provided.
+func ParseSCTsFromCertificate(certBytes []byte) ([]*ct.SignedCertificateTimestamp, error) {
+	var cert *x509.Certificate
+	var err error
+	if bytes.HasPrefix(certBytes, pemCertificatePrefix) {
+		cert, err = CertificateFromPEM(certBytes)
+	} else {
+		cert, err = x509.ParseCertificate(certBytes)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate: %s", err)
+	}
+	return ParseSCTsFromSCTList(&cert.SCTList)
 }
