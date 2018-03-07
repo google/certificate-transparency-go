@@ -4,7 +4,7 @@ os: linux
 go: 1.9
 
 env:
-  - GCE_CI=true GOFLAGS=
+  - GCE_CI=${ENABLE_GCE_CI} GOFLAGS=
   - GOFLAGS=-race
   - GOFLAGS=      WITH_ETCD=true WITH_COVERAGE=true
   - GOFLAGS=-race WITH_ETCD=true
