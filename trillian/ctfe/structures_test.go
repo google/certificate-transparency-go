@@ -15,15 +15,17 @@
 package ctfe
 
 import (
+	gocrypto "crypto"
 	"testing"
 	"time"
 
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/kylelemons/godebug/pretty"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 var (
@@ -88,7 +90,7 @@ func setupSigner(fakeSig []byte) (*crypto.Signer, error) {
 		return nil, err
 	}
 
-	return crypto.NewSHA256Signer(testdata.NewSignerWithFixedSig(key, fakeSig)), nil
+	return crypto.NewSigner(0, testdata.NewSignerWithFixedSig(key, fakeSig), gocrypto.SHA256), nil
 }
 
 // Creates a dummy cert chain

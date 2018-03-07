@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	gocrypto "crypto"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -33,9 +34,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
-	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
 	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/certificate-transparency-go/trillian/util"
@@ -47,6 +46,9 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ct "github.com/google/certificate-transparency-go"
+	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 )
 
 // Arbitrary time for use in tests
@@ -553,9 +555,9 @@ func TestGetSTH(t *testing.T) {
 		func() {
 			var signer *crypto.Signer
 			if test.signErr != nil {
-				signer = crypto.NewSHA256Signer(testdata.NewSignerWithErr(key, test.signErr))
+				signer = crypto.NewSigner(0, testdata.NewSignerWithErr(key, test.signErr), gocrypto.SHA256)
 			} else {
-				signer = crypto.NewSHA256Signer(testdata.NewSignerWithFixedSig(key, fakeSignature))
+				signer = crypto.NewSigner(0, testdata.NewSignerWithFixedSig(key, fakeSignature), gocrypto.SHA256)
 			}
 
 			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)
