@@ -20,6 +20,7 @@
 /gossip_server
 /preloader
 /scanlog
+/sctcheck
 /trillian_log_server
 /trillian_log_signer
 /trillian.json
