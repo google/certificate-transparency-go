@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
@@ -252,4 +253,12 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 	}
 	// err may hold a x509.NonFatalErrors object.
 	return &entry, err
+}
+
+// TimestampToTime converts a timestamp in the style of RFC 6962 (milliseconds
+// since UNIX epoch) to a Go Time.
+func TimestampToTime(ts uint64) time.Time {
+	secs := int64(ts / 1000)
+	msecs := int64(ts % 1000)
+	return time.Unix(secs, msecs*1000000)
 }
