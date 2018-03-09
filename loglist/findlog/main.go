@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/loglist"
 )
 
@@ -48,12 +49,6 @@ func readPossibleURL(target string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
 	return ioutil.ReadAll(rsp.Body)
-}
-
-func ctTimestampToTime(ts int) time.Time {
-	secs := int64(ts / 1000)
-	msecs := int64(ts % 1000)
-	return time.Unix(secs, msecs*1000000)
 }
 
 func main() {
@@ -93,13 +88,13 @@ func main() {
 				if log.FinalSTH != nil {
 					fmt.Printf("    FinalSTH:\n")
 					fmt.Printf("        TreeSize: %d\n", log.FinalSTH.TreeSize)
-					when := ctTimestampToTime(log.FinalSTH.Timestamp)
+					when := ct.TimestampToTime(uint64(log.FinalSTH.Timestamp))
 					fmt.Printf("        Timestamp: %d (%v)\n", log.FinalSTH.Timestamp, when)
 					fmt.Printf("        SHA256RootHash: %x\n", log.FinalSTH.SHA256RootHash)
 					fmt.Printf("        TreeHeadSignature: %x\n", log.FinalSTH.TreeHeadSignature)
 				}
 				if log.DisqualifiedAt > 0 {
-					when := ctTimestampToTime(log.DisqualifiedAt)
+					when := ct.TimestampToTime(uint64(log.DisqualifiedAt))
 					fmt.Printf("    Disqualified at: %v (%d)\n", when, log.DisqualifiedAt)
 				}
 				if log.DNSAPIEndpoint != "" {

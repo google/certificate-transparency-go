@@ -52,12 +52,6 @@ var (
 	leafHash  = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
 )
 
-func ctTimestampToTime(ts uint64) time.Time {
-	secs := int64(ts / 1000)
-	msecs := int64(ts % 1000)
-	return time.Unix(secs, msecs*1000000)
-}
-
 func signatureToString(signed *ct.DigitallySigned) string {
 	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
 }
@@ -68,7 +62,7 @@ func getSTH(ctx context.Context, logClient *client.LogClient) {
 		log.Fatal(err)
 	}
 	// Display the STH
-	when := ctTimestampToTime(sth.Timestamp)
+	when := ct.TimestampToTime(sth.Timestamp)
 	fmt.Printf("%v (timestamp %d): Got STH for %v log (size=%d) at %v, hash %x\n", when, sth.Timestamp, sth.Version, sth.TreeSize, *logURI, sth.SHA256RootHash)
 	fmt.Printf("%v\n", signatureToString(&sth.TreeHeadSignature))
 }
@@ -128,7 +122,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
 
 	// Display the SCT
-	when := ctTimestampToTime(sct.Timestamp)
+	when := ct.TimestampToTime(sct.Timestamp)
 	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %d (%v)\n", len(chain), sct.SCTVersion, *logURI, sct.Timestamp, when)
 	fmt.Printf("LogID: %x\n", sct.LogID.KeyID[:])
 	fmt.Printf("LeafHash: %x\n", leafHash)
@@ -164,7 +158,7 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 	}
 	for _, entry := range entries {
 		ts := entry.Leaf.TimestampedEntry
-		when := ctTimestampToTime(ts.Timestamp)
+		when := ct.TimestampToTime(ts.Timestamp)
 		fmt.Printf("Index=%d Timestamp=%v ", entry.Index, when)
 		switch ts.EntryType {
 		case ct.X509LogEntryType:
