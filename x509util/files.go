@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -72,6 +73,21 @@ func dePEM(data []byte, blockname string) [][]byte {
 		results = append(results, data)
 	}
 	return results
+}
+
+// ReadFileOrURL returns the data from a target which may be either a filename
+// or an HTTP(S) URL.
+func ReadFileOrURL(target string, client *http.Client) ([]byte, error) {
+	u, err := url.Parse(target)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return ioutil.ReadFile(target)
+	}
+
+	rsp, err := client.Get(u.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
+	}
+	return ioutil.ReadAll(rsp.Body)
 }
 
 // GetIssuer attempts to retrieve the issuer for a certificate, by examining

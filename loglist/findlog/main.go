@@ -22,14 +22,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 var (
@@ -37,24 +36,11 @@ var (
 	verbose = flag.Bool("verbose", false, "Print more information")
 )
 
-func readPossibleURL(target string) ([]byte, error) {
-	u, err := url.Parse(target)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return ioutil.ReadFile(target)
-	}
-
-	client := http.Client{Timeout: time.Second * 10}
-	rsp, err := client.Get(u.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
-	}
-	return ioutil.ReadAll(rsp.Body)
-}
-
 func main() {
 	flag.Parse()
+	client := &http.Client{Timeout: time.Second * 10}
 
-	llData, err := readPossibleURL(*logList)
+	llData, err := x509util.ReadFileOrURL(*logList, client)
 	if err != nil {
 		glog.Exitf("Failed to read log list: %v", err)
 	}
