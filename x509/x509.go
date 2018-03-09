@@ -1009,6 +1009,48 @@ func (h UnhandledCriticalExtension) Error() string {
 	return fmt.Sprintf("x509: unhandled critical extension (%v)", h.ID)
 }
 
+// RemoveExtension takes a DER-encoded TBSCertificate, removes the extension
+// specified by oid (preserving the order of other extensions), and returns the
+// result still as a DER-encoded TBSCertificate.  This function will fail if
+// there is not exactly 1 extension of the type specified by the oid present.
+func RemoveExtension(tbsData []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
+	var tbs tbsCertificate
+	rest, err := asn1.Unmarshal(tbsData, &tbs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse TBSCertificate: %v", err)
+	} else if rLen := len(rest); rLen > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after TBSCertificate", rLen)
+	}
+	extAt := -1
+	for i, ext := range tbs.Extensions {
+		if ext.Id.Equal(oid) {
+			if extAt != -1 {
+				return nil, errors.New("multiple extensions of specified type present")
+			}
+			extAt = i
+		}
+	}
+	if extAt == -1 {
+		return nil, errors.New("no extension of specified type present")
+	}
+	tbs.Extensions = append(tbs.Extensions[:extAt], tbs.Extensions[extAt+1:]...)
+	tbs.Raw = nil
+
+	data, err := asn1.Marshal(tbs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-marshal TBSCertificate: %v", err)
+	}
+	return data, nil
+}
+
+// RemoveSCTList takes a DER-encoded TBSCertificate and removes the CT SCT
+// extension that contains the SCT list (preserving the order of other
+// extensions), and returns the result still as a DER-encoded TBSCertificate.
+// This function will fail if there is not exactly 1 CT SCT extension present.
+func RemoveSCTList(tbsData []byte) ([]byte, error) {
+	return RemoveExtension(tbsData, OIDExtensionCTSCT)
+}
+
 // RemoveCTPoison takes a DER-encoded TBSCertificate and removes the CT poison
 // extension (preserving the order of other extensions), and returns the result
 // still as a DER-encoded TBSCertificate.  This function will fail if there is
@@ -1033,27 +1075,18 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 //  - The precert's AuthorityKeyId is changed to the AuthorityKeyId of the
 //    intermediate.
 func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
+	data, err := RemoveExtension(tbsData, OIDExtensionCTPoison)
+	if err != nil {
+		return nil, err
+	}
+
 	var tbs tbsCertificate
-	rest, err := asn1.Unmarshal(tbsData, &tbs)
+	rest, err := asn1.Unmarshal(data, &tbs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse TBSCertificate: %v", err)
 	} else if rLen := len(rest); rLen > 0 {
 		return nil, fmt.Errorf("trailing data (%d bytes) after TBSCertificate", rLen)
 	}
-	poisonAt := -1
-	for i, ext := range tbs.Extensions {
-		if ext.Id.Equal(OIDExtensionCTPoison) {
-			if poisonAt != -1 {
-				return nil, errors.New("multiple CT poison extensions present")
-			}
-			poisonAt = i
-		}
-	}
-	if poisonAt == -1 {
-		return nil, errors.New("no CT poison extension present")
-	}
-	tbs.Extensions = append(tbs.Extensions[:poisonAt], tbs.Extensions[poisonAt+1:]...)
-	tbs.Raw = nil
 
 	if preIssuer != nil {
 		// Update the precert's Issuer field.  Use the RawIssuer rather than the
@@ -1108,7 +1141,8 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 		}
 	}
 
-	data, err := asn1.Marshal(tbs)
+	tbs.Raw = nil
+	data, err = asn1.Marshal(tbs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal TBSCertificate: %v", err)
 	}

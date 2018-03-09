@@ -1396,8 +1396,8 @@ func TestRemoveCTPoison(t *testing.T) {
 	}{
 		{name: "invalid-der", tbs: "01020304", errstr: "failed to parse"},
 		{name: "trailing-data", tbs: tbsPoisonMiddle + "01020304", errstr: "trailing data"},
-		{name: "no-poison-ext", tbs: tbsNoPoison, errstr: "no CT poison extension present"},
-		{name: "two-poison-exts", tbs: tbsPoisonTwice, errstr: "multiple CT poison extensions present"},
+		{name: "no-poison-ext", tbs: tbsNoPoison, errstr: "no extension of specified type present"},
+		{name: "two-poison-exts", tbs: tbsPoisonTwice, errstr: "multiple extensions of specified type present"},
 		{name: "poison-first", tbs: tbsPoisonFirst, want: tbsNoPoison},
 		{name: "poison-last", tbs: tbsPoisonLast, want: tbsNoPoison},
 		{name: "poison-middle", tbs: tbsPoisonMiddle, want: tbsNoPoison},
