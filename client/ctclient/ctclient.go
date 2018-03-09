@@ -30,6 +30,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
@@ -38,6 +39,7 @@ import (
 )
 
 var (
+	dnsBase   = flag.String("dns", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
 	logURI    = flag.String("log_uri", "http://ct.googleapis.com/rocketeer", "CT log base URI")
 	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
@@ -56,7 +58,7 @@ func signatureToString(signed *ct.DigitallySigned) string {
 	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
 }
 
-func getSTH(ctx context.Context, logClient *client.LogClient) {
+func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 	sth, err := logClient.GetSTH(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -173,7 +175,7 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 	}
 }
 
-func getInclusionProof(ctx context.Context, logClient *client.LogClient) {
+func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 	hash, err := hex.DecodeString(*leafHash)
 	if err != nil || len(hash) != sha256.Size {
 		log.Fatal("No valid --leaf_hash supplied in hex")
@@ -181,7 +183,7 @@ func getInclusionProof(ctx context.Context, logClient *client.LogClient) {
 	getInclusionProofForHash(ctx, logClient, hash)
 }
 
-func getInclusionProofForHash(ctx context.Context, logClient *client.LogClient, hash []byte) {
+func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClient, hash []byte) {
 	var sth *ct.SignedTreeHead
 	size := *treeSize
 	if size <= 0 {
@@ -214,7 +216,7 @@ func getInclusionProofForHash(ctx context.Context, logClient *client.LogClient, 
 	}
 }
 
-func getConsistencyProof(ctx context.Context, logClient *client.LogClient) {
+func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 	if *treeSize <= 0 {
 		log.Fatal("No valid --size supplied")
 	}
@@ -248,7 +250,7 @@ func getConsistencyProof(ctx context.Context, logClient *client.LogClient) {
 	getConsistencyProofBetween(ctx, logClient, *prevSize, *treeSize, hash1, hash2)
 }
 
-func getConsistencyProofBetween(ctx context.Context, logClient *client.LogClient, first, second int64, prevHash, treeHash []byte) {
+func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second int64, prevHash, treeHash []byte) {
 	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
 	if err != nil {
 		if err, ok := err.(client.RspError); ok {
@@ -316,6 +318,7 @@ func dieWithUsage(msg string) {
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
@@ -336,29 +339,47 @@ func main() {
 		}
 		opts.PublicKey = string(pubkey)
 	}
-	logClient, err := client.New(*logURI, httpClient, opts)
+
+	var err error
+	var logClient *client.LogClient
+	var checkClient client.CheckLogClient
+	if *dnsBase != "" {
+		checkClient, err = dnsclient.New(*dnsBase, opts)
+	} else {
+		logClient, err = client.New(*logURI, httpClient, opts)
+		checkClient = logClient
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	args := flag.Args()
 	if len(args) != 1 {
 		dieWithUsage("Need command argument")
 	}
-	ctx := context.Background()
 	cmd := args[0]
 	switch cmd {
 	case "sth":
-		getSTH(ctx, logClient)
+		getSTH(ctx, checkClient)
 	case "upload":
+		if logClient == nil {
+			log.Fatal("Cannot upload over DNS")
+		}
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
+		if logClient == nil {
+			log.Fatal("Cannot retrieve roots over DNS")
+		}
 		getRoots(ctx, logClient)
 	case "getentries", "get_entries", "get-entries":
+		if logClient == nil {
+			log.Fatal("Cannot get-entries over DNS")
+		}
 		getEntries(ctx, logClient)
 	case "inclusion", "inclusion-proof":
-		getInclusionProof(ctx, logClient)
+		getInclusionProof(ctx, checkClient)
 	case "consistency":
-		getConsistencyProof(ctx, logClient)
+		getConsistencyProof(ctx, checkClient)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
 	}
