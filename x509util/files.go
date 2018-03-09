@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 // ReadPossiblePEMFile loads data from a file which may be in DER format
@@ -70,4 +72,28 @@ func dePEM(data []byte, blockname string) [][]byte {
 		results = append(results, data)
 	}
 	return results
+}
+
+// GetIssuer attempts to retrieve the issuer for a certificate, by examining
+// the cert's Authority Information Access extension (if present) for the
+// issuer's URL and retrieving from there.
+func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, error) {
+	if len(cert.IssuingCertificateURL) == 0 {
+		return nil, nil
+	}
+	issuerURL := cert.IssuingCertificateURL[0]
+	rsp, err := client.Get(issuerURL)
+	if err != nil || rsp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
+	}
+	defer rsp.Body.Close()
+	body, err := ioutil.ReadAll(rsp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read issuer from %q: %v", issuerURL, err)
+	}
+	issuers, err := x509.ParseCertificates(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse issuer cert: %v", err)
+	}
+	return issuers[0], nil
 }
