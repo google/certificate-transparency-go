@@ -79,8 +79,9 @@ type Scanner struct {
 	// Configuration options for this Scanner instance
 	opts ScannerOptions
 
-	// Counter of the number of certificates scanned
+	// Counters of the number of certificates scanned and matched
 	certsProcessed int64
+	certsMatched   int64
 
 	// Counter of the number of precertificates encountered during the scan.
 	precertsSeen int64
@@ -152,10 +153,12 @@ func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.Lea
 			return nil
 		}
 		if matcher.CertificateMatches(logEntry.X509Cert) {
+			atomic.AddInt64(&s.certsMatched, 1)
 			foundCert(logEntry)
 		}
 	case logEntry.Precert != nil:
 		if matcher.PrecertificateMatches(logEntry.Precert) {
+			atomic.AddInt64(&s.certsMatched, 1)
 			foundPrecert(logEntry)
 		}
 		atomic.AddInt64(&s.precertsSeen, 1)
@@ -276,6 +279,7 @@ func humanTime(seconds int) string {
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
+	s.certsMatched = 0
 	s.precertsSeen = 0
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
@@ -295,6 +299,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		slidingWindow := make([]int64, 15)
 		i, previousCount := 0, int64(0)
 		for range ticker.C {
+			certsMatched := atomic.LoadInt64(&s.certsMatched)
 			certsProcessed := atomic.LoadInt64(&s.certsProcessed)
 			slidingWindow[i%15], previousCount = certsProcessed-previousCount, certsProcessed
 
@@ -311,8 +316,10 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 			remainingCerts := int64(latestSth.TreeSize) - int64(s.opts.StartIndex) - certsProcessed
 			remainingSeconds := int(float64(remainingCerts) / throughput)
 			remainingString := humanTime(remainingSeconds)
-			s.Log(fmt.Sprintf("Processed: %d certs (to index %d). Throughput (last 15s): %3.2f ETA: %s\n", certsProcessed,
-				s.opts.StartIndex+int64(certsProcessed), throughput, remainingString))
+			s.Log(fmt.Sprintf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last 15s): %3.2f ETA: %s\n",
+				certsProcessed, s.opts.StartIndex+int64(certsProcessed),
+				certsMatched, (100.0*float64(certsMatched))/float64(certsProcessed),
+				throughput, remainingString))
 			i++
 		}
 	}()
