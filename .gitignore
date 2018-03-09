@@ -21,6 +21,7 @@
 /preloader
 /scanlog
 /sctcheck
+/sctscan
 /trillian_log_server
 /trillian_log_signer
 /trillian.json
