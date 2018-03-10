@@ -1235,7 +1235,7 @@ type NonFatalErrors struct {
 	Errors []error
 }
 
-// Adds an error to the list of errors contained by NonFatalErrors.
+// AddError adds an error to the list of errors contained by NonFatalErrors.
 func (e *NonFatalErrors) AddError(err error) {
 	e.Errors = append(e.Errors, err)
 }
@@ -1250,7 +1250,7 @@ func (e NonFatalErrors) Error() string {
 	return r
 }
 
-// Returns true if |e| contains at least one error
+// HasError returns true if |e| contains at least one error
 func (e *NonFatalErrors) HasError() bool {
 	return len(e.Errors) > 0
 }
