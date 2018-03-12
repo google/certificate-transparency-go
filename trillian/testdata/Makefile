@@ -13,8 +13,6 @@ SERVER_PUBKEYS=$(subst .privkey,.pubkey,$(SERVER_PRIVKEYS))
 
 # Build public keys from private keys
 pubkeys: $(SERVER_PUBKEYS)
-map-rpc-server.pubkey.pem: map-rpc-server.privkey.pem
-	openssl ec -in $< -pubout -out $@ -passin pass:$(MAP_RPC_PWD)
 log-rpc-server.pubkey.pem: log-rpc-server.privkey.pem
 	openssl ec -in $< -pubout -out $@ -passin pass:$(LOG_RPC_PWD)
 ct-http-server.pubkey.pem: ct-http-server.privkey.pem
@@ -47,7 +45,7 @@ int-ca.csr.pem: int-ca.privkey.pem int-ca.cfg
 show-int-csr: int-ca.csr.pem
 	openssl req -in $< -text -noout
 int-ca.cert: int-ca.csr.pem fake-ca.privkey.pem fake-ca.cert
-	openssl x509 -req -in int-ca.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_ca -CA fake-ca.cert -CAkey fake-ca.privkey.pem  -passin pass:$(CA_PWD) -set_serial 0x42424242 -days 3600 -out $@
+	openssl x509 -req -in int-ca.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_int_ca -CA fake-ca.cert -CAkey fake-ca.privkey.pem  -passin pass:$(CA_PWD) -set_serial 0x42424242 -days 3600 -out $@
 show-int-ca: int-ca.cert
 	openssl x509 -inform pem -in $< -text -noout
 
