@@ -24,6 +24,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 // SerializeSCTSignatureInput serializes the passed in sct and log entry into
@@ -188,6 +189,71 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype ct.LogEntryType, t
 		TBSCertificate: defangedTBS,
 	}
 	return &leaf, nil
+}
+
+// MerkleTreeLeafFromChainEmbeddedSCT generates a MerkleTreeLeaf from a chain and an
+// SCT timestamp, where the leaf certificate at chain[0] is a certificate that
+// has embedded within it the SCT that the timestamp is from.
+func MerkleTreeLeafFromChainEmbeddedSCT(chain []*x509.Certificate, timestamp uint64) (*ct.MerkleTreeLeaf, error) {
+	// Check that the leaf certificate does indeed contain an embedded SCT with
+	// the timestamp provided.
+	timestampOK, err := containsSCTWithTimestamp(chain[0], timestamp)
+	if err != nil {
+		return nil, err
+	}
+	if !timestampOK {
+		return nil, fmt.Errorf("leaf cert doesn't contain an embedded SCT with timestamp %d", timestamp)
+	}
+
+	leaf := ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
+			EntryType: ct.PrecertLogEntryType,
+			Timestamp: timestamp,
+		},
+	}
+
+	// For building the leaf for a certificate and SCT where the SCT is embedded
+	// in the certificate, we need to build the original precertificate TBS
+	// data.  First, parse the leaf cert and its issuer.
+	if len(chain) < 2 {
+		return nil, fmt.Errorf("no issuer cert available for precert leaf building")
+	}
+	issuer := chain[1]
+	cert := chain[0]
+
+	// Next, post-process the DER-encoded TBSCertificate, to remove the SCTList
+	// extension.
+	tbs, err := x509.RemoveSCTList(cert.RawTBSCertificate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove SCT List extension: %v", err)
+	}
+
+	leaf.TimestampedEntry.EntryType = ct.PrecertLogEntryType
+	leaf.TimestampedEntry.PrecertEntry = &ct.PreCert{
+		IssuerKeyHash:  sha256.Sum256(issuer.RawSubjectPublicKeyInfo),
+		TBSCertificate: tbs,
+	}
+	return &leaf, nil
+}
+
+func containsSCTWithTimestamp(cert *x509.Certificate, timestamp uint64) (bool, error) {
+	if cert == nil {
+		return false, nil
+	}
+
+	scts, err := x509util.ParseSCTsFromSCTList(&cert.SCTList)
+	if err != nil {
+		return false, err
+	}
+
+	for _, sct := range scts {
+		if sct.Timestamp == timestamp {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // IsPreIssuer indicates whether a certificate is a pre-cert issuer with the specific
