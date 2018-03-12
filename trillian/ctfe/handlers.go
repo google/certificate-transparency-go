@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -506,6 +506,11 @@ func getSTHConsistency(ctx context.Context, c *LogContext, w http.ResponseWriter
 			return c.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
 		}
 
+		// We can get here with a tree size too small to satisfy the proof.
+		if rsp.GetSignedLogRoot().TreeSize < second {
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, rsp.SignedLogRoot.TreeSize)
+		}
+
 		// Additional sanity checks, none of the hashes in the returned path should be empty
 		if !checkAuditPath(rsp.Proof.Hashes) {
 			return http.StatusInternalServerError, fmt.Errorf("backend returned invalid proof: %v", rsp.Proof)
@@ -568,9 +573,17 @@ func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r
 		return c.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
 	}
 
+	// We could fail to get the proof because the tree size that the server has
+	// is not large enough.
+	if rsp.GetSignedLogRoot().TreeSize < treeSize {
+		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", rsp.SignedLogRoot.TreeSize, treeSize)
+	}
+
 	// Additional sanity checks
 	if len(rsp.Proof) == 0 {
-		return http.StatusInternalServerError, errors.New("get-proof-by-hash: backend did not return a proof")
+		// This is no longer a 5xx error as backend returns the STH. Previously
+		// the 4xx was returned via the toHttpStatus(err) above.w
+		return http.StatusNotFound, errors.New("get-proof-by-hash: backend did not return a proof")
 	}
 	if !checkAuditPath(rsp.Proof[0].Hashes) {
 		return http.StatusInternalServerError, fmt.Errorf("get-proof-by-hash: backend returned invalid proof: %v", rsp.Proof[0])
