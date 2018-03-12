@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package audit
+package ctutil
 
 import (
 	"encoding/base64"
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -176,7 +175,7 @@ func TestVerifySCT(t *testing.T) {
 		}
 
 		// Test VerifySCT()
-		pk, err := ctutil.ParseB64PublicKey(testdata.LogPublicKeyB64)
+		pk, err := ParseB64PublicKey(testdata.LogPublicKeyB64)
 		if err != nil {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}
@@ -184,12 +183,6 @@ func TestVerifySCT(t *testing.T) {
 		err = VerifySCT(pk, chain, &sct)
 		if gotErr := (err != nil); gotErr != test.wantErr {
 			t.Errorf("%s: VerifySCT(_,_,_) = %v, want error? %t", test.desc, err, test.wantErr)
-		}
-
-		// Test VerifySCTB64PublicKey()
-		err = VerifySCTB64PublicKey(testdata.LogPublicKeyB64, chain, &sct)
-		if gotErr := (err != nil); gotErr != test.wantErr {
-			t.Errorf("%s: VerifySCTB64PublicKey(_,_,_) = %v, want error? %t", test.desc, err, test.wantErr)
 		}
 	}
 }
