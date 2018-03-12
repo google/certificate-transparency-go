@@ -813,6 +813,8 @@ func verifyChain(rawChain []ct.ASN1Cert) error {
 	// Now verify the chain as a whole
 	intermediatePool := x509.NewCertPool()
 	for i := 1; i < len(chain); i++ {
+		// Don't check path-len constraints
+		chain[i].MaxPathLen = -1
 		intermediatePool.AddCert(chain[i])
 	}
 	rootPool := x509.NewCertPool()
