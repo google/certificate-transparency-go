@@ -29,6 +29,7 @@ func TestLeafHash(t *testing.T) {
 		desc     string
 		chainPEM string
 		sct      []byte
+		embedded bool
 		want     string
 	}{
 		{
@@ -41,6 +42,13 @@ func TestLeafHash(t *testing.T) {
 			desc:     "precert",
 			chainPEM: testdata.TestPreCertPEM + testdata.CACertPEM,
 			sct:      testdata.TestPreCertProof,
+			want:     testdata.TestPreCertB64LeafHash,
+		},
+		{
+			desc:     "cert with embedded SCT",
+			chainPEM: testdata.TestEmbeddedCertPEM + testdata.CACertPEM,
+			sct:      testdata.TestPreCertProof,
+			embedded: true,
 			want:     testdata.TestPreCertB64LeafHash,
 		},
 	}
@@ -69,13 +77,13 @@ func TestLeafHash(t *testing.T) {
 		var want [32]byte
 		copy(want[:], wantSl)
 
-		got, err := LeafHash(chain, &sct)
+		got, err := LeafHash(chain, &sct, test.embedded)
 		if got != want || err != nil {
 			t.Errorf("%s: LeafHash(_,_) = %v, %v, want %v, nil", test.desc, got, err, want)
 		}
 
 		// Test B64LeafHash()
-		gotB64, err := B64LeafHash(chain, &sct)
+		gotB64, err := B64LeafHash(chain, &sct, test.embedded)
 		if gotB64 != test.want || err != nil {
 			t.Errorf("%s: B64LeafHash(_,_) = %v, %v, want %v, nil", test.desc, gotB64, err, test.want)
 		}
@@ -87,6 +95,7 @@ func TestLeafHashErrors(t *testing.T) {
 		desc     string
 		chainPEM string
 		sct      []byte
+		embedded bool
 	}{
 		{
 			desc:     "empty chain",
@@ -94,9 +103,21 @@ func TestLeafHashErrors(t *testing.T) {
 			sct:      testdata.TestCertProof,
 		},
 		{
-			desc:     "nil sct",
+			desc:     "nil SCT",
 			chainPEM: testdata.TestCertPEM + testdata.CACertPEM,
 			sct:      nil,
+		},
+		{
+			desc:     "no SCTs embedded in cert, embedded true",
+			chainPEM: testdata.TestCertPEM + testdata.CACertPEM,
+			sct:      testdata.TestInvalidProof,
+			embedded: true,
+		},
+		{
+			desc:     "cert contains embedded SCTs, but not the SCT provided",
+			chainPEM: testdata.TestEmbeddedCertPEM + testdata.CACertPEM,
+			sct:      testdata.TestInvalidProof,
+			embedded: true,
 		},
 	}
 
@@ -120,13 +141,13 @@ func TestLeafHashErrors(t *testing.T) {
 		}
 
 		// Test LeafHash()
-		got, err := LeafHash(chain, sct)
+		got, err := LeafHash(chain, sct, test.embedded)
 		if got != emptyHash || err == nil {
 			t.Errorf("%s: LeafHash(_,_) = %s, %v, want %v, error", test.desc, got, err, emptyHash)
 		}
 
 		// Test B64LeafHash()
-		gotB64, err := B64LeafHash(chain, sct)
+		gotB64, err := B64LeafHash(chain, sct, test.embedded)
 		if gotB64 != "" || err == nil {
 			t.Errorf("%s: B64LeafHash(_,_) = %s, %v, want \"\", error", test.desc, gotB64, err)
 		}
@@ -138,6 +159,7 @@ func TestVerifySCT(t *testing.T) {
 		desc     string
 		chainPEM string
 		sct      []byte
+		embedded bool
 		wantErr  bool
 	}{
 		{
@@ -151,9 +173,22 @@ func TestVerifySCT(t *testing.T) {
 			sct:      testdata.TestPreCertProof,
 		},
 		{
-			desc:     "bad SCT",
+			desc:     "invalid SCT",
 			chainPEM: testdata.TestPreCertPEM + testdata.CACertPEM,
 			sct:      testdata.TestCertProof,
+			wantErr:  true,
+		},
+		{
+			desc:     "cert with embedded SCT",
+			chainPEM: testdata.TestEmbeddedCertPEM + testdata.CACertPEM,
+			sct:      testdata.TestPreCertProof,
+			embedded: true,
+		},
+		{
+			desc:     "cert with invalid embedded SCT",
+			chainPEM: testdata.TestInvalidEmbeddedCertPEM + testdata.CACertPEM,
+			sct:      testdata.TestInvalidProof,
+			embedded: true,
 			wantErr:  true,
 		},
 	}
@@ -180,9 +215,65 @@ func TestVerifySCT(t *testing.T) {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}
 
-		err = VerifySCT(pk, chain, &sct)
+		err = VerifySCT(pk, chain, &sct, test.embedded)
 		if gotErr := (err != nil); gotErr != test.wantErr {
-			t.Errorf("%s: VerifySCT(_,_,_) = %v, want error? %t", test.desc, err, test.wantErr)
+			t.Errorf("%s: VerifySCT(_,_,_, %t) = %v, want error? %t", test.desc, test.embedded, err, test.wantErr)
+		}
+	}
+}
+
+func TestContainsSCT(t *testing.T) {
+	tests := []struct {
+		desc    string
+		certPEM string
+		sct     []byte
+		want    bool
+	}{
+		{
+			desc:    "cert doesn't contain any SCTs",
+			certPEM: testdata.TestCertPEM,
+			sct:     testdata.TestPreCertProof,
+			want:    false,
+		},
+		{
+			desc:    "cert contains SCT but not specified SCT",
+			certPEM: testdata.TestEmbeddedCertPEM,
+			sct:     testdata.TestInvalidProof,
+			want:    false,
+		},
+		{
+			desc:    "cert contains SCT",
+			certPEM: testdata.TestEmbeddedCertPEM,
+			sct:     testdata.TestPreCertProof,
+			want:    true,
+		},
+	}
+
+	for _, test := range tests {
+		// Parse cert
+		cert, err := x509util.CertificateFromPEM([]byte(test.certPEM))
+		if err != nil {
+			t.Errorf("%s: error parsing certificate: %s", test.desc, err)
+			continue
+		}
+
+		// Parse SCT
+		var sct ct.SignedCertificateTimestamp
+		_, err = tls.Unmarshal(test.sct, &sct)
+		if err != nil {
+			t.Errorf("%s: error tls-unmarshalling sct: %s", test.desc, err)
+			continue
+		}
+
+		// Test ContainsSCT()
+		got, err := ContainsSCT(cert, &sct)
+		if err != nil {
+			t.Errorf("%s: ContainsSCT(_,_) = false, %s, want no error", test.desc, err)
+			continue
+		}
+
+		if got != test.want {
+			t.Errorf("%s: ContainsSCT(_,_) = %t, nil, want %t, nil", test.desc, got, test.want)
 		}
 	}
 }

@@ -16,6 +16,7 @@
 package ctutil
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/sha256"
 	"encoding/base64"
@@ -29,20 +30,11 @@ import (
 
 var emptyHash = [32]byte{}
 
-// B64LeafHash calculates the base64-encoded leaf hash of the certificate or
-// precertificate at chain[0] that sct was issued for.
-//
-// If using this function to calculate the leaf hash for an X509 certificate
-// (i.e. not a precertificate) then it is enough to just provide the end entity
-// certificate in chain.  However, if using this function to calculate the leaf
-// hash for a precertificate then the issuing certificate must also be provided
-// in chain.  When providing a certificate chain the leaf certificate must be at
-// chain[0].
-//
-// sct is required because the SCT timestamp is used to calculate the leaf hash.
-// Leaf hashes are unique to (pre)certificate-SCT pairs.
-func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) (string, error) {
-	hash, err := LeafHash(chain, sct)
+// B64LeafHash does as LeafHash does, but returns the leaf hash base64-encoded.
+// The base64-encoded leaf hash returned by B64LeafHash can be used with the
+// get-proof-by-hash API endpoint of Certificate Transparency Logs.
+func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) (string, error) {
+	hash, err := LeafHash(chain, sct, embedded)
 	if err != nil {
 		return "", err
 	}
@@ -52,31 +44,41 @@ func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) 
 // LeafHash calculates the leaf hash of the certificate or precertificate at
 // chain[0] that sct was issued for.
 //
-// If using this function to calculate the leaf hash for an X509 certificate
-// (i.e. not a precertificate) then it is enough to just provide the end entity
-// certificate in chain.  However, if using this function to calculate the leaf
-// hash for a precertificate then the issuing certificate must also be provided
-// in chain.  When providing a certificate chain the leaf certificate must be at
-// chain[0].
-//
 // sct is required because the SCT timestamp is used to calculate the leaf hash.
 // Leaf hashes are unique to (pre)certificate-SCT pairs.
-func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([32]byte, error) {
-	if len(chain) == 0 {
-		return emptyHash, errors.New("chain is empty")
-	}
-	if sct == nil {
-		return emptyHash, errors.New("sct is nil")
+//
+// This function can be used with three different types of leaf certificate:
+//   - X.509 Certificate:
+//       If using this function to calculate the leaf hash for a normal X.509
+//       certificate then it is enough to just provide the end entity
+//       certificate in chain. This case assumes that the SCT being provided is
+//       not embedded within the leaf certificate provided, i.e. the certificate
+//       is what was submitted to the Certificate Transparency Log in order to
+//       obtain the SCT.  For this case, set embedded to false.
+//   - Precertificate:
+//       If using this function to calculate the leaf hash for a precertificate
+//       then the issuing certificate must also be provided in chain.  The
+//       precertificate should be at chain[0], and its issuer at chain[1].  For
+//       this case, set embedded to false.
+//   - X.509 Certificate containing the SCT embedded within it:
+//       If using this function to calculate the leaf hash for a certificate
+//       where the SCT provided is embedded within the certificate you
+//       are providing at chain[0], set embedded to true.  LeafHash will
+//       calculate the leaf hash by building the corresponding precertificate.
+//       LeafHash will return an error if the provided SCT cannot be found
+//       embedded within chain[0].  As with the precertificate case, the issuing
+//       certificate must also be provided in chain.  The certificate containing
+//       the embedded SCT should be at chain[0], and its issuer at chain[1].
+//
+// Note: LeafHash doesn't check that the provided SCT verifies for the given
+// chain.  It simply calculates what the leaf hash would be for the given
+// (pre)certificate-SCT pair.
+func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) ([32]byte, error) {
+	leaf, err := createLeaf(chain, sct, embedded)
+	if err != nil {
+		return emptyHash, err
 	}
 
-	certType := ct.X509LogEntryType
-	if chain[0].IsPrecertificate() {
-		certType = ct.PrecertLogEntryType
-	}
-	leaf, err := MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
-	if err != nil {
-		return emptyHash, fmt.Errorf("error creating MerkleTreeLeaf: %s", err)
-	}
 	leafData, err := tls.Marshal(*leaf)
 	if err != nil {
 		return emptyHash, fmt.Errorf("error tls-encoding MerkleTreeLeaf: %s", err)
@@ -92,19 +94,31 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([3
 // the certificate at chain[0], signed by the Log that the public key belongs
 // to.  If the SCT does not verify, an error will be returned.
 //
-// If using this function to verify an SCT for an X.509 certificate (i.e. not a
-// precertificate) then it is enough to just provide the end entity certificate
-// in chain.  However, if using this function to verify an SCT for a
-// precertificate then the issuing certificate must also be provided in chain.
-// When providing a certificate chain the leaf certificate must be at chain[0].
-func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) error {
-	certType := ct.X509LogEntryType
-	if chain[0].IsPrecertificate() {
-		certType = ct.PrecertLogEntryType
-	}
-	leaf, err := MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
+// This function can be used with three different types of leaf certificate:
+//   - X.509 Certificate:
+//       If using this function to verify an SCT for a normal X.509 certificate
+//       then it is enough to just provide the end entity certificate in chain.
+//       This case assumes that the SCT being provided is not embedded within
+//       the leaf certificate provided, i.e. the certificate is what was
+//       submitted to the Certificate Transparency Log in order to obtain the
+//       SCT.  For this case, set embedded to false.
+//   - Precertificate:
+//       If using this function to verify an SCT for a precertificate then the
+//       issuing certificate must also be provided in chain.  The precertificate
+//       should be at chain[0], and its issuer at chain[1].  For this case, set
+//       embedded to false.
+//   - X.509 Certificate containing the SCT embedded within it:
+//       If the SCT you wish to verify is embedded within the certificate you
+//       are providing at chain[0], set embedded to true.  VerifySCT will
+//       verify the provided SCT by building the corresponding precertificate.
+//       VerifySCT will return an error if the provided SCT cannot be found
+//       embedded within chain[0].  As with the precertificate case, the issuing
+//       certificate must also be provided in chain.  The certificate containing
+//       the embedded SCT should be at chain[0], and its issuer at chain[1].
+func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) error {
+	leaf, err := createLeaf(chain, sct, embedded)
 	if err != nil {
-		return fmt.Errorf("error creating MerkleTreeLeaf: %s", err)
+		return err
 	}
 
 	s, err := NewSignatureVerifier(pubKey)
@@ -114,4 +128,56 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 
 	entry := ct.LogEntry{Leaf: *leaf}
 	return s.VerifySCTSignature(*sct, entry)
+}
+
+func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) (*ct.MerkleTreeLeaf, error) {
+	if len(chain) == 0 {
+		return nil, errors.New("chain is empty")
+	}
+	if sct == nil {
+		return nil, errors.New("sct is nil")
+	}
+
+	sctPresent, err := ContainsSCT(chain[0], sct)
+	if err != nil {
+		return nil, fmt.Errorf("error checking for SCT in leaf certificate: %s", err)
+	}
+	if embedded && !sctPresent {
+		return nil, errors.New("SCT provided is not embedded within leaf certificate")
+	}
+
+	certType := ct.X509LogEntryType
+	if chain[0].IsPrecertificate() || embedded {
+		certType = ct.PrecertLogEntryType
+	}
+
+	var leaf *ct.MerkleTreeLeaf
+	if embedded {
+		leaf, err = MerkleTreeLeafFromChainEmbeddedSCT(chain, sct.Timestamp)
+	} else {
+		leaf, err = MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error creating MerkleTreeLeaf: %s", err)
+	}
+	return leaf, nil
+}
+
+// ContainsSCT checks to see whether the given SCT is embedded within the given
+// certificate.
+func ContainsSCT(cert *x509.Certificate, sct *ct.SignedCertificateTimestamp) (bool, error) {
+	if cert == nil || sct == nil {
+		return false, nil
+	}
+
+	sctBytes, err := tls.Marshal(*sct)
+	if err != nil {
+		return false, fmt.Errorf("error tls.Marshalling SCT: %s", err)
+	}
+	for _, s := range cert.SCTList.SCTList {
+		if bytes.Equal(sctBytes, s.Val) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
