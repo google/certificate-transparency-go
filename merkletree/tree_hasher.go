@@ -14,13 +14,7 @@
 
 package merkletree
 
-const (
-	// LeafPrefix is the domain separation prefix for leaf hashes.
-	LeafPrefix = 0
-
-	// NodePrefix is the domain separation prefix for internal tree nodes.
-	NodePrefix = 1
-)
+import ct "github.com/google/certificate-transparency-go"
 
 // HasherFunc takes a slice of bytes and returns a cryptographic hash of those bytes.
 type HasherFunc func([]byte) []byte
@@ -44,11 +38,10 @@ func (h TreeHasher) HashEmpty() []byte {
 
 // HashLeaf returns the hash of the passed in leaf, after applying domain separation.
 func (h TreeHasher) HashLeaf(leaf []byte) []byte {
-	return h.hasher(append([]byte{LeafPrefix}, leaf...))
-
+	return h.hasher(append([]byte{ct.TreeLeafPrefix}, leaf...))
 }
 
 // HashChildren returns the merkle hash of the two passed in children.
 func (h TreeHasher) HashChildren(left, right []byte) []byte {
-	return h.hasher(append(append([]byte{NodePrefix}, left...), right...))
+	return h.hasher(append(append([]byte{ct.TreeNodePrefix}, left...), right...))
 }

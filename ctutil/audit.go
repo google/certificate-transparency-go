@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -83,7 +82,7 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([3
 		return emptyHash, fmt.Errorf("error tls-encoding MerkleTreeLeaf: %s", err)
 	}
 
-	data := append([]byte{merkletree.LeafPrefix}, leafData...)
+	data := append([]byte{ct.TreeLeafPrefix}, leafData...)
 	leafHash := sha256.Sum256(data)
 	return leafHash, nil
 }
