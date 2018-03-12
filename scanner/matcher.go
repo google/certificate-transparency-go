@@ -24,6 +24,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -148,7 +149,7 @@ type CertParseFailMatcher struct {
 
 // Matches returns true for parse errors.
 func (m CertParseFailMatcher) Matches(leaf *ct.LeafEntry) bool {
-	_, err := ct.LogEntryFromLeaf(1, leaf)
+	_, err := ctutil.LogEntryFromLeaf(1, leaf)
 	if err != nil {
 		if _, ok := err.(x509.NonFatalErrors); ok {
 			return m.MatchNonFatalErrs
@@ -186,7 +187,7 @@ func (m *CertVerifyFailMatcher) PopulateRoots(ctx context.Context, logClient *cl
 
 // Matches returns true for validation errors.
 func (m CertVerifyFailMatcher) Matches(leaf *ct.LeafEntry) bool {
-	entry, _ := ct.LogEntryFromLeaf(1, leaf)
+	entry, _ := ctutil.LogEntryFromLeaf(1, leaf)
 	if entry == nil {
 		// Can't validate if we can't parse
 		return false

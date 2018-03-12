@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
@@ -75,7 +76,7 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) ([3
 	if chain[0].IsPrecertificate() {
 		certType = ct.PrecertLogEntryType
 	}
-	leaf, err := ct.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
+	leaf, err := ctutil.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
 	if err != nil {
 		return emptyHash, fmt.Errorf("error creating MerkleTreeLeaf: %s", err)
 	}
@@ -104,12 +105,12 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 	if chain[0].IsPrecertificate() {
 		certType = ct.PrecertLogEntryType
 	}
-	leaf, err := ct.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
+	leaf, err := ctutil.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
 	if err != nil {
 		return fmt.Errorf("error creating MerkleTreeLeaf: %s", err)
 	}
 
-	s, err := ct.NewSignatureVerifier(pubKey)
+	s, err := ctutil.NewSignatureVerifier(pubKey)
 	if err != nil {
 		return fmt.Errorf("error creating signature verifier: %s", err)
 	}
@@ -130,7 +131,7 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 // precertificate then the issuing certificate must also be provided in chain.
 // When providing a certificate chain the leaf certificate must be at chain[0].
 func VerifySCTB64PublicKey(b64PubKey string, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp) error {
-	pk, err := ct.ParseB64PublicKey(b64PubKey)
+	pk, err := ctutil.ParseB64PublicKey(b64PubKey)
 	if err != nil {
 		return fmt.Errorf("error parsing public key: %s", err)
 	}

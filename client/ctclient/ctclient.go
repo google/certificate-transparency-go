@@ -30,6 +30,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
@@ -117,7 +118,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 		log.Fatalf("Upload failed: %q", err)
 	}
 	// Calculate the leaf hash
-	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
+	leafEntry := ctutil.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
 	leafData, err := tls.Marshal(*leafEntry)
 	if err != nil {
 		log.Fatalf("Failed to tls.Marshal leaf: %v", err)

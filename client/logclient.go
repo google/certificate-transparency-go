@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
 )
@@ -216,7 +217,7 @@ func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype 
 		// Can't verify signatures without a verifier
 		return nil
 	}
-	leaf, err := ct.MerkleTreeLeafFromRawChain(certData, ctype, sct.Timestamp)
+	leaf, err := ctutil.MerkleTreeLeafFromRawChain(certData, ctype, sct.Timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to build MerkleTreeLeaf: %v", err)
 	}

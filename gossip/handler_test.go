@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -164,11 +164,11 @@ func closeAndDeleteStorage(s *Storage) {
 func mustCreateSignatureVerifiers(t *testing.T) SignatureVerifierMap {
 	t.Helper()
 	m := make(SignatureVerifierMap)
-	key, id, _, err := ct.PublicKeyFromPEM([]byte(pubKey))
+	key, id, _, err := ctutil.PublicKeyFromPEM([]byte(pubKey))
 	if err != nil {
 		t.Fatalf("Failed to parse pubkey: %v", err)
 	}
-	sv, err := ct.NewSignatureVerifier(key)
+	sv, err := ctutil.NewSignatureVerifier(key)
 	if err != nil {
 		t.Fatalf("Failed to create new SignatureVerifier: %v", err)
 	}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctutil
 
 import (
 	"bytes"
@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 )
 
@@ -113,23 +114,23 @@ const (
 	defaultSCTListHexString string = "0476007400380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e617475726500380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e6174757265"
 )
 
-func defaultSCTLogID() LogID {
-	var id LogID
+func defaultSCTLogID() ct.LogID {
+	var id ct.LogID
 	copy(id.KeyID[:], defaultSCTLogIDString)
 	return id
 }
 
-func defaultSCTSignature() DigitallySigned {
-	var ds DigitallySigned
+func defaultSCTSignature() ct.DigitallySigned {
+	var ds ct.DigitallySigned
 	if _, err := tls.Unmarshal([]byte(defaultSCTSignatureString), &ds); err != nil {
 		panic(err)
 	}
 	return ds
 }
 
-func defaultSCT() SignedCertificateTimestamp {
-	return SignedCertificateTimestamp{
-		SCTVersion: V1,
+func defaultSCT() ct.SignedCertificateTimestamp {
+	return ct.SignedCertificateTimestamp{
+		SCTVersion: ct.V1,
 		LogID:      defaultSCTLogID(),
 		Timestamp:  defaultSCTTimestamp,
 		Extensions: []byte{},
@@ -153,16 +154,16 @@ func defaultCertificateSCTSignatureInput(t *testing.T) []byte {
 	return r
 }
 
-func defaultCertificateLogEntry() LogEntry {
-	return LogEntry{
+func defaultCertificateLogEntry() ct.LogEntry {
+	return ct.LogEntry{
 		Index: 1,
-		Leaf: MerkleTreeLeaf{
-			Version:  V1,
-			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: &TimestampedEntry{
+		Leaf: ct.MerkleTreeLeaf{
+			Version:  ct.V1,
+			LeafType: ct.TimestampedEntryLeafType,
+			TimestampedEntry: &ct.TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
-				EntryType: X509LogEntryType,
-				X509Entry: &ASN1Cert{Data: defaultCertificate()},
+				EntryType: ct.X509LogEntryType,
+				X509Entry: &ct.ASN1Cert{Data: defaultCertificate()},
 			},
 		},
 	}
@@ -187,16 +188,16 @@ func defaultPrecertIssuerHash() [32]byte {
 	return b
 }
 
-func defaultPrecertLogEntry() LogEntry {
-	return LogEntry{
+func defaultPrecertLogEntry() ct.LogEntry {
+	return ct.LogEntry{
 		Index: 1,
-		Leaf: MerkleTreeLeaf{
-			Version:  V1,
-			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: &TimestampedEntry{
+		Leaf: ct.MerkleTreeLeaf{
+			Version:  ct.V1,
+			LeafType: ct.TimestampedEntryLeafType,
+			TimestampedEntry: &ct.TimestampedEntry{
 				Timestamp: defaultSCTTimestamp,
-				EntryType: PrecertLogEntryType,
-				PrecertEntry: &PreCert{
+				EntryType: ct.PrecertLogEntryType,
+				PrecertEntry: &ct.PreCert{
 					IssuerKeyHash:  defaultPrecertIssuerHash(),
 					TBSCertificate: defaultPrecertTBS(),
 				},
@@ -205,14 +206,14 @@ func defaultPrecertLogEntry() LogEntry {
 	}
 }
 
-func defaultSTH() SignedTreeHead {
-	var root SHA256Hash
+func defaultSTH() ct.SignedTreeHead {
+	var root ct.SHA256Hash
 	copy(root[:], "imustbeexactlythirtytwobyteslong")
-	return SignedTreeHead{
+	return ct.SignedTreeHead{
 		TreeSize:       6,
 		Timestamp:      2345,
 		SHA256RootHash: root,
-		TreeHeadSignature: DigitallySigned{
+		TreeHeadSignature: ct.DigitallySigned{
 			Algorithm: tls.SignatureAndHashAlgorithm{
 				Hash:      tls.SHA256,
 				Signature: tls.ECDSA},
@@ -246,7 +247,7 @@ func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
 }
 
 func TestSerializeV1SCTJSONSignature(t *testing.T) {
-	entry := LogEntry{Leaf: *CreateJSONMerkleTreeLeaf("data", defaultSCT().Timestamp)}
+	entry := ct.LogEntry{Leaf: *CreateJSONMerkleTreeLeaf("data", defaultSCT().Timestamp)}
 	expected := dh(
 		// version, 1 byte
 		"00" +
@@ -285,7 +286,7 @@ func TestSerializeV1STHSignatureKAT(t *testing.T) {
 
 func TestMarshalDigitallySigned(t *testing.T) {
 	b, err := tls.Marshal(
-		DigitallySigned{
+		ct.DigitallySigned{
 			Algorithm: tls.SignatureAndHashAlgorithm{
 				Hash:      tls.SHA512,
 				Signature: tls.ECDSA},
@@ -308,7 +309,7 @@ func TestMarshalDigitallySigned(t *testing.T) {
 }
 
 func TestUnmarshalDigitallySigned(t *testing.T) {
-	var ds DigitallySigned
+	var ds ct.DigitallySigned
 	if _, err := tls.Unmarshal([]byte("\x01\x02\x00\x0aSiGnAtUrE!"), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal DigitallySigned: %v", err)
 	}
@@ -329,7 +330,7 @@ func TestMarshalUnmarshalSCTRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tls.Marshal(SCT)=nil,%v; want no error", err)
 	}
-	var sctOut SignedCertificateTimestamp
+	var sctOut ct.SignedCertificateTimestamp
 	if _, err := tls.Unmarshal(b, &sctOut); err != nil {
 		t.Errorf("tls.Unmarshal(%s)=nil,%v; want %+v,nil", hex.EncodeToString(b), err, sctIn)
 	} else if !reflect.DeepEqual(sctIn, sctOut) {
@@ -348,7 +349,7 @@ func TestMarshalSCT(t *testing.T) {
 
 func TestUnmarshalSCT(t *testing.T) {
 	want := defaultSCT()
-	var got SignedCertificateTimestamp
+	var got ct.SignedCertificateTimestamp
 	if _, err := tls.Unmarshal(dh(defaultSCTHexString), &got); err != nil {
 		t.Errorf("tls.Unmarshal(%s)=nil,%v; want %+v,nil", defaultSCTHexString, err, want)
 	} else if !reflect.DeepEqual(got, want) {
@@ -357,8 +358,8 @@ func TestUnmarshalSCT(t *testing.T) {
 }
 
 func TestX509MerkleTreeLeafHash(t *testing.T) {
-	certFile := "./testdata/test-cert.pem"
-	sctFile := "./testdata/test-cert.proof"
+	certFile := "../testdata/test-cert.pem"
+	sctFile := "../testdata/test-cert.proof"
 	certB, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", certFile, err)
@@ -369,12 +370,12 @@ func TestX509MerkleTreeLeafHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", sctFile, err)
 	}
-	var sct SignedCertificateTimestamp
+	var sct ct.SignedCertificateTimestamp
 	if _, err := tls.Unmarshal(sctB, &sct); err != nil {
 		t.Fatalf("Failed to deserialize SCT: %v", err)
 	}
 
-	leaf := CreateX509MerkleTreeLeaf(ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
+	leaf := CreateX509MerkleTreeLeaf(ct.ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
 	b, err := tls.Marshal(*leaf)
 	if err != nil {
 		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
@@ -417,17 +418,17 @@ func TestLogEntryFromLeaf(t *testing.T) {
 		precertRoot   = "308205cd308203b5a0030201020209009ed3ccb1d12ca272300d06092a864886f70d0101050500307d310b3009060355040613024742310f300d06035504080c064c6f6e646f6e31173015060355040a0c0e476f6f676c6520554b204c74642e3121301f060355040b0c184365727469666963617465205472616e73706172656e63793121301f06035504030c184d657267652044656c6179204d6f6e69746f7220526f6f74301e170d3134303731373132303534335a170d3431313230323132303534335a307d310b3009060355040613024742310f300d06035504080c064c6f6e646f6e31173015060355040a0c0e476f6f676c6520554b204c74642e3121301f060355040b0c184365727469666963617465205472616e73706172656e63793121301f06035504030c184d657267652044656c6179204d6f6e69746f7220526f6f7430820222300d06092a864886f70d01010105000382020f003082020a0282020100aa161cf2205ed81ac565483cda426a3db2e588fdb758b17b93ea8d68495d534a01ba4f6cd1c0fc0a128af79c066dc54c3f437e05ba275ee61dbf9cbdb2928183738139397b6189ae738fef2b9b609a6dd8e0b0d0e20b243db936c029cdc2220af2c0e1a5e4aa41a006af458957e2b1178d27156ef0cb717e16d54025d97f43e9916fb240fb85f7d579462fa0ac76c76256843750bf1ccdfeb76c8c47886477644d5ec3235628adf6a09c8488bfa5036de717908151a6b585f273dd9fb5332b9af76e8fbfa91eaf4311816dde27c5c44f2fd06cc2204d7147f77ba6b16a2a5fca470023614729538bee6b3cb07264713832aec161550eb501906802215223acc2564ad1f98bb5934924eb56d383fc7598be45c89d995281c0efb0d206d29a6d25a10a48fe235332379c5ca69e83599faa677dd20823f5c84a961255eca5d4871d54ca1df0774aa117b0f42cd6e9fda7e8a48a53923c5f94043353544e644b5a6562e5cef9fc2bd2fcfcce3323335cf7fe7c4d83c1b7f839c4790192d3ba9aa9f32093aa8ee7cbe708059d538dc663cca1b825331aa836754a0d13de63bf65b6e2044dcdf041f1a0c5a9c3c38fe74cf576d451c23eaa519db32ef9e039bd848a194c3b5e41a55642dc283ddbd73d1dd97ae6951de18ad89d005007fae7e88bc7a3cce8b7ccc49603a0db67c76d58a28d4b77aa7460801e34377d0c5e4606c2e25b0203010001a350304e301d0603551d0e04160414f35f7b7549e37841396a20b67c6b4c5cc93d5841301f0603551d23041830168014f35f7b7549e37841396a20b67c6b4c5cc93d5841300c0603551d13040530030101ff300d06092a864886f70d01010505000382020100771cfea34579a97520d8c2423d68ecd07891f8c7f1c38bf3cd30ea9d3637bfc5d373532ec7656558bef4950646750c6fe085c52d9ffc09e66ebfa2b067de7727cb381d2b25db58b9c2197fd5eb53e020f429b86a3b1f37a07a761a66a5b3ecd797c46695a37ff2d47c54126be6bd28a2a103357227c6b73f7f689b09b48927e6e9a52267a728a115d4bcbb477533dc28f3fc57da735a3ec54fbc36990b17febb7e46b324208c1fa7425a0cba48bdc0381ea8285215261c3c483f2fa6d1da0dba4949107189f32d728a7ff395d43430af3b8ce4be5075bcf67d66661941dc8be37340f8f9282b2d2aadd69065932ad49769f8bc7fc9e5f6e79ff392420ba78de3172778e2b67e4df18440dd561e5a7844c8efa06c0e5f5b8695fa069114a00518fb4c19f9d7855831b5eeebced14b8598daffa49f2dcf505bff6417d84b28e83599d4e0371ef64b2d82ffa068a31044f7322fee2f654ec357c9c121f3458a509728c37f5673412ad0d5e76aa6b4eb1582181a8be404d3dc35e71edd83ee388087d6147c4d86f1cacacface0104df1f4b100c2ceb1be4d1851c4f31e7c4409262185878f23cceb30790143f0d5bd80d2c0ed4260aaa312597d950aaf3c8bcfc812d9a56e8d160dd772a494743710a7e478a046d8a5d505ee6b8cc37fec09dfd4cb57c6c4d8e8ef2a22e1d9e50957852633138d722253e51ba77b0069d38812207a"
 	)
 	var tests = []struct {
-		leaf        LeafEntry
+		leaf        ct.LeafEntry
 		wantCert    bool
 		wantPrecert bool
 		wantErr     string
 	}{
 		{
-			leaf:    LeafEntry{},
+			leaf:    ct.LeafEntry{},
 			wantErr: "failed to unmarshal",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				// {version + leaf_type + timestamp + entry_type + len + cert + exts}
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts),
 				ExtraData: dh("000ba3" + "0005cc" + leafCA + "0005d1" + rootCA),
@@ -435,33 +436,33 @@ func TestLogEntryFromLeaf(t *testing.T) {
 			wantCert: true,
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts + "ff"),
 				ExtraData: dh("000ba3" + "0005cc" + leafCA + "0005d1" + rootCA),
 			},
 			wantErr: "trailing data",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts),
 				ExtraData: dh("000ba3" + "0005cc" + leafCA + "0005d1" + rootCA + "00"),
 			},
 			wantErr: "trailing data",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts),
 			},
 			wantErr: "failed to unmarshal",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "8000" + "0004f3" + leafDER + noExts),
 			},
 			wantErr: "unknown entry type",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				// version + leaf_type + timestamp + entry_type + key_hash + tbs + exts
 				LeafInput: dh("00" + "00" + "0000015dcc997890" + "0001" + issuerKeyHash + precertTBS + noExts),
 				ExtraData: dh("000508" + precertDER +
@@ -470,7 +471,7 @@ func TestLogEntryFromLeaf(t *testing.T) {
 			wantPrecert: true,
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc997890" + "0001" + issuerKeyHash + precertTBS + noExts),
 				ExtraData: dh("000508" + precertDER +
 					("000ba3" + "0005cc" + precertCA + "0005d1" + precertRoot) + "ff"),
@@ -478,7 +479,7 @@ func TestLogEntryFromLeaf(t *testing.T) {
 			wantErr: "trailing data",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc997890" + "0001" + issuerKeyHash + precertTBS + noExts + "ff"),
 				ExtraData: dh("000508" + precertDER +
 					("000ba3" + "0005cc" + precertCA + "0005d1" + precertRoot)),
@@ -486,7 +487,7 @@ func TestLogEntryFromLeaf(t *testing.T) {
 			wantErr: "trailing data",
 		},
 		{
-			leaf: LeafEntry{
+			leaf: ct.LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc997890" + "0001" + issuerKeyHash + precertTBS + noExts),
 			},
 			wantErr: "failed to unmarshal",

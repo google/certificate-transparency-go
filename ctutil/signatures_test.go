@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctutil
 
 import (
 	"crypto"
@@ -25,6 +25,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 )
 
@@ -154,28 +155,28 @@ func mustDehex(t *testing.T, h string) []byte {
 	return r
 }
 
-func sigTestSCTWithSignature(t *testing.T, sig, keyID string) SignedCertificateTimestamp {
+func sigTestSCTWithSignature(t *testing.T, sig, keyID string) ct.SignedCertificateTimestamp {
 	t.Helper()
-	var ds DigitallySigned
+	var ds ct.DigitallySigned
 	if _, err := tls.Unmarshal(mustDehex(t, sig), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
-	var id LogID
+	var id ct.LogID
 	copy(id.KeyID[:], mustDehex(t, keyID))
-	return SignedCertificateTimestamp{
-		SCTVersion: V1,
+	return ct.SignedCertificateTimestamp{
+		SCTVersion: ct.V1,
 		LogID:      id,
 		Timestamp:  sigTestSCTTimestamp,
 		Signature:  ds,
 	}
 }
 
-func sigTestSCTEC(t *testing.T) SignedCertificateTimestamp {
+func sigTestSCTEC(t *testing.T) ct.SignedCertificateTimestamp {
 	t.Helper()
 	return sigTestSCTWithSignature(t, sigTestCertSCTSignatureEC, sigTestKeyIDEC)
 }
 
-func sigTestSCTRSA(t *testing.T) SignedCertificateTimestamp {
+func sigTestSCTRSA(t *testing.T) ct.SignedCertificateTimestamp {
 	t.Helper()
 	return sigTestSCTWithSignature(t, sigTestCertSCTSignatureRSA, sigTestKeyIDEC)
 }
@@ -207,32 +208,32 @@ func sigTestRSAPublicKey(t *testing.T) crypto.PublicKey {
 	return pk
 }
 
-func sigTestCertLogEntry(t *testing.T) LogEntry {
+func sigTestCertLogEntry(t *testing.T) ct.LogEntry {
 	t.Helper()
-	return LogEntry{
+	return ct.LogEntry{
 		Index: 0,
-		Leaf: MerkleTreeLeaf{
-			Version:  V1,
-			LeafType: TimestampedEntryLeafType,
-			TimestampedEntry: &TimestampedEntry{
+		Leaf: ct.MerkleTreeLeaf{
+			Version:  ct.V1,
+			LeafType: ct.TimestampedEntryLeafType,
+			TimestampedEntry: &ct.TimestampedEntry{
 				Timestamp: sigTestSCTTimestamp,
-				EntryType: X509LogEntryType,
-				X509Entry: &ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},
+				EntryType: ct.X509LogEntryType,
+				X509Entry: &ct.ASN1Cert{Data: mustDehex(t, sigTestDERCertString)},
 			},
 		},
 	}
 }
 
-func sigTestDefaultSTH(t *testing.T) SignedTreeHead {
+func sigTestDefaultSTH(t *testing.T) ct.SignedTreeHead {
 	t.Helper()
-	var ds DigitallySigned
+	var ds ct.DigitallySigned
 	if _, err := tls.Unmarshal(mustDehex(t, sigTestDefaultSTHSignature), &ds); err != nil {
 		t.Fatalf("Failed to unmarshal sigTestCertSCTSignatureEC: %v", err)
 	}
-	var rootHash SHA256Hash
+	var rootHash ct.SHA256Hash
 	copy(rootHash[:], mustDehex(t, sigTestDefaultRootHash))
-	return SignedTreeHead{
-		Version:           V1,
+	return ct.SignedTreeHead{
+		Version:           ct.V1,
 		Timestamp:         sigTestDefaultSTHTimestamp,
 		TreeSize:          sigTestDefaultTreeSize,
 		SHA256RootHash:    rootHash,
@@ -257,7 +258,7 @@ func corruptBytes(b []byte) {
 	corruptByteAt(b, mrand.Intn(len(b)))
 }
 
-func expectVerifySCTToFail(t *testing.T, sv SignatureVerifier, sct SignedCertificateTimestamp, msg string) {
+func expectVerifySCTToFail(t *testing.T, sv SignatureVerifier, sct ct.SignedCertificateTimestamp, msg string) {
 	t.Helper()
 	if err := sv.VerifySCTSignature(sct, sigTestCertLogEntry(t)); err == nil {
 		t.Fatal(msg)
@@ -297,7 +298,7 @@ func TestVerifySCTSignatureFailsForUnknownHashAlgorithm(t *testing.T) {
 		"Successfully verified signature with unsupported hash algorithm")
 }
 
-func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
+func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct ct.SignedCertificateTimestamp, sv SignatureVerifier) {
 	t.Helper()
 	entry := sigTestCertLogEntry(t)
 	for i := range entry.Leaf.TimestampedEntry.X509Entry.Data {
@@ -314,7 +315,7 @@ func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCe
 	}
 }
 
-func testVerifySCTSignatureFailsForIncorrectSignature(t *testing.T, sct SignedCertificateTimestamp, sv SignatureVerifier) {
+func testVerifySCTSignatureFailsForIncorrectSignature(t *testing.T, sct ct.SignedCertificateTimestamp, sv SignatureVerifier) {
 	t.Helper()
 	corruptBytes(sct.Signature.Signature)
 	expectVerifySCTToFail(t, sv, sct, "Incorrectly verified corrupt signature")
@@ -364,14 +365,14 @@ func TestVerifySCTSignatureFailsForSignatureCreatedWithDifferentKey(t *testing.T
 	testVerifySCTSignatureFailsForIncorrectSignature(t, sigTestSCTEC(t), v)
 }
 
-func expectVerifySTHToPass(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+func expectVerifySTHToPass(t *testing.T, v SignatureVerifier, sth ct.SignedTreeHead) {
 	t.Helper()
 	if err := v.VerifySTHSignature(sth); err != nil {
 		t.Fatalf("Incorrectly failed to verify STH signature: %v", err)
 	}
 }
 
-func expectVerifySTHToFail(t *testing.T, v SignatureVerifier, sth SignedTreeHead) {
+func expectVerifySTHToFail(t *testing.T, v SignatureVerifier, sth ct.SignedTreeHead) {
 	t.Helper()
 	if err := v.VerifySTHSignature(sth); err == nil {
 		t.Fatal("Incorrectly verified STH signature")

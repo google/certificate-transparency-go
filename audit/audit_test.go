@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -175,7 +176,7 @@ func TestVerifySCT(t *testing.T) {
 		}
 
 		// Test VerifySCT()
-		pk, err := ct.ParseB64PublicKey(testdata.LogPublicKeyB64)
+		pk, err := ctutil.ParseB64PublicKey(testdata.LogPublicKeyB64)
 		if err != nil {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}

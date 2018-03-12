@@ -26,6 +26,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -140,7 +141,7 @@ func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*
 }
 
 func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+	logEntry, err := ctutil.LogEntryFromLeaf(index, &entry)
 	if s.isCertErrorFatal(err, logEntry, index) {
 		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
 	}
@@ -167,7 +168,7 @@ func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.Lea
 
 func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	if matcher.Matches(&entry) {
-		logEntry, err := ct.LogEntryFromLeaf(index, &entry)
+		logEntry, err := ctutil.LogEntryFromLeaf(index, &entry)
 		if logEntry == nil {
 			return fmt.Errorf("failed to build log entry: %v", err)
 		}

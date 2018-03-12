@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ct
+package ctutil
 
 import (
 	"crypto"
@@ -21,31 +21,32 @@ import (
 	"fmt"
 	"strings"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
 // SerializeSCTSignatureInput serializes the passed in sct and log entry into
 // the correct format for signing.
-func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) ([]byte, error) {
+func SerializeSCTSignatureInput(sct ct.SignedCertificateTimestamp, entry ct.LogEntry) ([]byte, error) {
 	switch sct.SCTVersion {
-	case V1:
-		input := CertificateTimestamp{
+	case ct.V1:
+		input := ct.CertificateTimestamp{
 			SCTVersion:    sct.SCTVersion,
-			SignatureType: CertificateTimestampSignatureType,
+			SignatureType: ct.CertificateTimestampSignatureType,
 			Timestamp:     sct.Timestamp,
 			EntryType:     entry.Leaf.TimestampedEntry.EntryType,
 			Extensions:    sct.Extensions,
 		}
 		switch entry.Leaf.TimestampedEntry.EntryType {
-		case X509LogEntryType:
+		case ct.X509LogEntryType:
 			input.X509Entry = entry.Leaf.TimestampedEntry.X509Entry
-		case PrecertLogEntryType:
-			input.PrecertEntry = &PreCert{
+		case ct.PrecertLogEntryType:
+			input.PrecertEntry = &ct.PreCert{
 				IssuerKeyHash:  entry.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
 				TBSCertificate: entry.Leaf.TimestampedEntry.PrecertEntry.TBSCertificate,
 			}
-		case XJSONLogEntryType:
+		case ct.XJSONLogEntryType:
 			input.JSONEntry = entry.Leaf.TimestampedEntry.JSONEntry
 		default:
 			return nil, fmt.Errorf("unsupported entry type %s", entry.Leaf.TimestampedEntry.EntryType)
@@ -58,16 +59,16 @@ func SerializeSCTSignatureInput(sct SignedCertificateTimestamp, entry LogEntry) 
 
 // SerializeSTHSignatureInput serializes the passed in STH into the correct
 // format for signing.
-func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
+func SerializeSTHSignatureInput(sth ct.SignedTreeHead) ([]byte, error) {
 	switch sth.Version {
-	case V1:
+	case ct.V1:
 		if len(sth.SHA256RootHash) != crypto.SHA256.Size() {
 			return nil, fmt.Errorf("invalid TreeHash length, got %d expected %d", len(sth.SHA256RootHash), crypto.SHA256.Size())
 		}
 
-		input := TreeHeadSignature{
+		input := ct.TreeHeadSignature{
 			Version:        sth.Version,
-			SignatureType:  TreeHashSignatureType,
+			SignatureType:  ct.TreeHashSignatureType,
 			Timestamp:      sth.Timestamp,
 			TreeSize:       sth.TreeSize,
 			SHA256RootHash: sth.SHA256RootHash,
@@ -79,21 +80,21 @@ func SerializeSTHSignatureInput(sth SignedTreeHead) ([]byte, error) {
 }
 
 // CreateX509MerkleTreeLeaf generates a MerkleTreeLeaf for an X509 cert
-func CreateX509MerkleTreeLeaf(cert ASN1Cert, timestamp uint64) *MerkleTreeLeaf {
-	return &MerkleTreeLeaf{
-		Version:  V1,
-		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: &TimestampedEntry{
+func CreateX509MerkleTreeLeaf(cert ct.ASN1Cert, timestamp uint64) *ct.MerkleTreeLeaf {
+	return &ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
 			Timestamp: timestamp,
-			EntryType: X509LogEntryType,
+			EntryType: ct.X509LogEntryType,
 			X509Entry: &cert,
 		},
 	}
 }
 
 // CreateJSONMerkleTreeLeaf creates the merkle tree leaf for json data.
-func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *MerkleTreeLeaf {
-	jsonData, err := json.Marshal(AddJSONRequest{Data: data})
+func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *ct.MerkleTreeLeaf {
+	jsonData, err := json.Marshal(ct.AddJSONRequest{Data: data})
 	if err != nil {
 		return nil
 	}
@@ -106,19 +107,19 @@ func CreateJSONMerkleTreeLeaf(data interface{}, timestamp uint64) *MerkleTreeLea
 	// TODO: Pending google/certificate-transparency#1243, replace with
 	// ObjectHash once supported by CT server.
 
-	return &MerkleTreeLeaf{
-		Version:  V1,
-		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: &TimestampedEntry{
+	return &ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
 			Timestamp: timestamp,
-			EntryType: XJSONLogEntryType,
-			JSONEntry: &JSONDataEntry{Data: []byte(jsonStr)},
+			EntryType: ct.XJSONLogEntryType,
+			JSONEntry: &ct.JSONDataEntry{Data: []byte(jsonStr)},
 		},
 	}
 }
 
 // MerkleTreeLeafFromRawChain generates a MerkleTreeLeaf from a chain (in DER-encoded form) and timestamp.
-func MerkleTreeLeafFromRawChain(rawChain []ASN1Cert, etype LogEntryType, timestamp uint64) (*MerkleTreeLeaf, error) {
+func MerkleTreeLeafFromRawChain(rawChain []ct.ASN1Cert, etype ct.LogEntryType, timestamp uint64) (*ct.MerkleTreeLeaf, error) {
 	// Need at most 3 of the chain
 	count := 3
 	if count > len(rawChain) {
@@ -136,20 +137,20 @@ func MerkleTreeLeafFromRawChain(rawChain []ASN1Cert, etype LogEntryType, timesta
 }
 
 // MerkleTreeLeafFromChain generates a MerkleTreeLeaf from a chain and timestamp.
-func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype LogEntryType, timestamp uint64) (*MerkleTreeLeaf, error) {
-	leaf := MerkleTreeLeaf{
-		Version:  V1,
-		LeafType: TimestampedEntryLeafType,
-		TimestampedEntry: &TimestampedEntry{
+func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype ct.LogEntryType, timestamp uint64) (*ct.MerkleTreeLeaf, error) {
+	leaf := ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
 			EntryType: etype,
 			Timestamp: timestamp,
 		},
 	}
-	if etype == X509LogEntryType {
-		leaf.TimestampedEntry.X509Entry = &ASN1Cert{Data: chain[0].Raw}
+	if etype == ct.X509LogEntryType {
+		leaf.TimestampedEntry.X509Entry = &ct.ASN1Cert{Data: chain[0].Raw}
 		return &leaf, nil
 	}
-	if etype != PrecertLogEntryType {
+	if etype != ct.PrecertLogEntryType {
 		return nil, fmt.Errorf("unknown LogEntryType %d", etype)
 	}
 
@@ -181,8 +182,8 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype LogEntryType, time
 		return nil, fmt.Errorf("failed to remove poison extension: %v", err)
 	}
 
-	leaf.TimestampedEntry.EntryType = PrecertLogEntryType
-	leaf.TimestampedEntry.PrecertEntry = &PreCert{
+	leaf.TimestampedEntry.EntryType = ct.PrecertLogEntryType
+	leaf.TimestampedEntry.PrecertEntry = &ct.PreCert{
 		IssuerKeyHash:  sha256.Sum256(issuer.RawSubjectPublicKeyInfo),
 		TBSCertificate: defangedTBS,
 	}
@@ -204,8 +205,8 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 // into a LogEntry object (which includes x509.Certificate objects, after TLS and ASN.1 parsing).
 // Note that this function may return a valid LogEntry object and a non-nil error value, when
 // the error indicates a non-fatal parsing error (of type x509.NonFatalErrors).
-func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
-	var leaf MerkleTreeLeaf
+func LogEntryFromLeaf(index int64, leafEntry *ct.LeafEntry) (*ct.LogEntry, error) {
+	var leaf ct.MerkleTreeLeaf
 	if rest, err := tls.Unmarshal(leafEntry.LeafInput, &leaf); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf for index %d: %v", index, err)
 	} else if len(rest) > 0 {
@@ -213,10 +214,10 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 	}
 
 	var err error
-	entry := LogEntry{Index: index, Leaf: leaf}
+	entry := ct.LogEntry{Index: index, Leaf: leaf}
 	switch leaf.TimestampedEntry.EntryType {
-	case X509LogEntryType:
-		var certChain CertificateChain
+	case ct.X509LogEntryType:
+		var certChain ct.CertificateChain
 		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &certChain); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal ExtraData for index %d: %v", index, err)
 		} else if len(rest) > 0 {
@@ -228,8 +229,8 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 			return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
 		}
 
-	case PrecertLogEntryType:
-		var precertChain PrecertChainEntry
+	case ct.PrecertLogEntryType:
+		var precertChain ct.PrecertChainEntry
 		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &precertChain); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry for index %d: %v", index, err)
 		} else if len(rest) > 0 {
@@ -241,7 +242,7 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
 			return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
 		}
-		entry.Precert = &Precertificate{
+		entry.Precert = &ct.Precertificate{
 			Submitted:      precertChain.PreCertificate,
 			IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
 			TBSCertificate: tbsCert,
