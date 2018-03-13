@@ -507,7 +507,7 @@ func getSTHConsistency(ctx context.Context, c *LogContext, w http.ResponseWriter
 		}
 
 		// We can get here with a tree size too small to satisfy the proof.
-		if rsp.GetSignedLogRoot().TreeSize < second {
+		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < second {
 			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, rsp.SignedLogRoot.TreeSize)
 		}
 
@@ -575,14 +575,14 @@ func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r
 
 	// We could fail to get the proof because the tree size that the server has
 	// is not large enough.
-	if rsp.GetSignedLogRoot().TreeSize < treeSize {
+	if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < treeSize {
 		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", rsp.SignedLogRoot.TreeSize, treeSize)
 	}
 
 	// Additional sanity checks
 	if len(rsp.Proof) == 0 {
 		// This is no longer a 5xx error as backend returns the STH. Previously
-		// the 4xx was returned via the toHttpStatus(err) above.w
+		// the 4xx was returned via the toHttpStatus(err) above.
 		return http.StatusNotFound, errors.New("get-proof-by-hash: backend did not return a proof")
 	}
 	if !checkAuditPath(rsp.Proof[0].Hashes) {

@@ -33,7 +33,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
@@ -1060,6 +1060,56 @@ func TestGetProofByHash(t *testing.T) {
 			},
 			httpRsp: &inclusionProof,
 		},
+		{
+			req:  "tree_size=10&hash=YWhhc2g=",
+			want: http.StatusNotFound,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Returned tree is too small to include the leaf.
+					TreeSize: 5,
+				},
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 0,
+						Hashes:    nil,
+					},
+				},
+			},
+		},
+		{
+			req:  "tree_size=10&hash=YWhhc2g=",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Returned tree large enough to include the leaf.
+					TreeSize: 10,
+				},
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 2,
+						Hashes:    auditHashes,
+					},
+				},
+			},
+			httpRsp: &inclusionProof,
+		},
+		{
+			req:  "tree_size=10&hash=YWhhc2g=",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Returned tree larger than needed to include the leaf.
+					TreeSize: 20,
+				},
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 2,
+						Hashes:    auditHashes,
+					},
+				},
+			},
+			httpRsp: &inclusionProof,
+		},
 	}
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
@@ -1286,6 +1336,60 @@ func TestGetSTHConsistency(t *testing.T) {
 			},
 			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
 			httpJSON: "{\"consistency\":[]}",
+		},
+		{
+			req:    "first=332&second=332",
+			first:  332,
+			second: 332,
+			want:   http.StatusBadRequest,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Backend returns a tree size too small to satisfy the proof.
+					TreeSize: 331,
+				},
+				Proof: &trillian.Proof{
+					LeafIndex: 0,
+					Hashes:    nil,
+				},
+			},
+		},
+		{
+			req:    "first=332&second=332",
+			first:  332,
+			second: 332,
+			want:   http.StatusOK,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Backend returns a tree size just large enough to satisfy the proof.
+					TreeSize: 332,
+				},
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes:    auditHashes,
+				},
+			},
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: auditHashes,
+			},
+		},
+		{
+			req:    "first=332&second=332",
+			first:  332,
+			second: 332,
+			want:   http.StatusOK,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Backend returns a tree size larger than needed to satisfy the proof.
+					TreeSize: 333,
+				},
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes:    auditHashes,
+				},
+			},
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: auditHashes,
+			},
 		},
 		{
 			req:  "first=332&second=331",
