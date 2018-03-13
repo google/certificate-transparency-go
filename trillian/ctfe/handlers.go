@@ -637,6 +637,12 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 		if err != nil {
 			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
 		}
+		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize <= start {
+			// If the returned tree is too small to contain any leaves return the 4xx
+			// explicitly here. It was previously returned via the error status
+			// mapping above.
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.GetSignedLogRoot().TreeSize, start)
+		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
 			return http.StatusInternalServerError, fmt.Errorf("backend returned too many leaves: %d vs [%d,%d]", len(rsp.Leaves), start, end)
@@ -655,6 +661,13 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 		rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
 		if err != nil {
 			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
+		}
+
+		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize <= start {
+			// If the returned tree is too small to contain any leaves return the 4xx
+			// explicitly here. It was previously returned via the error status
+			// mapping above.
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.GetSignedLogRoot().TreeSize, start)
 		}
 
 		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be

@@ -635,8 +635,11 @@ func runTestGetEntries(t *testing.T) {
 		descr  string
 		req    string
 		want   int
+		glbir  *trillian.GetLeavesByIndexRequest
+		glbrr  *trillian.GetLeavesByRangeRequest
 		leaves []*trillian.LogLeaf
 		rpcErr error
+		slr    *trillian.SignedLogRoot
 		errStr string
 	}{
 		{
@@ -713,25 +716,70 @@ func runTestGetEntries(t *testing.T) {
 				{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes2, ExtraData: []byte("extra2")},
 			},
 		},
+		{
+			descr: "tree too small",
+			req:   "start=5&end=6",
+			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
+			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
+			want:  http.StatusBadRequest,
+			slr: &trillian.SignedLogRoot{
+				TreeSize: 5,
+			},
+			leaves: []*trillian.LogLeaf{},
+		},
+		{
+			descr: "tree includes 1 of 2",
+			req:   "start=5&end=6",
+			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
+			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
+			want:  http.StatusOK,
+			slr: &trillian.SignedLogRoot{
+				TreeSize: 6,
+			},
+			leaves: []*trillian.LogLeaf{
+				{LeafIndex: 5, MerkleLeafHash: []byte("hash5"), LeafValue: merkleBytes1, ExtraData: []byte("extra5")},
+			},
+		},
+		{
+			descr: "tree includes 2 of 2",
+			req:   "start=5&end=6",
+			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
+			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
+			want:  http.StatusOK,
+			slr: &trillian.SignedLogRoot{
+				TreeSize: 7,
+			},
+			leaves: []*trillian.LogLeaf{
+				{LeafIndex: 5, MerkleLeafHash: []byte("hash5"), LeafValue: merkleBytes1, ExtraData: []byte("extra5")},
+				{LeafIndex: 6, MerkleLeafHash: []byte("hash6"), LeafValue: merkleBytes1, ExtraData: []byte("extra6")},
+			},
+		},
 	}
-	info := setupTest(t, nil, nil)
-	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 
 	for _, test := range tests {
+		info := setupTest(t, nil, nil)
+		handler := AppHandler{Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 		path := fmt.Sprintf("/ct/v1/get-entries?%s", test.req)
 		req, err := http.NewRequest("GET", path, nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
 			continue
 		}
-		if len(test.leaves) > 0 || test.rpcErr != nil {
+		if test.leaves != nil || test.rpcErr != nil {
 			if *getByRange {
-				rsp := trillian.GetLeavesByRangeResponse{Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2}).Return(&rsp, test.rpcErr)
+				glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2}
+				if test.glbrr != nil {
+					glbrr = test.glbrr
+				}
+				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: test.slr, Leaves: test.leaves}
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), glbrr).Return(&rsp, test.rpcErr)
 			} else {
-				rsp := trillian.GetLeavesByIndexResponse{Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}}).Return(&rsp, test.rpcErr)
+				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}}
+				if test.glbir != nil {
+					glbir = test.glbir
+				}
+				rsp := trillian.GetLeavesByIndexResponse{SignedLogRoot: test.slr, Leaves: test.leaves}
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), glbir).Return(&rsp, test.rpcErr)
 			}
 		}
 
@@ -771,6 +819,8 @@ func runTestGetEntries(t *testing.T) {
 				t.Errorf("rspMap['entries'][%d].ExtraData=%s; want %s", i, got, want)
 			}
 		}
+
+		info.mockCtrl.Finish()
 	}
 }
 
