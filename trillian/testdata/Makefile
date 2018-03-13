@@ -1,7 +1,7 @@
 all: pubkeys ca leaves
 
 # The following private keys are never regenerated.
-SERVER_PRIVKEYS=ct-http-server.privkey.pem log-rpc-server.privkey.pem map-rpc-server.privkey.pem
+SERVER_PRIVKEYS=ct-http-server.privkey.pem log-rpc-server.privkey.pem
 
 # Corresponding passwords:
 CT_HTTP_PWD=dirk
