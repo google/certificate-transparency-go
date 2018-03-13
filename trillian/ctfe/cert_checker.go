@@ -118,35 +118,58 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 	// so that it doesn't affect EKU validity calculations.  In particular, if
 	// the pre-issuer has just the CT EKU, then it should act as if it has an
 	// empty set of EKUs (and so allow any usage in the leaf).
+	havePreissuer := false
 	var originalEKUs []x509.ExtKeyUsage
 	if len(chain) > 1 {
 		for i, eku := range chain[1].ExtKeyUsage {
 			if eku == x509.ExtKeyUsageCertificateTransparency {
 				originalEKUs = chain[1].ExtKeyUsage
 				chain[1].ExtKeyUsage = append(chain[1].ExtKeyUsage[:i], chain[1].ExtKeyUsage[i+1:]...)
+				havePreissuer = true
 				break
 			}
 		}
 	}
 
-	chains, err := chain[0].Verify(verifyOpts)
+	if havePreissuer {
+		// Any MaxPathLen constraints on CA certificates may not allow for the presence
+		// of an extra pre-issuer intermediate CA cert.  Allow for this by adding one.
+		for i := 2; i < len(chain); i++ {
+			if chain[i].MaxPathLen > 0 || (chain[i].MaxPathLen == 0 && chain[i].MaxPathLenZero) {
+				chain[i].MaxPathLen++
+			}
+		}
+	}
+
+	verifiedChains, err := chain[0].Verify(verifyOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Restore any EKUs we have modified.
-	if originalEKUs != nil {
+	if havePreissuer {
+		// Restore the preissuer EKUs so the returned chain looks like the submission
+		// (and so can be fed to ct.MerkleTreeLeafFromChain(), which also looks for the
+		// pre-issuer EKU in chain[1]).
 		chain[1].ExtKeyUsage = originalEKUs
+
+		// Although it shouldn't affect any serialization/verification, restore any
+		// MaxPathLen values we have modified so the parsed certs stay in sync with
+		// the associated DER data.
+		for i := 2; i < len(chain); i++ {
+			if chain[i].MaxPathLen > 0 {
+				chain[i].MaxPathLen--
+			}
+		}
 	}
 
-	if len(chains) == 0 {
+	if len(verifiedChains) == 0 {
 		return nil, errors.New("no path to root found when trying to validate chains")
 	}
 
 	// Verify might have found multiple paths to roots. Now we check that we have a path that
 	// uses all the certs in the order they were submitted so as to comply with RFC 6962
 	// requirements detailed in Section 3.1.
-	for _, verifiedChain := range chains {
+	for _, verifiedChain := range verifiedChains {
 		if chainsEquivalent(chain, verifiedChain) {
 			return verifiedChain, nil
 		}
