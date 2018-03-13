@@ -727,6 +727,12 @@ func getEntryAndProof(ctx context.Context, c *LogContext, w http.ResponseWriter,
 		return c.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
 	}
 
+	if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < treeSize {
+		// If tree size is not large enough return the 4xx here, would previously
+		// have come from the error status mapping above.
+		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, rsp.GetSignedLogRoot().TreeSize)
+	}
+
 	// Apply some checks that we got reasonable data from the backend
 	if rsp.Proof == nil || rsp.Leaf == nil || len(rsp.Proof.Hashes) == 0 || len(rsp.Leaf.LeafValue) == 0 {
 		return http.StatusInternalServerError, fmt.Errorf("got RPC bad response, possible extra info: %v", rsp)

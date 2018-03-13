@@ -1546,6 +1546,65 @@ func TestGetEntryAndProof(t *testing.T) {
 				},
 			},
 		},
+		{
+			req:  "leaf_index=1&tree_size=3",
+			want: http.StatusBadRequest,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree just large enough for the proof.
+					TreeSize: 2,
+				},
+				Proof: &trillian.Proof{},
+			},
+		},
+		{
+			req:  "leaf_index=1&tree_size=3",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree just large enough for the proof.
+					TreeSize: 3,
+				},
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes: [][]byte{
+						[]byte("abcdef"),
+						[]byte("ghijkl"),
+						[]byte("mnopqr"),
+					},
+				},
+				// To match merkleLeaf above.
+				Leaf: &trillian.LogLeaf{
+					LeafValue:      leafBytes,
+					MerkleLeafHash: []byte("ahash"),
+					ExtraData:      []byte("extra"),
+				},
+			},
+		},
+		{
+			req:  "leaf_index=1&tree_size=3",
+			want: http.StatusOK,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree larger than needed for the proof.
+					TreeSize: 300,
+				},
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes: [][]byte{
+						[]byte("abcdef"),
+						[]byte("ghijkl"),
+						[]byte("mnopqr"),
+					},
+				},
+				// To match merkleLeaf above.
+				Leaf: &trillian.LogLeaf{
+					LeafValue:      leafBytes,
+					MerkleLeafHash: []byte("ahash"),
+					ExtraData:      []byte("extra"),
+				},
+			},
+		},
 	}
 
 	info := setupTest(t, nil, nil)
