@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -26,12 +27,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
@@ -39,7 +42,10 @@ import (
 )
 
 var (
-	dnsBase   = flag.String("dns", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
+	dnsBase   = flag.String("dns_base", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
+	useDNS    = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
+	logName   = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
+	logList   = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
 	logURI    = flag.String("log_uri", "http://ct.googleapis.com/rocketeer", "CT log base URI")
 	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
@@ -340,13 +346,49 @@ func main() {
 		opts.PublicKey = string(pubkey)
 	}
 
+	uri := *logURI
+	dns := *dnsBase
+	if *logName != "" {
+		llData, err := x509util.ReadFileOrURL(*logList, httpClient)
+		if err != nil {
+			log.Fatalf("Failed to read log list: %v", err)
+		}
+		var ll loglist.LogList
+		if err = json.Unmarshal(llData, &ll); err != nil {
+			log.Fatalf("Failed to parse log list: %v", err)
+		}
+
+		logs := ll.FindLogByName(*logName)
+		if len(logs) == 0 {
+			log.Fatalf("No log with name like %q found in loglist %q", *logName, *logList)
+		}
+		if len(logs) > 1 {
+			logNames := make([]string, len(logs))
+			for i, log := range logs {
+				logNames[i] = fmt.Sprintf("%q", log.Description)
+			}
+			log.Fatalf("Multiple logs with name like %q found in loglist: %s", *logName, strings.Join(logNames, ","))
+		}
+		// TODO(drysdale): what if a log is http:// only?
+		uri = "https://" + logs[0].URL
+		if *useDNS {
+			dns = logs[0].DNSAPIEndpoint
+		}
+		if opts.PublicKey == "" {
+			opts.PublicKeyDER = logs[0].Key
+		}
+	}
+	if *useDNS && dns == "" {
+		log.Fatal("DNS access requested (with --dns) but no DNS base name known")
+	}
+
 	var err error
 	var logClient *client.LogClient
 	var checkClient client.CheckLogClient
-	if *dnsBase != "" {
-		checkClient, err = dnsclient.New(*dnsBase, opts)
+	if dns != "" {
+		checkClient, err = dnsclient.New(dns, opts)
 	} else {
-		logClient, err = client.New(*logURI, httpClient, opts)
+		logClient, err = client.New(uri, httpClient, opts)
 		checkClient = logClient
 	}
 	if err != nil {
