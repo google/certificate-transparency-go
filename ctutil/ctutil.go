@@ -138,12 +138,14 @@ func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, e
 		return nil, errors.New("sct is nil")
 	}
 
-	sctPresent, err := ContainsSCT(chain[0], sct)
-	if err != nil {
-		return nil, fmt.Errorf("error checking for SCT in leaf certificate: %s", err)
-	}
-	if embedded && !sctPresent {
-		return nil, errors.New("SCT provided is not embedded within leaf certificate")
+	if embedded {
+		sctPresent, err := ContainsSCT(chain[0], sct)
+		if err != nil {
+			return nil, fmt.Errorf("error checking for SCT in leaf certificate: %s", err)
+		}
+		if !sctPresent {
+			return nil, errors.New("SCT provided is not embedded within leaf certificate")
+		}
 	}
 
 	certType := ct.X509LogEntryType
@@ -152,6 +154,7 @@ func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, e
 	}
 
 	var leaf *ct.MerkleTreeLeaf
+	var err error
 	if embedded {
 		leaf, err = ct.MerkleTreeLeafForEmbeddedSCT(chain, sct.Timestamp)
 	} else {
