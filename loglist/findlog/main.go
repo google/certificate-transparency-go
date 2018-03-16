@@ -17,10 +17,12 @@
 package main
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -31,8 +33,10 @@ import (
 )
 
 var (
-	logList = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
-	verbose = flag.Bool("verbose", false, "Print more information")
+	logList           = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
+	logListSig        = flag.String("log_list_sig", loglist.LogListSignatureURL, "Location of log list signature (URL or filename)")
+	logListPubKeyFile = flag.String("log_list_pubkey", "", "File holding public key signing log list in PEM format")
+	verbose           = flag.Bool("verbose", false, "Print more information")
 )
 
 func main() {
@@ -43,7 +47,33 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read log list: %v", err)
 	}
-	ll, err := loglist.NewFromJSON(llData)
+
+	var pubKey crypto.PublicKey
+	if *logListPubKeyFile != "" {
+		data, err := ioutil.ReadFile(*logListPubKeyFile)
+		if err != nil {
+			glog.Exitf("Failed to read public key: %v", err)
+		}
+		pubKey, _ /* keyhash */, _ /* rest */, err = ct.PublicKeyFromPEM(data)
+		if err != nil {
+			glog.Exitf("Failed to parse public key: %v", err)
+		}
+	}
+
+	factory := func(d []byte) (*loglist.LogList, error) {
+		return loglist.NewFromJSON(d)
+	}
+	if pubKey != nil {
+		sig, err := x509util.ReadFileOrURL(*logListSig, client)
+		if err != nil {
+			glog.Exitf("Failed to read log list signature: %v", err)
+		}
+		factory = func(d []byte) (*loglist.LogList, error) {
+			return loglist.NewFromSignedJSON(d, sig, pubKey)
+		}
+	}
+
+	ll, err := factory(llData)
 	if err != nil {
 		glog.Exitf("Failed to build log list: %v", err)
 	}

@@ -17,6 +17,9 @@ package loglist
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,10 +27,16 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/google/certificate-transparency-go/tls"
 )
 
-// LogListURL has the master URL for Google Chrome's log list.
-const LogListURL = "https://www.gstatic.com/ct/log_list/log_list.json"
+const (
+	// LogListURL has the master URL for Google Chrome's log list.
+	LogListURL = "https://www.gstatic.com/ct/log_list/log_list.json"
+	// LogListSignatureURL has the URL for the signature over Google Chrome's log list.
+	LogListSignatureURL = "https://www.gstatic.com/ct/log_list/log_list.sig"
+)
 
 // Manually mapped from https://www.gstatic.com/ct/log_list/log_list_schema.json
 
@@ -70,6 +79,32 @@ func NewFromJSON(llData []byte) (*LogList, error) {
 		return nil, fmt.Errorf("failed to parse log list: %v", err)
 	}
 	return &ll, nil
+}
+
+// NewFromSignedJSON creates a LogList from JSON encoded data, checking a
+// signature along the way. The signature data should be provided as the
+// raw signature data.
+func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList, error) {
+	sigAlgo := tls.Anonymous
+	switch pkType := pubKey.(type) {
+	case *rsa.PublicKey:
+		sigAlgo = tls.RSA
+	case *ecdsa.PublicKey:
+		sigAlgo = tls.ECDSA
+	default:
+		return nil, fmt.Errorf("Unsupported public key type %v", pkType)
+	}
+	tlsSig := tls.DigitallySigned{
+		Algorithm: tls.SignatureAndHashAlgorithm{
+			Hash:      tls.SHA256,
+			Signature: sigAlgo,
+		},
+		Signature: rawSig,
+	}
+	if err := tls.VerifySignature(pubKey, llData, tlsSig); err != nil {
+		return nil, fmt.Errorf("failed to verify signature: %v", err)
+	}
+	return NewFromJSON(llData)
 }
 
 // FindLogByName returns all logs whose names contain the given string.
