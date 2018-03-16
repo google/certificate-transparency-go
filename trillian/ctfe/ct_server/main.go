@@ -158,6 +158,8 @@ func main() {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
+			// Return a 200 on the root, for GCE default health checking :/
+			mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(200) })
 			metricsServer := http.Server{Addr: metricsAt, Handler: mux}
 			err := metricsServer.ListenAndServe()
 			glog.Warningf("Metrics server exited: %v", err)
