@@ -167,6 +167,9 @@ func main() {
 		http.Handle("/metrics", promhttp.Handler())
 	}
 
+	// Return a 200 on the root, for GCE default health checking :/
+	http.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
+
 	if *getSTHInterval > 0 {
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes that are not triggered by us.
