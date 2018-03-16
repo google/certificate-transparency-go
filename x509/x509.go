@@ -1009,11 +1009,11 @@ func (h UnhandledCriticalExtension) Error() string {
 	return fmt.Sprintf("x509: unhandled critical extension (%v)", h.ID)
 }
 
-// RemoveExtension takes a DER-encoded TBSCertificate, removes the extension
+// removeExtension takes a DER-encoded TBSCertificate, removes the extension
 // specified by oid (preserving the order of other extensions), and returns the
 // result still as a DER-encoded TBSCertificate.  This function will fail if
 // there is not exactly 1 extension of the type specified by the oid present.
-func RemoveExtension(tbsData []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
+func removeExtension(tbsData []byte, oid asn1.ObjectIdentifier) ([]byte, error) {
 	var tbs tbsCertificate
 	rest, err := asn1.Unmarshal(tbsData, &tbs)
 	if err != nil {
@@ -1050,7 +1050,7 @@ func RemoveExtension(tbsData []byte, oid asn1.ObjectIdentifier) ([]byte, error) 
 // extensions), and returns the result still as a DER-encoded TBSCertificate.
 // This function will fail if there is not exactly 1 CT SCT extension present.
 func RemoveSCTList(tbsData []byte) ([]byte, error) {
-	return RemoveExtension(tbsData, OIDExtensionCTSCT)
+	return removeExtension(tbsData, OIDExtensionCTSCT)
 }
 
 // RemoveCTPoison takes a DER-encoded TBSCertificate and removes the CT poison
@@ -1077,7 +1077,7 @@ func RemoveCTPoison(tbsData []byte) ([]byte, error) {
 //  - The precert's AuthorityKeyId is changed to the AuthorityKeyId of the
 //    intermediate.
 func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
-	data, err := RemoveExtension(tbsData, OIDExtensionCTPoison)
+	data, err := removeExtension(tbsData, OIDExtensionCTPoison)
 	if err != nil {
 		return nil, err
 	}
