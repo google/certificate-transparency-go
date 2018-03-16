@@ -30,6 +30,10 @@ spec:
             requests:
               cpu: "1"
           livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          readinessProbe:
             exec:
               command:
               - curl

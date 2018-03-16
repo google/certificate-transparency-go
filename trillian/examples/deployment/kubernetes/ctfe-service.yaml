@@ -1,16 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    cloud.google.com/load-balancer-type: "Internal"
   labels:
-    io.kompose.service: trillian-ctfe
-  name: trillian-ctfe
+    io.kompose.service: trillian-ctfe-service
+  name: trillian-ctfe-service
 spec:
-  type: LoadBalancer
+  type: NodePort
   ports:
-  - name: "80"
-    port: 80
-    targetPort: 6962
+    - port: 6962
+      targetPort: 6962
   selector:
     io.kompose.service: trillian-ctfe
-status:
-  loadBalancer: {}

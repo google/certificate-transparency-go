@@ -41,4 +41,5 @@ gcloud --quiet container images add-tag gcr.io/${PROJECT_NAME_CI}/ctfe:${TRAVIS_
 echo "Updating jobs..."
 kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
 kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-service.yaml
+kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
 kubectl set image deployment/trillian-ctfe-deployment trillian-ctfe=gcr.io/${PROJECT_NAME_CI}/ctfe:${TRAVIS_COMMIT}
