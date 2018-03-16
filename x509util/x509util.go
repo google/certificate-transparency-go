@@ -702,14 +702,25 @@ func CertificatesFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
 func ParseSCTsFromSCTList(sctList *x509.SignedCertificateTimestampList) ([]*ct.SignedCertificateTimestamp, error) {
 	var scts []*ct.SignedCertificateTimestamp
 	for i, data := range sctList.SCTList {
-		var sct ct.SignedCertificateTimestamp
-		_, err := tls.Unmarshal(data.Val, &sct)
+		sct, err := ExtractSCT(&data)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing SCT number %d: %s", i, err)
+			return nil, fmt.Errorf("error extracting SCT number %d: %s", i, err)
 		}
-		scts = append(scts, &sct)
+		scts = append(scts, sct)
 	}
 	return scts, nil
+}
+
+// ExtractSCT deserializes an SCT from a TLS-encoded SCT.
+func ExtractSCT(sctData *x509.SerializedSCT) (*ct.SignedCertificateTimestamp, error) {
+	if sctData == nil {
+		return nil, errors.New("SCT is nil")
+	}
+	var sct ct.SignedCertificateTimestamp
+	if _, err := tls.Unmarshal(sctData.Val, &sct); err != nil {
+		return nil, fmt.Errorf("error parsing SCT: %s", err)
+	}
+	return &sct, nil
 }
 
 var pemCertificatePrefix = []byte("-----BEGIN CERTIFICATE")
