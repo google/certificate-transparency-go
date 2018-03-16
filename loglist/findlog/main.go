@@ -19,7 +19,6 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -44,9 +43,9 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read log list: %v", err)
 	}
-	var ll loglist.LogList
-	if err = json.Unmarshal(llData, &ll); err != nil {
-		glog.Exitf("Failed to parse log list: %v", err)
+	ll, err := loglist.NewFromJSON(llData)
+	if err != nil {
+		glog.Exitf("Failed to build log list: %v", err)
 	}
 
 	args := flag.Args()

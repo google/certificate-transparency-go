@@ -20,6 +20,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"unicode"
 )
@@ -59,6 +61,15 @@ type STH struct {
 	Timestamp         int    `json:"timestamp"`
 	SHA256RootHash    []byte `json:"sha256_root_hash"`
 	TreeHeadSignature []byte `json:"tree_head_signature"`
+}
+
+// NewFromJSON creates a LogList from JSON encoded data.
+func NewFromJSON(llData []byte) (*LogList, error) {
+	var ll LogList
+	if err := json.Unmarshal(llData, &ll); err != nil {
+		return nil, fmt.Errorf("failed to parse log list: %v", err)
+	}
+	return &ll, nil
 }
 
 // FindLogByName returns all logs whose names contain the given string.

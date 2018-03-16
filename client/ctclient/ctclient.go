@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -353,9 +352,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to read log list: %v", err)
 		}
-		var ll loglist.LogList
-		if err = json.Unmarshal(llData, &ll); err != nil {
-			log.Fatalf("Failed to parse log list: %v", err)
+		ll, err := loglist.NewFromJSON(llData)
+		if err != nil {
+			log.Fatalf("Failed to build log list: %v", err)
 		}
 
 		logs := ll.FindLogByName(*logName)
