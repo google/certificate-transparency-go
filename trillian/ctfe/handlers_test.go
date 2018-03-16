@@ -34,7 +34,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/tls"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
@@ -344,7 +343,7 @@ func TestAddChain(t *testing.T) {
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
 			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := ctutil.MerkleTreeLeafFromChain(pool.RawCertificates(), ct.X509LogEntryType, fakeTimeMillis)
+			merkleLeaf, err := ct.MerkleTreeLeafFromChain(pool.RawCertificates(), ct.X509LogEntryType, fakeTimeMillis)
 			if err != nil {
 				t.Errorf("Unexpected error signing SCT: %v", err)
 				continue
@@ -449,7 +448,7 @@ func TestAddPrechain(t *testing.T) {
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
 			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := ctutil.MerkleTreeLeafFromChain([]*x509.Certificate{pool.RawCertificates()[0], root}, ct.PrecertLogEntryType, fakeTimeMillis)
+			merkleLeaf, err := ct.MerkleTreeLeafFromChain([]*x509.Certificate{pool.RawCertificates()[0], root}, ct.PrecertLogEntryType, fakeTimeMillis)
 			if err != nil {
 				t.Errorf("Unexpected error signing SCT: %v", err)
 				continue

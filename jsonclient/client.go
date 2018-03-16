@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/certificate-transparency-go/ctutil"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/net/context/ctxhttp"
 )
@@ -53,11 +53,11 @@ type backoffer interface {
 // JSONClient provides common functionality for interacting with a JSON server
 // that uses cryptographic signatures.
 type JSONClient struct {
-	uri        string                    // the base URI of the server. e.g. http://ct.googleapis/pilot
-	httpClient *http.Client              // used to interact with the server via HTTP
-	Verifier   *ctutil.SignatureVerifier // nil for no verification (e.g. no public key available)
-	logger     Logger                    // interface to use for logging warnings and errors
-	backoff    backoffer                 // object used to store and calculate backoff information
+	uri        string                // the base URI of the server. e.g. http://ct.googleapis/pilot
+	httpClient *http.Client          // used to interact with the server via HTTP
+	Verifier   *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
+	logger     Logger                // interface to use for logging warnings and errors
+	backoff    backoffer             // object used to store and calculate backoff information
 }
 
 // Logger is a simple logging interface used to log internal errors and warnings
@@ -86,7 +86,7 @@ func (opts *Options) ParsePublicKey() (crypto.PublicKey, error) {
 	}
 
 	if opts.PublicKey != "" {
-		pubkey, _ /* keyhash */, rest, err := ctutil.PublicKeyFromPEM([]byte(opts.PublicKey))
+		pubkey, _ /* keyhash */, rest, err := ct.PublicKeyFromPEM([]byte(opts.PublicKey))
 		if err != nil {
 			return nil, err
 		}
@@ -114,10 +114,10 @@ func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 		return nil, fmt.Errorf("invalid public key: %v", err)
 	}
 
-	var verifier *ctutil.SignatureVerifier
+	var verifier *ct.SignatureVerifier
 	if pubkey != nil {
 		var err error
-		verifier, err = ctutil.NewSignatureVerifier(pubkey)
+		verifier, err = ct.NewSignatureVerifier(pubkey)
 		if err != nil {
 			return nil, err
 		}

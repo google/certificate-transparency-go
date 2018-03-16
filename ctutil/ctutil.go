@@ -121,7 +121,7 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 		return err
 	}
 
-	s, err := NewSignatureVerifier(pubKey)
+	s, err := ct.NewSignatureVerifier(pubKey)
 	if err != nil {
 		return fmt.Errorf("error creating signature verifier: %s", err)
 	}
@@ -153,9 +153,9 @@ func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, e
 
 	var leaf *ct.MerkleTreeLeaf
 	if embedded {
-		leaf, err = MerkleTreeLeafForEmbeddedSCT(chain, sct.Timestamp)
+		leaf, err = ct.MerkleTreeLeafForEmbeddedSCT(chain, sct.Timestamp)
 	} else {
-		leaf, err = MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
+		leaf, err = ct.MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error creating MerkleTreeLeaf: %s", err)

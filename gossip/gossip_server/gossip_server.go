@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/certificate-transparency-go/ctutil"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/gossip"
 )
 
@@ -43,12 +43,12 @@ func createVerifiers() (*gossip.SignatureVerifierMap, error) {
 			return nil, fmt.Errorf("failed to read specified PEM file %s: %v", k, err)
 		}
 		for len(pem) > 0 {
-			key, id, rest, err := ctutil.PublicKeyFromPEM(pem)
+			key, id, rest, err := ct.PublicKeyFromPEM(pem)
 			pem = rest
 			if err != nil {
 				return nil, fmt.Errorf("failed to read public key from PEM in file %s: %v", k, err)
 			}
-			sv, err := ctutil.NewSignatureVerifier(key)
+			sv, err := ct.NewSignatureVerifier(key)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to create new SignatureVerifier: %v", err)
 			}

@@ -33,7 +33,6 @@ import (
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -354,7 +353,7 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	timeMillis := uint64(c.TimeSource.Now().UnixNano() / millisPerNano)
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
-	merkleLeaf, err := ctutil.MerkleTreeLeafFromChain(chain, etype, timeMillis)
+	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %v", err)
 	}

@@ -20,7 +20,6 @@ import (
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -66,7 +65,7 @@ func (c *LogClient) GetEntries(ctx context.Context, start, end int64) ([]ct.LogE
 	entries := make([]ct.LogEntry, len(resp.Entries))
 	for i, entry := range resp.Entries {
 		index := start + int64(i)
-		logEntry, err := ctutil.LogEntryFromLeaf(index, &entry)
+		logEntry, err := ct.LogEntryFromLeaf(index, &entry)
 		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
 			return nil, err
 		}

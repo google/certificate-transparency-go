@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/tls"
 )
 
@@ -339,7 +338,7 @@ func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
 		t.Fatalf("Failed to deserialize sct: %v", err)
 	}
 
-	leaf := ctutil.CreateX509MerkleTreeLeaf(ct.ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
+	leaf := ct.CreateX509MerkleTreeLeaf(ct.ASN1Cert{Data: certDER.Bytes}, sct.Timestamp)
 	data, err := tls.Marshal(*leaf)
 	if err != nil {
 		t.Fatalf("Failed to serialize x509 leaf: %v", err)

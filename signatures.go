@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ctutil
+package ct
 
 import (
 	"crypto"
@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"log"
 
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -35,7 +34,7 @@ var allowVerificationWithNonCompliantKeys = flag.Bool("allow_verification_with_n
 	"Allow a SignatureVerifier to use keys which are technically non-compliant with RFC6962.")
 
 // PublicKeyFromPEM parses a PEM formatted block and returns the public key contained within and any remaining unread bytes, or an error.
-func PublicKeyFromPEM(b []byte) (crypto.PublicKey, ct.SHA256Hash, []byte, error) {
+func PublicKeyFromPEM(b []byte) (crypto.PublicKey, SHA256Hash, []byte, error) {
 	p, rest := pem.Decode(b)
 	if p == nil {
 		return nil, [sha256.Size]byte{}, rest, fmt.Errorf("no PEM block found in %s", string(b))
@@ -94,7 +93,7 @@ func (s SignatureVerifier) VerifySignature(data []byte, sig tls.DigitallySigned)
 }
 
 // VerifySCTSignature verifies that the SCT's signature is valid for the given LogEntry.
-func (s SignatureVerifier) VerifySCTSignature(sct ct.SignedCertificateTimestamp, entry ct.LogEntry) error {
+func (s SignatureVerifier) VerifySCTSignature(sct SignedCertificateTimestamp, entry LogEntry) error {
 	sctData, err := SerializeSCTSignatureInput(sct, entry)
 	if err != nil {
 		return err
@@ -103,7 +102,7 @@ func (s SignatureVerifier) VerifySCTSignature(sct ct.SignedCertificateTimestamp,
 }
 
 // VerifySTHSignature verifies that the STH's signature is valid.
-func (s SignatureVerifier) VerifySTHSignature(sth ct.SignedTreeHead) error {
+func (s SignatureVerifier) VerifySTHSignature(sth SignedTreeHead) error {
 	sthData, err := SerializeSTHSignatureInput(sth)
 	if err != nil {
 		return err

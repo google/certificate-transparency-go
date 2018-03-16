@@ -207,7 +207,7 @@ func TestVerifySCT(t *testing.T) {
 		}
 
 		// Test VerifySCT()
-		pk, err := PublicKeyFromB64(testdata.LogPublicKeyB64)
+		pk, err := ct.PublicKeyFromB64(testdata.LogPublicKeyB64)
 		if err != nil {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}

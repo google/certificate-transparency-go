@@ -23,7 +23,6 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 )
 
 var defaultNumPollinationsToReturn = flag.Int("default_num_pollinations_to_return", 10,
@@ -40,7 +39,7 @@ func (realClock) Now() time.Time {
 }
 
 // SignatureVerifierMap is a map of SignatureVerifier by LogID
-type SignatureVerifierMap map[ct.SHA256Hash]ctutil.SignatureVerifier
+type SignatureVerifierMap map[ct.SHA256Hash]ct.SignatureVerifier
 
 // Handler for the gossip HTTP requests.
 type Handler struct {

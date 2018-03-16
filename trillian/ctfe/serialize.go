@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/crypto"
 )
@@ -26,7 +25,7 @@ import (
 // signV1TreeHead signs a tree head for CT. The input STH should have been built from a
 // backend response and already checked for validity.
 func (c *LogContext) signV1TreeHead(signer *crypto.Signer, sth *ct.SignedTreeHead) error {
-	sthBytes, err := ctutil.SerializeSTHSignatureInput(*sth)
+	sthBytes, err := ct.SerializeSTHSignatureInput(*sth)
 	if err != nil {
 		return err
 	}
@@ -59,7 +58,7 @@ func buildV1SCT(signer *crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCerti
 		Timestamp:  leaf.TimestampedEntry.Timestamp,
 		Extensions: leaf.TimestampedEntry.Extensions,
 	}
-	data, err := ctutil.SerializeSCTSignatureInput(sctInput, ct.LogEntry{Leaf: *leaf})
+	data, err := ct.SerializeSCTSignatureInput(sctInput, ct.LogEntry{Leaf: *leaf})
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize SCT data: %v", err)
 	}
