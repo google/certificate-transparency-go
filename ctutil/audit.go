@@ -28,12 +28,12 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-var emptyHash = [32]byte{}
+var emptyHash = [sha256.Size]byte{}
 
-// B64LeafHash does as LeafHash does, but returns the leaf hash base64-encoded.
+// LeafHashB64 does as LeafHash does, but returns the leaf hash base64-encoded.
 // The base64-encoded leaf hash returned by B64LeafHash can be used with the
 // get-proof-by-hash API endpoint of Certificate Transparency Logs.
-func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) (string, error) {
+func LeafHashB64(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) (string, error) {
 	hash, err := LeafHash(chain, sct, embedded)
 	if err != nil {
 		return "", err
@@ -73,7 +73,7 @@ func B64LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, 
 // Note: LeafHash doesn't check that the provided SCT verifies for the given
 // chain.  It simply calculates what the leaf hash would be for the given
 // (pre)certificate-SCT pair.
-func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) ([32]byte, error) {
+func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) ([sha256.Size]byte, error) {
 	leaf, err := createLeaf(chain, sct, embedded)
 	if err != nil {
 		return emptyHash, err
@@ -153,7 +153,7 @@ func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, e
 
 	var leaf *ct.MerkleTreeLeaf
 	if embedded {
-		leaf, err = MerkleTreeLeafFromChainEmbeddedSCT(chain, sct.Timestamp)
+		leaf, err = MerkleTreeLeafForEmbeddedSCT(chain, sct.Timestamp)
 	} else {
 		leaf, err = MerkleTreeLeafFromChain(chain, certType, sct.Timestamp)
 	}

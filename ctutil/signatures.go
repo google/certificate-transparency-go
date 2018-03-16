@@ -44,8 +44,8 @@ func PublicKeyFromPEM(b []byte) (crypto.PublicKey, ct.SHA256Hash, []byte, error)
 	return k, sha256.Sum256(p.Bytes), rest, err
 }
 
-// ParseB64PublicKey parses a base64-encoded public key.
-func ParseB64PublicKey(b64PubKey string) (crypto.PublicKey, error) {
+// PublicKeyFromB64 parses a base64-encoded public key.
+func PublicKeyFromB64(b64PubKey string) (crypto.PublicKey, error) {
 	der, err := base64.StdEncoding.DecodeString(b64PubKey)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding public key: %s", err)

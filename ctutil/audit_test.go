@@ -63,8 +63,7 @@ func TestLeafHash(t *testing.T) {
 
 		// Parse SCT
 		var sct ct.SignedCertificateTimestamp
-		_, err = tls.Unmarshal(test.sct, &sct)
-		if err != nil {
+		if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
 			t.Errorf("%s: error tls-unmarshalling sct: %s", test.desc, err)
 			continue
 		}
@@ -82,10 +81,10 @@ func TestLeafHash(t *testing.T) {
 			t.Errorf("%s: LeafHash(_,_) = %v, %v, want %v, nil", test.desc, got, err, want)
 		}
 
-		// Test B64LeafHash()
-		gotB64, err := B64LeafHash(chain, &sct, test.embedded)
+		// Test LeafHashB64()
+		gotB64, err := LeafHashB64(chain, &sct, test.embedded)
 		if gotB64 != test.want || err != nil {
-			t.Errorf("%s: B64LeafHash(_,_) = %v, %v, want %v, nil", test.desc, gotB64, err, test.want)
+			t.Errorf("%s: LeafHashB64(_,_) = %v, %v, want %v, nil", test.desc, gotB64, err, test.want)
 		}
 	}
 }
@@ -133,8 +132,7 @@ func TestLeafHashErrors(t *testing.T) {
 		var sct *ct.SignedCertificateTimestamp
 		if test.sct != nil {
 			sct = &ct.SignedCertificateTimestamp{}
-			_, err = tls.Unmarshal(test.sct, sct)
-			if err != nil {
+			if _, err = tls.Unmarshal(test.sct, sct); err != nil {
 				t.Errorf("%s: error tls-unmarshalling sct: %s", test.desc, err)
 				continue
 			}
@@ -146,10 +144,10 @@ func TestLeafHashErrors(t *testing.T) {
 			t.Errorf("%s: LeafHash(_,_) = %s, %v, want %v, error", test.desc, got, err, emptyHash)
 		}
 
-		// Test B64LeafHash()
-		gotB64, err := B64LeafHash(chain, sct, test.embedded)
+		// Test LeafHashB64()
+		gotB64, err := LeafHashB64(chain, sct, test.embedded)
 		if gotB64 != "" || err == nil {
-			t.Errorf("%s: B64LeafHash(_,_) = %s, %v, want \"\", error", test.desc, gotB64, err)
+			t.Errorf("%s: LeafHashB64(_,_) = %s, %v, want \"\", error", test.desc, gotB64, err)
 		}
 	}
 }
@@ -203,14 +201,13 @@ func TestVerifySCT(t *testing.T) {
 
 		// Parse SCT
 		var sct ct.SignedCertificateTimestamp
-		_, err = tls.Unmarshal(test.sct, &sct)
-		if err != nil {
+		if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
 			t.Errorf("%s: error tls-unmarshalling sct: %s", test.desc, err)
 			continue
 		}
 
 		// Test VerifySCT()
-		pk, err := ParseB64PublicKey(testdata.LogPublicKeyB64)
+		pk, err := PublicKeyFromB64(testdata.LogPublicKeyB64)
 		if err != nil {
 			t.Errorf("%s: error parsing public key: %s", test.desc, err)
 		}
@@ -259,8 +256,7 @@ func TestContainsSCT(t *testing.T) {
 
 		// Parse SCT
 		var sct ct.SignedCertificateTimestamp
-		_, err = tls.Unmarshal(test.sct, &sct)
-		if err != nil {
+		if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
 			t.Errorf("%s: error tls-unmarshalling sct: %s", test.desc, err)
 			continue
 		}

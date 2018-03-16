@@ -1034,6 +1034,8 @@ func RemoveExtension(tbsData []byte, oid asn1.ObjectIdentifier) ([]byte, error) 
 		return nil, errors.New("no extension of specified type present")
 	}
 	tbs.Extensions = append(tbs.Extensions[:extAt], tbs.Extensions[extAt+1:]...)
+	// Clear out the asn1.RawContent so the re-marshal operation sees the
+	// updated structure (rather than just copying the out-of-date DER data).
 	tbs.Raw = nil
 
 	data, err := asn1.Marshal(tbs)
@@ -1139,9 +1141,12 @@ func BuildPrecertTBS(tbsData []byte, preIssuer *Certificate) ([]byte, error) {
 			}
 			tbs.Extensions = append(tbs.Extensions, authKeyIDExt)
 		}
+
+		// Clear out the asn1.RawContent so the re-marshal operation sees the
+		// updated structure (rather than just copying the out-of-date DER data).
+		tbs.Raw = nil
 	}
 
-	tbs.Raw = nil
 	data, err = asn1.Marshal(tbs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal TBSCertificate: %v", err)

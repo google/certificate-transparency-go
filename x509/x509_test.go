@@ -1155,6 +1155,7 @@ func TestIsPrecertificate(t *testing.T) {
 			cert, err = certificateFromPEM(test.certPEM)
 			if err != nil {
 				t.Errorf("%s: error parsing certificate: %s", test.desc, err)
+				continue
 			}
 		}
 		if got := cert.IsPrecertificate(); got != test.want {

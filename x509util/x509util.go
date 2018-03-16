@@ -727,7 +727,8 @@ var pemCertificatePrefix = []byte("-----BEGIN CERTIFICATE")
 
 // ParseSCTsFromCertificate parses any SCTs that are embedded in the
 // certificate provided.  The certificate bytes provided can be either DER or
-// PEM, provided there is no leading garbage in the bytes provided.
+// PEM, provided the PEM data starts with the PEM block marker (i.e. has no
+// leading text).
 func ParseSCTsFromCertificate(certBytes []byte) ([]*ct.SignedCertificateTimestamp, error) {
 	var cert *x509.Certificate
 	var err error

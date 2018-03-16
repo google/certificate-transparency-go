@@ -191,10 +191,10 @@ func MerkleTreeLeafFromChain(chain []*x509.Certificate, etype ct.LogEntryType, t
 	return &leaf, nil
 }
 
-// MerkleTreeLeafFromChainEmbeddedSCT generates a MerkleTreeLeaf from a chain and an
+// MerkleTreeLeafForEmbeddedSCT generates a MerkleTreeLeaf from a chain and an
 // SCT timestamp, where the leaf certificate at chain[0] is a certificate that
 // has embedded within it the SCT that the timestamp is from.
-func MerkleTreeLeafFromChainEmbeddedSCT(chain []*x509.Certificate, timestamp uint64) (*ct.MerkleTreeLeaf, error) {
+func MerkleTreeLeafForEmbeddedSCT(chain []*x509.Certificate, timestamp uint64) (*ct.MerkleTreeLeaf, error) {
 	// Check that the leaf certificate does indeed contain an embedded SCT with
 	// the timestamp provided.
 	timestampOK, err := containsSCTWithTimestamp(chain[0], timestamp)
