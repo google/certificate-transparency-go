@@ -350,16 +350,16 @@ func TestTemporalAddChain(t *testing.T) {
 	}))
 	defer hs.Close()
 
-	cert, err := x509util.CertificateFromPEM(testdata.TestCertPEM)
+	cert, err := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse certificate from PEM: %v", err)
 	}
 	certChain := []ct.ASN1Cert{{Data: cert.Raw}}
-	precert, err := x509util.CertificateFromPEM(testdata.TestPreCertPEM)
+	precert, err := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
-	issuer, err := x509util.CertificateFromPEM(testdata.CACertPEM)
+	issuer, err := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}

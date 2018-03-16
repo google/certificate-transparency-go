@@ -126,7 +126,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	if err != nil {
 		log.Fatalf("Failed to tls.Marshal leaf: %v", err)
 	}
-	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 
 	// Display the SCT
 	when := ct.TimestampToTime(sct.Timestamp)

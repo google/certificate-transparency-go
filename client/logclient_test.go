@@ -458,7 +458,7 @@ func TestAddChain(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	cert, err := x509util.CertificateFromPEM(testdata.TestCertPEM)
+	cert, err := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse certificate from PEM: %v", err)
 	}
@@ -479,11 +479,11 @@ func TestAddPreChain(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	cert, err := x509util.CertificateFromPEM(testdata.TestPreCertPEM)
+	cert, err := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
-	issuer, err := x509util.CertificateFromPEM(testdata.CACertPEM)
+	issuer, err := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
 	if err != nil {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}

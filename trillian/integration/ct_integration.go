@@ -183,7 +183,7 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 	if err != nil {
 		return fmt.Errorf("tls.Marshal(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
 	}
-	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
 	t.stats.done(ctfe.GetProofByHashName, 200)
 	if err != nil {
@@ -215,7 +215,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 	if err != nil {
 		return fmt.Errorf("tls.Marshal(precertLeaf)=(nil,%v); want (_,nil)", err)
 	}
-	leafHash := sha256.Sum256(append([]byte{merkletree.LeafPrefix}, leafData...))
+	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
 	t.stats.done(ctfe.GetProofByHashName, 200)
 	if err != nil {
