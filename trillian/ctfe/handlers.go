@@ -582,7 +582,7 @@ func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r
 	// Additional sanity checks on the response.
 	if len(rsp.Proof) == 0 {
 		// The backend returns the STH even when there is no proof, so explicitly
-		// map this to 4xx".
+		// map this to 4xx.
 		return http.StatusNotFound, errors.New("get-proof-by-hash: backend did not return a proof")
 	}
 	if !checkAuditPath(rsp.Proof[0].Hashes) {
