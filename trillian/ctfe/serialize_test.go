@@ -16,10 +16,10 @@ package ctfe
 
 import (
 	"bytes"
+	gocrypto "crypto"
 	"crypto/sha256"
 	"testing"
 
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/testdata"
@@ -28,6 +28,8 @@ import (
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/kylelemons/godebug/pretty"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
@@ -151,8 +153,9 @@ func TestSignV1TreeHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create signer: %v", err)
 	}
-	signer := crypto.NewSHA256Signer(privKey)
-	c := &LogContext{logID: 6962, signer: signer}
+	logID := int64(6962)
+	signer := crypto.NewSigner(logID, privKey, gocrypto.SHA256)
+	c := &LogContext{logID: logID, signer: signer}
 
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
@@ -210,8 +213,9 @@ func TestSignV1TreeHeadDifferentSigners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create signer1: %v", err)
 	}
-	signer1 := crypto.NewSHA256Signer(privKey)
-	c1 := &LogContext{logID: 6962, signer: signer1}
+	logID := int64(6962)
+	signer1 := crypto.NewSigner(logID, privKey, gocrypto.SHA256)
+	c1 := &LogContext{logID: logID, signer: signer1}
 
 	signer2, err := setupSigner(fakeSignature)
 	if err != nil {
