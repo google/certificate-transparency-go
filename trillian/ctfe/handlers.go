@@ -425,7 +425,7 @@ func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID i
 	}
 
 	// Check over the response.
-	slr := rsp.GetSignedLogRoot()
+	slr := rsp.SignedLogRoot
 	if slr == nil {
 		return nil, errors.New("no log root returned")
 	}
@@ -507,7 +507,7 @@ func getSTHConsistency(ctx context.Context, c *LogContext, w http.ResponseWriter
 		}
 
 		// We can get here with a tree size too small to satisfy the proof.
-		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < second {
+		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < second {
 			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, rsp.SignedLogRoot.TreeSize)
 		}
 
@@ -575,14 +575,14 @@ func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r
 
 	// We could fail to get the proof because the tree size that the server has
 	// is not large enough.
-	if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < treeSize {
+	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
 		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", rsp.SignedLogRoot.TreeSize, treeSize)
 	}
 
-	// Additional sanity checks
+	// Additional sanity checks on the response.
 	if len(rsp.Proof) == 0 {
-		// This is no longer a 5xx error as backend returns the STH. Previously
-		// the 4xx was returned via the toHttpStatus(err) above.
+		// The backend returns the STH even when there is no proof, so explicitly
+		// map this to 4xx".
 		return http.StatusNotFound, errors.New("get-proof-by-hash: backend did not return a proof")
 	}
 	if !checkAuditPath(rsp.Proof[0].Hashes) {
@@ -637,11 +637,10 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 		if err != nil {
 			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
 		}
-		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize <= start {
+		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
 			// If the returned tree is too small to contain any leaves return the 4xx
-			// explicitly here. It was previously returned via the error status
-			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.GetSignedLogRoot().TreeSize, start)
+			// explicitly here.
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.SignedLogRoot.TreeSize, start)
 		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
@@ -663,11 +662,11 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 			return c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
 		}
 
-		if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize <= start {
+		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here. It was previously returned via the error status
 			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.GetSignedLogRoot().TreeSize, start)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.SignedLogRoot.TreeSize, start)
 		}
 
 		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
@@ -740,10 +739,10 @@ func getEntryAndProof(ctx context.Context, c *LogContext, w http.ResponseWriter,
 		return c.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
 	}
 
-	if rsp.GetSignedLogRoot() != nil && rsp.GetSignedLogRoot().TreeSize < treeSize {
+	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
 		// If tree size is not large enough return the 4xx here, would previously
 		// have come from the error status mapping above.
-		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, rsp.GetSignedLogRoot().TreeSize)
+		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, rsp.SignedLogRoot.TreeSize)
 	}
 
 	// Apply some checks that we got reasonable data from the backend
