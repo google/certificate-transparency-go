@@ -18,7 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	gocrypto "crypto"
+	"crypto"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -40,7 +40,6 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
 	"github.com/kylelemons/godebug/pretty"
@@ -49,6 +48,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
+	tcrypto "github.com/google/trillian/crypto"
 )
 
 // Arbitrary time for use in tests
@@ -110,7 +110,7 @@ type handlerTestInfo struct {
 }
 
 // setupTest creates mock objects and contexts.  Caller should invoke info.mockCtrl.Finish().
-func setupTest(t *testing.T, pemRoots []string, signer *crypto.Signer) handlerTestInfo {
+func setupTest(t *testing.T, pemRoots []string, signer *tcrypto.Signer) handlerTestInfo {
 	t.Helper()
 	info := handlerTestInfo{
 		mockCtrl: gomock.NewController(t),
@@ -553,11 +553,11 @@ func TestGetSTH(t *testing.T) {
 	for _, test := range tests {
 		// Run deferred funcs at the end of each iteration.
 		func() {
-			var signer *crypto.Signer
+			var signer *tcrypto.Signer
 			if test.signErr != nil {
-				signer = crypto.NewSigner(0, testdata.NewSignerWithErr(key, test.signErr), gocrypto.SHA256)
+				signer = tcrypto.NewSigner(0, testdata.NewSignerWithErr(key, test.signErr), crypto.SHA256)
 			} else {
-				signer = crypto.NewSigner(0, testdata.NewSignerWithFixedSig(key, fakeSignature), gocrypto.SHA256)
+				signer = tcrypto.NewSigner(0, testdata.NewSignerWithFixedSig(key, fakeSignature), crypto.SHA256)
 			}
 
 			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)

@@ -32,15 +32,16 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/monitoring"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ct "github.com/google/certificate-transparency-go"
+	tcrypto "github.com/google/trillian/crypto"
 )
 
 // TODO(drysdale): remove this flag once everything has migrated to ByRange
@@ -229,7 +230,7 @@ type LogContext struct {
 	// rpcClient is the client used to communicate with the trillian backend
 	rpcClient trillian.TrillianLogClient
 	// signer signs objects
-	signer *crypto.Signer
+	signer *tcrypto.Signer
 	// rpcDeadline is the deadline that will be set on all backend RPC requests
 	rpcDeadline time.Duration
 
@@ -242,7 +243,7 @@ type LogContext struct {
 }
 
 // NewLogContext creates a new instance of LogContext.
-func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer *crypto.Signer, instanceOpts InstanceOptions, timeSource util.TimeSource) *LogContext {
+func NewLogContext(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer *tcrypto.Signer, instanceOpts InstanceOptions, timeSource util.TimeSource) *LogContext {
 	ctx := &LogContext{
 		logID:          logID,
 		urlPrefix:      prefix,
@@ -885,7 +886,7 @@ func extraDataForChain(chain []*x509.Certificate, isPrecert bool) ([]byte, error
 
 // marshalAndWriteAddChainResponse is used by add-chain and add-pre-chain to create and write
 // the JSON response to the client
-func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer *crypto.Signer, w http.ResponseWriter) error {
+func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer *tcrypto.Signer, w http.ResponseWriter) error {
 	logID, err := GetCTLogID(signer.Public())
 	if err != nil {
 		return fmt.Errorf("failed to marshal logID: %v", err)
