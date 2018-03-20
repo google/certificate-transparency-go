@@ -3,6 +3,8 @@ language: go
 os: linux
 go: 1.9
 
+go_import_path: github.com/google/certificate-transparency-go
+
 env:
   - GCE_CI=${ENABLE_GCE_CI} GOFLAGS=
   - GOFLAGS=-race
@@ -16,11 +18,6 @@ services:
   - docker
 
 install:
-  - |
-    if [ ! -d $HOME/gopath/src/github.com/google ]; then
-      mkdir -p $HOME/gopath/src/github.com/google
-      ln -s $TRAVIS_BUILD_DIR $HOME/gopath/src/github.com/google/certificate-transparency-go
-    fi
   - mkdir ../protoc
   - |
     (
