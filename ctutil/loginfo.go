@@ -29,7 +29,6 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/merkletree"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -185,17 +184,16 @@ func (li *LogInfo) VerifyInclusion(ctx context.Context, leaf ct.MerkleTreeLeaf, 
 // leaf in the log.
 func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf, timestamp, treeSize uint64, rootHash []byte) (int64, error) {
 	leaf.TimestampedEntry.Timestamp = timestamp
-	leafData, err := tls.Marshal(leaf)
+	leafHash, err := ct.LeafHashForLeaf(&leaf)
 	if err != nil {
-		return -1, fmt.Errorf("failed to marshal leaf data: %v", err)
+		return -1, fmt.Errorf("failed to create leaf hash: %v", err)
 	}
-	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 
 	rsp, err := li.Client.GetProofByHash(ctx, leafHash[:], treeSize)
 	if err != nil {
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
-	if err := merkleVerifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafData); err != nil {
+	if err := merkleVerifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil
