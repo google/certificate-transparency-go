@@ -40,7 +40,6 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/merkletree"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
@@ -168,7 +167,6 @@ func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, m
 // checkInclusionOf checks that a given certificate chain and assocated SCT are included
 // under a signed tree head.
 func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sct *ct.SignedCertificateTimestamp, sth *ct.SignedTreeHead) error {
-	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
 	leaf := ct.MerkleTreeLeaf{
 		Version:  ct.V1,
 		LeafType: ct.TimestampedEntryLeafType,
@@ -179,25 +177,23 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 			Extensions: sct.Extensions,
 		},
 	}
-	leafData, err := tls.Marshal(leaf)
+	leafHash, err := ct.LeafHashForLeaf(&leaf)
 	if err != nil {
-		return fmt.Errorf("tls.Marshal(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
+		return fmt.Errorf("ct.LeafHashForLeaf(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
 	}
-	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
 	t.stats.done(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafData); err != nil {
-		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProofByHash(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
 }
 
 // checkInclusionOfPreCert checks a pre-cert is included at given index.
 func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issuer *x509.Certificate, sct *ct.SignedCertificateTimestamp, sth *ct.SignedTreeHead) error {
-	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
 	leaf := ct.MerkleTreeLeaf{
 		Version:  ct.V1,
 		LeafType: ct.TimestampedEntryLeafType,
@@ -211,19 +207,18 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 			Extensions: sct.Extensions,
 		},
 	}
-	leafData, err := tls.Marshal(leaf)
+	leafHash, err := ct.LeafHashForLeaf(&leaf)
 	if err != nil {
-		return fmt.Errorf("tls.Marshal(precertLeaf)=(nil,%v); want (_,nil)", err)
+		return fmt.Errorf("ct.LeafHashForLeaf(precertLeaf)=(nil,%v); want (_,nil)", err)
 	}
-	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
 	t.stats.done(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafData); err != nil {
-		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProofByHash(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
