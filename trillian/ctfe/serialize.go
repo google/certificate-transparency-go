@@ -67,9 +67,8 @@ func buildV1SCT(signer crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCertif
 		return nil, fmt.Errorf("failed to serialize SCT data: %v", err)
 	}
 
-	h := sha256.New()
-	h.Write(data)
-	signature, err := signer.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+	h := sha256.Sum256(data)
+	signature, err := signer.Sign(rand.Reader, h[:], crypto.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign SCT data: %v", err)
 	}

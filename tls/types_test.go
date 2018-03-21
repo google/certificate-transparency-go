@@ -91,8 +91,8 @@ func TestSignatureAlgorithm(t *testing.T) {
 		{name: "ECDSA", key: new(ecdsa.PublicKey), want: ECDSA},
 		{name: "RSA", key: new(rsa.PublicKey), want: RSA},
 		{name: "DSA", key: new(dsa.PublicKey), want: DSA},
+		{name: "Other", key: "foo", want: Anonymous},
 	} {
-
 		if got := SignatureAlgorithmFromPubKey(test.key); got != test.want {
 			t.Errorf("%v: SignatureAlgorithm() = %v, want %v", test.name, got, test.want)
 		}
