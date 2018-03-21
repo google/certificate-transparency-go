@@ -225,6 +225,18 @@ func MerkleTreeLeafForEmbeddedSCT(chain []*x509.Certificate, timestamp uint64) (
 	}, nil
 }
 
+// LeafHashForLeaf returns the leaf hash for a Merkle tree leaf.
+func LeafHashForLeaf(leaf *MerkleTreeLeaf) ([sha256.Size]byte, error) {
+	leafData, err := tls.Marshal(*leaf)
+	if err != nil {
+		return [sha256.Size]byte{}, fmt.Errorf("failed to tls-encode MerkleTreeLeaf: %s", err)
+	}
+
+	data := append([]byte{TreeLeafPrefix}, leafData...)
+	leafHash := sha256.Sum256(data)
+	return leafHash, nil
+}
+
 // IsPreIssuer indicates whether a certificate is a pre-cert issuer with the specific
 // certificate transparency extended key usage.
 func IsPreIssuer(issuer *x509.Certificate) bool {
