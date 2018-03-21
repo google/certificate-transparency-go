@@ -16,7 +16,6 @@ package ctfe
 
 import (
 	"context"
-	"crypto"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -28,7 +27,6 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
-	tcrypto "github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
 )
@@ -126,10 +124,6 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}
-	signer := &tcrypto.Signer{
-		Hash:   crypto.SHA256,
-		Signer: key,
-	}
 
 	var keyUsages []x509.ExtKeyUsage
 	if len(cfg.ExtKeyUsages) > 0 {
@@ -174,7 +168,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		cfg.Prefix,
 		validationOpts,
 		client,
-		signer,
+		key,
 		opts,
 		new(util.SystemTimeSource))
 
