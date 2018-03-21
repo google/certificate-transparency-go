@@ -78,15 +78,7 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, emb
 	if err != nil {
 		return emptyHash, err
 	}
-
-	leafData, err := tls.Marshal(*leaf)
-	if err != nil {
-		return emptyHash, fmt.Errorf("error tls-encoding MerkleTreeLeaf: %s", err)
-	}
-
-	data := append([]byte{ct.TreeLeafPrefix}, leafData...)
-	leafHash := sha256.Sum256(data)
-	return leafHash, nil
+	return ct.LeafHashForLeaf(leaf)
 }
 
 // VerifySCT takes the public key of a Certificate Transparency Log, a
