@@ -35,7 +35,6 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/merkletree"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 )
@@ -122,11 +121,10 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	}
 	// Calculate the leaf hash
 	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
-	leafData, err := tls.Marshal(*leafEntry)
+	leafHash, err := ct.LeafHashForLeaf(leafEntry)
 	if err != nil {
-		log.Fatalf("Failed to tls.Marshal leaf: %v", err)
+		log.Fatalf("Failed to create hash of leaf: %v", err)
 	}
-	leafHash := sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, leafData...))
 
 	// Display the SCT
 	when := ct.TimestampToTime(sct.Timestamp)
