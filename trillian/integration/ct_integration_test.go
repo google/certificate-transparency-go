@@ -84,9 +84,7 @@ const (
 )
 
 func TestInProcessCTIntegration(t *testing.T) {
-	if provider := testdb.Default(); !provider.IsMySQL() {
-		t.Skipf("Skipping CT integration test, SQL driver is %q", provider.Driver)
-	}
+	testdb.SkipIfNoMySQL(t)
 
 	pubKeyDER, err := loadPublicKey(pubKeyPEMFile)
 	if err != nil {
