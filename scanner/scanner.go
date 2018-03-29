@@ -120,29 +120,29 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 	} else if _, ok := err.(x509.NonFatalErrors); ok {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
-		s.Log(fmt.Sprintf("Non-fatal error in %+v at index %d: %s", logEntry.Leaf.TimestampedEntry.EntryType, index, err.Error()))
+		s.Log(fmt.Sprintf("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err))
 		return false
 	}
 	return true
 }
 
 // Processes the given entry in the specified log.
-func (s *Scanner) processEntry(index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	atomic.AddInt64(&s.certsProcessed, 1)
 
 	switch matcher := s.opts.Matcher.(type) {
 	case Matcher:
-		return s.processMatcherEntry(matcher, index, entry, foundCert, foundPrecert)
+		return s.processMatcherEntry(matcher, info, foundCert, foundPrecert)
 	case LeafMatcher:
-		return s.processMatcherLeafEntry(matcher, index, entry, foundCert, foundPrecert)
+		return s.processMatcherLeafEntry(matcher, info, foundCert, foundPrecert)
 	default:
 		return fmt.Errorf("Unexpected matcher type %T", matcher)
 	}
 }
 
-func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	logEntry, err := ct.LogEntryFromLeaf(index, &entry)
-	if s.isCertErrorFatal(err, logEntry, index) {
+func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
+	if s.isCertErrorFatal(err, logEntry, info.index) {
 		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
 	}
 
@@ -168,25 +168,27 @@ func (s *Scanner) processMatcherEntry(matcher Matcher, index int64, entry ct.Lea
 	return nil
 }
 
-func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, index int64, entry ct.LeafEntry, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	if matcher.Matches(&entry) {
-		logEntry, err := ct.LogEntryFromLeaf(index, &entry)
-		if logEntry == nil {
-			return fmt.Errorf("failed to build log entry: %v", err)
+func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+	if !matcher.Matches(&info.entry) {
+		return nil
+	}
+
+	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
+	if logEntry == nil {
+		return fmt.Errorf("failed to build log entry: %v", err)
+	}
+	switch {
+	case logEntry.X509Cert != nil:
+		if s.opts.PrecertOnly {
+			// Only interested in precerts and this is an X.509 cert, early-out.
+			return nil
 		}
-		switch {
-		case logEntry.X509Cert != nil:
-			if s.opts.PrecertOnly {
-				// Only interested in precerts and this is an X.509 cert, early-out.
-				return nil
-			}
-			foundCert(logEntry)
-		case logEntry.Precert != nil:
-			foundPrecert(logEntry)
-			atomic.AddInt64(&s.precertsSeen, 1)
-		default:
-			return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
-		}
+		foundCert(logEntry)
+	case logEntry.Precert != nil:
+		foundPrecert(logEntry)
+		atomic.AddInt64(&s.precertsSeen, 1)
+	default:
+		return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
 	}
 	return nil
 }
@@ -196,7 +198,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, index int64, entr
 // Returns true over the done channel when the entries channel is closed.
 func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
 	for e := range entries {
-		if err := s.processEntry(e.index, e.entry, foundCert, foundPrecert); err != nil {
+		if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
 			atomic.AddInt64(&s.unparsableEntries, 1)
 			s.Log(fmt.Sprintf("Failed to parse entry at index %d: %s", e.index, err.Error()))
 		}
@@ -233,29 +235,27 @@ func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entr
 	}
 }
 
-func min(a int64, b int64) int64 {
+func min(a, b int64) int64 {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func max(a int64, b int64) int64 {
+func max(a, b int64) int64 {
 	if a > b {
 		return a
 	}
 	return b
 }
 
-// Pretty prints the passed in number of seconds into a more human readable
-// string.
-func humanTime(seconds int) string {
-	nanos := time.Duration(seconds) * time.Second
-	hours := int(nanos / (time.Hour))
-	nanos %= time.Hour
-	minutes := int(nanos / time.Minute)
-	nanos %= time.Minute
-	seconds = int(nanos / time.Second)
+// Pretty prints the passed in duration into a human readable string.
+func humanTime(dur time.Duration) string {
+	hours := int(dur / time.Hour)
+	dur %= time.Hour
+	minutes := int(dur / time.Minute)
+	dur %= time.Minute
+	seconds := int(dur / time.Second)
 	s := ""
 	if hours > 0 {
 		s += fmt.Sprintf("%d hours ", hours)
@@ -269,13 +269,48 @@ func humanTime(seconds int) string {
 	return s
 }
 
-// Scan performs a scan against the Log.
-// For each x509 certificate found, foundCert will be called with the
-// index of the entry and certificate itself as arguments.  For each precert
-// found, foundPrecert will be called with the index of the entry and the raw
-// precert string as the arguments.
+func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
+	const wndSize = 15
+	wnd := make([]int64, wndSize)
+	wndTotal := int64(0)
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for slot, filled, prevCnt := 0, 0, int64(0); ; slot = (slot + 1) % wndSize {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			certsCnt := atomic.LoadInt64(&s.certsProcessed)
+			certsMatched := atomic.LoadInt64(&s.certsMatched)
+
+			slotValue := certsCnt - prevCnt
+			wndTotal += slotValue - wnd[slot]
+			wnd[slot], prevCnt = slotValue, certsCnt
+
+			if filled < wndSize {
+				filled++
+			}
+
+			throughput := float64(wndTotal) / float64(filled)
+			remainingCerts := treeSize - int64(s.opts.StartIndex) - certsCnt
+			remainingSeconds := int(float64(remainingCerts) / throughput)
+			remainingString := humanTime(time.Duration(remainingSeconds) * time.Second)
+			s.Log(fmt.Sprintf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
+				certsCnt, s.opts.StartIndex+certsCnt, certsMatched,
+				(100.0*float64(certsMatched))/float64(certsCnt),
+				filled, throughput, remainingString))
+		}
+	}
+}
+
+// Scan performs a scan against the Log. Blocks until the scan is complete.
 //
-// This method blocks until the scan is complete.
+// For each x509 certificate found, calls foundCert with the corresponding
+// LogEntry, which includes the index of the entry and the certificate.
+// For each precert found, calls foundPrecert with the corresponding LogEntry,
+// which includes the index of the entry and the precert.
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
@@ -284,49 +319,27 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
 
-	latestSth, err := s.logClient.GetSTH(ctx)
+	sth, err := s.logClient.GetSTH(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to GetSTH(): %v", err)
 	}
-	s.Log(fmt.Sprintf("Got STH with %d certs", latestSth.TreeSize))
+	s.Log(fmt.Sprintf("Got STH with %d certs", sth.TreeSize))
 
-	// TODO: cleanup Ticker and goroutine on return.
-	ticker := time.NewTicker(time.Second)
 	startTime := time.Now()
-	fetches := make(chan fetchRange)
-	jobs := make(chan entryInfo, s.opts.BufferSize)
-	go func() {
-		slidingWindow := make([]int64, 15)
-		i, previousCount := 0, int64(0)
-		for range ticker.C {
-			certsMatched := atomic.LoadInt64(&s.certsMatched)
-			certsProcessed := atomic.LoadInt64(&s.certsProcessed)
-			slidingWindow[i%15], previousCount = certsProcessed-previousCount, certsProcessed
-
-			windowTotal := int64(0)
-			for _, v := range slidingWindow {
-				windowTotal += v
-			}
-			windowSeconds := 15
-			if i < 15 {
-				windowSeconds = i + 1
-			}
-
-			throughput := float64(windowTotal) / float64(windowSeconds)
-			remainingCerts := int64(latestSth.TreeSize) - int64(s.opts.StartIndex) - certsProcessed
-			remainingSeconds := int(float64(remainingCerts) / throughput)
-			remainingString := humanTime(remainingSeconds)
-			s.Log(fmt.Sprintf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last 15s): %3.2f ETA: %s\n",
-				certsProcessed, s.opts.StartIndex+int64(certsProcessed),
-				certsMatched, (100.0*float64(certsMatched))/float64(certsProcessed),
-				throughput, remainingString))
-			i++
-		}
+	stop := make(chan bool)
+	go s.logThroughput(int64(sth.TreeSize), stop)
+	defer func() {
+		stop <- true
+		close(stop)
 	}()
 
+	fetches := make(chan fetchRange)
+	jobs := make(chan entryInfo, s.opts.BufferSize)
+
 	var ranges list.List
-	for start := s.opts.StartIndex; start < int64(latestSth.TreeSize); {
-		end := min(start+int64(s.opts.BatchSize), int64(latestSth.TreeSize)) - 1
+	// TODO(pavelkalinnikov): Add EndIndex parameter.
+	for start := s.opts.StartIndex; start < int64(sth.TreeSize); {
+		end := min(start+int64(s.opts.BatchSize), int64(sth.TreeSize)) - 1
 		ranges.PushBack(fetchRange{start, end})
 		start = end + 1
 	}
@@ -358,13 +371,14 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	close(jobs)
 	matcherWG.Wait()
 
-	s.Log(fmt.Sprintf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(int(time.Since(startTime).Seconds()))))
+	s.Log(fmt.Sprintf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime))))
 	s.Log(fmt.Sprintf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen)))
 	s.Log(fmt.Sprintf("%d unparsable entries, %d non-fatal errors", atomic.LoadInt64(&s.unparsableEntries), atomic.LoadInt64(&s.entriesWithNonFatalErrors)))
+
 	return nil
 }
 
-// NewScanner creates a new Scanner instance using client to talk to the log,
+// NewScanner creates a Scanner instance using client to talk to the log,
 // taking configuration options from opts.
 func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
