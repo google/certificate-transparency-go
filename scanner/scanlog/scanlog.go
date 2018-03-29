@@ -50,6 +50,7 @@ var batchSize = flag.Int("batch_size", 1000, "Max number of entries to request a
 var numWorkers = flag.Int("num_workers", 2, "Number of concurrent matchers")
 var parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 var startIndex = flag.Int64("start_index", 0, "Log index to start scanning at")
+var endIndex = flag.Int64("end_index", -1, "Log index to end scanning at (non-inclusive, -1 for scanning up to Log size)")
 var quiet = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 var printChains = flag.Bool("print_chains", false, "If true prints the whole chain rather than a summary")
 var dumpDir = flag.String("dump_dir", "", "Directory to store matched certificates in")
@@ -204,6 +205,7 @@ func main() {
 		NumWorkers:    *numWorkers,
 		ParallelFetch: *parallelFetch,
 		StartIndex:    *startIndex,
+		EndIndex:      *endIndex,
 		Quiet:         *quiet,
 	}
 	scanner := scanner.NewScanner(logClient, opts)
