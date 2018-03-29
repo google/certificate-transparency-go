@@ -249,7 +249,7 @@ func max(a, b int64) int64 {
 	return b
 }
 
-// Pretty prints the passed in number of seconds into a human readable string.
+// Pretty prints the passed in duration into a human readable string.
 func humanTime(dur time.Duration) string {
 	hours := int(dur / time.Hour)
 	dur %= time.Hour
