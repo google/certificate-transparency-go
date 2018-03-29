@@ -174,11 +174,17 @@ var errNotParsed = errors.New("x509: missing ASN.1 contents; use ParseCertificat
 // VerifyOptions contains parameters for Certificate.Verify. It's a structure
 // because other PKIX verification APIs have ended up needing many options.
 type VerifyOptions struct {
-	DNSName           string
-	Intermediates     *CertPool
-	Roots             *CertPool // if nil, the system roots are used
-	CurrentTime       time.Time // if zero, the current time is used
-	DisableTimeChecks bool
+	DNSName       string
+	Intermediates *CertPool
+	Roots         *CertPool // if nil, the system roots are used
+	CurrentTime   time.Time // if zero, the current time is used
+	// Options to disable various verification checks.
+	DisableTimeChecks              bool
+	DisableCriticalExtensionChecks bool
+	DisableNameChecks              bool
+	DisableEKUChecks               bool
+	DisablePathLenChecks           bool
+	DisableNameConstraintChecks    bool
 	// KeyUsage specifies which Extended Key Usage values are acceptable.
 	// An empty list means ExtKeyUsageServerAuth. Key usage is considered a
 	// constraint down the chain which mirrors Windows CryptoAPI behavior,
@@ -186,7 +192,7 @@ type VerifyOptions struct {
 	KeyUsages []ExtKeyUsage
 	// MaxConstraintComparisions is the maximum number of comparisons to
 	// perform when checking a given certificate's name constraints. If
-	// zero, a sensible default is used. This limit prevents pathalogical
+	// zero, a sensible default is used. This limit prevents pathological
 	// certificates from consuming excessive amounts of CPU time when
 	// validating.
 	MaxConstraintComparisions int
@@ -582,11 +588,11 @@ func ekuPermittedBy(eku, certEKU ExtKeyUsage) bool {
 // isValid performs validity checks on c given that it is a candidate to append
 // to the chain in currentChain.
 func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *VerifyOptions) error {
-	if len(c.UnhandledCriticalExtensions) > 0 {
+	if !opts.DisableCriticalExtensionChecks && len(c.UnhandledCriticalExtensions) > 0 {
 		return UnhandledCriticalExtension{ID: c.UnhandledCriticalExtensions[0]}
 	}
 
-	if len(currentChain) > 0 {
+	if !opts.DisableNameChecks && len(currentChain) > 0 {
 		child := currentChain[len(currentChain)-1]
 		if !bytes.Equal(child.RawIssuer, c.RawSubject) {
 			return CertificateInvalidError{c, NameMismatch, ""}
@@ -617,7 +623,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 		leaf = currentChain[0]
 	}
 
-	if (certType == intermediateCertificate || certType == rootCertificate) && c.hasNameConstraints() {
+	if !opts.DisableNameConstraintChecks && (certType == intermediateCertificate || certType == rootCertificate) && c.hasNameConstraints() {
 		sanExtension, ok := leaf.getSANExtension()
 		if !ok {
 			// This is the deprecated, legacy case of depending on
@@ -692,7 +698,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 		}
 	}
 
-	checkEKUs := certType == intermediateCertificate
+	checkEKUs := !opts.DisableEKUChecks && certType == intermediateCertificate
 
 	// If no extended key usages are specified, then all are acceptable.
 	if checkEKUs && (len(c.ExtKeyUsage) == 0 && len(c.UnknownExtKeyUsage) == 0) {
@@ -766,7 +772,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 		return CertificateInvalidError{c, NotAuthorizedToSign, ""}
 	}
 
-	if c.BasicConstraintsValid && c.MaxPathLen >= 0 {
+	if !opts.DisablePathLenChecks && c.BasicConstraintsValid && c.MaxPathLen >= 0 {
 		numIntermediates := len(currentChain) - 1
 		if numIntermediates > c.MaxPathLen {
 			return CertificateInvalidError{c, TooManyIntermediates, ""}
@@ -840,7 +846,7 @@ func (c *Certificate) Verify(opts VerifyOptions) (chains [][]*Certificate, err e
 	}
 
 	// If no key usages are specified, then any are acceptable.
-	checkEKU := len(c.ExtKeyUsage) > 0
+	checkEKU := !opts.DisableEKUChecks && len(c.ExtKeyUsage) > 0
 
 	for _, eku := range requestedKeyUsages {
 		if eku == ExtKeyUsageAny {
