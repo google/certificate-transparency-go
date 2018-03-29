@@ -275,10 +275,12 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 	wndTotal := int64(0)
 
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for slot, filled, prevCnt := 0, 0, int64(0); ; slot = (slot + 1) % wndSize {
 		select {
 		case <-stop:
-			break
+			return
 		case <-ticker.C:
 			certsCnt := atomic.LoadInt64(&s.certsProcessed)
 			certsMatched := atomic.LoadInt64(&s.certsMatched)
@@ -301,8 +303,6 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 				filled, throughput, remainingString))
 		}
 	}
-
-	ticker.Stop()
 }
 
 // Scan performs a scan against the Log. Blocks until the scan is complete.
