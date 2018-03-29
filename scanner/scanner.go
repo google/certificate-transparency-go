@@ -51,8 +51,12 @@ type ScannerOptions struct { // nolint:golint
 	// Number of fetched entries to buffer on their way to the callbacks
 	BufferSize int
 
-	// Log entry index to start fetching & matching at
+	// Log entry index to start fetching & matching at.
 	StartIndex int64
+
+	// Log entry index to finish fetching & matching at (non-inclusive).
+	// Scan up to the log's end if EndIndex == 0.
+	EndIndex int64
 
 	// Don't print any status messages to stdout
 	Quiet bool
@@ -67,6 +71,7 @@ func DefaultScannerOptions() *ScannerOptions {
 		NumWorkers:    1,
 		ParallelFetch: 1,
 		StartIndex:    0,
+		EndIndex:      0,
 		Quiet:         false,
 	}
 }
@@ -324,6 +329,9 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		return fmt.Errorf("failed to GetSTH(): %v", err)
 	}
 	s.Log(fmt.Sprintf("Got STH with %d certs", sth.TreeSize))
+	if s.opts.EndIndex == 0 || s.opts.EndIndex > int64(sth.TreeSize) {
+		s.opts.EndIndex = int64(sth.TreeSize)
+	}
 
 	startTime := time.Now()
 	stop := make(chan bool)
@@ -337,11 +345,10 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	jobs := make(chan entryInfo, s.opts.BufferSize)
 
 	var ranges list.List
-	// TODO(pavelkalinnikov): Add EndIndex parameter.
-	for start := s.opts.StartIndex; start < int64(sth.TreeSize); {
-		end := min(start+int64(s.opts.BatchSize), int64(sth.TreeSize)) - 1
-		ranges.PushBack(fetchRange{start, end})
-		start = end + 1
+	for start, end := s.opts.StartIndex, s.opts.EndIndex; start < end; {
+		batchEnd := min(start+int64(s.opts.BatchSize), end)
+		ranges.PushBack(fetchRange{start, batchEnd - 1})
+		start = batchEnd
 	}
 	var fetcherWG sync.WaitGroup
 	var matcherWG sync.WaitGroup

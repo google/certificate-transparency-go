@@ -54,6 +54,7 @@ var (
 	numWorkers    = flag.Int("num_workers", 2, "Number of concurrent matchers")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 	startIndex    = flag.Int64("start_index", 0, "Log index to start scanning at")
+	endIndex      = flag.Int64("end_index", 0, "Log index to end scanning at (non-inclusive, 0 = end of log)")
 
 	quiet       = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 	printChains = flag.Bool("print_chains", false, "If true prints the whole chain rather than a summary")
@@ -210,6 +211,7 @@ func main() {
 		NumWorkers:    *numWorkers,
 		ParallelFetch: *parallelFetch,
 		StartIndex:    *startIndex,
+		EndIndex:      *endIndex,
 		Quiet:         *quiet,
 	}
 	scanner := scanner.NewScanner(logClient, opts)
