@@ -184,6 +184,7 @@ func TestValidateChain(t *testing.T) {
 			}
 			if test.wantErr {
 				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+				return
 			}
 			if len(gotPath) != test.wantPathLen {
 				t.Errorf("|ValidateChain()|=%d; want %d", len(gotPath), test.wantPathLen)
