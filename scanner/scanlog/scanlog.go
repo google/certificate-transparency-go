@@ -212,7 +212,7 @@ func main() {
 		StartIndex:    *startIndex,
 		Quiet:         *quiet,
 	}
-	scanner := scanner.New(logClient, opts)
+	scanner := scanner.NewScanner(logClient, opts)
 
 	ctx := context.Background()
 	if *printChains {

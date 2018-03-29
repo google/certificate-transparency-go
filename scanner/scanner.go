@@ -275,7 +275,7 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 	wndTotal := int64(0)
 
 	ticker := time.NewTicker(time.Second)
-	for slot, slots, prevCnt := 0, 0, int64(0); ; slot = (slot + 1) % wndSize {
+	for slot, filled, prevCnt := 0, 0, int64(0); ; slot = (slot + 1) % wndSize {
 		select {
 		case <-stop:
 			break
@@ -287,32 +287,30 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 			wndTotal += slotValue - wnd[slot]
 			wnd[slot], prevCnt = slotValue, certsCnt
 
-			if slots < wndSize {
-				slots++
+			if filled < wndSize {
+				filled++
 			}
 
-			throughput := float64(wndTotal) / float64(slots)
+			throughput := float64(wndTotal) / float64(filled)
 			remainingCerts := treeSize - int64(s.opts.StartIndex) - certsCnt
 			remainingSeconds := int(float64(remainingCerts) / throughput)
 			remainingString := humanTime(time.Duration(remainingSeconds) * time.Second)
 			s.Log(fmt.Sprintf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
 				certsCnt, s.opts.StartIndex+certsCnt, certsMatched,
 				(100.0*float64(certsMatched))/float64(certsCnt),
-				slots, throughput, remainingString))
+				filled, throughput, remainingString))
 		}
 	}
 
 	ticker.Stop()
 }
 
-// Scan performs a scan against the Log.
+// Scan performs a scan against the Log. Blocks until the scan is complete.
 //
-// For each x509 certificate found, foundCert will be called with the
-// corresponding LogEntry (which includes the index of the entry and the
-// certificate itself). For each precert found, foundPrecert will be called
-// with the precert incorporated in the LogEntry.
-//
-// This method blocks until the scan is complete.
+// For each x509 certificate found, calls foundCert with the corresponding
+// LogEntry, which includes the index of the entry and the certificate.
+// For each precert found, calls foundPrecert with the corresponding LogEntry,
+// which includes the index of the entry and the precert.
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	s.Log("Starting up...\n")
 	s.certsProcessed = 0
@@ -380,9 +378,9 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	return nil
 }
 
-// New creates a Scanner instance using client to talk to the log, taking
-// configuration options from opts.
-func New(client *client.LogClient, opts ScannerOptions) *Scanner {
+// NewScanner creates a Scanner instance using client to talk to the log,
+// taking configuration options from opts.
+func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
 	scanner.logClient = client
 	// Set a default match-everything regex if none was provided:

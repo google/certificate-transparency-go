@@ -202,7 +202,7 @@ func TestScannerEndToEnd(t *testing.T) {
 		ParallelFetch: 1,
 		StartIndex:    0,
 	}
-	scanner := New(logClient, opts)
+	scanner := NewScanner(logClient, opts)
 
 	var matchedCerts list.List
 	var matchedPrecerts list.List
