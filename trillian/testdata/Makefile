@@ -69,6 +69,9 @@ leaf%.chain: leaf%.cert int-ca.cert
 # Special case: include the root too
 leaf02.chain: leaf02.cert int-ca.cert fake-ca.cert
 	cat $^ > $@
+# Special case: add an unknown EKU
+leaf03.cert: leaf03.csr.pem leaf.privkey.pem int-ca.cert
+	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user_plus -CA int-ca.cert -CAkey int-ca.privkey.pem  -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
 
 
 # Pair of intermediate CAs for a longer chain
