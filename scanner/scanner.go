@@ -55,7 +55,7 @@ type ScannerOptions struct { // nolint:golint
 	StartIndex int64
 
 	// Log entry index to finish fetching & matching at (non-inclusive).
-	// Scan up to the log's end if EndIndex == -1.
+	// Scan up to the log's end if EndIndex == 0.
 	EndIndex int64
 
 	// Don't print any status messages to stdout
@@ -71,7 +71,7 @@ func DefaultScannerOptions() *ScannerOptions {
 		NumWorkers:    1,
 		ParallelFetch: 1,
 		StartIndex:    0,
-		EndIndex:      -1,
+		EndIndex:      0,
 		Quiet:         false,
 	}
 }
@@ -294,7 +294,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		return fmt.Errorf("failed to GetSTH(): %v", err)
 	}
 	s.Log(fmt.Sprintf("Got STH with %d certs", latestSth.TreeSize))
-	if s.opts.EndIndex == -1 || s.opts.EndIndex > int64(latestSth.TreeSize) {
+	if s.opts.EndIndex == 0 || s.opts.EndIndex > int64(latestSth.TreeSize) {
 		s.opts.EndIndex = int64(latestSth.TreeSize)
 	}
 
