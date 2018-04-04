@@ -806,9 +806,9 @@ func verifyAddChain(c *LogContext, req ct.AddChainRequest, w http.ResponseWriter
 	// The type of the leaf must match the one the handler expects
 	if isPrecert != expectingPrecert {
 		if expectingPrecert {
-			glog.Warningf("%s: Cert (or precert with invalid CT ext) submitted as precert chain: %v", c.LogPrefix, req)
+			glog.Warningf("%s: Cert (or precert with invalid CT ext) submitted as precert chain: %x", c.LogPrefix, req.Chain)
 		} else {
-			glog.Warningf("%s: Precert (or cert with invalid CT ext) submitted as cert chain: %v", c.LogPrefix, req)
+			glog.Warningf("%s: Precert (or cert with invalid CT ext) submitted as cert chain: %x", c.LogPrefix, req.Chain)
 		}
 		return nil, fmt.Errorf("cert / precert mismatch: %v", expectingPrecert)
 	}
