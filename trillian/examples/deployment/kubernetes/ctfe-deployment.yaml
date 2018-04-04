@@ -64,7 +64,7 @@ spec:
           command:
             - /monitor
             - --stackdriver-prefix=custom.googleapis.com
-            - --source=ctfe-metrics:http://localhost:6963/metrics
+            - --source=ctfe:http://localhost:6963/metrics
             - --pod-id=$(POD_NAME)
             - --namespace-id=$(POD_NAMESPACE)
             - --metrics-resolution=5s
