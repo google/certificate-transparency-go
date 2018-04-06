@@ -81,18 +81,20 @@ func TestIsPrecertificate(t *testing.T) {
 
 	for _, test := range tests {
 		gotPrecert, err := IsPrecertificate(test.cert)
-		if err != nil {
-			if !test.wantErr {
-				t.Errorf("IsPrecertificate(%v)=%v,%v; want %v,nil", test.desc, gotPrecert, err, test.wantPrecert)
+		t.Run(test.desc, func(t *testing.T) {
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("IsPrecertificate()=%v,%v; want %v,nil", gotPrecert, err, test.wantPrecert)
+				}
+				return
 			}
-			continue
-		}
-		if test.wantErr {
-			t.Errorf("IsPrecertificate(%v)=%v,%v; want _,%v", test.desc, gotPrecert, err, test.wantErr)
-		}
-		if gotPrecert != test.wantPrecert {
-			t.Errorf("IsPrecertificate(%v)=%v,%v; want %v,nil", test.desc, gotPrecert, err, test.wantPrecert)
-		}
+			if test.wantErr {
+				t.Errorf("IsPrecertificate()=%v,%v; want _,%v", gotPrecert, err, test.wantErr)
+			}
+			if gotPrecert != test.wantPrecert {
+				t.Errorf("IsPrecertificate()=%v,%v; want %v,nil", gotPrecert, err, test.wantPrecert)
+			}
+		})
 	}
 }
 
@@ -162,19 +164,24 @@ func TestValidateChain(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		gotPath, err := ValidateChain(test.chain, validateOpts)
-		if err != nil {
-			if !test.wantErr {
-				t.Errorf("ValidateChain(%v)=%v,%v; want _,nil", test.desc, gotPath, err)
+		t.Run(test.desc, func(t *testing.T) {
+			gotPath, err := ValidateChain(test.chain, validateOpts)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("ValidateChain()=%v,%v; want _,nil", gotPath, err)
+				}
+				return
 			}
-			continue
-		}
-		if test.wantErr {
-			t.Errorf("ValidateChain(%v)=%v,%v; want _,non-nil", test.desc, gotPath, err)
-		}
-		if len(gotPath) != test.wantPathLen {
-			t.Errorf("|ValidateChain(%v)|=%d; want %d", test.desc, len(gotPath), test.wantPathLen)
-		}
+			if test.wantErr {
+				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+			}
+			if len(gotPath) != test.wantPathLen {
+				t.Errorf("|ValidateChain()|=%d; want %d", len(gotPath), test.wantPathLen)
+				for _, c := range gotPath {
+					t.Logf("Subject: %s Issuer: %s", x509util.NameToString(c.Subject), x509util.NameToString(c.Issuer))
+				}
+			}
+		})
 	}
 }
 
@@ -221,17 +228,19 @@ func TestCA(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		validateOpts.acceptOnlyCA = test.caOnly
-		gotPath, err := ValidateChain(test.chain, validateOpts)
-		if err != nil {
-			if !test.wantErr {
-				t.Errorf("ValidateChain(%v)=%v,%v; want _,nil", test.desc, gotPath, err)
+		t.Run(test.desc, func(t *testing.T) {
+			validateOpts.acceptOnlyCA = test.caOnly
+			gotPath, err := ValidateChain(test.chain, validateOpts)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("ValidateChain()=%v,%v; want _,nil", gotPath, err)
+				}
+				return
 			}
-			continue
-		}
-		if test.wantErr {
-			t.Errorf("ValidateChain(%v)=%v,%v; want _,non-nil", test.desc, gotPath, err)
-		}
+			if test.wantErr {
+				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+			}
+		})
 	}
 }
 
@@ -279,22 +288,24 @@ func TestNotAfterRange(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		if !test.notAfterStart.IsZero() {
-			validateOpts.notAfterStart = &test.notAfterStart
-		}
-		if !test.notAfterLimit.IsZero() {
-			validateOpts.notAfterLimit = &test.notAfterLimit
-		}
-		gotPath, err := ValidateChain(test.chain, validateOpts)
-		if err != nil {
-			if !test.wantErr {
-				t.Errorf("ValidateChain(%v)=%v,%v; want _,nil", test.desc, gotPath, err)
+		t.Run(test.desc, func(t *testing.T) {
+			if !test.notAfterStart.IsZero() {
+				validateOpts.notAfterStart = &test.notAfterStart
 			}
-			continue
-		}
-		if test.wantErr {
-			t.Errorf("ValidateChain(%v)=%v,%v; want _,non-nil", test.desc, gotPath, err)
-		}
+			if !test.notAfterLimit.IsZero() {
+				validateOpts.notAfterLimit = &test.notAfterLimit
+			}
+			gotPath, err := ValidateChain(test.chain, validateOpts)
+			if err != nil {
+				if !test.wantErr {
+					t.Errorf("ValidateChain()=%v,%v; want _,nil", gotPath, err)
+				}
+				return
+			}
+			if test.wantErr {
+				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+			}
+		})
 	}
 }
 
