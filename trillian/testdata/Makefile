@@ -70,6 +70,36 @@ leaf%.chain: leaf%.cert int-ca.cert
 leaf02.chain: leaf02.cert int-ca.cert fake-ca.cert
 	cat $^ > $@
 
+
+# Pair of intermediate CAs for a longer chain
+INT_CA_1_PRIVKEY=int-ca-1.privkey.pem
+INT_CA_2_PRIVKEY=int-ca-2.privkey.pem
+INT_CA_1_PWD=vogon
+INT_CA_2_PWD=vogon
+
+# Fake Intermediate CA 1
+int-ca-1.csr.pem: $(INT_CA_PRIVKEY) int-ca.cfg
+	openssl req -new -sha256 -config int-ca.cfg -key $(INT_CA_1_PRIVKEY) -passin pass:$(INT_CA_1_PWD) -out $@
+int-ca-1.cert: int-ca-1.csr.pem $(CA_PRIVKEY) fake-ca.cert
+	openssl x509 -req -in int-ca-1.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_int_ca_pair -CA fake-ca.cert -CAkey $(CA_PRIVKEY) -passin pass:$(CA_PWD) -set_serial 0x01010101 -days 3600 -out $@
+
+# Fake 2nd-level Intermediate CA 2
+int-ca-2.csr.pem: int-ca-2.privkey.pem int-ca-2.cfg
+	openssl req -new -sha256 -config int-ca-2.cfg -key $(INT_CA_2_PRIVKEY) -passin pass:$(INT_CA_2_PWD) -out $@
+int-ca-2.cert: int-ca-2.csr.pem $(INT_CA_PRIVKEY) int-ca-1.cert
+	openssl x509 -req -in int-ca-2.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_int_ca_pair -CA int-ca-1.cert -CAkey $(INT_CA_1_PRIVKEY) -passin pass:$(INT_CA_1_PWD) -set_serial 0x12121212 -days 3600 -out $@
+
+# Length 4 chain (to allow mis-ordering tests).
+subleaf.csr.pem: $(LEAF_PRIVKEY)
+	openssl req -new -sha256 -key $(LEAF_PRIVKEY) -passin pass:$(LEAF_PWD) -subj "/C=GB/ST=London/O=Google/OU=Eng/CN=$@" -out $@
+subleaf.cert: subleaf.csr.pem int-ca-2.cert
+	openssl x509 -req -in $< -sha256 -extfile int-ca-2.cfg -extensions v3_user -CA int-ca-2.cert -CAkey $(INT_CA_2_PRIVKEY) -passin pass:$(INT_CA_2_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
+subleaf.chain: subleaf.cert int-ca-2.cert int-ca-1.cert fake-ca.cert
+	cat $^ > $@
+subleaf.misordered.chain: subleaf.cert int-ca-1.cert int-ca-2.cert fake-ca.cert
+	cat $^ > $@
+
+
 # clean removes things that regenerate exactly the same.
 clean:
 	rm -f $(SERVER_PUBKEYS)
