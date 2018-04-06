@@ -34,18 +34,18 @@ LEAF_PWD=liff
 ca: fake-ca.cert int-ca.cert
 
 # Fake Root CA
-fake-ca.cert: fake-ca.privkey.pem fake-ca.cfg
-	openssl req -new -x509 -config fake-ca.cfg -set_serial 0x0406cafe -days 3650 -extensions v3_ca -inform pem -key fake-ca.privkey.pem -passin pass:$(CA_PWD) -out $@
+fake-ca.cert: $(CA_PRIVKEY) fake-ca.cfg
+	openssl req -new -x509 -config fake-ca.cfg -set_serial 0x0406cafe -days 3650 -extensions v3_ca -inform pem -key $(CA_PRIVKEY) -passin pass:$(CA_PWD) -out $@
 show-ca: fake-ca.cert
 	openssl x509 -inform pem -in $< -text -noout
 
 # Fake Intermediate CA
-int-ca.csr.pem: int-ca.privkey.pem int-ca.cfg
-	openssl req -new -sha256 -config int-ca.cfg -key int-ca.privkey.pem -passin pass:$(INT_CA_PWD) -out $@
+int-ca.csr.pem: $(INT_CA_PRIVKEY) int-ca.cfg
+	openssl req -new -sha256 -config int-ca.cfg -key $(INT_CA_PRIVKEY) -passin pass:$(INT_CA_PWD) -out $@
 show-int-csr: int-ca.csr.pem
 	openssl req -in $< -text -noout
-int-ca.cert: int-ca.csr.pem fake-ca.privkey.pem fake-ca.cert
-	openssl x509 -req -in int-ca.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_int_ca -CA fake-ca.cert -CAkey fake-ca.privkey.pem  -passin pass:$(CA_PWD) -set_serial 0x42424242 -days 3600 -out $@
+int-ca.cert: int-ca.csr.pem $(CA_PRIVKEY) fake-ca.cert
+	openssl x509 -req -in int-ca.csr.pem -sha256 -extfile fake-ca.cfg -extensions v3_int_ca -CA fake-ca.cert -CAkey $(CA_PRIVKEY) -passin pass:$(CA_PWD) -set_serial 0x42424242 -days 3600 -out $@
 show-int-ca: int-ca.cert
 	openssl x509 -inform pem -in $< -text -noout
 
@@ -56,12 +56,12 @@ LEAF_CSRS=$(subst .cert,.csr.pem,$(LEAF_CERTS))
 LEAF_CHAINS=$(subst .cert,.chain,$(LEAF_CERTS))
 leaves: $(LEAF_CERTS) $(LEAF_CHAINS)
 
-leaf%.csr.pem: leaf.privkey.pem
-	openssl req -new -sha256 -key leaf.privkey.pem -passin pass:$(LEAF_PWD) -subj "/C=GB/ST=London/O=Google/OU=Eng/CN=$@" -out $@
+leaf%.csr.pem: $(LEAF_PRIVKEY)
+	openssl req -new -sha256 -key $(LEAF_PRIVKEY) -passin pass:$(LEAF_PWD) -subj "/C=GB/ST=London/O=Google/OU=Eng/CN=$@" -out $@
 show-leaf%-csr: leaf%.csr.pem
 	openssl req -in $< -text -noout
-leaf%.cert: leaf%.csr.pem leaf.privkey.pem int-ca.cert
-	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user -CA int-ca.cert -CAkey int-ca.privkey.pem  -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
+leaf%.cert: leaf%.csr.pem int-ca.cert
+	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user -CA int-ca.cert -CAkey $(INT_CA_PRIVKEY) -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
 show-leaf%: leaf%.cert
 	openssl x509 -inform pem -in $< -text -noout
 leaf%.chain: leaf%.cert int-ca.cert
