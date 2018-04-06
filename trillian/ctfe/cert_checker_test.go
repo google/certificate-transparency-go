@@ -162,6 +162,16 @@ func TestValidateChain(t *testing.T) {
 			chain:   pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
 			wantErr: true,
 		},
+		{
+			desc:        "chain-of-len-4",
+			chain:       pemFileToDERChain(t, "../testdata/subleaf.chain"),
+			wantPathLen: 4,
+		},
+		{
+			desc:    "misordered-chain-of-len-4",
+			chain:   pemFileToDERChain(t, "../testdata/subleaf.misordered.chain"),
+			wantErr: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -339,6 +349,15 @@ func pemToCert(t *testing.T, pemData string) *x509.Certificate {
 	}
 
 	return cert
+}
+
+func pemFileToDERChain(t *testing.T, filename string) [][]byte {
+	t.Helper()
+	rawChain, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+	if err != nil {
+		t.Fatalf("failed to load testdata: %v", err)
+	}
+	return rawChain
 }
 
 // Validate a chain including a pre-issuer as produced by Google's Compliance Monitor.
