@@ -219,8 +219,11 @@ func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEnt
 func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entries chan<- entryInfo) {
 	for r := range ranges {
 		success := false
-		// TODO(alcutter): give up after a while:
 		for !success {
+			if err := ctx.Err(); err != nil {
+				s.Log(fmt.Sprintf("Context closed: %v", err))
+				return
+			}
 			resp, err := s.logClient.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
 				s.Log(fmt.Sprintf("Problem fetching from log: %s", err.Error()))
@@ -370,9 +373,21 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 			s.Log(fmt.Sprintf("Fetcher %d finished", w))
 		}(w)
 	}
-	for r := ranges.Front(); r != nil; r = r.Next() {
-		fetches <- r.Value.(fetchRange)
-	}
+	// Start single range generator worker.
+	var rangesWG sync.WaitGroup
+	rangesWG.Add(1)
+	go func() {
+		defer rangesWG.Done()
+		for r := ranges.Front(); r != nil; r = r.Next() {
+			select {
+			case <-ctx.Done():
+				s.Log(fmt.Sprintf("Context done: %v", ctx.Err()))
+				return
+			case fetches <- r.Value.(fetchRange):
+			}
+		}
+	}()
+	rangesWG.Wait()
 	close(fetches)
 	fetcherWG.Wait()
 	close(jobs)
