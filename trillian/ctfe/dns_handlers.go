@@ -26,9 +26,10 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
-	"github.com/google/trillian/types"
 	"github.com/miekg/dns"
 )
 
@@ -104,24 +105,24 @@ func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 func sthFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
 	defer cancelFunc()
-	req := &trillian.GetLatestSignedLogRootRequest{LogId: c.logCtx.logID}
-	resp, err := c.logCtx.rpcClient.GetLatestSignedLogRoot(ctx, req)
+	sth, err := GetTreeHead(ctx, c.logCtx.rpcClient, c.logCtx.logID, c.logCtx.LogPrefix)
 	if err != nil {
-		glog.Warningf("sthFunc(): GetLatestSignedLogRoot=%v", err)
-		m := r.SetRcode(r, dns.RcodeServerFailure)
-		w.WriteMsg(m)
-		return
-	}
-
-	// TODO(Martin2112): Verify signed log root?
-	var logRoot types.LogRootV1
-	if err := logRoot.UnmarshalBinary(resp.GetSignedLogRoot().GetLogRoot()); err != nil {
-		glog.Warningf("sthFunc(): Unpack root=%v", err)
 		failWithRcode(w, r, dns.RcodeServerFailure)
 		return
 	}
 
-	rr := buildSTHResponse(params[0], &logRoot)
+	// Add the signature over the STH contents.
+	err = c.logCtx.signV1TreeHead(c.logCtx.signer, sth)
+	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+
+	rr, err := buildSTHResponse(params[0], sth)
+	if err != nil {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -257,10 +258,14 @@ func buildProofResponse(q string, s int, proof *trillian.Proof) dns.RR {
 	return rr
 }
 
-func buildSTHResponse(q string, root *types.LogRootV1) dns.RR {
-	rh := base64.StdEncoding.EncodeToString(root.RootHash)
-	ts := root.TimestampNanos / 1000 / 1000 // Convert to millis.
-	ths := "todo"                           // We don't store this so will need to re-sign like CTFE
+func buildSTHResponse(q string, root *ct.SignedTreeHead) (dns.RR, error) {
+	rh := base64.StdEncoding.EncodeToString(root.SHA256RootHash[:])
+	ts := root.Timestamp
+	sig, err := tls.Marshal(root.TreeHeadSignature)
+	if err != nil {
+		return nil, err
+	}
+	ths := base64.StdEncoding.EncodeToString(sig)
 	txt := fmt.Sprintf("%d.%d.%s.%s", root.TreeSize, ts, rh, ths)
 
 	// Response TXT has 4 fields: tree_size in ASCII decimal,
@@ -271,7 +276,7 @@ func buildSTHResponse(q string, root *types.LogRootV1) dns.RR {
 		Txt: []string{txt},
 	}
 
-	return rr
+	return rr, nil
 }
 
 func validate(r *dns.Msg) error {
