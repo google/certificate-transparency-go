@@ -55,6 +55,7 @@ var (
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	maskInternalErrors = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
 )
 
 func main() {
@@ -148,7 +149,7 @@ func main() {
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c); err != nil {
+		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, *maskInternalErrors); err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 	}
@@ -212,8 +213,8 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
-	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, maskInternalErrors bool) error {
+	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog), MaskInternalErrors: maskInternalErrors}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
 		return err

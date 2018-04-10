@@ -93,6 +93,9 @@ type InstanceOptions struct {
 	// a boolean to indicate whether the conversion succeeded.
 	ErrorMapper func(error) (int, bool)
 	RequestLog  RequestLog
+	// MaskInternalErrors indicates if internal server errors should be returned
+	// with context or without
+	MaskInternalErrors bool
 }
 
 // SetUpInstance sets up a log instance that uses the specified client to communicate

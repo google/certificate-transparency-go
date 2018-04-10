@@ -109,6 +109,8 @@ var (
 	rspLatency       monitoring.Histogram // logid, ep, rc => value
 )
 
+var errInternalServerError = errors.New("Internal Server Error")
+
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
 	knownLogs = mf.NewGauge("known_logs", "Set to 1 for known logs", "logid")
@@ -178,14 +180,21 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
 		glog.Warningf("%s: %s handler error: %v", a.Context.LogPrefix, a.Name, err)
+		if a.Context.instanceOpts.MaskInternalErrors {
+			err = errInternalServerError
+		}
 		sendHTTPError(w, status, err)
 		return
 	}
 
 	// Additional check, for consistency the handler must return an error for non-200 status
 	if status != http.StatusOK {
-		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Context.LogPrefix, a.Name, status, err)
-		sendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, status: %d", status))
+		glog.Warningf("%s: %s handler non 200 without error: %d", a.Context.LogPrefix, a.Name, status)
+		err = fmt.Errorf("http handler misbehaved, status: %d", status)
+		if a.Context.instanceOpts.MaskInternalErrors {
+			err = errInternalServerError
+		}
+		sendHTTPError(w, http.StatusInternalServerError, err)
 		return
 	}
 }
