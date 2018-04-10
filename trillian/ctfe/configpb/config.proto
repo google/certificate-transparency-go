@@ -43,7 +43,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 14
+// NEXT_ID: 15
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -101,6 +101,10 @@ message LogConfig {
   // log's key and can't sign STHs. Consequently, the log operator must ensure
   // to channel source log's STHs into CTFE.
   bool is_mirror = 12;
+  // dns_zone is the full zone that will be used to query the log via DNS.
+  // For example: rocketeer.ct.googleapis.com (without a trailing '.'). If
+  // not set then DNS queries will not be served for this log.
+  string dns_zone = 14;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
