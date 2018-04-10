@@ -107,7 +107,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		// Path length checks get confused by the presence of an additional
 		// pre-issuer intermediate, so disable them.
 		DisablePathLenChecks:        true,
-		DisableNameConstraintChecks: false,
+		DisableNameConstraintChecks: true,
 		DisableNameChecks:           false,
 		KeyUsages:                   validationOpts.extKeyUsages,
 	}
