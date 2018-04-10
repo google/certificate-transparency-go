@@ -193,7 +193,7 @@ func awaitSignal(doneFn func()) {
 
 func setupDNSHandler(client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
 	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
-	handler := ctdns.NewSTH(client, cfg, opts)
+	handler := ctdns.New(client, cfg, opts)
 	dns.DefaultServeMux.Handle(cfg.DnsZone, handler)
 	return nil
 }
