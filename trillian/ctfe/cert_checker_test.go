@@ -158,9 +158,9 @@ func TestValidateChain(t *testing.T) {
 			wantPathLen: 3,
 		},
 		{
-			desc:    "chain-with-invalid-nameconstraints",
-			chain:   pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
-			wantErr: true,
+			desc:        "chain-with-invalid-nameconstraints",
+			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
+			wantPathLen: 3,
 		},
 		{
 			desc:        "chain-of-len-4",
