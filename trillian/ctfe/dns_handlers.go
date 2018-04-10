@@ -15,7 +15,7 @@
 // These handlers implement the CT over DNS proposal documented at:
 // https://github.com/google/certificate-transparency-rfcs/blob/master/dns/draft-ct-over-dns.md
 
-package ctdns
+package ctfe
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
 	"github.com/google/trillian/types"
@@ -49,9 +48,8 @@ var (
 type dnsFunc func(*CTDNSHandler, []string, dns.ResponseWriter, *dns.Msg)
 
 type CTDNSHandler struct {
-	client   trillian.TrillianLogClient
 	cfg      *configpb.LogConfig
-	opts     ctfe.InstanceOptions
+	logCtx   *LogContext
 	handlers []dnsHandler
 }
 
@@ -60,11 +58,10 @@ type dnsHandler struct {
 	handleFn dnsFunc
 }
 
-func New(client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts ctfe.InstanceOptions) dns.Handler {
+func NewDNS(cfg *configpb.LogConfig, logCtx *LogContext) dns.Handler {
 	return &CTDNSHandler{
-		client: client,
 		cfg:    cfg,
-		opts:   opts,
+		logCtx: logCtx,
 		handlers: []dnsHandler{
 			{matchRE: sthRE, handleFn: sthFunc},
 			{matchRE: consistRE, handleFn: consistFunc},
@@ -105,10 +102,10 @@ func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func sthFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
 	defer cancelFunc()
-	req := &trillian.GetLatestSignedLogRootRequest{LogId: c.cfg.LogId}
-	resp, err := c.client.GetLatestSignedLogRoot(ctx, req)
+	req := &trillian.GetLatestSignedLogRootRequest{LogId: c.logCtx.logID}
+	resp, err := c.logCtx.rpcClient.GetLatestSignedLogRoot(ctx, req)
 	if err != nil {
 		glog.Warningf("sthFunc(): GetLatestSignedLogRoot=%v", err)
 		m := r.SetRcode(r, dns.RcodeServerFailure)
@@ -142,13 +139,13 @@ func consistFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.
 		failWithRcode(w, r, dns.RcodeServerFailure)
 		return
 	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
 	defer cancelFunc()
 	req := &trillian.GetConsistencyProofRequest{
 		LogId:          c.cfg.LogId,
 		FirstTreeSize:  values[2],
 		SecondTreeSize: values[3]}
-	resp, err := c.client.GetConsistencyProof(ctx, req)
+	resp, err := c.logCtx.rpcClient.GetConsistencyProof(ctx, req)
 	if err != nil {
 		glog.Warningf("consistFunc(): GetConsistencyProofRequest=%v", err)
 		failWithRcode(w, r, dns.RcodeServerFailure)
@@ -175,13 +172,13 @@ func hashFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg
 		failWithRcode(w, r, dns.RcodeServerFailure)
 		return
 	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
 	defer cancelFunc()
 	req := &trillian.GetLeavesByHashRequest{
 		LogId:    c.cfg.LogId,
 		LeafHash: [][]byte{h},
 	}
-	resp, err := c.client.GetLeavesByHash(ctx, req)
+	resp, err := c.logCtx.rpcClient.GetLeavesByHash(ctx, req)
 	if err != nil || len(resp.Leaves) != 1 {
 		glog.Warningf("hashFunc(): GetLeavesByHashRequest=%v, %v", resp, err)
 		failWithRcode(w, r, dns.RcodeServerFailure)
@@ -205,14 +202,14 @@ func treeFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg
 		failWithRcode(w, r, dns.RcodeServerFailure)
 		return
 	}
-	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
 	defer cancelFunc()
 	req := &trillian.GetInclusionProofRequest{
 		LogId:     c.cfg.LogId,
 		LeafIndex: values[2],
 		TreeSize:  values[3],
 	}
-	resp, err := c.client.GetInclusionProof(ctx, req)
+	resp, err := c.logCtx.rpcClient.GetInclusionProof(ctx, req)
 	if err != nil {
 		glog.Warningf("hashFunc(): GetInclusionProof=%v, %v", resp, err)
 		failWithRcode(w, r, dns.RcodeServerFailure)

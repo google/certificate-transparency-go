@@ -28,7 +28,6 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	etcdnaming "github.com/coreos/etcd/clientv3/naming"
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go/trillian/ctdns"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
@@ -154,9 +153,6 @@ func main() {
 	http.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
 
 	if *getSTHInterval > 0 {
-		// TODO(Martin2112): This is a hack to ensure the metrics etc. are created
-		// or the STH update will crash. Do something better.
-		ctfe.NewLogContext(0, "", ctfe.CertValidationOpts{}, nil, nil, ctfe.InstanceOptions{MetricFactory: prometheus.MetricFactory{}}, nil)
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes.
 		for _, c := range cfg.LogConfigs.Config {
@@ -226,7 +222,11 @@ func awaitSignal(doneFn func()) {
 
 func setupDNSHandler(client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
 	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
-	handler := ctdns.New(client, cfg, opts)
+	logCtx, err := ctfe.SetUpDNSInstance(context.Background(), client, cfg, opts)
+	if err != nil {
+		return err
+	}
+	handler := ctfe.NewDNS(cfg, logCtx)
 	dns.DefaultServeMux.Handle(cfg.DnsZone, handler)
 	return nil
 }
