@@ -2,6 +2,7 @@ package ctdns
 
 import (
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -48,6 +49,7 @@ func New(client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts ctfe.I
 		handlers: []dnsHandler{
 			{matchRE: sthRE, handleFn: sthFunc},
 			{matchRE: consistRE, handleFn: consistFunc},
+			{matchRE: hashRE, handleFn: hashFunc},
 		},
 	}
 }
@@ -103,7 +105,6 @@ func sthFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg)
 	}
 
 	rr := buildSTHResponse(params[0], &logRoot)
-	glog.Infof("Returning: %v", rr)
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -143,7 +144,6 @@ func consistFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.
 		return
 	}
 	rr := buildConsistResponse(params[0], int(values[1]), resp.GetProof())
-	glog.Infof("Returning: %v", rr)
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -151,6 +151,44 @@ func consistFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.
 		glog.Warningf("sthFunc(): WriteMsg: %v", err)
 	}
 
+}
+
+// params will contain 0 = regex match text 1 = base32 hash, 2 = zone.
+func hashFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
+	h, err := base32.StdEncoding.DecodeString(params[1])
+	if err != nil {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	defer cancelFunc()
+	req := &trillian.GetLeavesByHashRequest{
+		LogId:    c.cfg.LogId,
+		LeafHash: [][]byte{h},
+	}
+	resp, err := c.client.GetLeavesByHash(ctx, req)
+	if err != nil || len(resp.Leaves) != 1 {
+		glog.Warningf("hashFunc(): GetLeavesByHashRequest=%v, %v", resp, err)
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+	rr := buildHashResponse(params[0], resp.Leaves[0])
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Answer = append(m.Answer, rr)
+	if err := w.WriteMsg(m); err != nil {
+		glog.Warningf("sthFunc(): WriteMsg: %v", err)
+	}
+}
+
+func buildHashResponse(q string, l *trillian.LogLeaf) dns.RR {
+	// Response has one element, the leaf index.
+	rr := &dns.TXT{
+		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: 0},
+		Txt: []string{fmt.Sprintf("%d", l.LeafIndex)},
+	}
+
+	return rr
 }
 
 func buildConsistResponse(q string, s int, proof *trillian.Proof) dns.RR {
