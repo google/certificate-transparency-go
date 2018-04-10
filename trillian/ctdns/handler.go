@@ -50,6 +50,7 @@ func New(client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts ctfe.I
 			{matchRE: sthRE, handleFn: sthFunc},
 			{matchRE: consistRE, handleFn: consistFunc},
 			{matchRE: hashRE, handleFn: hashFunc},
+			{matchRE: treeRE, handleFn: treeFunc},
 		},
 	}
 }
@@ -117,14 +118,10 @@ func sthFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg)
 // 4 = zone.
 func consistFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
 	// We don't expect these to fail as the regex matched digits but check anyway.
-	var values [4]int64
-	for i := 1; i < 4; i++ {
-		v, err := strconv.Atoi(params[i])
-		if err != nil {
-			failWithRcode(w, r, dns.RcodeServerFailure)
-			return
-		}
-		values[i] = int64(v)
+	values, err := parseInts(params, 1, 4)
+	if err != nil {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
 	}
 	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
 	defer cancelFunc()
@@ -143,14 +140,13 @@ func consistFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.
 		failWithRcode(w, r, dns.RcodeServerFailure)
 		return
 	}
-	rr := buildConsistResponse(params[0], int(values[1]), resp.GetProof())
+	rr := buildProofResponse(params[0], int(values[1]), resp.GetProof())
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
 	if err := w.WriteMsg(m); err != nil {
-		glog.Warningf("sthFunc(): WriteMsg: %v", err)
+		glog.Warningf("consistFunc(): WriteMsg: %v", err)
 	}
-
 }
 
 // params will contain 0 = regex match text 1 = base32 hash, 2 = zone.
@@ -177,7 +173,43 @@ func hashFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
 	if err := w.WriteMsg(m); err != nil {
-		glog.Warningf("sthFunc(): WriteMsg: %v", err)
+		glog.Warningf("hashFunc(): WriteMsg: %v", err)
+	}
+}
+
+// params will contain 0 = regex match text, 1 = start index, 2 = leaf_index,
+// 3 = tree_size, 4 = zone.
+func treeFunc(c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
+	// We don't expect these to fail as the regex matched digits but check anyway.
+	values, err := parseInts(params, 1, 4)
+	if err != nil {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+	ctx, cancelFunc := context.WithTimeout(context.Background(), c.opts.Deadline)
+	defer cancelFunc()
+	req := &trillian.GetInclusionProofRequest{
+		LogId:     c.cfg.LogId,
+		LeafIndex: values[2],
+		TreeSize:  values[3],
+	}
+	resp, err := c.client.GetInclusionProof(ctx, req)
+	if err != nil {
+		glog.Warningf("hashFunc(): GetInclusionProof=%v, %v", resp, err)
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+	// Ensure the client requested a valid start index for the proof.
+	if values[1] < 0 || values[1] >= int64(len(resp.Proof.Hashes)) {
+		failWithRcode(w, r, dns.RcodeServerFailure)
+		return
+	}
+	rr := buildProofResponse(params[0], int(values[1]), resp.GetProof())
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Answer = append(m.Answer, rr)
+	if err := w.WriteMsg(m); err != nil {
+		glog.Warningf("treeFunc(): WriteMsg: %v", err)
 	}
 }
 
@@ -191,7 +223,7 @@ func buildHashResponse(q string, l *trillian.LogLeaf) dns.RR {
 	return rr
 }
 
-func buildConsistResponse(q string, s int, proof *trillian.Proof) dns.RR {
+func buildProofResponse(q string, s int, proof *trillian.Proof) dns.RR {
 	var p []byte
 	// We can pack a limited number of proof elements into the dns response.
 	for i := s; i < len(proof.Hashes); i++ {
@@ -235,6 +267,19 @@ func validate(r *dns.Msg) error {
 	}
 
 	return nil
+}
+
+func parseInts(p []string, first, last int) ([]int64, error) {
+	var values []int64
+	for i := first; i < last; i++ {
+		v, err := strconv.Atoi(p[i])
+		if err != nil {
+			return nil, err
+		}
+		values[i] = int64(v)
+	}
+
+	return values, nil
 }
 
 func failWithRcode(w dns.ResponseWriter, r *dns.Msg, rCode int) {
