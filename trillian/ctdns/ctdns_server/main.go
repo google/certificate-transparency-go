@@ -1,4 +1,4 @@
-// Copyright 2016 Google Inc. All Rights Reserved.
+// Copyright 2018 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ var (
 	logConfig          = flag.String("log_config", "", "File holding log config in text proto format")
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctdns-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	startupWait        = flag.Duration("startup_wait", time.Second*5, "How long to wait for UDP server startup")
 )
 
 func main() {
@@ -123,7 +124,7 @@ func main() {
 		}
 		conn, err := grpc.Dial(be.BackendSpec, opts...)
 		if err != nil {
-			glog.Exitf("Could not dial RPC server: %v: %v", be, err)
+			glog.Exitf("Could not dial RPC udpServer: %v: %v", be, err)
 		}
 		defer conn.Close()
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
@@ -131,12 +132,18 @@ func main() {
 
 	// Register DNS handlers for all the configured logs using the correct RPC
 	// client. Ignore any that don't specify a zone.
+	var zones int
 	for _, c := range cfg.LogConfigs.Config {
 		if len(c.DnsZone) > 0 {
+			zones++
 			if err := setupDNSHandler(clientMap[c.LogBackendName], *rpcDeadline, c); err != nil {
 				glog.Exitf("Failed to set up DNS log instance for %+v: %v", cfg, err)
 			}
 		}
+	}
+
+	if zones == 0 {
+		glog.Fatalf("No logs have a dns_zone configured. Exiting.")
 	}
 
 	// Handle metrics on the DefaultServeMux. We don't serve HTTP requests
@@ -147,6 +154,9 @@ func main() {
 	http.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
 
 	if *getSTHInterval > 0 {
+		// TODO(Martin2112): This is a hack to ensure the metrics etc. are created
+		// or the STH update will crash. Do something better.
+		ctfe.NewLogContext(0, "", ctfe.CertValidationOpts{}, nil, nil, ctfe.InstanceOptions{MetricFactory: prometheus.MetricFactory{}}, nil)
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes.
 		for _, c := range cfg.LogConfigs.Config {
@@ -163,15 +173,38 @@ func main() {
 		}
 	}
 
-	// Bring up the DNS server and serve until we get a signal not to.
+	// Bring up the DNS udpServer and serve until we get a signal not to.
 	go awaitSignal(func() {
 		os.Exit(1)
 	})
 	// TODO(Martin2112): Might need a separate metrics endpoint like CTFE.
-	// TODO(Martin2112): Need to serve TCP as well as UDP.
-	server := dns.Server{Addr: *metricsEndpoint, Net: "udp", TsigSecret: nil}
-	if err := server.ListenAndServe(); err != nil {
-		glog.Errorf("Failed to setup the UDP DNS server: %s\n", err.Error())
+	// Bring up the UDP udpServer and allow time for it to start.
+	ch := make(chan bool)
+	udpServer := dns.Server{
+		Addr:       *metricsEndpoint,
+		Net:        "udp",
+		TsigSecret: nil,
+		NotifyStartedFunc: func() {
+			ch <- true
+		},
+	}
+
+	// Allow a short time for the UDP server to notify us that it is ready.
+	go udpServer.ListenAndServe()
+	select {
+	case res := <-ch:
+		glog.Infof("UDP udpServer has started OK: %v", res)
+	case <-time.After(*startupWait):
+		glog.Fatal("UDP udpServer not listening within timeout")
+	}
+
+	// Now start the TCP server.
+	tcpServer := dns.Server{
+		Addr:       *metricsEndpoint,
+		Net:        "tcp",
+		TsigSecret: nil}
+	if err := tcpServer.ListenAndServe(); err != nil {
+		glog.Errorf("Failed to setup the TCP DNS Server: %s\n", err.Error())
 	}
 	glog.Flush()
 }

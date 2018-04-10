@@ -1,3 +1,20 @@
+// Copyright 2018 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// These handlers implement the CT over DNS proposal documented at:
+// https://github.com/google/certificate-transparency-rfcs/blob/master/dns/draft-ct-over-dns.md
+
 package ctdns
 
 import (
@@ -16,11 +33,13 @@ import (
 	"github.com/miekg/dns"
 )
 
+// The maximum length of the text returned in a DNS consistency or inclusion
+// proof response.
 const maxProofLen = 255
 
 var (
-	// In these formats the (.*) is always the zone, this is checked outside the
-	// regex matching.
+	// In these formats the last (.*) is always the zone, this is checked outside
+	// the regex matching.
 	sthRE     = regexp.MustCompile("^sth\\.(.*)\\.$")
 	consistRE = regexp.MustCompile("^(\\d+)\\.(\\d+)\\.(\\d+)\\.sth-consistency\\.(.*)\\.$")
 	hashRE    = regexp.MustCompile("^([A-Z0-9]+)\\.hash\\.(.*)\\.$")
@@ -63,7 +82,7 @@ func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	glog.Infof("In Query: %v", r.Question[0].Name)
+	glog.V(1).Infof("CTDNSHandler.ServeDNS(): Query: %v", r.Question[0].Name)
 	q := dns.Fqdn(r.Question[0].Name)
 
 	// Find the first handler that accepts the name pattern match.
@@ -243,8 +262,9 @@ func buildProofResponse(q string, s int, proof *trillian.Proof) dns.RR {
 
 func buildSTHResponse(q string, root *types.LogRootV1) dns.RR {
 	rh := base64.StdEncoding.EncodeToString(root.RootHash)
-	ths := "todo" // We don't store this so will need to re-sign like CTFE
-	txt := fmt.Sprintf("%d.%d.%s.%s", root.TreeSize, root.TimestampNanos, rh, ths)
+	ts := root.TimestampNanos / 1000 / 1000 // Convert to millis.
+	ths := "todo"                           // We don't store this so will need to re-sign like CTFE
+	txt := fmt.Sprintf("%d.%d.%s.%s", root.TreeSize, ts, rh, ths)
 
 	// Response TXT has 4 fields: tree_size in ASCII decimal,
 	// timestamp in ASCII decimal, sha256_root_hash in base64,
@@ -270,7 +290,7 @@ func validate(r *dns.Msg) error {
 }
 
 func parseInts(p []string, first, last int) ([]int64, error) {
-	var values []int64
+	var values = make([]int64, last)
 	for i := first; i < last; i++ {
 		v, err := strconv.Atoi(p[i])
 		if err != nil {
