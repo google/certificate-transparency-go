@@ -28,7 +28,7 @@ spec:
             limits:
               cpu: 1.8
             requests:
-              cpu: 400m
+              cpu: 300m
           livenessProbe:
             httpGet:
               path: /metrics
