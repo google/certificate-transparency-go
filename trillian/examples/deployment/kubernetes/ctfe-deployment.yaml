@@ -6,7 +6,7 @@ metadata:
     io.kompose.service: trillian-ctfe
   name: trillian-ctfe-deployment
 spec:
-  replicas: 3
+  replicas: 4
   strategy: {}
   template:
     metadata:
