@@ -18,7 +18,7 @@ spec:
           command: ["/go/bin/ct_server",
           "--http_endpoint=0.0.0.0:6962",
           "--metrics_endpoint=0.0.0.0:6963",
-          "--log_rpc_server=trillian-log-service:8090",
+          "--log_rpc_server=dns:///trillian-log-service",
           "--log_config=/ctfe-config/ct_server.cfg",
           "--alsologtostderr"
           ]
