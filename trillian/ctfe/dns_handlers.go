@@ -275,11 +275,10 @@ func buildSTHResponse(q string, root *ct.SignedTreeHead) (dns.RR, error) {
 		return nil, err
 	}
 	ths := base64.StdEncoding.EncodeToString(sig)
-	txt := fmt.Sprintf("%d.%d.%s.%s", root.TreeSize, ts, rh, ths)
-
 	// Response TXT has 4 fields: tree_size in ASCII decimal,
 	// timestamp in ASCII decimal, sha256_root_hash in base64,
 	// tree_head_signature in base64
+	txt := fmt.Sprintf("%d.%d.%s.%s", root.TreeSize, ts, rh, ths)
 	rr := &dns.TXT{
 		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: sthTTL},
 		Txt: []string{txt},

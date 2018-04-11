@@ -16,6 +16,12 @@
 Package ctfe contains a usage example by providing an implementation of an RFC6962 compatible CT
 log server using a Trillian log server as backend storage via its GRPC API.
 
+Within this package ct_server is the main binary for the CT HTTP server
+and ctdns_server is the main binary for serving CT over DNS (See:
+https://github.com/google/certificate-transparency-rfcs/blob/master/dns/draft-ct-over-dns.md).
+Some code is shared between the two. DNS specific code is in files with an
+appropriate name.
+
 IMPORTANT: Only code rooted within this part of the tree should refer to the CT
 Github repository. Other parts of the system must not assume that the data they're
 processing is X.509 or CT related.

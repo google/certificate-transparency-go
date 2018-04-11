@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The ct_server binary runs the CT personality.
+// The ctdns_server binary runs the CT personality for DNS.
 package main
 
 import (
@@ -30,7 +30,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/miekg/dns"
@@ -57,6 +56,7 @@ var (
 )
 
 func main() {
+	// TODO(Martin2112): Share some of the code in this file with CTFE not copy.
 	flag.Parse()
 	ctx := context.Background()
 
@@ -106,8 +106,11 @@ func main() {
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
 	} else {
-		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
-		res = util.FixedBackendResolver{}
+		// Use a DNS naming resolver.
+		res, err = naming.NewDNSResolverWithFreq(time.Second)
+		if err != nil {
+			glog.Exitf("Could not create naming resolver: %v", err)
+		}
 	}
 
 	// Dial all our log backends.
@@ -142,7 +145,7 @@ func main() {
 	}
 
 	if zones == 0 {
-		glog.Fatalf("No logs have a dns_zone configured. Exiting.")
+		glog.Exitf("No logs have a dns_zone configured. Exiting.")
 	}
 
 	// Handle metrics on the DefaultServeMux. We don't serve HTTP requests
@@ -174,7 +177,7 @@ func main() {
 		os.Exit(1)
 	})
 	// TODO(Martin2112): Might need a separate metrics endpoint like CTFE.
-	// Bring up the UDP udpServer and allow time for it to start.
+	// Bring up the UDP Server and allow time for it to start.
 	ch := make(chan bool)
 	udpServer := dns.Server{
 		Addr:       *metricsEndpoint,
@@ -189,9 +192,9 @@ func main() {
 	go udpServer.ListenAndServe()
 	select {
 	case res := <-ch:
-		glog.Infof("UDP udpServer has started OK: %v", res)
+		glog.Infof("UDP Server has started OK: %v", res)
 	case <-time.After(*startupWait):
-		glog.Fatal("UDP udpServer not listening within timeout")
+		glog.Exitf("UDP Server not listening within timeout")
 	}
 
 	// Now start the TCP server.
@@ -221,7 +224,11 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupDNSHandler(client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
-	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
+	opts := ctfe.InstanceOptions{
+		Deadline:      deadline,
+		MetricFactory: prometheus.MetricFactory{},
+		RequestLog:    new(ctfe.DefaultRequestLog),
+	}
 	logCtx, err := ctfe.SetUpDNSInstance(context.Background(), client, cfg, opts)
 	if err != nil {
 		return err
