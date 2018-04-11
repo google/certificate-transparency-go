@@ -40,6 +40,13 @@ const maxProofLen = 255
 // The client omits the padding from the hash query so we need to add it back.
 const base32LeafPad = "==="
 
+const (
+	// Used for STH responses, which change over time.
+	sthTTL = 5 * 60
+	// Used for other responses, which are immutable
+	respTTL = 24 * 60 * 60
+)
+
 var (
 	// In these formats the last (.*) is always the zone, this is checked outside
 	// the regex matching.
@@ -235,7 +242,7 @@ func treeFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.Respo
 func buildHashResponse(q string, l *trillian.LogLeaf) dns.RR {
 	// Response has one element, the leaf index.
 	rr := &dns.TXT{
-		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: 0},
+		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: respTTL},
 		Txt: []string{fmt.Sprintf("%d", l.LeafIndex)},
 	}
 
@@ -253,7 +260,7 @@ func buildProofResponse(q string, s int, proof *trillian.Proof) dns.RR {
 	}
 	// Response has one element. Note that the response is binary and not encoded.
 	rr := &dns.TXT{
-		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: 0},
+		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: respTTL},
 		Txt: []string{string(p)},
 	}
 
@@ -274,7 +281,7 @@ func buildSTHResponse(q string, root *ct.SignedTreeHead) (dns.RR, error) {
 	// timestamp in ASCII decimal, sha256_root_hash in base64,
 	// tree_head_signature in base64
 	rr := &dns.TXT{
-		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: 0},
+		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: sthTTL},
 		Txt: []string{txt},
 	}
 

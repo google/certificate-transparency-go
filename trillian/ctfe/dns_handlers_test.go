@@ -42,6 +42,7 @@ type dnsTest struct {
 	wantRRs   int
 	wantRcode int
 	wantTxt   string
+	wantTTL   uint32
 }
 
 func TestDNSHandler(t *testing.T) {
@@ -145,6 +146,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: fmt.Sprintf("45678.12345.%s.%s", goodHash, base64.StdEncoding.EncodeToString(fakeSig)),
+			wantTTL: sthTTL,
 		},
 		// Tests for STH consistency handler.
 		{
@@ -180,6 +182,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(0, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "ConsistPartialProofAndItFits",
@@ -190,6 +193,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(3, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "ConsistProofTruncated",
@@ -200,6 +204,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(0, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "ConsistRestOfProofTruncated",
@@ -210,6 +215,13 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(8, 15),
+			wantTTL: respTTL,
+		},
+		{
+			name:      "ConsistNotOurZone",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "8.123456.999999.sth-consistency.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeNotZone,
 		},
 		// Tests for the Hash handler. The base32 string is "hello1hello2hello3",
 		// length 18 bytes to match the size of an encoded Merkle Leaf.
@@ -248,6 +260,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: "555741",
+			wantTTL: respTTL,
 		},
 		{
 			name:      "HashNotOurZone",
@@ -289,6 +302,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(0, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "TreePartialProofAndItFits",
@@ -299,6 +313,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(3, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "TreeProofTruncated",
@@ -309,6 +324,7 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(0, 7),
+			wantTTL: respTTL,
 		},
 		{
 			name: "TreeRestOfProofTruncated",
@@ -319,6 +335,13 @@ func TestDNSHandler(t *testing.T) {
 			},
 			wantRRs: 1,
 			wantTxt: expectProof(8, 15),
+			wantTTL: respTTL,
+		},
+		{
+			name:      "TreeNotOurZone",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "0.123456.999999.tree.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeNotZone,
 		},
 		// General tests
 		{
@@ -380,14 +403,18 @@ func TestDNSHandler(t *testing.T) {
 				t.Fatalf("got: %d RRs in response, want: %d", got, want)
 			}
 			if test.wantRRs != 0 {
-				if got, want := frw.messages[0].Answer[0].Header().Class, dns.ClassINET; got != uint16(want) {
+				answer := frw.messages[0].Answer[0]
+				if got, want := answer.Header().Class, dns.ClassINET; got != uint16(want) {
 					t.Errorf("got RR class: %d in response, want: INET(%d)", got, want)
 				}
-				if got, want := frw.messages[0].Answer[0].Header().Rrtype, dns.TypeTXT; got != want {
+				if got, want := answer.Header().Rrtype, dns.TypeTXT; got != want {
 					t.Errorf("got RR type: %d in response, want: TXT(%d)", got, want)
 				}
+				if got, want := answer.Header().Ttl, test.wantTTL; got != want {
+					t.Errorf("got TTL: %d in response, want: %d", got, want)
+				}
 				if len(test.wantTxt) != 0 {
-					rr := frw.messages[0].Answer[0].(*dns.TXT)
+					rr := answer.(*dns.TXT)
 					if len(rr.Txt) != 1 {
 						t.Errorf("got %d TXT responses in Answer, want: 1", len(rr.Txt))
 					}
