@@ -104,6 +104,7 @@ func main() {
 			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
 		etcdRes := &etcdnaming.GRPCResolver{Client: client}
+		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(etcdRes)))
 
 		// Also announce ourselves.
 		updateHTTP := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
@@ -121,7 +122,6 @@ func main() {
 			glog.Infof("Removing our presence in %v with %+v", *etcdMetricsService, byeMetrics)
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
-		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(etcdRes)))
 	} else if strings.Contains(*rpcBackend, ",") {
 		glog.Infof("Using FixedBackendResolver")
 		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
