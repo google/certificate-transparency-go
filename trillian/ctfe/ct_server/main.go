@@ -35,6 +35,7 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/naming"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
@@ -94,7 +95,7 @@ func main() {
 		metricsAt = *httpEndpoint
 	}
 
-	var res naming.Resolver
+	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
@@ -103,7 +104,7 @@ func main() {
 			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
 		etcdRes := &etcdnaming.GRPCResolver{Client: client}
-		res = etcdRes
+		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(etcdRes)))
 
 		// Also announce ourselves.
 		updateHTTP := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
@@ -121,23 +122,26 @@ func main() {
 			glog.Infof("Removing our presence in %v with %+v", *etcdMetricsService, byeMetrics)
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
-	} else {
+	} else if strings.Contains(*rpcBackend, ",") {
+		glog.Infof("Using FixedBackendResolver")
 		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
-		res = util.FixedBackendResolver{}
+		res := util.FixedBackendResolver{}
+		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(res)))
+	} else {
+		glog.Infof("Using regular DNS resolver")
+		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
 	}
 
 	// Dial all our log backends.
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for _, be := range beMap {
 		glog.Infof("Dialling backend: %v", be)
-		bal := grpc.RoundRobin(res)
-		opts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancer(bal)}
 		if len(beMap) == 1 {
 			// If there's only one of them we use the blocking option as we can't
 			// serve anything until connected.
-			opts = append(opts, grpc.WithBlock())
+			dialOpts = append(dialOpts, grpc.WithBlock())
 		}
-		conn, err := grpc.Dial(be.BackendSpec, opts...)
+		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
 		if err != nil {
 			glog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
