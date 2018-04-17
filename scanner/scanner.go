@@ -16,10 +16,8 @@
 package scanner
 
 import (
-	"container/list"
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,57 +27,38 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// ScannerOptions holds configuration options for the Scanner
+// ScannerOptions holds configuration options for the Scanner.
 type ScannerOptions struct { // nolint:golint
+	FetcherOptions
+
 	// Custom matcher for x509 Certificates, functor will be called for each
-	// Certificate found during scanning.  Should be a Matcher or LeafMatcher
+	// Certificate found during scanning. Should be a Matcher or LeafMatcher
 	// implementation.
 	Matcher interface{}
 
-	// Match precerts only (Matcher still applies to precerts)
+	// Match precerts only (Matcher still applies to precerts).
 	PrecertOnly bool
 
-	// Number of entries to request in one batch from the Log
-	BatchSize int
-
-	// Number of concurrent matchers to run
+	// Number of concurrent matchers to run.
 	NumWorkers int
 
-	// Number of concurrent fethers to run
-	ParallelFetch int
-
-	// Number of fetched entries to buffer on their way to the callbacks
+	// Number of fetched entries to buffer on their way to the callbacks.
 	BufferSize int
-
-	// Log entry index to start fetching & matching at.
-	StartIndex int64
-
-	// Log entry index to finish fetching & matching at (non-inclusive).
-	// Scan up to the log's end if EndIndex == 0.
-	EndIndex int64
-
-	// Don't print any status messages to stdout
-	Quiet bool
 }
 
-// DefaultScannerOptions creates a new ScannerOptions struct with sensible defaults.
+// DefaultScannerOptions returns a new ScannerOptions with sensible defaults.
 func DefaultScannerOptions() *ScannerOptions {
 	return &ScannerOptions{
-		Matcher:       &MatchAll{},
-		PrecertOnly:   false,
-		BatchSize:     1000,
-		NumWorkers:    1,
-		ParallelFetch: 1,
-		StartIndex:    0,
-		EndIndex:      0,
-		Quiet:         false,
+		FetcherOptions: *DefaultFetcherOptions(),
+		Matcher:        &MatchAll{},
+		PrecertOnly:    false,
+		NumWorkers:     1,
 	}
 }
 
 // Scanner is a tool to scan all the entries in a CT Log.
 type Scanner struct {
-	// Client used to talk to the CT log instance
-	logClient *client.LogClient
+	fetcher *Fetcher
 
 	// Configuration options for this Scanner instance
 	opts ScannerOptions
@@ -97,18 +76,12 @@ type Scanner struct {
 	Log func(msg string)
 }
 
-// entryInfo represents information about a log entry
+// entryInfo represents information about a log entry.
 type entryInfo struct {
-	// The index of the entry containing the LeafInput in the log
+	// The index of the entry containing the LeafInput in the log.
 	index int64
-	// The log entry returned by the log server
+	// The log entry returned by the log server.
 	entry ct.LeafEntry
-}
-
-// fetchRange represents a range of certs to fetch from a CT log
-type fetchRange struct {
-	start int64 // inclusive
-	end   int64 // inclusive
 }
 
 // Takes the error returned by either x509.ParseCertificate() or
@@ -210,53 +183,6 @@ func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEnt
 	}
 }
 
-// Worker function for fetcher jobs.
-// Accepts cert ranges to fetch over the ranges channel, and if the fetch is
-// successful sends the individual LeafInputs out (as MatcherJobs) into the
-// entries channel for the matchers to chew on.
-// Will retry failed attempts to retrieve ranges indefinitely.
-// Sends true over the done channel when the ranges channel is closed.
-func (s *Scanner) fetcherJob(ctx context.Context, ranges <-chan fetchRange, entries chan<- entryInfo) {
-	for r := range ranges {
-		success := false
-		for !success {
-			if err := ctx.Err(); err != nil {
-				s.Log(fmt.Sprintf("Context closed: %v", err))
-				return
-			}
-			resp, err := s.logClient.GetRawEntries(ctx, r.start, r.end)
-			if err != nil {
-				s.Log(fmt.Sprintf("Problem fetching from log: %s", err.Error()))
-				continue
-			}
-			for _, leafEntry := range resp.Entries {
-				entries <- entryInfo{r.start, leafEntry}
-				r.start++
-			}
-			if r.start > r.end {
-				// Only complete if we actually got all the leaves we were
-				// expecting -- Logs MAY return fewer than the number of
-				// leaves requested.
-				success = true
-			}
-		}
-	}
-}
-
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // Pretty prints the passed in duration into a human readable string.
 func humanTime(dur time.Duration) string {
 	hours := int(dur / time.Hour)
@@ -271,7 +197,7 @@ func humanTime(dur time.Duration) string {
 	if minutes > 0 {
 		s += fmt.Sprintf("%d minutes ", minutes)
 	}
-	if seconds > 0 {
+	if seconds > 0 || len(s) == 0 {
 		s += fmt.Sprintf("%d seconds ", seconds)
 	}
 	return s
@@ -320,20 +246,16 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 // For each precert found, calls foundPrecert with the corresponding LogEntry,
 // which includes the index of the entry and the precert.
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	s.Log("Starting up...\n")
+	s.Log("Starting up Scanner...\n")
 	s.certsProcessed = 0
 	s.certsMatched = 0
 	s.precertsSeen = 0
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
 
-	sth, err := s.logClient.GetSTH(ctx)
+	sth, err := s.fetcher.Prepare(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to GetSTH(): %v", err)
-	}
-	s.Log(fmt.Sprintf("Got STH with %d certs", sth.TreeSize))
-	if s.opts.EndIndex == 0 || s.opts.EndIndex > int64(sth.TreeSize) {
-		s.opts.EndIndex = int64(sth.TreeSize)
+		return err
 	}
 
 	startTime := time.Now()
@@ -344,54 +266,32 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		close(stop)
 	}()
 
-	fetches := make(chan fetchRange)
+	batches := make(chan EntryBatch) // Output from the Fetcher.
 	jobs := make(chan entryInfo, s.opts.BufferSize)
-
-	var ranges list.List
-	for start, end := s.opts.StartIndex, s.opts.EndIndex; start < end; {
-		batchEnd := min(start+int64(s.opts.BatchSize), end)
-		ranges.PushBack(fetchRange{start, batchEnd - 1})
-		start = batchEnd
-	}
-	var fetcherWG sync.WaitGroup
-	var matcherWG sync.WaitGroup
-	// Start matcher workers
-	for w := 0; w < s.opts.NumWorkers; w++ {
-		matcherWG.Add(1)
-		go func(w int) {
-			defer matcherWG.Done()
-			s.matcherJob(jobs, foundCert, foundPrecert)
-			s.Log(fmt.Sprintf("Matcher %d finished", w))
-		}(w)
-	}
-	// Start fetcher workers
-	for w := 0; w < s.opts.ParallelFetch; w++ {
-		fetcherWG.Add(1)
-		go func(w int) {
-			defer fetcherWG.Done()
-			s.fetcherJob(ctx, fetches, jobs)
-			s.Log(fmt.Sprintf("Fetcher %d finished", w))
-		}(w)
-	}
-	// Start single range generator worker.
-	var rangesWG sync.WaitGroup
-	rangesWG.Add(1)
-	go func() {
-		defer rangesWG.Done()
-		for r := ranges.Front(); r != nil; r = r.Next() {
-			select {
-			case <-ctx.Done():
-				s.Log(fmt.Sprintf("Context done: %v", ctx.Err()))
-				return
-			case fetches <- r.Value.(fetchRange):
+	go func() { // Flatten the output from Fetcher jobs.
+		defer close(jobs)
+		for b := range batches {
+			for i, e := range b.entries {
+				jobs <- entryInfo{index: b.start + int64(i), entry: e}
 			}
 		}
 	}()
-	rangesWG.Wait()
-	close(fetches)
-	fetcherWG.Wait()
-	close(jobs)
-	matcherWG.Wait()
+
+	// Start matcher workers.
+	var wg sync.WaitGroup
+	for w, cnt := 0, s.opts.NumWorkers; w < cnt; w++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			s.matcherJob(jobs, foundCert, foundPrecert)
+			s.Log(fmt.Sprintf("Matcher %d finished", idx))
+		}(w)
+	}
+	if err := s.fetcher.Run(ctx, batches); err != nil {
+		return err // FIXME: What to do with wg?
+	}
+	close(batches)
+	wg.Wait()
 
 	s.Log(fmt.Sprintf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime))))
 	s.Log(fmt.Sprintf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen)))
@@ -402,18 +302,15 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 
 // NewScanner creates a Scanner instance using client to talk to the log,
 // taking configuration options from opts.
-func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
+func NewScanner(cli *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
-	scanner.logClient = client
+	scanner.opts = opts
+	scanner.fetcher = NewFetcher(cli, &scanner.opts.FetcherOptions)
+	scanner.Log = scanner.fetcher.Log
+
 	// Set a default match-everything regex if none was provided:
 	if opts.Matcher == nil {
 		opts.Matcher = &MatchAll{}
 	}
-	if opts.Quiet {
-		scanner.Log = func(msg string) {}
-	} else {
-		scanner.Log = func(msg string) { log.Print(msg) }
-	}
-	scanner.opts = opts
 	return &scanner
 }
