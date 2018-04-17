@@ -676,9 +676,6 @@ func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServe
 		return fmt.Errorf("got AddPreChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Temporary sleep to check signing
-	time.Sleep(20 * time.Second)
-
 	// Final stats check.
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
