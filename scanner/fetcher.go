@@ -37,7 +37,7 @@ type FetcherOptions struct {
 	StartIndex int64
 	EndIndex   int64
 
-	// Don't print any status messages to stdout.
+	// Don't print any status messages to default logger.
 	Quiet bool
 }
 
@@ -55,7 +55,7 @@ func DefaultFetcherOptions() *FetcherOptions {
 // Fetcher is a tool that fetches entries from a CT Log.
 type Fetcher struct {
 	// Client used to talk to the CT log instance.
-	cli *client.LogClient
+	client *client.LogClient
 	// Configuration options for this Fetcher instance.
 	opts *FetcherOptions
 
@@ -80,8 +80,8 @@ type fetchRange struct {
 
 // NewFetcher creates a Fetcher instance using client to talk to the log,
 // taking configuration options from opts.
-func NewFetcher(cli *client.LogClient, opts *FetcherOptions) *Fetcher {
-	fetcher := &Fetcher{cli: cli, opts: opts}
+func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
+	fetcher := &Fetcher{client: client, opts: opts}
 	if opts.Quiet {
 		fetcher.Log = func(msg string) {}
 	} else {
@@ -93,7 +93,7 @@ func NewFetcher(cli *client.LogClient, opts *FetcherOptions) *Fetcher {
 // Prepare caches the latest Log's STH in the Fetcher and returns it. It also
 // adjusts the entry range to fit the size of the tree.
 func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
-	sth, err := f.cli.GetSTH(ctx)
+	sth, err := f.client.GetSTH(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("GetSTH() failed: %v", err)
 	}
@@ -106,9 +106,9 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 }
 
 // Run performs fetching of the Log. Blocks until scanning is complete or
-// context is cancelled. For each successfully fetched batch, pushes it to the
-// out channel.
-func (f *Fetcher) Run(ctx context.Context, out chan<- EntryBatch) error {
+// context is cancelled. For each successfully fetched batch, runs the out
+// callback.
+func (f *Fetcher) Run(ctx context.Context, out func(EntryBatch)) error {
 	f.Log("Starting up Fetcher...\n")
 
 	if f.sth == nil {
@@ -117,7 +117,7 @@ func (f *Fetcher) Run(ctx context.Context, out chan<- EntryBatch) error {
 		}
 	}
 
-	jobs := f.genJobs(ctx)
+	ranges := f.genRanges(ctx)
 
 	// Run fetcher workers.
 	var wg sync.WaitGroup
@@ -125,7 +125,7 @@ func (f *Fetcher) Run(ctx context.Context, out chan<- EntryBatch) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			f.runWorker(ctx, jobs, out)
+			f.runWorker(ctx, ranges, out)
 			f.Log(fmt.Sprintf("Fetcher worker %d finished", idx))
 		}(w)
 	}
@@ -134,36 +134,37 @@ func (f *Fetcher) Run(ctx context.Context, out chan<- EntryBatch) error {
 	return nil
 }
 
-// getJobs returns a channel of fetching jobs, each job is a Log entry range.
-// Can be stopped using ctx.
-func (f *Fetcher) genJobs(ctx context.Context) <-chan fetchRange {
+// genRanges returns a channel of ranges to fetch, and starts a goroutine that
+// sends things down this channel. The goroutine terminates when all ranges
+// have been generated, or if context is cancelled.
+func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 	start, end := f.opts.StartIndex, f.opts.EndIndex
 	batch := int64(f.opts.BatchSize)
 
-	jobs := make(chan fetchRange)
+	ranges := make(chan fetchRange)
 	go func() {
-		defer close(jobs)
+		defer close(ranges)
 		for start < end {
 			batchEnd := min(start+batch, end)
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
-				f.Log(fmt.Sprintf("genJobs cancelled: %v", ctx.Err()))
+				f.Log(fmt.Sprintf("genRanges cancelled: %v", ctx.Err()))
 				return
-			case jobs <- next:
+			case ranges <- next:
 			}
 			start = batchEnd
 		}
 	}()
-	return jobs
+	return ranges
 }
 
-// Worker function for fetcher jobs.
-// Accepts cert ranges to fetch over the jobs channel, and if the fetch is
-// successful sends the []entryInfo slice to the batches channel. Will retry
-// failed attempts to retrieve ranges indefinitely.
-func (f *Fetcher) runWorker(ctx context.Context, jobs <-chan fetchRange, out chan<- EntryBatch) {
-	for r := range jobs {
+// runWorker is a worker function for handling fetcher ranges.
+// Accepts cert ranges to fetch over the ranges channel, and if the fetch is
+// successful sends the corresponding EntryBatch through the out callback. Will
+// retry failed attempts to retrieve ranges until the context is cancelled.
+func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, out func(EntryBatch)) {
+	for r := range ranges {
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
 		for r.start <= r.end {
@@ -172,12 +173,13 @@ func (f *Fetcher) runWorker(ctx context.Context, jobs <-chan fetchRange, out cha
 				f.Log(fmt.Sprintf("Context closed: %v", err))
 				return
 			}
-			resp, err := f.cli.GetRawEntries(ctx, r.start, r.end)
+			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
 				f.Log(fmt.Sprintf("GetRawEntries() failed: %v", err))
+				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
 				continue
 			}
-			out <- EntryBatch{start: r.start, entries: resp.Entries}
+			out(EntryBatch{start: r.start, entries: resp.Entries})
 			r.start += int64(len(resp.Entries))
 		}
 	}

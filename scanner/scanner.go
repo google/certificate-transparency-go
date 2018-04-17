@@ -60,10 +60,10 @@ func DefaultScannerOptions() *ScannerOptions {
 type Scanner struct {
 	fetcher *Fetcher
 
-	// Configuration options for this Scanner instance
+	// Configuration options for this Scanner instance.
 	opts ScannerOptions
 
-	// Counters of the number of certificates scanned and matched
+	// Counters of the number of certificates scanned and matched.
 	certsProcessed int64
 	certsMatched   int64
 
@@ -93,7 +93,7 @@ type entryInfo struct {
 // When err is nil, this method does nothing.
 func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64) bool {
 	if err == nil {
-		// No error to handle
+		// No error to handle.
 		return false
 	} else if _, ok := err.(x509.NonFatalErrors); ok {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
@@ -266,32 +266,29 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		close(stop)
 	}()
 
-	batches := make(chan EntryBatch) // Output from the Fetcher.
-	jobs := make(chan entryInfo, s.opts.BufferSize)
-	go func() { // Flatten the output from Fetcher jobs.
-		defer close(jobs)
-		for b := range batches {
-			for i, e := range b.entries {
-				jobs <- entryInfo{index: b.start + int64(i), entry: e}
-			}
-		}
-	}()
-
 	// Start matcher workers.
 	var wg sync.WaitGroup
+	entries := make(chan entryInfo, s.opts.BufferSize)
 	for w, cnt := 0, s.opts.NumWorkers; w < cnt; w++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			s.matcherJob(jobs, foundCert, foundPrecert)
+			s.matcherJob(entries, foundCert, foundPrecert)
 			s.Log(fmt.Sprintf("Matcher %d finished", idx))
 		}(w)
 	}
-	if err := s.fetcher.Run(ctx, batches); err != nil {
-		return err // FIXME: What to do with wg?
+
+	flatten := func(b EntryBatch) {
+		for i, e := range b.entries {
+			entries <- entryInfo{index: b.start + int64(i), entry: e}
+		}
 	}
-	close(batches)
-	wg.Wait()
+	err = s.fetcher.Run(ctx, flatten)
+	close(entries) // Causes matcher workers terminate.
+	wg.Wait()      // Wait until they terminate.
+	if err != nil {
+		return err
+	}
 
 	s.Log(fmt.Sprintf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime))))
 	s.Log(fmt.Sprintf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen)))
@@ -302,13 +299,13 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 
 // NewScanner creates a Scanner instance using client to talk to the log,
 // taking configuration options from opts.
-func NewScanner(cli *client.LogClient, opts ScannerOptions) *Scanner {
+func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
 	scanner.opts = opts
-	scanner.fetcher = NewFetcher(cli, &scanner.opts.FetcherOptions)
+	scanner.fetcher = NewFetcher(client, &scanner.opts.FetcherOptions)
 	scanner.Log = scanner.fetcher.Log
 
-	// Set a default match-everything regex if none was provided:
+	// Set a default match-everything regex if none was provided.
 	if opts.Matcher == nil {
 		opts.Matcher = &MatchAll{}
 	}
