@@ -39,9 +39,23 @@ if [[ "${RESULT}" != "0" ]]; then
   exit $RESULT
 fi
 
+# Set all the logs to a draining state.
+echo "Draining Logs"
+ct_setstate "${RPC_SERVER_1}" "DRAINING"
+
+# Run tests against the logs - we expect that they can now no longer
+# accept submissions.
+pushd "${INTEGRATION_DIR}"
+set +e
+go test -v -run ".*LiveDrainingCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
+RESULT=$?
+set -e
+popd
+
+
 # Now freeze all the trees that we're using in this test run
 echo "Freezing Logs"
-ct_freeze "${RPC_SERVER_1}"
+ct_setstate "${RPC_SERVER_1}" "FROZEN"
 
 # Now do extra tests on the frozen logs. If freezing failed then they will
 # still be writable and that test will fail.

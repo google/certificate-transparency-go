@@ -86,9 +86,9 @@ ct_provision() {
 
   sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.cfg > "${CT_CFG}"
 
-  echo 'Building createtree / freezetree'
+  echo 'Building createtree / updatetree'
   go build ${GOFLAGS} github.com/google/trillian/cmd/createtree/
-  go build ${GOFLAGS} github.com/google/trillian/cmd/freezetree/
+  go build ${GOFLAGS} github.com/google/trillian/cmd/updatetree/
 
   num_logs=$(grep -c '@TREE_ID@' "${CT_CFG}")
   for i in $(seq ${num_logs}); do
@@ -112,18 +112,21 @@ ct_provision() {
   echo
 }
 
-# ct_freeze freezes the logs in the configuration via the admin API.
+# ct_setstate sets the state of the trees used for the logs in the configuration
+# to a specified state via the admin API.
 # Parameters:
 #   - location of admin server instance
 # Assumes CT_TREEIDS was set by ct_provision
-ct_freeze() {
+ct_setstate() {
   local admin_server="$1"
+  local new_state="$2"
 
   for tree_id in "${CT_TREEIDS[@]}"; do
-    echo "Freezing tree with id: ${tree_id}"
-    tree_state=$(./freezetree \
+    echo "Update tree with id: ${tree_id} -> ${new_state}"
+    tree_state=$(./updatetree \
       --admin_server="${admin_server}" \
-      --tree_id="${tree_id}")
+      --tree_id="${tree_id}" \
+      --tree_state="${new_state}")
     echo "Tree ${tree_id} is ${tree_state}"
   done
 }
