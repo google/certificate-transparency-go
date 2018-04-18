@@ -156,7 +156,7 @@ func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, m
 		var err error
 		sth, err = t.client().GetSTH(ctx)
 		if t.stats != nil {
-			t.stats.done(ctfe.GetSTHName, 200)
+			t.stats.expect(ctfe.GetSTHName, 200)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to get STH: %v", err)
@@ -186,7 +186,7 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 		return fmt.Errorf("ct.LeafHashForLeaf(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
 	}
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
-	t.stats.done(ctfe.GetProofByHashName, 200)
+	t.stats.expect(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
@@ -216,7 +216,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("ct.LeafHashForLeaf(precertLeaf)=(nil,%v); want (_,nil)", err)
 	}
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
-	t.stats.done(ctfe.GetProofByHashName, 200)
+	t.stats.expect(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
@@ -233,7 +233,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 // checkPreCertEntry retrieves a pre-cert from a known index and checks it.
 func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tbs []byte) error {
 	precertEntries, err := t.client().GetEntries(ctx, precertIndex, precertIndex)
-	t.stats.done(ctfe.GetEntriesName, 200)
+	t.stats.expect(ctfe.GetEntriesName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetEntries(%d,%d)=(nil,%v); want (_,nil)", precertIndex, precertIndex, err)
 	}
@@ -281,7 +281,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 0: get accepted roots, which should just be the fake CA.
 	roots, err := t.client().GetAcceptedRoots(ctx)
-	t.stats.done(ctfe.GetRootsName, 200)
+	t.stats.expect(ctfe.GetRootsName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
 	}
@@ -291,7 +291,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 1: get the STH, which should be empty.
 	sth0, err := t.client().GetSTH(ctx)
-	t.stats.done(ctfe.GetSTHName, 200)
+	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
 	}
@@ -311,7 +311,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
 	scts[0], err = t.client().AddChain(ctx, chain[0])
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
 	}
@@ -335,7 +335,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("got re-AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
 	}
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if scts[0].Timestamp != sctCopy.Timestamp {
 		return fmt.Errorf("got sct @ %v; want @ %v", sctCopy, scts[0])
 	}
@@ -346,7 +346,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
 	scts[1], err = t.client().AddChain(ctx, chain[1])
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddChain(leaf01)=(nil,%v); want (_,nil)", err)
 	}
@@ -359,7 +359,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 4: get a consistency proof from size 1-> size 2.
 	proof12, err := t.client().GetSTHConsistency(ctx, 1, 2)
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(1, 2)=(nil,%v); want (_,nil)", err)
 	}
@@ -382,7 +382,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 4.5: get a consistency proof from size 0-> size 2, which should be empty.
 	proof02, err := t.client().GetSTHConsistency(ctx, 0, 2)
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(0, 2)=(nil,%v); want (_,nil)", err)
 	}
@@ -403,7 +403,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 			return fmt.Errorf("failed to load certificate: %v", err)
 		}
 		scts[i], err = t.client().AddChain(ctx, chain[i])
-		t.stats.done(ctfe.AddChainName, 200)
+		t.stats.expect(ctfe.AddChainName, 200)
 		if err != nil {
 			return fmt.Errorf("got AddChain(leaf%02d)=(nil,%v); want (_,nil)", i, err)
 		}
@@ -423,7 +423,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 7: get a consistency proof from 2->(1+N).
 	proof2N, err := t.client().GetSTHConsistency(ctx, 2, uint64(treeSize))
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(2, %d)=(nil,%v); want (_,nil)", treeSize, err)
 	}
@@ -434,7 +434,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 8: get entries [1, N] (start at 1 to skip int-ca.cert)
 	entries, err := t.client().GetEntries(ctx, 1, int64(count))
-	t.stats.done(ctfe.GetEntriesName, 200)
+	t.stats.expect(ctfe.GetEntriesName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetEntries(1,%d)=(nil,%v); want (_,nil)", count, err)
 	}
@@ -486,14 +486,14 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if sct, err := t.client().AddChain(ctx, corruptChain); err == nil {
 		return fmt.Errorf("got AddChain(corrupt-cert)=(%+v,nil); want (nil,error)", sct)
 	}
-	t.stats.done(ctfe.AddChainName, 400)
+	t.stats.expect(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(corrupt-cert)=nil,%v\n", t.prefix, err)
 
 	// Stage 11: attempt to upload a certificate without chain.
 	if sct, err := t.client().AddChain(ctx, chain[1][0:0]); err == nil {
 		return fmt.Errorf("got AddChain(leaf-only)=(%+v,nil); want (nil,error)", sct)
 	}
-	t.stats.done(ctfe.AddChainName, 400)
+	t.stats.expect(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(leaf-only)=nil,%v\n", t.prefix, err)
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
@@ -513,7 +513,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to build pre-certificate: %v", err)
 	}
 	precertSCT, err := t.client().AddPreChain(ctx, prechain)
-	t.stats.done(ctfe.AddPreChainName, 200)
+	t.stats.expect(ctfe.AddPreChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddPreChain()=(nil,%v); want (_,nil)", err)
 	}
@@ -540,7 +540,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if rsp, err := t.client().GetSTHConsistency(ctx, 2, 299); err == nil {
 		return fmt.Errorf("got GetSTHConsistency(2,299)=(%+v,nil); want (nil,_)", rsp)
 	}
-	t.stats.done(ctfe.GetSTHConsistencyName, 400)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 400)
 	fmt.Printf("%s: GetSTHConsistency(2,299)=(nil,_)\n", t.prefix)
 
 	// Stage 16: invalid inclusion proof; expect a client.RspError{404}.
@@ -554,7 +554,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	} else {
 		return fmt.Errorf("got GetProofByHash(wrong)=%+v (%T); want (client.RspError)", err, err)
 	}
-	t.stats.done(ctfe.GetProofByHashName, 404)
+	t.stats.expect(ctfe.GetProofByHashName, 404)
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,_)\n", t.prefix, sthN1.TreeSize)
 
 	// Stage 17: build and add a pre-certificate signed by a pre-issuer.
@@ -563,7 +563,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to build pre-issued pre-certificate: %v", err)
 	}
 	preIssuerCertSCT, err := pool.Next().AddPreChain(ctx, preIssuerChain)
-	stats.done(ctfe.AddPreChainName, 200)
+	stats.expect(ctfe.AddPreChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddPreChain()=(nil,%v); want (_,nil)", err)
 	}
@@ -641,7 +641,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 
 	// Stage 0: get accepted roots, which should just be the fake CA.
 	roots, err := t.client().GetAcceptedRoots(ctx)
-	t.stats.done(ctfe.GetRootsName, 200)
+	t.stats.expect(ctfe.GetRootsName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
 	}
@@ -651,7 +651,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 
 	// Stage 1: get the STH, which should be empty.
 	sth0, err := t.client().GetSTH(ctx)
-	t.stats.done(ctfe.GetSTHName, 200)
+	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
 	}
@@ -674,7 +674,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 			return err
 		}
 		_, err = t.client().AddChain(ctx, chain)
-		t.stats.done(ctfe.AddChainName, 200)
+		t.stats.expect(ctfe.AddChainName, 200)
 		if err != nil {
 			return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
 		}
@@ -691,7 +691,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	// Stage 4a: Get an updated STH. We'll use this point for a consistency
 	// proof later.
 	sth1, err := t.client().GetSTH(ctx)
-	t.stats.done(ctfe.GetSTHName, 200)
+	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
 	}
@@ -709,7 +709,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 
 	// Stage 5. Get a consistency proof from sth1 to sth2 and verify it.
 	proof, err := t.client().GetSTHConsistency(ctx, sth1.TreeSize, sth2.TreeSize)
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return err
 	}
@@ -725,7 +725,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
 	_, err = t.client().AddChain(ctx, chain[0])
-	t.stats.done(ctfe.AddChainName, 403)
+	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
@@ -739,14 +739,14 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 
 	// Stage 8 - Try to upload the pre-cert again and it should still give 403.
 	_, err = t.client().AddChain(ctx, chain[0])
-	t.stats.done(ctfe.AddChainName, 403)
+	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
 	// Stage 9 - Obtain latest STH and check it hasn't increased in size.
 	sth3, err := t.client().GetSTH(ctx)
-	t.stats.done(ctfe.GetSTHName, 200)
+	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
 	}
@@ -1041,7 +1041,7 @@ func newLogStats(logID int64) *logStats {
 	return &stats
 }
 
-func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
+func (ls *logStats) expect(ep ctfe.EntrypointName, rc int) {
 	if ls == nil {
 		return
 	}
