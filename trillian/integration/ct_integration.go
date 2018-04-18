@@ -645,8 +645,8 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	if err != nil {
 		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
 	}
-	if len(roots) != 1 {
-		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", len(roots))
+	if got := len(roots); got != 1 {
+		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", got)
 	}
 
 	// Stage 1: get the STH, which should be empty.
@@ -685,7 +685,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_DRAINING); err != nil {
-		return err
+		return fmt.Errorf("setTreeState(DRAINING)=%v, want: nil", err)
 	}
 
 	// Stage 4a: Get an updated STH. We'll use this point for a consistency
@@ -719,12 +719,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	fmt.Printf("%s: VerifiedConsistency(time=%q, size1=%d, size2=%d): final roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth1.TreeSize, sth2.TreeSize, sth2.SHA256RootHash)
 
 	// Stage 6. Try to submit a chain and it should be rejected with 403.
-	var chain [21][]ct.ASN1Cert
-	chain[0], err = GetChain(testdir, "int-ca.cert")
-	if err != nil {
-		return fmt.Errorf("failed to load certificate: %v", err)
-	}
-	_, err = t.client().AddChain(ctx, chain[0])
+	_, err = t.client().AddChain(ctx, caChain)
 	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
@@ -734,11 +729,11 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_FROZEN); err != nil {
-		return err
+		return fmt.Errorf("setTreeState(FROZEN)=%v, want: nil", err)
 	}
 
 	// Stage 8 - Try to upload the pre-cert again and it should still give 403.
-	_, err = t.client().AddChain(ctx, chain[0])
+	_, err = t.client().AddChain(ctx, caChain)
 	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
