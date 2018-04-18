@@ -593,12 +593,11 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	return nil
 }
 
-// RunCTLifecycleIntegrationForLog does a simple log lifecycle test. The log
+// RunCTLifecycleForLog does a simple log lifecycle test. The log
 // is assumed to be newly created when this test runs. A random number of
 // entries are then submitted to build up a queue. The log is set to
 // DRAINING state and the test checks that all the entries are integrated
 // into the tree and we can verify a consistency proof to the latest entry.
-// The tree used for testing is then marked as deleted.
 func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, adminServer string, testdir string, mmd time.Duration, stats *logStats) error {
 	// Retrieve the test data.
 	testDir := "../testdata"

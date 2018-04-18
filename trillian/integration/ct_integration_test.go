@@ -17,6 +17,7 @@ package integration
 import (
 	"context"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -30,9 +31,7 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/storage/testdb"
 
-	// Register PEMKeyFile and PrivateKey ProtoHandlers
-	"errors"
-
+	// Register PEMKeyFile and PrivateKey ProtoHandlers.
 	_ "github.com/google/trillian/crypto/keys/der/proto"
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )

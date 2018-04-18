@@ -31,14 +31,6 @@ RESULT=$?
 set -e
 popd
 
-# Initial test run failed? Clean up and exit if so
-if [[ "${RESULT}" != "0" ]]; then
-  ct_stop_test
-  TO_KILL=()
-
-  exit $RESULT
-fi
-
 ct_stop_test
 TO_KILL=()
 
