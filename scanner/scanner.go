@@ -279,12 +279,12 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 	}
 
 	flatten := func(b EntryBatch) {
-		for i, e := range b.entries {
-			entries <- entryInfo{index: b.start + int64(i), entry: e}
+		for i, e := range b.Entries {
+			entries <- entryInfo{index: b.Start + int64(i), entry: e}
 		}
 	}
 	err = s.fetcher.Run(ctx, flatten)
-	close(entries) // Causes matcher workers terminate.
+	close(entries) // Causes matcher workers to terminate.
 	wg.Wait()      // Wait until they terminate.
 	if err != nil {
 		return err

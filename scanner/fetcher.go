@@ -68,8 +68,8 @@ type Fetcher struct {
 
 // EntryBatch represents a contiguous range of entries of the Log.
 type EntryBatch struct {
-	start   int64          // LeafIndex of the first entry in the range.
-	entries []ct.LeafEntry // Entries of the range.
+	Start   int64          // LeafIndex of the first entry in the range.
+	Entries []ct.LeafEntry // Entries of the range.
 }
 
 // fetchRange represents a range of certs to fetch from a CT log.
@@ -106,9 +106,9 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 }
 
 // Run performs fetching of the Log. Blocks until scanning is complete or
-// context is cancelled. For each successfully fetched batch, runs the out
+// context is cancelled. For each successfully fetched batch, runs the fn
 // callback.
-func (f *Fetcher) Run(ctx context.Context, out func(EntryBatch)) error {
+func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	f.Log("Starting up Fetcher...\n")
 
 	if f.sth == nil {
@@ -125,7 +125,7 @@ func (f *Fetcher) Run(ctx context.Context, out func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			f.runWorker(ctx, ranges, out)
+			f.runWorker(ctx, ranges, fn)
 			f.Log(fmt.Sprintf("Fetcher worker %d finished", idx))
 		}(w)
 	}
@@ -161,9 +161,9 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 
 // runWorker is a worker function for handling fetcher ranges.
 // Accepts cert ranges to fetch over the ranges channel, and if the fetch is
-// successful sends the corresponding EntryBatch through the out callback. Will
+// successful sends the corresponding EntryBatch through the fn callback. Will
 // retry failed attempts to retrieve ranges until the context is cancelled.
-func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, out func(EntryBatch)) {
+func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn func(EntryBatch)) {
 	for r := range ranges {
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
@@ -179,7 +179,7 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, out f
 				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
 				continue
 			}
-			out(EntryBatch{start: r.start, entries: resp.Entries})
+			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
 			r.start += int64(len(resp.Entries))
 		}
 	}
