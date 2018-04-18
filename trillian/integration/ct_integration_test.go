@@ -17,7 +17,6 @@ package integration
 import (
 	"context"
 	"encoding/pem"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -47,9 +46,10 @@ var (
 	skipStats      = flag.Bool("skip_stats", false, "Skip checks of expected log statistics")
 )
 
-func commonSetup() ([]*configpb.LogConfig, error) {
+func commonSetup(t *testing.T) []*configpb.LogConfig {
+	t.Helper()
 	if *logConfig == "" {
-		return nil, errors.New("Integration test skipped as no log config provided")
+		t.Skip("Integration test skipped as no log config provided")
 	}
 	if *seed == -1 {
 		*seed = time.Now().UTC().UnixNano() & 0xFFFFFFFF
@@ -59,17 +59,14 @@ func commonSetup() ([]*configpb.LogConfig, error) {
 
 	cfgs, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read log config: %v", err)
+		t.Fatalf("Failed to read log config: %v", err)
 	}
-	return cfgs, nil
+	return cfgs
 }
 
 func TestLiveCTIntegration(t *testing.T) {
 	flag.Parse()
-	cfgs, err := commonSetup()
-	if err != nil {
-		t.Fatalf("test setup failed: %v", err)
-	}
+	cfgs := commonSetup(t)
 	for _, cfg := range cfgs {
 		cfg := cfg // capture config
 		t.Run(cfg.Prefix, func(t *testing.T) {
@@ -87,10 +84,7 @@ func TestLiveCTIntegration(t *testing.T) {
 
 func TestLiveLifecycleCTIntegration(t *testing.T) {
 	flag.Parse()
-	cfgs, err := commonSetup()
-	if err != nil {
-		t.Fatalf("test setup failed: %v", err)
-	}
+	cfgs := commonSetup(t)
 	for _, cfg := range cfgs {
 		cfg := cfg // capture config
 		t.Run(cfg.Prefix, func(t *testing.T) {
