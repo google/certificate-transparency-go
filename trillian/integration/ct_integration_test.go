@@ -38,6 +38,7 @@ import (
 )
 
 var (
+	adminServer    = flag.String("admin_server", "", "Address of log admin RPC server. Required for lifecycle test.")
 	httpServers    = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
 	metricsServers = flag.String("ct_metrics_servers", "localhost:8093", "Comma-separated list of (assumed interchangeable) metrics servers, each as address:port")
 	testDir        = flag.String("testdata_dir", "testdata", "Name of directory with test data")
@@ -85,7 +86,7 @@ func TestLiveCTIntegration(t *testing.T) {
 	}
 }
 
-func TestLiveFrozenCTIntegration(t *testing.T) {
+func TestLiveLifecycleCTIntegration(t *testing.T) {
 	flag.Parse()
 	cfgs, err := commonSetup()
 	if err != nil {
@@ -98,12 +99,8 @@ func TestLiveFrozenCTIntegration(t *testing.T) {
 			var stats *logStats
 			if !*skipStats {
 				stats = newLogStats(cfg.LogId)
-				stats, err = stats.fromServer(context.Background(), *metricsServers)
-				if err != nil {
-					t.Fatalf("failed to get stats from server: %v", err)
-				}
 			}
-			if err := RunCTIntegrationForFrozenLog(cfg, *httpServers, *metricsServers, *testDir, *mmd, stats); err != nil {
+			if err := RunCTLifecycleForLog(cfg, *httpServers, *metricsServers, *adminServer, *testDir, *mmd, stats); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
 			}
 		})

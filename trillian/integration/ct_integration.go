@@ -44,10 +44,13 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
+	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
+	"google.golang.org/genproto/protobuf/field_mask"
+	"google.golang.org/grpc"
 
 	ct "github.com/google/certificate-transparency-go"
 	keyspem "github.com/google/trillian/crypto/keys/pem"
@@ -128,6 +131,7 @@ type testInfo struct {
 	prefix         string
 	cfg            *configpb.LogConfig
 	metricsServers string
+	adminServer    string
 	stats          *logStats
 	pool           ClientPool
 }
@@ -159,7 +163,7 @@ func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, m
 		}
 	}
 	if exact && sth.TreeSize != size {
-		return nil, fmt.Errorf("sth.TreeSize=%d; want 1", sth.TreeSize)
+		return nil, fmt.Errorf("sth.TreeSize=%d; want: %d", sth.TreeSize, size)
 	}
 	return sth, nil
 }
@@ -589,13 +593,35 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	return nil
 }
 
-// RunCTIntegrationForFrozenLog tests against the log with configuration cfg,
-// with a set of comma-separated server addresses given by servers, assuming
-// that testdir holds a variety of test data files and that the log is in a
-// frozen state after the successful completion of the tests in
-// RunCTIntegrationForLog.
-// nolint: gocyclo
-func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServers, testdir string, mmd time.Duration, stats *logStats) error {
+// RunCTLifecycleIntegrationForLog does a simple log lifecycle test. The log
+// is assumed to be newly created when this test runs. A random number of
+// entries are then submitted to build up a queue. The log is set to
+// DRAINING state and the test checks that all the entries are integrated
+// into the tree and we can verify a consistency proof to the latest entry.
+// The tree used for testing is then marked as deleted.
+func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, adminServer string, testdir string, mmd time.Duration, stats *logStats) error {
+	// Retrieve the test data.
+	testDir := "../testdata"
+	caChain, err := GetChain(testDir, "int-ca.cert")
+	if err != nil {
+		return err
+	}
+	leafChain, err := GetChain(testDir, "leaf01.chain")
+	if err != nil {
+		return err
+	}
+	signer, err := MakeSigner(testDir)
+	if err != nil {
+		return err
+	}
+	leafCert, err := x509.ParseCertificate(leafChain[0].Data)
+	if err != nil {
+		return err
+	}
+	caCert, err := x509.ParseCertificate(caChain[0].Data)
+	if err != nil {
+		return err
+	}
 	ctx := context.Background()
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
@@ -605,6 +631,7 @@ func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServe
 		prefix:         cfg.Prefix,
 		cfg:            cfg,
 		metricsServers: metricsServers,
+		adminServer:    adminServer,
 		stats:          stats,
 		pool:           pool,
 	}
@@ -623,8 +650,7 @@ func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServe
 		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", len(roots))
 	}
 
-	// Stage 1: get the STH, which should not be empty. Number of entries is
-	// not fixed as a random no of certs is submitted to each log.
+	// Stage 1: get the STH, which should be empty.
 	sth0, err := t.client().GetSTH(ctx)
 	t.stats.done(ctfe.GetSTHName, 200)
 	if err != nil {
@@ -633,53 +659,110 @@ func RunCTIntegrationForFrozenLog(cfg *configpb.LogConfig, servers, metricsServe
 	if sth0.Version != 0 {
 		return fmt.Errorf("sth.Version=%v; want V1(0)", sth0.Version)
 	}
-	if sth0.TreeSize == 0 {
-		return fmt.Errorf("sth.TreeSize=%d; want >0", sth0.TreeSize)
+	if sth0.TreeSize != 0 {
+		return fmt.Errorf("sth.TreeSize=%d; want 0", sth0.TreeSize)
 	}
 	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth0.Timestamp), sth0.TreeSize, sth0.SHA256RootHash)
 
-	// Stage 2: add a single cert (the intermediate CA), get an SCT. Expect
-	// it to fail with a 403 error.
-	var scts [21]*ct.SignedCertificateTimestamp // 0=int-ca, 1-20=leaves
+	// Stage 2: add certificates 2, 3, 4, 5,...N, for some random N with
+	// at least 2000 so the queue builds up a bit.
+	atLeast := 2000
+	count := atLeast + rand.Intn(3000-atLeast)
+	fmt.Printf("%s: Starting upload of %d certificates ....\n", t.prefix, count)
+	for i := 1; i <= count; i++ {
+		chain, err := makeCertChain(leafChain, leafCert, caCert, signer, time.Now().Add(24*time.Hour))
+		if err != nil {
+			return err
+		}
+		_, err = t.client().AddChain(ctx, chain)
+		t.stats.done(ctfe.AddChainName, 200)
+		if err != nil {
+			return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
+		}
+	}
+	fmt.Printf("%s: Upload of %d certificates complete\n", t.prefix, count)
+
+	// Stage 3: Set the log to DRAINING using the admin server.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_DRAINING); err != nil {
+		return err
+	}
+
+	// Stage 4a: Get an updated STH. We'll use this point for a consistency
+	// proof later.
+	sth1, err := t.client().GetSTH(ctx)
+	t.stats.done(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+	}
+	if sth1.Version != 0 {
+		return fmt.Errorf("sth.Version=%v; want V1(0)", sth1.Version)
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth1.Timestamp), sth1.TreeSize, sth1.SHA256RootHash)
+
+	// Stage 4b: Wait for the queue to drain and everything to be integrated.
+	sth2, err := t.awaitTreeSize(context.Background(), uint64(count), true, mmd)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth2.TreeSize, sth2.SHA256RootHash)
+
+	// Stage 5. Get a consistency proof from sth1 to sth2 and verify it.
+	proof, err := t.client().GetSTHConsistency(ctx, sth1.TreeSize, sth2.TreeSize)
+	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	if err != nil {
+		return err
+	}
+	if err := checkCTConsistencyProof(sth1, sth2, proof); err != nil {
+		return err
+	}
+	fmt.Printf("%s: VerifiedConsistency(time=%q, size1=%d, size2=%d): final roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth1.TreeSize, sth2.TreeSize, sth2.SHA256RootHash)
+
+	// Stage 6. Try to submit a chain and it should be rejected with 403.
 	var chain [21][]ct.ASN1Cert
 	chain[0], err = GetChain(testdir, "int-ca.cert")
 	if err != nil {
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
-	scts[0], err = t.client().AddChain(ctx, chain[0])
+	_, err = t.client().AddChain(ctx, chain[0])
 	t.stats.done(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Stage 3: build and add a pre-certificate. Expect it to fail with a 403
-	// error.
-	chain[1], err = GetChain(testdir, "leaf01.chain")
-	if err != nil {
-		return fmt.Errorf("failed to load certificate: %v", err)
+	// Stage 7 - Set the log to FROZEN using the admin server.
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_FROZEN); err != nil {
+		return err
 	}
-	signer, err := MakeSigner(testdir)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
-	}
-	issuer, err := x509.ParseCertificate(chain[0][0].Data)
-	if err != nil {
-		return fmt.Errorf("failed to parse issuer for precert: %v", err)
-	}
-	prechain, _, err := makePrecertChain(chain[1], issuer, signer, time.Time{} /*  notAfter */)
-	if err != nil {
-		return fmt.Errorf("failed to build pre-certificate: %v", err)
-	}
-	_, err = t.client().AddPreChain(ctx, prechain)
-	t.stats.done(ctfe.AddPreChainName, 403)
+
+	// Stage 8 - Try to upload the pre-cert again and it should still give 403.
+	_, err = t.client().AddChain(ctx, chain[0])
+	t.stats.done(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
-		return fmt.Errorf("got AddPreChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+	}
+
+	// Stage 9 - Obtain latest STH and check it hasn't increased in size.
+	sth3, err := t.client().GetSTH(ctx)
+	t.stats.done(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+	}
+
+	// We know that anything queued was integrated so is should be impossible
+	// that the tree has grown.
+	if sth2.TreeSize != sth3.TreeSize {
+		return fmt.Errorf("sth3 got TreeSize=%d, want: %d", sth3.TreeSize, sth2.TreeSize)
 	}
 
 	// Final stats check.
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("unexpected stats check: %v", err)
 	}
+
 	return nil
 }
 
@@ -1034,6 +1117,33 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 	}
 	if !reflect.DeepEqual(got.rsps, ls.rsps) {
 		return fmt.Errorf("got rsps %+v; want %+v", got.rsps, ls.rsps)
+	}
+	return nil
+}
+
+func setTreeState(ctx context.Context, adminServer string, logID int64, state trillian.TreeState) error {
+	treeStateMask := &field_mask.FieldMask{
+		Paths: []string{"tree_state"},
+	}
+
+	req := &trillian.UpdateTreeRequest{
+		Tree: &trillian.Tree{
+			TreeId:    logID,
+			TreeState: state,
+		},
+		UpdateMask: treeStateMask,
+	}
+
+	conn, err := grpc.Dial(adminServer, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client := trillian.NewTrillianAdminClient(conn)
+	_, err = client.UpdateTree(ctx, req)
+	if err != nil {
+		return err
 	}
 	return nil
 }

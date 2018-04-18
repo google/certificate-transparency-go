@@ -26,10 +26,18 @@ TO_KILL+=(${CT_SERVER_PIDS[@]})
 echo "Running test(s)"
 pushd "${INTEGRATION_DIR}"
 set +e
-go test -v -run ".*LiveCT.*" --timeout=5m ./ --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
+go test -v -run ".*LiveLifecycleCT.*" --timeout=5m ./ --admin_server="${RPC_SERVER_1}" --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata
 RESULT=$?
 set -e
 popd
+
+# Initial test run failed? Clean up and exit if so
+if [[ "${RESULT}" != "0" ]]; then
+  ct_stop_test
+  TO_KILL=()
+
+  exit $RESULT
+fi
 
 ct_stop_test
 TO_KILL=()
