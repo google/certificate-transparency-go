@@ -163,13 +163,15 @@ func main() {
 	}
 
 	opts := scanner.ScannerOptions{
-		Matcher:       scanner.MatchAll{},
-		PrecertOnly:   *precertsOnly,
-		BatchSize:     *batchSize,
-		NumWorkers:    *numWorkers,
-		ParallelFetch: *parallelFetch,
-		StartIndex:    *startIndex,
-		Quiet:         *quiet,
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *batchSize,
+			ParallelFetch: *parallelFetch,
+			StartIndex:    *startIndex,
+			Quiet:         *quiet,
+		},
+		Matcher:     scanner.MatchAll{},
+		PrecertOnly: *precertsOnly,
+		NumWorkers:  *numWorkers,
 	}
 	scanner := scanner.NewScanner(fetchLogClient, opts)
 

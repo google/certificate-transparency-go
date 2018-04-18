@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -89,12 +89,14 @@ func main() {
 	}
 
 	scanOpts := scanner.ScannerOptions{
-		Matcher:       EmbeddedSCTMatcher{},
-		BatchSize:     *batchSize,
-		NumWorkers:    *numWorkers,
-		ParallelFetch: *parallelFetch,
-		StartIndex:    *startIndex,
-		Quiet:         *quiet,
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *batchSize,
+			ParallelFetch: *parallelFetch,
+			StartIndex:    *startIndex,
+			Quiet:         *quiet,
+		},
+		Matcher:    EmbeddedSCTMatcher{},
+		NumWorkers: *numWorkers,
 	}
 	s := scanner.NewScanner(logClient, scanOpts)
 

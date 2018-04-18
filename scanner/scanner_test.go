@@ -196,11 +196,13 @@ func TestScannerEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := ScannerOptions{
-		Matcher:       &MatchSubjectRegex{regexp.MustCompile(".*\\.google\\.com"), nil},
-		BatchSize:     10,
-		NumWorkers:    1,
-		ParallelFetch: 1,
-		StartIndex:    0,
+		FetcherOptions: FetcherOptions{
+			BatchSize:     10,
+			ParallelFetch: 1,
+			StartIndex:    0,
+		},
+		Matcher:    &MatchSubjectRegex{regexp.MustCompile(".*\\.google\\.com"), nil},
+		NumWorkers: 1,
 	}
 	scanner := NewScanner(logClient, opts)
 
