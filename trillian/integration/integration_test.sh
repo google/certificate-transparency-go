@@ -4,4 +4,3 @@ set -e
 
 run_test "CT integration test" "${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.sh" 1 1 1
 run_test "CT multi-server integration test" "${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.sh" 3 3 3
-run_test "CT lifecycle integration test" "${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_lifecycle_test.sh" 3 1 3

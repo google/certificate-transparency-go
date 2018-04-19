@@ -4,6 +4,8 @@
 declare -a CT_SERVER_PIDS
 CT_SERVERS=
 CT_CFG=
+CT_LIFECYCLE_CFG=
+CT_COMBINED_CFG=
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
@@ -41,7 +43,7 @@ ct_prep_test() {
     CT_METRICS_SERVERS="${CT_METRICS_SERVERS},localhost:${metrics_port}"
 
     echo "Starting CT HTTP server on localhost:${port}, metrics on localhost:${metrics_port}"
-    ./ct_server ${ETCD_OPTS} --log_config="${CT_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
+    ./ct_server ${ETCD_OPTS} --log_config="${CT_COMBINED_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
     pid=$!
     CT_SERVER_PIDS+=(${pid})
     wait_for_server_startup ${port}
@@ -75,19 +77,46 @@ ct_prep_test() {
 # Parameters:
 #   - location of admin server instance
 # Populates:
-#   - CT_CFG : configuration file for CT personality
+#   - CT_CFG           : configuration file for CT integration test
+#   - CT_LIFECYCLE_CFG : configuration file for CT lifecycle test
+#   - CT_COMBINED_CFG  : the above configs concatenated together
 ct_provision() {
   local admin_server="$1"
 
-  # Build config file with absolute paths
+  # Build config files with absolute paths
   CT_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
-
   sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.cfg > "${CT_CFG}"
+
+  CT_LIFECYCLE_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
+  sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_lifecycle_test.cfg > "${CT_LIFECYCLE_CFG}"
 
   echo 'Building createtree'
   go build ${GOFLAGS} github.com/google/trillian/cmd/createtree/
 
-  num_logs=$(grep -c '@TREE_ID@' "${CT_CFG}")
+  echo 'Provisioning Integration Logs'
+  ct_provision_cfg ${admin_server} ${CT_CFG}
+  echo 'Provisioning Lifecycle Logs'
+  ct_provision_cfg ${admin_server} ${CT_LIFECYCLE_CFG}
+
+  CT_COMBINED_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
+  cat ${CT_CFG} ${CT_LIFECYCLE_CFG} > ${CT_COMBINED_CFG}
+
+  echo "CT Integration Configuration:"
+  cat "${CT_CFG}"
+  echo "CT Lifeycle Configuration:"
+  cat "${CT_LIFECYCLE_CFG}"
+  echo
+}
+
+# ct_provision_cfg provisions trees for the logs in a specified config file.
+# Parameters:
+#   - location of admin server instance
+#   - the config file to be provisioned for
+ct_provision_cfg() {
+  local admin_server="$1"
+  local cfg="$2"
+
+  num_logs=$(grep -c '@TREE_ID@' $2)
   for i in $(seq ${num_logs}); do
     # TODO(daviddrysdale): Consider using distinct keys for each log
     tree_id=$(./createtree \
@@ -98,13 +127,9 @@ ct_provision() {
       --signature_algorithm=ECDSA)
     echo "Created tree ${tree_id}"
     # Need suffix for sed -i to cope with both GNU and non-GNU (e.g. OS X) sed.
-    sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" "${CT_CFG}"
-    rm -f "${CT_CFG}.bak"
+    sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" "$2"
+    rm -f "$2.bak"
   done
-
-  echo "CT configuration:"
-  cat "${CT_CFG}"
-  echo
 }
 
 # ct_stop_test closes the running processes for a CT tests.
