@@ -725,7 +725,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		return fmt.Errorf("got AddChain(DRAINING: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Stage 7 - Set the log state back to ACTIVE and submit again. This should
+	// Stage 7a - Set the log state back to ACTIVE and submit again. This should
 	// be accepted.
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -737,6 +737,13 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	if err != nil {
 		return fmt.Errorf("got AddChain(ACTIVE: int-ca.cert)=(nil,%v); want (_,nil)", err)
 	}
+
+	// Stage 7b: Wait for that new certificate to be integrated.
+	sthCaCert, err := t.awaitTreeSize(context.Background(), uint64(count+1), true, mmd)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sthCaCert.Timestamp), sthCaCert.TreeSize, sthCaCert.SHA256RootHash)
 
 	// Stage 8 - Set the log to FROZEN using the admin server.
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
@@ -753,7 +760,8 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		return fmt.Errorf("got AddChain(FROZEN: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Stage 10 - Obtain latest STH and check it hasn't increased in size.
+	// Stage 10 - Obtain latest STH and check it hasn't increased in size since
+	// the last submission.
 	sth3, err := t.client().GetSTH(ctx)
 	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
@@ -761,8 +769,9 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	}
 
 	// We know that anything queued was integrated so is should be impossible
-	// that the tree has grown.
-	if sth2.TreeSize != sth3.TreeSize {
+	// that the tree has grown. There is one extra certificate from the test
+	// that we could submit in Stage 7a.
+	if sth2.TreeSize+1 != sth3.TreeSize {
 		return fmt.Errorf("sth3 got TreeSize=%d, want: %d", sth3.TreeSize, sth2.TreeSize)
 	}
 
