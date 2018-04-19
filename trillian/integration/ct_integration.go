@@ -225,7 +225,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("got VerifyInclusionProofByHash(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	return nil
 }
@@ -252,7 +252,7 @@ func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tb
 		return fmt.Errorf("leaf[%d].ts.PrecertEntry differs from originally uploaded cert", precertIndex)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	return nil
 }
@@ -276,7 +276,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 0: get accepted roots, which should just be the fake CA.
@@ -325,7 +325,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth1.Timestamp), sth1.TreeSize, sth1.SHA256RootHash)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	t.checkInclusionOf(ctx, chain[0], scts[0], sth1)
 
@@ -377,7 +377,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("got CheckCTConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 4.5: get a consistency proof from size 0-> size 2, which should be empty.
@@ -390,7 +390,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("len(proof02)=%d; want 0", len(proof02))
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 5: add certificates 2, 3, 4, 5,...N, for some random N in [4,20]
@@ -410,7 +410,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Uploaded leaf02-leaf%02d to log, got SCTs\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 6: keep getting the STH until tree size becomes 1 + N (allows for int-ca.cert).
@@ -466,7 +466,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got entries [1:%d+1]\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 9: get an audit proof for each certificate we have an SCT for.
@@ -475,7 +475,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got inclusion proofs [1:%d+1]\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 10: attempt to upload a corrupt certificate.
@@ -496,7 +496,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	t.stats.expect(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(leaf-only)=nil,%v\n", t.prefix, err)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 12: build and add a pre-certificate.
@@ -588,7 +588,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Final stats check.
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	return nil
 }
@@ -636,7 +636,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	}
 
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 0: get accepted roots, which should just be the fake CA.
@@ -693,7 +693,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	sth1, err := t.client().GetSTH(ctx)
 	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
-		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+		return fmt.Errorf("got GetSTH(DRAINING)=(nil,%v); want (_,nil)", err)
 	}
 	if sth1.Version != 0 {
 		return fmt.Errorf("sth.Version=%v; want V1(0)", sth1.Version)
@@ -722,28 +722,42 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	_, err = t.client().AddChain(ctx, caChain)
 	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
-		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+		return fmt.Errorf("got AddChain(DRAINING: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Stage 7 - Set the log to FROZEN using the admin server.
+	// Stage 7 - Set the log state back to ACTIVE and submit again. This should
+	// be accepted.
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_ACTIVE); err != nil {
+		return fmt.Errorf("setTreeState(ACTIVE)=%v, want: nil", err)
+	}
+	_, err = t.client().AddChain(ctx, caChain)
+	t.stats.expect(ctfe.AddChainName, 200)
+	if err != nil {
+		return fmt.Errorf("got AddChain(ACTIVE: int-ca.cert)=(nil,%v); want (_,nil)", err)
+	}
+
+	// Stage 8 - Set the log to FROZEN using the admin server.
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_FROZEN); err != nil {
 		return fmt.Errorf("setTreeState(FROZEN)=%v, want: nil", err)
 	}
 
-	// Stage 8 - Try to upload the pre-cert again and it should still give 403.
+	// Stage 9 - Try to upload the pre-cert again and it should be rejected
+	// with FORBIDDEN status.
 	_, err = t.client().AddChain(ctx, caChain)
 	t.stats.expect(ctfe.AddChainName, 403)
 	if err == nil || !strings.Contains(err.Error(), "403") {
-		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+		return fmt.Errorf("got AddChain(FROZEN: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
 	}
 
-	// Stage 9 - Obtain latest STH and check it hasn't increased in size.
+	// Stage 10 - Obtain latest STH and check it hasn't increased in size.
 	sth3, err := t.client().GetSTH(ctx)
 	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
-		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+		return fmt.Errorf("got GetSTH(FROZEN)=(nil,%v); want (_,nil)", err)
 	}
 
 	// We know that anything queued was integrated so is should be impossible
@@ -754,7 +768,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 
 	// Final stats check.
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	return nil
