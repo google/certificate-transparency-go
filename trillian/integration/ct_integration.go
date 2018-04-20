@@ -598,9 +598,8 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 // entries are then submitted to build up a queue. The log is set to
 // DRAINING state and the test checks that all the entries are integrated
 // into the tree and we can verify a consistency proof to the latest entry.
-func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, adminServer string, testdir string, mmd time.Duration, stats *logStats) error {
+func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, adminServer string, testDir string, mmd time.Duration, stats *logStats) error {
 	// Retrieve the test data.
-	testDir := "../testdata"
 	caChain, err := GetChain(testDir, "int-ca.cert")
 	if err != nil {
 		return err
