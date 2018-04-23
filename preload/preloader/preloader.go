@@ -108,7 +108,10 @@ func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, lo
 
 func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient client.AddLogClient, precerts <-chan *ct.LogEntry) {
 	for c := range precerts {
-		sct, err := logClient.AddPreChain(ctx, c.Chain)
+		chain := make([]ct.ASN1Cert, len(c.Chain)+1)
+		chain[0] = c.Precert.Submitted
+		copy(chain[1:], c.Chain)
+		sct, err := logClient.AddPreChain(ctx, chain)
 		if err != nil {
 			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
 			recordFailure(addedCerts, c.Chain[0], err)
