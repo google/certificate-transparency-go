@@ -279,7 +279,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 				wait := c.backoff.set(backoff)
 				c.logger.Printf("Request failed, backing-off for %s: got HTTP status %s", wait, httpRsp.Status)
 			default:
-				return httpRsp, body, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
+				return httpRsp, body, fmt.Errorf("got HTTP Status %q: %q", httpRsp.Status, body)
 			}
 		}
 		if err := c.waitForBackoff(ctx); err != nil {
