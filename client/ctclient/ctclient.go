@@ -69,7 +69,7 @@ func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 	}
 	// Display the STH
 	when := ct.TimestampToTime(sth.Timestamp)
-	fmt.Printf("%v (timestamp %d): Got STH for %v log (size=%d) at %v, hash %x\n", when, sth.Timestamp, sth.Version, sth.TreeSize, *logURI, sth.SHA256RootHash)
+	fmt.Printf("%v (timestamp %d): Got STH for %v log (size=%d) at %v, hash %x\n", when, sth.Timestamp, sth.Version, sth.TreeSize, logClient.BaseURI(), sth.SHA256RootHash)
 	fmt.Printf("%v\n", signatureToString(&sth.TreeHeadSignature))
 }
 
@@ -128,7 +128,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 
 	// Display the SCT
 	when := ct.TimestampToTime(sct.Timestamp)
-	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %d (%v)\n", len(chain), sct.SCTVersion, *logURI, sct.Timestamp, when)
+	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %d (%v)\n", len(chain), sct.SCTVersion, logClient.BaseURI(), sct.Timestamp, when)
 	fmt.Printf("LogID: %x\n", sct.LogID.KeyID[:])
 	fmt.Printf("LeafHash: %x\n", leafHash)
 	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))

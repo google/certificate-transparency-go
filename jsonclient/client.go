@@ -139,6 +139,11 @@ func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 	}, nil
 }
 
+// BaseURI returns the base URI that the JSONClient makes queries to.
+func (c *JSONClient) BaseURI() string {
+	return c.uri
+}
+
 // GetAndParse makes a HTTP GET call to the given path, and attempta to parse
 // the response as a JSON representation of the rsp structure.  Returns the
 // http.Response, the body of the response, and an error.  Note that the
