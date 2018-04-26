@@ -231,8 +231,6 @@ type LogContext struct {
 	rpcClient trillian.TrillianLogClient
 	// signer signs objects
 	signer crypto.Signer
-	// rpcDeadline is the deadline that will be set on all backend RPC requests
-	rpcDeadline time.Duration
 
 	// Cache the last signature generated for an STH, to reduce re-signing
 	// and slightly reduce the chances of being able to fingerprint get-sth
