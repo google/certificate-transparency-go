@@ -80,6 +80,11 @@ var (
 	sthTXT = regexp.MustCompile(`^(\d+)\.(\d+)\.(` + base64RE + `)\.(` + base64RE + `)`)
 )
 
+// BaseURI returns a base dns: URI (cf. RFC 4501) that DNS queries will be built on.
+func (c *DNSClient) BaseURI() string {
+	return fmt.Sprintf("dns:%s", c.base)
+}
+
 // GetSTH retrieves the current STH from the log.
 func (c *DNSClient) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 	name := "sth." + c.base

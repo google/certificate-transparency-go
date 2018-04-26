@@ -37,6 +37,7 @@ type LogClient struct {
 
 // CheckLogClient is an interface that allows (just) checking of various log contents.
 type CheckLogClient interface {
+	BaseURI() string
 	GetSTH(context.Context) (*ct.SignedTreeHead, error)
 	GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error)
 	GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*ct.GetProofByHashResponse, error)
