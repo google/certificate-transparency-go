@@ -81,9 +81,12 @@ func main() {
 	// in flags). The single-backend config is converted to a multi config so
 	// they can be treated the same.
 	if len(*rpcBackend) > 0 {
-		cfg, err = readCfg(*logConfig, *rpcBackend)
+		var cfgs []*configpb.LogConfig
+		if cfgs, err = ctfe.LogConfigFromFile(*logConfig); err == nil {
+			cfg = ctfe.ToMultiLogConfig(cfgs, *rpcBackend)
+		}
 	} else {
-		cfg, err = readMultiCfg(*logConfig)
+		cfg, err = ctfe.MultiLogConfigFromFile(*logConfig)
 	}
 
 	if err != nil {
@@ -268,22 +271,4 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		mux.Handle(path, handler)
 	}
 	return nil
-}
-
-func readMultiCfg(filename string) (*configpb.LogMultiConfig, error) {
-	cfg, err := ctfe.MultiLogConfigFromFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
-}
-
-func readCfg(filename string, backendSpec string) (*configpb.LogMultiConfig, error) {
-	cfg, err := ctfe.LogConfigFromFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	return ctfe.ToMultiLogConfig(cfg, backendSpec), nil
 }
