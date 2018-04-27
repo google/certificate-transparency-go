@@ -435,7 +435,9 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 		return http.StatusInternalServerError, fmt.Errorf("failed to write response: %v", err)
 	}
 	glog.V(3).Infof("%s: %s <= SCT", c.LogPrefix, method)
-	lastSCTTimestamp.Set(float64(sct.Timestamp), strconv.FormatInt(c.logID, 10))
+	if sct.Timestamp == timeMillis {
+		lastSCTTimestamp.Set(float64(sct.Timestamp), strconv.FormatInt(c.logID, 10))
+	}
 
 	return http.StatusOK, nil
 }
