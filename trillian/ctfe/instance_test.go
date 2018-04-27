@@ -51,9 +51,9 @@ func TestSetUpInstance(t *testing.T) {
 	}
 
 	var tests = []struct {
-		desc   string
-		cfg    configpb.LogConfig
-		errStr string
+		desc    string
+		cfg     configpb.LogConfig
+		wantErr string
 	}{
 		{
 			desc: "valid",
@@ -71,7 +71,7 @@ func TestSetUpInstance(t *testing.T) {
 				Prefix:     "log",
 				PrivateKey: privKey,
 			},
-			errStr: "specify RootsPemFile",
+			wantErr: "specify RootsPemFile",
 		},
 		{
 			desc: "no-priv-key",
@@ -80,7 +80,7 @@ func TestSetUpInstance(t *testing.T) {
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 			},
-			errStr: "specify PrivateKey",
+			wantErr: "specify PrivateKey",
 		},
 		{
 			desc: "missing-root-cert",
@@ -90,7 +90,7 @@ func TestSetUpInstance(t *testing.T) {
 				RootsPemFile: []string{"../testdata/bogus.cert"},
 				PrivateKey:   privKey,
 			},
-			errStr: "failed to read trusted roots",
+			wantErr: "failed to read trusted roots",
 		},
 		{
 			desc: "missing-privkey",
@@ -100,7 +100,7 @@ func TestSetUpInstance(t *testing.T) {
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 				PrivateKey:   missingPrivKey,
 			},
-			errStr: "failed to load private key",
+			wantErr: "failed to load private key",
 		},
 		{
 			desc: "privkey-wrong-password",
@@ -110,7 +110,7 @@ func TestSetUpInstance(t *testing.T) {
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 				PrivateKey:   wrongPassPrivKey,
 			},
-			errStr: "failed to load private key",
+			wantErr: "failed to load private key",
 		},
 		{
 			desc: "valid-ekus-1",
@@ -141,7 +141,7 @@ func TestSetUpInstance(t *testing.T) {
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStomping"},
 			},
-			errStr: "unknown extended key usage",
+			wantErr: "unknown extended key usage",
 		},
 		{
 			desc: "invalid-ekus-2",
@@ -152,7 +152,7 @@ func TestSetUpInstance(t *testing.T) {
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"Any "},
 			},
-			errStr: "unknown extended key usage",
+			wantErr: "unknown extended key usage",
 		},
 	}
 
@@ -160,15 +160,15 @@ func TestSetUpInstance(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			if _, err := SetUpInstance(ctx, nil, &test.cfg, opts); err != nil {
-				if test.errStr == "" {
+				if test.wantErr == "" {
 					t.Errorf("SetUpInstance()=_,%v; want _,nil", err)
-				} else if !strings.Contains(err.Error(), test.errStr) {
-					t.Errorf("SetUpInstance()=_,%v; want err containing %q", err, test.errStr)
+				} else if !strings.Contains(err.Error(), test.wantErr) {
+					t.Errorf("SetUpInstance()=_,%v; want err containing %q", err, test.wantErr)
 				}
 				return
 			}
-			if test.errStr != "" {
-				t.Errorf("SetUpInstance()=_,nil; want err containing %q", test.errStr)
+			if test.wantErr != "" {
+				t.Errorf("SetUpInstance()=_,nil; want err containing %q", test.wantErr)
 			}
 		})
 	}
@@ -268,13 +268,13 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 
 func TestValidateLogMultiConfig(t *testing.T) {
 	var tests = []struct {
-		desc   string
-		cfg    configpb.LogMultiConfig
-		errStr string
+		desc    string
+		cfg     configpb.LogMultiConfig
+		wantErr string
 	}{
 		{
-			desc:   "missing-backend-name",
-			errStr: "empty backend name",
+			desc:    "missing-backend-name",
+			wantErr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -285,8 +285,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "missing-backend-spec",
-			errStr: "empty backend_spec",
+			desc:    "missing-backend-spec",
+			wantErr: "empty backend_spec",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -297,8 +297,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "missing-backend-name-and-spec",
-			errStr: "empty backend name",
+			desc:    "missing-backend-name-and-spec",
+			wantErr: "empty backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -309,8 +309,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "dup-backend-name",
-			errStr: "duplicate backend name",
+			desc:    "dup-backend-name",
+			wantErr: "duplicate backend name",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -322,8 +322,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "dup-backend-spec",
-			errStr: "duplicate backend spec",
+			desc:    "dup-backend-spec",
+			wantErr: "duplicate backend spec",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -335,8 +335,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "missing-backend-reference",
-			errStr: "empty backend",
+			desc:    "missing-backend-reference",
+			wantErr: "empty backend",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -351,8 +351,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "undefined-backend-reference",
-			errStr: "undefined backend",
+			desc:    "undefined-backend-reference",
+			wantErr: "undefined backend",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -367,8 +367,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "empty-log-prefix",
-			errStr: "empty prefix",
+			desc:    "empty-log-prefix",
+			wantErr: "empty prefix",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -387,8 +387,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "dup-log-prefix",
-			errStr: "duplicate prefix",
+			desc:    "dup-log-prefix",
+			wantErr: "duplicate prefix",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -405,8 +405,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "dup-log-ids-on-same-backend",
-			errStr: "dup tree id",
+			desc:    "dup-log-ids-on-same-backend",
+			wantErr: "dup tree id",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -423,8 +423,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "start-timestamp-invalid",
-			errStr: "invalid start",
+			desc:    "start-timestamp-invalid",
+			wantErr: "invalid start",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -445,8 +445,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "limit-timestamp-invalid",
-			errStr: "invalid limit",
+			desc:    "limit-timestamp-invalid",
+			wantErr: "invalid limit",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -467,8 +467,8 @@ func TestValidateLogMultiConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:   "limit-before-start",
-			errStr: "before start",
+			desc:    "limit-before-start",
+			wantErr: "before start",
 			cfg: configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
@@ -582,12 +582,12 @@ func TestValidateLogMultiConfig(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			_, err := ValidateLogMultiConfig(&test.cfg)
-			if len(test.errStr) == 0 && err != nil {
+			if len(test.wantErr) == 0 && err != nil {
 				t.Fatalf("ValidateLogMultiConfig()=%v, want: nil", err)
 			}
 
-			if len(test.errStr) > 0 && (err == nil || !strings.Contains(err.Error(), test.errStr)) {
-				t.Errorf("ValidateLogMultiConfig()=%v, want: %v", err, test.errStr)
+			if len(test.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), test.wantErr)) {
+				t.Errorf("ValidateLogMultiConfig()=%v, want: %v", err, test.wantErr)
 			}
 		})
 	}
