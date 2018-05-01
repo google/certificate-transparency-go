@@ -45,7 +45,7 @@ var (
 	startIndex = flag.Int64("start_index", 0, "CT log index to start scanning at")
 	endIndex   = flag.Int64("end_index", 0, "CT log index to end scanning at (non-inclusive, 0 = end of log)")
 
-	quiet = flag.Bool("quiet", true, "Don't print out extra logging messages")
+	verbose = flag.Bool("verbose", false, "Print out extra logging messages")
 )
 
 // trillianTreeClient is a means of communicating with a Trillian log tree.
@@ -84,7 +84,7 @@ func logEntrySubmitter(ctx context.Context, c trillianTreeClient, batches <-chan
 	for b := range batches {
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		err := c.addSequencedLeaves(ctx, &b)
-		if *quiet {
+		if !*verbose {
 			continue
 		}
 		end := b.Start + int64(len(b.Entries))
@@ -122,7 +122,7 @@ func main() {
 		ParallelFetch: *ctFetchers,
 		StartIndex:    *startIndex,
 		EndIndex:      *endIndex,
-		Quiet:         *quiet,
+		Quiet:         !*verbose,
 	}
 	fetcher := scanner.NewFetcher(ctClient, opts)
 
