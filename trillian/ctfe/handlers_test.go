@@ -1732,9 +1732,10 @@ func logLeavesForCert(t *testing.T, certs []*x509.Certificate, merkleLeaf *ct.Me
 		t.Fatalf("failed to serialize leaf: %v", err)
 	}
 
-	leafIDHash := sha256.Sum256(certs[0].Raw)
+	raw := extractRawCerts(certs)
+	leafIDHash := sha256.Sum256(raw[0].Data)
 
-	extraData, err := extraDataForChain(certs, isPrecert)
+	extraData, err := extraDataForChain(raw[0], raw[1:], isPrecert)
 	if err != nil {
 		t.Fatalf("failed to serialize extra data: %v", err)
 	}

@@ -58,11 +58,8 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 
 	for i, certBytes := range rawChain {
 		cert, err := x509.ParseCertificate(certBytes)
-		if err != nil {
-			_, ok := err.(x509.NonFatalErrors)
-			if !ok {
-				return nil, err
-			}
+		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+			return nil, err
 		}
 
 		chain = append(chain, cert)

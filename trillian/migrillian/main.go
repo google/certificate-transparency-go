@@ -19,7 +19,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -50,24 +49,21 @@ var (
 
 // trillianTreeClient is a means of communicating with a Trillian log tree.
 type trillianTreeClient struct {
-	client trillian.TrillianLogClient
-	logID  int64
+	client    trillian.TrillianLogClient
+	logID     int64
+	logPrefix string
 }
 
 // addSequencedLeaves converts a batch of CT log entries into Trillian log
 // leaves and submits them to Trillian via AddSequencedLeaves API.
 func (c *trillianTreeClient) addSequencedLeaves(ctx context.Context, b *scanner.EntryBatch) error {
+	// TODO(pavelkalinnikov): Verify range inclusion against the remote STH.
 	leaves := make([]*trillian.LogLeaf, len(b.Entries))
 	for i, e := range b.Entries {
-		logEntry, err := toLogEntry(b.Start+int64(i), &e)
-		if err != nil {
-			return fmt.Errorf("failed to build LogEntry: %v", err)
+		var err error
+		if leaves[i], err = buildLogLeaf(c.logPrefix, b.Start+int64(i), &e); err != nil {
+			return err
 		}
-		leaf, err := buildLogLeaf(logEntry)
-		if err != nil {
-			return fmt.Errorf("failed to build LogLeaf: %v", err)
-		}
-		leaves[i] = leaf
 	}
 
 	req := trillian.AddSequencedLeavesRequest{LogId: c.logID, Leaves: leaves}
@@ -92,9 +88,9 @@ func logEntrySubmitter(ctx context.Context, c trillianTreeClient, batches <-chan
 		}
 		end := b.Start + int64(len(b.Entries))
 		if err != nil {
-			log.Printf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
+			glog.Infof("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
-			log.Printf("Added batch [%d, %d)\n", b.Start, end)
+			glog.Errorf("Added batch [%d, %d)\n", b.Start, end)
 		}
 	}
 }
@@ -117,7 +113,7 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
-		log.Fatalf("Failed to create client for source log: %v", err)
+		glog.Exitf("Failed to create client for source log: %v", err)
 	}
 
 	opts := &scanner.FetcherOptions{
@@ -132,7 +128,7 @@ func main() {
 	bufferSize := 10 * *parallelSubmit
 	batches := make(chan scanner.EntryBatch, bufferSize)
 
-	fmt.Println("Dialing Trillian...")
+	glog.Infof("Dialing Trillian...")
 	conn, err := grpc.Dial(*trillianURI,
 		grpc.WithInsecure(), grpc.WithBlock(),
 		grpc.WithTimeout(5*time.Second), grpc.FailOnNonTempDialError(true),
@@ -141,11 +137,12 @@ func main() {
 		glog.Exitf("Could not dial Trillian server %q: %v", *trillianURI, err)
 	}
 	defer conn.Close()
-	fmt.Println("Connected to Trillian.")
+	glog.Infof("Connected to Trillian")
 
 	treeClient := trillianTreeClient{
-		client: trillian.NewTrillianLogClient(conn),
-		logID:  *logID,
+		client:    trillian.NewTrillianLogClient(conn),
+		logID:     *logID,
+		logPrefix: fmt.Sprintf("%d", *logID),
 	}
 
 	ctx := context.Background()

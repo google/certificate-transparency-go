@@ -15,66 +15,37 @@
 package main
 
 import (
-	"crypto/sha256"
+	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
-
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 )
 
-func toLogEntry(index int64, entry *ct.LeafEntry) (*ct.LogEntry, error) {
+func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
 	logEntry, err := ct.LogEntryFromLeaf(index, entry)
 	if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
-		return nil, fmt.Errorf("failed to parse [pre-]certificate: %v", err)
+		return nil, fmt.Errorf("failed to build LogEntry: %v", err)
 	}
-	return logEntry, nil
-}
+	// TODO(pavelkalinnikov): Verify the cert chain.
 
-func buildLogLeaf(entry *ct.LogEntry) (*trillian.LogLeaf, error) {
-	leafData, err := tls.Marshal(entry.Leaf)
+	var cert ct.ASN1Cert
+	isPrecert := false
+	switch {
+	case logEntry.X509Cert != nil:
+		cert = ct.ASN1Cert{Data: logEntry.X509Cert.Raw}
+	case logEntry.Precert != nil:
+		isPrecert = true
+		cert = logEntry.Precert.Submitted
+	default:
+		return nil, errors.New("neither cert nor pre-cert")
+	}
+
+	leaf, err := ctfe.BuildLogLeaf(logPrefix, logEntry.Leaf, logEntry.Index, cert, logEntry.Chain, isPrecert)
 	if err != nil {
-		glog.Warningf("Failed to serialize Merkle leaf: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to build LogLeaf: %v", err)
 	}
-
-	var raw []byte
-	var extra interface{}
-
-	if entry.Precert != nil {
-		raw = entry.Precert.TBSCertificate.Raw
-		// For a precert, the extra data is a TLS-encoded PrecertChainEntry.
-		extra = ct.PrecertChainEntry{
-			PreCertificate:   entry.Precert.Submitted,
-			CertificateChain: entry.Chain,
-		}
-	} else {
-		raw = entry.X509Cert.Raw
-		// For a certificate, the extra data is a TLS-encoded:
-		//   ASN.1Cert certificate_chain<0..2^24-1>;
-		// containing the chain after the leaf.
-		extra = ct.CertificateChain{
-			Entries: entry.Chain,
-		}
-	}
-
-	extraData, err := tls.Marshal(extra)
-	if err != nil {
-		glog.Warningf("Failed to serialize chain for ExtraData: %v", err)
-		return nil, err
-	}
-
-	// leafIDHash allows Trillian to detect duplicate entries, so this should be
-	// a hash over the cert data.
-	leafIDHash := sha256.Sum256(raw)
-
-	return &trillian.LogLeaf{
-		LeafValue:        leafData,
-		ExtraData:        extraData,
-		LeafIndex:        entry.Index,
-		LeafIdentityHash: leafIDHash[:],
-	}, nil
+	return &leaf, nil
 }
