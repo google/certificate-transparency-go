@@ -79,7 +79,7 @@ func (c *trillianTreeClient) addSequencedLeaves(ctx context.Context, b *scanner.
 }
 
 // logEntrySubmitter is a worker function which takes CT log entry batches from
-// the channel and processes them. Terminates when the channel is closed.
+// the channel and submits them to Trillian. Returns when the channel is closed.
 func logEntrySubmitter(ctx context.Context, c trillianTreeClient, batches <-chan scanner.EntryBatch) {
 	for b := range batches {
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
@@ -89,9 +89,9 @@ func logEntrySubmitter(ctx context.Context, c trillianTreeClient, batches <-chan
 		}
 		end := b.Start + int64(len(b.Entries))
 		if err != nil {
-			glog.Infof("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
+			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
-			glog.Errorf("Added batch [%d, %d)\n", b.Start, end)
+			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
 		}
 	}
 }
