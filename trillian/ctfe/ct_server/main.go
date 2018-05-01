@@ -32,6 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
+	"github.com/google/trillian/monitoring/opencensus"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
@@ -56,6 +57,9 @@ var (
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	tracing            = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
+	tracingProjectID   = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
+	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
 )
 
 func main() {
@@ -195,7 +199,16 @@ func main() {
 	go awaitSignal(func() {
 		os.Exit(1)
 	})
-	server := http.Server{Addr: *httpEndpoint, Handler: nil}
+
+	// If we're enabling tracing we need to use an instrumented http.Handler.
+	var handler http.Handler
+	if *tracing {
+		handler, err = opencensus.EnableHTTPServerTracing(*tracingProjectID, *tracingPercent)
+		if err != nil {
+			glog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
+		}
+	}
+	server := http.Server{Addr: *httpEndpoint, Handler: handler}
 	err = server.ListenAndServe()
 	glog.Warningf("Server exited: %v", err)
 	glog.Flush()
