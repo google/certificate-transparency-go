@@ -37,14 +37,15 @@ var (
 	trillianURI = flag.String("trillian_uri", "localhost:8091", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
-	batchSize      = flag.Int("batch_size", 512, "Max number of entries to request per get-entries call")
-	parallelFetch  = flag.Int("parallel_fetch", 2, "Number of concurrent get-entries fetchers")
-	parallelSubmit = flag.Int("parallel_submit", 2, "Number of concurrent AddSequencedLeaves submitters")
+	ctBatchSize      = flag.Int("ct_batch_size", 512, "Max number of entries to request per get-entries call")
+	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
+	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
+	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
 
 	startIndex = flag.Int64("start_index", 0, "CT log index to start scanning at")
 	endIndex   = flag.Int64("end_index", 0, "CT log index to end scanning at (non-inclusive, 0 = end of log)")
 
-	quiet = flag.Bool("quiet", false, "Don't print out extra logging messages")
+	quiet = flag.Bool("quiet", true, "Don't print out extra logging messages")
 )
 
 // trillianTreeClient is a means of communicating with a Trillian log tree.
@@ -117,27 +118,28 @@ func main() {
 	}
 
 	opts := &scanner.FetcherOptions{
-		BatchSize:     *batchSize,
-		ParallelFetch: *parallelFetch,
+		BatchSize:     *ctBatchSize,
+		ParallelFetch: *ctFetchers,
 		StartIndex:    *startIndex,
 		EndIndex:      *endIndex,
 		Quiet:         *quiet,
 	}
 	fetcher := scanner.NewFetcher(ctClient, opts)
 
-	bufferSize := 10 * *parallelSubmit
+	bufferSize := *submitterBatches * *submitters
 	batches := make(chan scanner.EntryBatch, bufferSize)
 
-	glog.Infof("Dialing Trillian...")
+	glog.Info("Dialing Trillian...")
 	conn, err := grpc.Dial(*trillianURI,
 		grpc.WithInsecure(), grpc.WithBlock(),
 		grpc.WithTimeout(5*time.Second), grpc.FailOnNonTempDialError(true),
+		// TODO(pavelkalinnikov): Make the timeout configurable.
 	)
 	if err != nil {
 		glog.Exitf("Could not dial Trillian server %q: %v", *trillianURI, err)
 	}
 	defer conn.Close()
-	glog.Infof("Connected to Trillian")
+	glog.Info("Connected to Trillian")
 
 	treeClient := trillianTreeClient{
 		client:    trillian.NewTrillianLogClient(conn),
@@ -147,7 +149,7 @@ func main() {
 
 	ctx := context.Background()
 	var wg sync.WaitGroup
-	for w := 0; w < *parallelSubmit; w++ {
+	for w, cnt := 0, *submitters; w < cnt; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
