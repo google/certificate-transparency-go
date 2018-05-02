@@ -14,6 +14,8 @@
 
 package merkletree
 
+// TODO(pavelkalinnikov): Get rid of this file, use Trillian instead.
+
 import (
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -46,6 +48,7 @@ func (h TreeHasher) HashChildren(left, right []byte) []byte {
 	return h.fn(append(append([]byte{ct.TreeNodePrefix}, left...), right...))
 }
 
+// Size is the number of bits in the underlying hash function.
 func (h TreeHasher) Size() int {
-	return 256
+	return len(h.EmptyRoot()) * 8
 }
