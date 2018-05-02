@@ -18,7 +18,7 @@ import (
 	"github.com/google/trillian/merkle"
 )
 
-// LogVerifier verifies inclusion and consistency proofs for append only logs.
+// MerkleVerifier verifies inclusion and consistency proofs for append only logs.
 // TODO(pavelkalinnikov): Get rid of it and use Trillian code directly.
 type MerkleVerifier = merkle.LogVerifier
 
