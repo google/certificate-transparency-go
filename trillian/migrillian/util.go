@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 )
@@ -43,7 +43,7 @@ func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian
 		return nil, errors.New("neither cert nor pre-cert")
 	}
 
-	leaf, err := ctfe.BuildLogLeaf(logPrefix, logEntry.Leaf, logEntry.Index, cert, logEntry.Chain, isPrecert)
+	leaf, err := util.BuildLogLeaf(logPrefix, logEntry.Leaf, logEntry.Index, cert, logEntry.Chain, isPrecert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build LogLeaf: %v", err)
 	}
