@@ -212,8 +212,8 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 			hash := sha256.Sum256(data)
 			return hash[:]
 		})
-		if err := verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
-			log.Fatalf("Failed to VerifyInclusionProofByHash(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+		if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
+			log.Fatalf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
 	}

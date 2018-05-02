@@ -31,8 +31,9 @@ const (
 	sha256EmptyTreeHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
-func verifierCheck(v *MerkleVerifier, leafIndex, treeSize int64, proof [][]byte, root []byte, leaf []byte) error {
+func verifierCheck(v MerkleVerifier, leafIndex, treeSize int64, proof [][]byte, root []byte, leaf []byte) error {
 	// Verify original inclusion proof
+	leaf = hashLeaf(leaf)
 	got, err := v.RootFromInclusionProof(leafIndex, treeSize, proof, leaf)
 	if err != nil {
 		return err
@@ -209,11 +210,15 @@ func verifierConsistencyCheck(v *MerkleVerifier, snapshot1, snapshot2 int64, roo
 	return nil
 }
 
-func getVerifier() MerkleVerifier {
-	return NewMerkleVerifier(func(b []byte) []byte {
-		h := sha256.Sum256(b)
-		return h[:]
-	})
+func hash(b []byte) []byte {
+	h := sha256.Sum256(b)
+	return h[:]
+}
+
+func hashLeaf(b []byte) []byte {
+	h := NewTreeHasher(hash)
+	res, _ := h.HashLeaf(b)
+	return res
 }
 
 type proofTestVector struct {
@@ -319,7 +324,7 @@ func getConsistencyProofs() []consistencyTestVector {
 }
 
 func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
-	v := getVerifier()
+	v := NewMerkleVerifier(hash)
 	// Serialized MerkleTreeLeaf from test-cert.pem and test-cert.proof
 	certFile := "../testdata/test-cert.pem"
 	sctFile := "../testdata/test-cert.proof"
@@ -344,38 +349,38 @@ func TestVerifyInclusionProofTreeSizeOne(t *testing.T) {
 		t.Fatalf("Failed to serialize x509 leaf: %v", err)
 	}
 	// Test output from a real CT instance.
-	if err := verifierCheck(&v, 0, 1, [][]byte{}, dh("04a64b64631b0270d6d204168cd24d0b24b6220c1e5a7efa616ded165bb702e6"), data); err != nil {
+	if err := verifierCheck(v, 0, 1, [][]byte{}, dh("04a64b64631b0270d6d204168cd24d0b24b6220c1e5a7efa616ded165bb702e6"), data); err != nil {
 		t.Fatalf("i=%s: %s", "test-cert", err)
 	}
 }
 
 func TestVerifyInclusionProof(t *testing.T) {
-	v := getVerifier()
+	v := NewMerkleVerifier(hash)
 	path := [][]byte{}
 	// Various invalid paths
-	if err := v.VerifyInclusionProof(0, 0, path, []byte{}, []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(0, 0, path, []byte{}, []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid path 1")
 	}
-	if err := v.VerifyInclusionProof(0, 1, path, []byte{}, []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(0, 1, path, []byte{}, []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid path 2")
 	}
-	if err := v.VerifyInclusionProof(1, 0, path, []byte{}, []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(1, 0, path, []byte{}, []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid path 3")
 	}
-	if err := v.VerifyInclusionProof(2, 1, path, []byte{}, []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(2, 1, path, []byte{}, []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid path 4")
 	}
 
-	if err := v.VerifyInclusionProof(0, 0, path, dh(sha256EmptyTreeHash), []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(0, 0, path, dh(sha256EmptyTreeHash), []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid root 1")
 	}
-	if err := v.VerifyInclusionProof(0, 1, path, dh(sha256EmptyTreeHash), []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(0, 1, path, dh(sha256EmptyTreeHash), []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid root 2")
 	}
-	if err := v.VerifyInclusionProof(1, 0, path, dh(sha256EmptyTreeHash), []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(1, 0, path, dh(sha256EmptyTreeHash), []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid root 3")
 	}
-	if err := v.VerifyInclusionProof(2, 1, path, dh(sha256EmptyTreeHash), []byte{}); err == nil {
+	if err := v.VerifyInclusionProof(2, 1, path, dh(sha256EmptyTreeHash), []byte{1}); err == nil {
 		t.Fatal("Incorrectly verified invalid root 4")
 	}
 
@@ -391,7 +396,7 @@ func TestVerifyInclusionProof(t *testing.T) {
 		for j := int64(0); j < inclusionProofs[i].proofLength; j++ {
 			proof = append(proof, inclusionProofs[i].proof[j].h)
 		}
-		err := verifierCheck(&v, inclusionProofs[i].leaf-1, inclusionProofs[i].snapshot, proof,
+		err := verifierCheck(v, inclusionProofs[i].leaf-1, inclusionProofs[i].snapshot, proof,
 			roots[inclusionProofs[i].snapshot-1].h,
 			inputs[inclusionProofs[i].leaf-1].h)
 		if err != nil {
@@ -402,7 +407,7 @@ func TestVerifyInclusionProof(t *testing.T) {
 }
 
 func TestVerifyConsistencyProof(t *testing.T) {
-	v := getVerifier()
+	v := NewMerkleVerifier(hash)
 
 	proof := [][]byte{}
 	root1 := []byte("don't care")

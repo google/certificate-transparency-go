@@ -83,12 +83,12 @@ func TestCollisionEmptyHashZeroLengthLeaf(t *testing.T) {
 	th := getTreeHasher()
 
 	// Check that the empty hash is not the same as the hash of an empty leaf.
-	leaf1Digest := th.HashEmpty()
+	leaf1Digest := th.EmptyRoot()
 	if got, want := len(leaf1Digest), digestSize; got != want {
 		t.Fatalf("Empty digest has length %d, but expected %d", got, want)
 	}
 
-	leaf2Digest := th.HashLeaf([]byte{})
+	leaf2Digest, _ := th.HashLeaf([]byte{})
 	if got, want := len(leaf2Digest), digestSize; got != want {
 		t.Fatalf("Empty leaf digest has length %d, but expected %d", got, want)
 	}
@@ -105,12 +105,12 @@ func TestCollisionDifferentLeaves(t *testing.T) {
 	const leaf1 = "Hello"
 	const leaf2 = "World"
 
-	leaf1Digest := th.HashLeaf([]byte(leaf1))
+	leaf1Digest, _ := th.HashLeaf([]byte(leaf1))
 	if got, want := len(leaf1Digest), digestSize; got != want {
 		t.Fatalf("Got unexpected leaf1 digest size %d, expected %d", got, want)
 	}
 
-	leaf2Digest := th.HashLeaf([]byte(leaf2))
+	leaf2Digest, _ := th.HashLeaf([]byte(leaf2))
 	if got, want := len(leaf2Digest), digestSize; got != want {
 		t.Fatalf("Got unexpected leaf2 digest size %d, expected %d", got, want)
 	}
@@ -127,7 +127,7 @@ func TestCollisionDifferentLeaves(t *testing.T) {
 
 	// Check that this is not the same as a leaf hash of their concatenation.
 	image := append(leaf1Digest, leaf2Digest...)
-	node2Digest := th.HashLeaf(image)
+	node2Digest, _ := th.HashLeaf(image)
 	if got, want := len(node2Digest), digestSize; got != want {
 		t.Fatalf("Got unexpected node2Digest size %d, expected %d", got, want)
 	}

@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -193,7 +193,7 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 	if err != nil {
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
-	if err := merkleVerifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
+	if err := merkleVerifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil

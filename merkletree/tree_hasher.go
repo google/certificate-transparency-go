@@ -14,34 +14,38 @@
 
 package merkletree
 
-import ct "github.com/google/certificate-transparency-go"
+import (
+	ct "github.com/google/certificate-transparency-go"
+)
 
 // HasherFunc takes a slice of bytes and returns a cryptographic hash of those bytes.
 type HasherFunc func([]byte) []byte
 
 // TreeHasher performs the various hashing operations required when manipulating MerkleTrees.
 type TreeHasher struct {
-	hasher HasherFunc
+	fn HasherFunc
 }
 
 // NewTreeHasher returns a new TreeHasher based on the passed in hash.
 func NewTreeHasher(h HasherFunc) *TreeHasher {
-	return &TreeHasher{
-		hasher: h,
-	}
+	return &TreeHasher{h}
 }
 
-// HashEmpty returns the hash of the empty string.
-func (h TreeHasher) HashEmpty() []byte {
-	return h.hasher([]byte{})
+// EmptyRoot returns the hash of an empty tree.
+func (h TreeHasher) EmptyRoot() []byte {
+	return h.fn([]byte{})
 }
 
 // HashLeaf returns the hash of the passed in leaf, after applying domain separation.
-func (h TreeHasher) HashLeaf(leaf []byte) []byte {
-	return h.hasher(append([]byte{ct.TreeLeafPrefix}, leaf...))
+func (h TreeHasher) HashLeaf(leaf []byte) ([]byte, error) {
+	return h.fn(append([]byte{ct.TreeLeafPrefix}, leaf...)), nil
 }
 
 // HashChildren returns the merkle hash of the two passed in children.
 func (h TreeHasher) HashChildren(left, right []byte) []byte {
-	return h.hasher(append(append([]byte{ct.TreeNodePrefix}, left...), right...))
+	return h.fn(append(append([]byte{ct.TreeNodePrefix}, left...), right...))
+}
+
+func (h TreeHasher) Size() int {
+	return 256
 }
