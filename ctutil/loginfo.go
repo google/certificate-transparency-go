@@ -28,8 +28,9 @@ import (
 	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 // LogInfo holds the objects needed to perform per-log verification and
@@ -121,12 +122,6 @@ func logInfoByKeyHash(ll *loglist.LogList, hc *http.Client, infoFactory func(*lo
 	return result, nil
 }
 
-// merkleVerifier is used to verify Merkle tree calculations.
-var merkleVerifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
-})
-
 // LastSTH returns the last STH known for the log.
 func (li *LogInfo) LastSTH() *ct.SignedTreeHead {
 	li.mu.RLock()
@@ -193,7 +188,9 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 	if err != nil {
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
-	if err := merkleVerifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
+
+	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
+	if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil

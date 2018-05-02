@@ -34,9 +34,10 @@ import (
 	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (
@@ -208,10 +209,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	}
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
-		verifier := merkletree.NewMerkleVerifier(func(data []byte) []byte {
-			hash := sha256.Sum256(data)
-			return hash[:]
-		})
+		verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 		if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
 			log.Fatalf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
@@ -269,10 +267,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 		return
 	}
 	// We have tree hashes so we can verify the proof.
-	verifier := merkletree.NewMerkleVerifier(func(data []byte) []byte {
-		hash := sha256.Sum256(data)
-		return hash[:]
-	})
+	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	if err := verifier.VerifyConsistencyProof(first, second, prevHash, treeHash, proof); err != nil {
 		log.Fatalf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}

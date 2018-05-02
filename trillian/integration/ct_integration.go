@@ -39,7 +39,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
@@ -47,6 +46,8 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 	"google.golang.org/genproto/protobuf/field_mask"
@@ -83,10 +84,7 @@ var DefaultTransport = &http.Transport{
 }
 
 // Verifier is used to verify Merkle tree calculations.
-var Verifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
-})
+var Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
 
 // ClientPool describes an entity which produces LogClient instances.
 type ClientPool interface {
