@@ -53,7 +53,7 @@ func BuildLogLeaf(logPrefix string,
 	}, nil
 }
 
-// extraDataForChain creates the extra data associated with a log entry as
+// ExtraDataForChain creates the extra data associated with a log entry as
 // described in RFC6962 section 4.6.
 func ExtraDataForChain(cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool) ([]byte, error) {
 	var extra interface{}
