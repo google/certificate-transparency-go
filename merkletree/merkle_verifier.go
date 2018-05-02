@@ -18,8 +18,8 @@ import (
 	"github.com/google/trillian/merkle"
 )
 
-// TODO(pavelkalinnikov): Get rid of these and use Trillian code directly.
-type RootMismatchError = merkle.RootMismatchError
+// LogVerifier verifies inclusion and consistency proofs for append only logs.
+// TODO(pavelkalinnikov): Get rid of it and use Trillian code directly.
 type MerkleVerifier = merkle.LogVerifier
 
 // NewMerkleVerifier returns a new MerkleVerifier for a tree based on the
