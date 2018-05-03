@@ -35,6 +35,7 @@ import (
 	"github.com/google/trillian/monitoring/opencensus"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/naming"
@@ -153,13 +154,23 @@ func main() {
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
 	}
 
+	// Allow cross-origin requests to all handlers registered on corsMux.
+	// This is safe for CT log handlers because the log is public and
+	// unauthenticated so cross-site scripting attacks are not a concern.
+	corsMux := http.NewServeMux()
+	corsHandler := cors.AllowAll().Handler(corsMux)
+	http.Handle("/", corsHandler)
+
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c); err != nil {
+		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux); err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 	}
+
+	// Return a 200 on the root, for GCE default health checking :/
+	corsMux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
 
 	if metricsAt != *httpEndpoint {
 		// Run a separate handler for metrics.
@@ -174,9 +185,6 @@ func main() {
 		// Handle metrics on the DefaultServeMux.
 		http.Handle("/metrics", promhttp.Handler())
 	}
-
-	// Return a 200 on the root, for GCE default health checking :/
-	http.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
 
 	if *getSTHInterval > 0 {
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
@@ -208,8 +216,8 @@ func main() {
 			glog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
 		}
 	}
-	server := http.Server{Addr: *httpEndpoint, Handler: handler}
-	err = server.ListenAndServe()
+
+	err = http.ListenAndServe(*httpEndpoint, handler)
 	glog.Warningf("Server exited: %v", err)
 	glog.Flush()
 }
@@ -229,14 +237,14 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig) error {
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
 	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
 		return err
 	}
 	for path, handler := range *handlers {
-		http.Handle(path, handler)
+		mux.Handle(path, handler)
 	}
 	return nil
 }
