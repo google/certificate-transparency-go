@@ -25,12 +25,13 @@ type HasherFunc func([]byte) []byte
 
 // TreeHasher performs the various hashing operations required when manipulating MerkleTrees.
 type TreeHasher struct {
-	fn HasherFunc
+	fn   HasherFunc
+	size int
 }
 
 // NewTreeHasher returns a new TreeHasher based on the passed in hash.
 func NewTreeHasher(h HasherFunc) *TreeHasher {
-	return &TreeHasher{h}
+	return &TreeHasher{fn: h}
 }
 
 // EmptyRoot returns the hash of an empty tree.
@@ -48,7 +49,10 @@ func (h TreeHasher) HashChildren(left, right []byte) []byte {
 	return h.fn(append(append([]byte{ct.TreeNodePrefix}, left...), right...))
 }
 
-// Size is the number of bits in the underlying hash function.
+// Size is the number of bytes in the underlying hash function.
 func (h TreeHasher) Size() int {
-	return len(h.EmptyRoot()) * 8
+	if h.size <= 0 {
+		h.size = len(h.EmptyRoot())
+	}
+	return h.size
 }
