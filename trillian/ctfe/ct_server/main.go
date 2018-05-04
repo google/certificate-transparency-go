@@ -170,7 +170,13 @@ func main() {
 	}
 
 	// Return a 200 on the root, for GCE default health checking :/
-	corsMux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) { resp.WriteHeader(http.StatusOK) })
+	corsMux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/" {
+			resp.WriteHeader(http.StatusOK)
+		} else {
+			resp.WriteHeader(http.StatusNotFound)
+		}
+	})
 
 	if metricsAt != *httpEndpoint {
 		// Run a separate handler for metrics.
