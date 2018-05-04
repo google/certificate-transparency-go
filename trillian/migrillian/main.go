@@ -16,11 +16,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -29,12 +27,13 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/trillian"
 )
 
 var (
 	ctLogURI    = flag.String("ct_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-	trillianURI = flag.String("trillian_uri", "localhost:8091", "Trillian log server URI to add entries to")
+	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
 	ctBatchSize      = flag.Int("ct_batch_size", 512, "Max number of entries to request per get-entries call")
@@ -48,56 +47,22 @@ var (
 	verbose = flag.Bool("verbose", false, "Print out extra logging messages")
 )
 
-// trillianTreeClient is a means of communicating with a Trillian log tree.
-type trillianTreeClient struct {
-	client    trillian.TrillianLogClient
-	logID     int64
-	logPrefix string
-}
-
-// addSequencedLeaves converts a batch of CT log entries into Trillian log
-// leaves and submits them to Trillian via AddSequencedLeaves API.
-func (c *trillianTreeClient) addSequencedLeaves(ctx context.Context, b *scanner.EntryBatch) error {
-	// TODO(pavelkalinnikov): Verify range inclusion against the remote STH.
-	leaves := make([]*trillian.LogLeaf, len(b.Entries))
-	for i, e := range b.Entries {
-		var err error
-		if leaves[i], err = buildLogLeaf(c.logPrefix, b.Start+int64(i), &e); err != nil {
-			return err
-		}
-	}
-
-	req := trillian.AddSequencedLeavesRequest{LogId: c.logID, Leaves: leaves}
-	rsp, err := c.client.AddSequencedLeaves(ctx, &req)
-	if err != nil {
-		return fmt.Errorf("AddSequencedLeaves(): %v", err)
-	} else if rsp == nil {
-		return errors.New("missing AddSequencedLeaves response")
-	}
-	// TODO(pavelkalinnikov): Check rsp.Results statuses.
-	return nil
-}
-
-// logEntrySubmitter is a worker function which takes CT log entry batches from
-// the channel and submits them to Trillian. Returns when the channel is closed.
-func logEntrySubmitter(ctx context.Context, c trillianTreeClient, batches <-chan scanner.EntryBatch) {
-	for b := range batches {
-		// TODO(pavelkalinnikov): Retry with backoff on errors.
-		err := c.addSequencedLeaves(ctx, &b)
-		if !*verbose {
-			continue
-		}
-		end := b.Start + int64(len(b.Entries))
-		if err != nil {
-			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
-		} else {
-			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
-		}
-	}
-}
-
 func main() {
 	flag.Parse()
+
+	opts := core.Options{
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *ctBatchSize,
+			ParallelFetch: *ctFetchers,
+			StartIndex:    *startIndex,
+			EndIndex:      *endIndex,
+			Quiet:         !*verbose,
+		},
+
+		Submitters:          *submitters,
+		BatchesPerSubmitter: *submitterBatches,
+	}
+	ctrl := core.NewController(opts)
 
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   30 * time.Second,
@@ -114,22 +79,10 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
-		glog.Exitf("Failed to create client for source log: %v", err)
+		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
 	}
+	glog.Info("Created CT client")
 
-	opts := &scanner.FetcherOptions{
-		BatchSize:     *ctBatchSize,
-		ParallelFetch: *ctFetchers,
-		StartIndex:    *startIndex,
-		EndIndex:      *endIndex,
-		Quiet:         !*verbose,
-	}
-	fetcher := scanner.NewFetcher(ctClient, opts)
-
-	bufferSize := *submitterBatches * *submitters
-	batches := make(chan scanner.EntryBatch, bufferSize)
-
-	glog.Info("Dialing Trillian...")
 	conn, err := grpc.Dial(*trillianURI,
 		grpc.WithInsecure(), grpc.WithBlock(),
 		grpc.WithTimeout(5*time.Second), grpc.FailOnNonTempDialError(true),
@@ -141,30 +94,15 @@ func main() {
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	treeClient := trillianTreeClient{
-		client:    trillian.NewTrillianLogClient(conn),
-		logID:     *logID,
-		logPrefix: fmt.Sprintf("%d", *logID),
+	treeClient := &core.TrillianTreeClient{
+		Client:    trillian.NewTrillianLogClient(conn),
+		LogID:     *logID,
+		LogPrefix: fmt.Sprintf("%d", *logID),
 	}
 
 	ctx := context.Background()
-	var wg sync.WaitGroup
-	for w, cnt := 0, *submitters; w < cnt; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			logEntrySubmitter(ctx, treeClient, batches)
-		}()
-	}
-
-	handler := func(b scanner.EntryBatch) {
-		batches <- b
-	}
-	err = fetcher.Run(ctx, handler)
-	close(batches)
-	wg.Wait()
-
+	err = ctrl.Run(ctx, ctClient, treeClient)
 	if err != nil {
-		glog.Exitf("Fetcher.Run() returned error: %v", err)
+		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
 }
