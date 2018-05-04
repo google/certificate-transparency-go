@@ -21,9 +21,10 @@ if [[ ! "${configmaps}" =~ "ctfe-configmap" ]]; then
   echo "Ensure you have a PEM file containing all the roots your log should accept."
   echo "and a working CTFE configuration file, then create a CTFE configmap by"
   echo "running the following command:"
-  echo "  kubectl create configmap \\"
-  echo "     --from-file=roots=path/to/ctfe-configmap.yaml \\"
-  echo "     --from-file=ctfe-config-file=path/to/ct_server.cfg"
+  echo "  kubectl create configmap ctfe-configmap \\"
+  echo "     --from-file=roots=path/to/all-roots.pem \\"
+  echo "     --from-file=ctfe-config-file=path/to/ct_server.cfg \\"
+  echo "     --from-literal=cloud-project=${PROJECT_NAME_CI}"
   exit 1
 fi
 
