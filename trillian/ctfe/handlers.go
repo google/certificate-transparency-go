@@ -723,8 +723,10 @@ func getRoots(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http
 	return http.StatusOK, nil
 }
 
-// See RFC 6962 Section 4.8. This is mostly used for debug purposes rather than by normal
-// CT clients.
+// See RFC 6962 Section 4.8. This is mostly used for debug purposes rather than
+// by normal CT clients.
+// TODO(pavelkalinnikov): This is actually very useful for computing hash of a
+// log prefix.
 func getEntryAndProof(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Ensure both numeric params are present and look reasonable.
 	leafIndex, treeSize, err := parseGetEntryAndProofParams(r)

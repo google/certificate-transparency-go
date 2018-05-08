@@ -57,20 +57,6 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	ctx := context.Background()
 
-	opts := core.Options{
-		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     *ctBatchSize,
-			ParallelFetch: *ctFetchers,
-			StartIndex:    *startIndex,
-			EndIndex:      *endIndex,
-			Continuous:    *mirror,
-		},
-
-		Submitters:          *submitters,
-		BatchesPerSubmitter: *submitterBatches,
-	}
-	ctrl := core.NewController(opts)
-
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   30 * time.Second,
 		DisableKeepAlives:     false,
@@ -80,11 +66,14 @@ func main() {
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-
-	ctClient, err := client.New(*ctLogURI, &http.Client{
+	// TODO(pavelkalinnikov): Share this between multiple CT clients.
+	httpClient := &http.Client{
 		Timeout:   10 * time.Second,
 		Transport: transport,
-	}, jsonclient.Options{})
+	}
+
+	// TODO(pavelkalinnikov): Use PublicKey option to verify the log's signatures.
+	ctClient, err := client.New(*ctLogURI, httpClient, jsonclient.Options{})
 	if err != nil {
 		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
 	}
@@ -100,15 +89,30 @@ func main() {
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	treeClient := &core.TrillianTreeClient{
-		Client:    trillian.NewTrillianLogClient(conn),
-		LogID:     *logID,
-		LogPrefix: fmt.Sprintf("%d", *logID),
+	trClient, err := core.NewTrillianTreeClient(ctx,
+		trillian.NewTrillianAdminClient(conn),
+		trillian.NewTrillianLogClient(conn),
+		*logID, fmt.Sprintf("%d", *logID))
+	if err != nil {
+		glog.Exitf("Failed to create TrillianTreeClient: %v", err)
 	}
+
+	opts := core.Options{
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *ctBatchSize,
+			ParallelFetch: *ctFetchers,
+			StartIndex:    *startIndex,
+			EndIndex:      *endIndex,
+			Continuous:    *mirror,
+		},
+		Submitters:          *submitters,
+		BatchesPerSubmitter: *submitterBatches,
+	}
+	ctrl := core.NewController(opts, ctClient, trClient)
 
 	cctx, cancel = core.WithSignalCancel(ctx)
 	defer cancel()
-	if err := ctrl.Run(cctx, ctClient, treeClient); err != nil {
+	if err := ctrl.Run(cctx); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
 }
