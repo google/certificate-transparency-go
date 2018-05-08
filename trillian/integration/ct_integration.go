@@ -39,7 +39,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
@@ -47,6 +46,8 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 	"google.golang.org/genproto/protobuf/field_mask"
@@ -83,10 +84,7 @@ var DefaultTransport = &http.Transport{
 }
 
 // Verifier is used to verify Merkle tree calculations.
-var Verifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
-})
+var Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
 
 // ClientPool describes an entity which produces LogClient instances.
 type ClientPool interface {
@@ -190,8 +188,8 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
-	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProofByHash(%d, %d,...)=%v", 0, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
 }
@@ -221,8 +219,8 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
-	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProofByHash(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("stats check failed: %v", err)
