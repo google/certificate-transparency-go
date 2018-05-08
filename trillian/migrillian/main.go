@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Migrillian tool transfers certs from CT logs to Trillian pre-ordered logs in
+// the same order.
 package main
 
 import (
