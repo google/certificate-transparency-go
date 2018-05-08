@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -32,6 +33,8 @@ import (
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/trillian"
+	"github.com/google/trillian/util/election"
+	"github.com/google/trillian/util/etcd"
 )
 
 var (
@@ -39,6 +42,10 @@ var (
 	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key")
 	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
+
+	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
+	etcdServers = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
+	lockDir     = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
 
 	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 10, "Max idle HTTP connections per host (0 = DefaultMaxIdleConnsPerHost)")
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
@@ -54,6 +61,7 @@ var (
 	mirror     = flag.Bool("mirror", false, "Run migration continuously")
 )
 
+// TODO(pavelkalinnikov): Split main() into smaller self-contained functions.
 func main() {
 	flag.Parse()
 	glog.CopyStandardLogTo("WARNING")
@@ -117,12 +125,15 @@ func main() {
 		Submitters:          *submitters,
 		BatchesPerSubmitter: *submitterBatches,
 	}
-	ctrl := core.NewController(opts, ctClient, plClient)
+
+	factory, closeFn := getElectionFactory()
+	defer closeFn()
+	ctrl := core.NewController(opts, ctClient, plClient, factory)
 
 	cctx, cancel = core.WithSignalCancel(ctx)
 	defer cancel()
-	if err := ctrl.Run(cctx); err != nil {
-		glog.Exitf("Controller.Run() returned error: %v", err)
+	if err := ctrl.RunWithElection(cctx); err != nil {
+		glog.Exitf("Controller.RunWithElection() returned: %v", err)
 	}
 }
 
@@ -136,4 +147,31 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 	log := trillian.NewTrillianLogClient(conn)
 	pref := fmt.Sprintf("%d", *logID)
 	return core.NewPreorderedLogClient(log, tree, pref)
+}
+
+func getElectionFactory() (factory election.Factory, closeFn func()) {
+	closeFn = func() {}
+	if *forceMaster {
+		glog.Warning("Acting as master for all logs")
+		return nil, closeFn
+	}
+	if len(*etcdServers) == 0 {
+		glog.Exit("Either --force_master or --etcd_servers must be supplied")
+	}
+
+	cli, err := etcd.NewClient(*etcdServers)
+	if err != nil || cli == nil {
+		glog.Exitf("Failed to create etcd client: %v", err)
+	}
+	closeFn = func() {
+		if err := cli.Close(); err != nil {
+			glog.Warningf("etcd client Close(): %v", err)
+		}
+	}
+
+	hostname, _ := os.Hostname()
+	instanceID := fmt.Sprintf("%s.%d", hostname, os.Getpid())
+	factory = etcd.NewElectionFactory(instanceID, cli, *lockDir)
+
+	return factory, closeFn
 }
