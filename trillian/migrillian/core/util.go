@@ -15,7 +15,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -40,7 +39,7 @@ func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian
 		isPrecert = true
 		cert = logEntry.Precert.Submitted
 	default:
-		return nil, errors.New("neither cert nor pre-cert")
+		return nil, fmt.Errorf("entry at %d is neither cert nor pre-cert", index)
 	}
 
 	leaf, err := util.BuildLogLeaf(logPrefix, logEntry.Leaf, logEntry.Index, cert, logEntry.Chain, isPrecert)

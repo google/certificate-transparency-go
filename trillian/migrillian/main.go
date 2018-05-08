@@ -36,6 +36,10 @@ var (
 	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
+	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 10, "Max idle HTTP connections per host (0 = DefaultMaxIdleConnsPerHost)")
+	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
+	dialTimeout         = flag.Duration("grpc_dial_timeout", 5*time.Second, "Timeout for dialling Trillian")
+
 	ctBatchSize      = flag.Int("ct_batch_size", 512, "Max number of entries to request per get-entries call")
 	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
 	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
@@ -49,6 +53,7 @@ var (
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 
 	opts := core.Options{
 		FetcherOptions: scanner.FetcherOptions{
@@ -66,11 +71,11 @@ func main() {
 
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   30 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		MaxIdleConnsPerHost:   10,
 		DisableKeepAlives:     false,
-		MaxIdleConns:          100,
+		MaxIdleConns:          *maxIdleConns,
+		MaxIdleConnsPerHost:   *maxIdleConnsPerHost,
 		IdleConnTimeout:       90 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
@@ -83,11 +88,10 @@ func main() {
 	}
 	glog.Info("Created CT client")
 
-	conn, err := grpc.Dial(*trillianURI,
-		grpc.WithInsecure(), grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second), grpc.FailOnNonTempDialError(true),
-		// TODO(pavelkalinnikov): Make the timeout configurable.
-	)
+	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
+	conn, err := grpc.DialContext(cctx, *trillianURI,
+		grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
+	cancel()
 	if err != nil {
 		glog.Exitf("Could not dial Trillian server %q: %v", *trillianURI, err)
 	}
@@ -100,7 +104,7 @@ func main() {
 		LogPrefix: fmt.Sprintf("%d", *logID),
 	}
 
-	ctx := context.Background()
+	// TODO(pavelkalinnikov): Make ctx cancellable via os/signal.
 	err = ctrl.Run(ctx, ctClient, treeClient)
 	if err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
