@@ -342,7 +342,7 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	for _, der := range addChainReq.Chain {
 		c.RequestLog.AddDERToChain(ctx, der)
 	}
-	chain, err := verifyAddChain(c, addChainReq, w, isPrecert)
+	chain, err := verifyAddChain(c, addChainReq, isPrecert)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to verify add-chain contents: %v", err)
 	}
@@ -358,7 +358,7 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %v", err)
 	}
-	leaf, err := buildLogLeafForAddChain(c, *merkleLeaf, chain)
+	leaf, err := buildLogLeafForAddChain(c, *merkleLeaf, chain, isPrecert)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %v", err)
 	}
@@ -789,7 +789,7 @@ func getRPCDeadlineTime(c *LogContext) time.Time {
 // cert is of the correct type and chains to a trusted root.
 // TODO(Martin2112): This may not implement all the RFC requirements. Check what is provided
 // by fixchain (called by this code) plus the ones here to make sure that it is compliant.
-func verifyAddChain(c *LogContext, req ct.AddChainRequest, w http.ResponseWriter, expectingPrecert bool) ([]*x509.Certificate, error) {
+func verifyAddChain(c *LogContext, req ct.AddChainRequest, expectingPrecert bool) ([]*x509.Certificate, error) {
 	// We already checked that the chain is not empty so can move on to verification
 	validPath, err := ValidateChain(req.Chain, c.validationOpts)
 	if err != nil {
@@ -816,72 +816,21 @@ func verifyAddChain(c *LogContext, req ct.AddChainRequest, w http.ResponseWriter
 	return validPath, nil
 }
 
-// buildLogLeafForAddChain is also used by add-pre-chain and does the hashing to build a
-// LogLeaf that will be sent to the backend
-func buildLogLeafForAddChain(c *LogContext, merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate) (trillian.LogLeaf, error) {
-	leafData, err := tls.Marshal(merkleLeaf)
-	if err != nil {
-		glog.Warningf("%s: Failed to serialize Merkle leaf: %v", c.LogPrefix, err)
-		return trillian.LogLeaf{}, err
+func extractRawCerts(chain []*x509.Certificate) []ct.ASN1Cert {
+	raw := make([]ct.ASN1Cert, len(chain))
+	for i, cert := range chain {
+		raw[i] = ct.ASN1Cert{Data: cert.Raw}
 	}
-
-	isPrecert, err := IsPrecertificate(chain[0])
-	if err != nil {
-		glog.Warningf("%s: Failed to determine if cert or pre-cert: %v", c.LogPrefix, err)
-		return trillian.LogLeaf{}, err
-	}
-
-	extraData, err := extraDataForChain(chain, isPrecert)
-	if err != nil {
-		glog.Warningf("%s: Failed to serialize chain for ExtraData: %v", c.LogPrefix, err)
-		return trillian.LogLeaf{}, err
-	}
-
-	// leafIDHash allows Trillian to detect duplicate entries, so this should be
-	// a hash over the cert data.
-	leafIDHash := sha256.Sum256(chain[0].Raw)
-
-	return trillian.LogLeaf{
-		LeafIdentityHash: leafIDHash[:],
-		LeafValue:        leafData,
-		ExtraData:        extraData,
-	}, nil
+	return raw
 }
 
-// extraDataForChain creates the extra data associated with a log entry as described in
-// RFC6962 section 4.6.
-func extraDataForChain(chain []*x509.Certificate, isPrecert bool) ([]byte, error) {
-	var extraData []byte
-	var err error
-	if isPrecert {
-		// For a pre-certificate, the extra data is a TLS-encoded PrecertChainEntry.
-		extra := ct.PrecertChainEntry{
-			PreCertificate:   ct.ASN1Cert{Data: chain[0].Raw},
-			CertificateChain: make([]ct.ASN1Cert, len(chain)-1),
-		}
-		for i := 1; i < len(chain); i++ {
-			extra.CertificateChain[i-1] = ct.ASN1Cert{Data: chain[i].Raw}
-		}
-		extraData, err = tls.Marshal(extra)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// For a certificate, the extra data is a TLS-encoded:
-		//   ASN.1Cert certificate_chain<0..2^24-1>;
-		// containing the chain after the leaf.
-		extra := ct.CertificateChain{
-			Entries: make([]ct.ASN1Cert, len(chain)-1),
-		}
-		for i := 1; i < len(chain); i++ {
-			extra.Entries[i-1] = ct.ASN1Cert{Data: chain[i].Raw}
-		}
-		extraData, err = tls.Marshal(extra)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return extraData, nil
+// buildLogLeafForAddChain does the hashing to build a LogLeaf that will be
+// sent to the backend by add-chain and add-pre-chain endpoints.
+func buildLogLeafForAddChain(c *LogContext,
+	merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate, isPrecert bool,
+) (trillian.LogLeaf, error) {
+	raw := extractRawCerts(chain)
+	return util.BuildLogLeaf(c.LogPrefix, merkleLeaf, 0, raw[0], raw[1:], isPrecert)
 }
 
 // marshalAndWriteAddChainResponse is used by add-chain and add-pre-chain to create and write
