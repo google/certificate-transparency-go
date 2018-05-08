@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package core provides transport-agnostic implementation of Migrillian tool.
 package core
 
 import (
