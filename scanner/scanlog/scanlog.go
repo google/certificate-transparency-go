@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	logURI = flag.String("log_uri", "http://ct.googleapis.com/aviator", "CT log base URI")
+	logURI = flag.String("log_uri", "https://ct.googleapis.com/aviator", "CT log base URI")
 
 	matchSubjectRegex = flag.String("match_subject_regex", ".*", "Regex to match CN/SAN")
 	matchIssuerRegex  = flag.String("match_issuer_regex", "", "Regex to match in issuer CN")

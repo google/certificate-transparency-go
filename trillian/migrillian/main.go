@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	ctLogURI    = flag.String("ct_log_uri", "http://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+	ctLogURI    = flag.String("ct_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
 	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
