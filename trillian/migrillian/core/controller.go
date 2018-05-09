@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
@@ -32,6 +33,9 @@ type Options struct {
 	scanner.FetcherOptions
 	Submitters          int
 	BatchesPerSubmitter int
+
+	Continuous bool
+	FetchPause time.Duration
 }
 
 // Controller coordinates migration from a CT log to a Trillian tree.
@@ -55,7 +59,8 @@ func NewController(opts Options) *Controller {
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
-// log via the other client.
+// log via the other client. If dontStop is true then the migration process
+// runs continuously trying to keep up with the CT log.
 func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClient *TrillianTreeClient) error {
 	var wg sync.WaitGroup
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
@@ -65,15 +70,37 @@ func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClie
 			c.runSubmitter(ctx, trClient)
 		}()
 	}
+	defer func() {
+		close(c.batches)
+		wg.Wait()
+	}()
 
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
 	}
-	fetcher := scanner.NewFetcher(ctClient, &c.opts.FetcherOptions)
-	err := fetcher.Run(ctx, handler)
-	close(c.batches)
-	wg.Wait()
-	return err
+	for {
+		// TODO(pavelkalinnikov): Refactor Fetcher so that it doesn't have to spin
+		// up workers all over again on each iteration.
+		fetcher := scanner.NewFetcher(ctClient, &c.opts.FetcherOptions)
+		if err := fetcher.Run(ctx, handler); err != nil {
+			return err
+		}
+		if !c.opts.Continuous {
+			break
+		}
+
+		// TODO(pavelkalinnikov): Backoff exponentially here based on whether
+		// newRoot.TreeSize == oldRoot.TreeSize.
+		timer := time.NewTimer(c.opts.FetchPause)
+		select {
+		case <-timer.C: // Run the next fetching iteration.
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		c.opts.StartIndex, c.opts.EndIndex = c.opts.EndIndex, 0
+	}
+
+	return nil
 }
 
 // runSubmitter obtaines CT log entry batches from the controller's channel and
