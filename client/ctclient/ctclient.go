@@ -45,7 +45,7 @@ var (
 	useDNS    = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
 	logName   = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
 	logList   = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
-	logURI    = flag.String("log_uri", "http://ct.googleapis.com/rocketeer", "CT log base URI")
+	logURI    = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
 	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
 	certChain = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
@@ -361,7 +361,6 @@ func main() {
 			}
 			log.Fatalf("Multiple logs with name like %q found in loglist: %s", *logName, strings.Join(logNames, ","))
 		}
-		// TODO(drysdale): what if a log is http:// only?
 		uri = "https://" + logs[0].URL
 		if *useDNS {
 			dns = logs[0].DNSAPIEndpoint
