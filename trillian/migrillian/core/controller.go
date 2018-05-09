@@ -59,8 +59,8 @@ func NewController(opts Options) *Controller {
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
-// log via the other client. If dontStop is true then the migration process
-// runs continuously trying to keep up with the CT log.
+// log via the other client. If Options.Continuous is true then the migration
+// process runs continuously trying to keep up with the target CT log.
 func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClient *TrillianTreeClient) error {
 	var wg sync.WaitGroup
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
