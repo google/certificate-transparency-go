@@ -106,9 +106,9 @@ func main() {
 		LogPrefix: fmt.Sprintf("%d", *logID),
 	}
 
-	// TODO(pavelkalinnikov): Make ctx cancellable via os/signal.
-	err = ctrl.Run(ctx, ctClient, treeClient)
-	if err != nil {
+	cctx, cancel = core.WithSignalCancel(ctx)
+	defer cancel()
+	if err = ctrl.Run(cctx, ctClient, treeClient); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
 }

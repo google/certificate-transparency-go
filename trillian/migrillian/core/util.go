@@ -15,8 +15,13 @@
 package core
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -47,4 +52,26 @@ func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian
 		return nil, fmt.Errorf("failed to build LogLeaf: %v", err)
 	}
 	return &leaf, nil
+}
+
+// WithSignalCancel acts like context.WithCancel(), but it also automatically
+// invokes cancel if a termination signal (SIGINT/SIGTERM) is received by the
+// process.
+func WithSignalCancel(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		// Subscribe for the standard set of signals used to terminate a server.
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sigs)
+
+		// Wait for a signal or explicit context cancellation.
+		select {
+		case sig := <-sigs:
+			glog.Warningf("Signal received: %v", sig)
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
 }
