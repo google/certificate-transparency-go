@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
@@ -33,9 +32,6 @@ type Options struct {
 	scanner.FetcherOptions
 	Submitters          int
 	BatchesPerSubmitter int
-
-	Continuous bool
-	FetchPause time.Duration
 }
 
 // Controller coordinates migration from a CT log to a Trillian tree.
@@ -78,29 +74,8 @@ func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClie
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
 	}
-	for {
-		// TODO(pavelkalinnikov): Refactor Fetcher so that it doesn't have to spin
-		// up workers all over again on each iteration.
-		fetcher := scanner.NewFetcher(ctClient, &c.opts.FetcherOptions)
-		if err := fetcher.Run(ctx, handler); err != nil {
-			return err
-		}
-		if !c.opts.Continuous {
-			break
-		}
-
-		// TODO(pavelkalinnikov): Backoff exponentially here based on whether
-		// newRoot.TreeSize == oldRoot.TreeSize.
-		timer := time.NewTimer(c.opts.FetchPause)
-		select {
-		case <-timer.C: // Run the next fetching iteration.
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-		c.opts.StartIndex, c.opts.EndIndex = c.opts.EndIndex, 0
-	}
-
-	return nil
+	fetcher := scanner.NewFetcher(ctClient, &c.opts.FetcherOptions)
+	return fetcher.Run(ctx, handler)
 }
 
 // runSubmitter obtaines CT log entry batches from the controller's channel and

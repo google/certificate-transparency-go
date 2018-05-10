@@ -49,9 +49,7 @@ var (
 
 	startIndex = flag.Int64("start_index", 0, "CT log index to start scanning at")
 	endIndex   = flag.Int64("end_index", 0, "CT log index to end scanning at (non-inclusive, 0 = end of log)")
-
 	mirror     = flag.Bool("mirror", false, "Run migration continuously")
-	fetchPause = flag.Duration("fetch_pause", 10*time.Second, "Pause between fetching iterations")
 
 	verbose = flag.Bool("verbose", false, "Print out extra logging messages")
 )
@@ -66,13 +64,12 @@ func main() {
 			ParallelFetch: *ctFetchers,
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
+			Continuous:    *mirror,
 			Quiet:         !*verbose,
 		},
 
 		Submitters:          *submitters,
 		BatchesPerSubmitter: *submitterBatches,
-		Continuous:          *mirror,
-		FetchPause:          *fetchPause,
 	}
 	ctrl := core.NewController(opts)
 
@@ -113,12 +110,7 @@ func main() {
 
 	cctx, cancel = core.WithSignalCancel(ctx)
 	defer cancel()
-	err = ctrl.Run(cctx, ctClient, treeClient)
-	switch err {
-	case context.Canceled:
-		glog.Warning("Controller stopped by signal")
-	case nil: // No error, skip.
-	default:
+	if err := ctrl.Run(cctx, ctClient, treeClient); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
 }
