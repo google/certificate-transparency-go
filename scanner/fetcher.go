@@ -64,7 +64,7 @@ type Fetcher struct {
 	// Current STH of the Log this Fetcher sends queries to.
 	sth *ct.SignedTreeHead
 
-	Logger *log.Logger
+	logger *log.Logger
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -83,11 +83,10 @@ type fetchRange struct {
 // taking configuration options from opts.
 func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
 	fetcher := &Fetcher{client: client, opts: opts}
-
 	if opts.Quiet {
-		fetcher.Logger = log.New(ioutil.Discard, "", 0)
+		fetcher.logger = log.New(ioutil.Discard, "", 0)
 	} else {
-		fetcher.Logger = log.New(os.Stderr, "", log.LstdFlags)
+		fetcher.logger = log.New(os.Stderr, "", log.LstdFlags)
 	}
 	return fetcher
 }
@@ -99,10 +98,10 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GetSTH() failed: %v", err)
 	}
-	f.Logger.Printf("Got STH with %d certs", sth.TreeSize)
-	if f.opts.EndIndex == 0 || f.opts.EndIndex > int64(sth.TreeSize) {
-		f.opts.EndIndex = int64(sth.TreeSize)
-		f.Logger.Printf("Reset EndIndex to %d", f.opts.EndIndex)
+	f.logger.Printf("Got STH with %d certs", sth.TreeSize)
+	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size {
+		f.logger.Printf("Reset EndIndex from %d to %d", f.opts.EndIndex, size)
+		f.opts.EndIndex = size
 	}
 	f.sth = sth
 	return sth, nil
@@ -112,7 +111,7 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 // context is cancelled. For each successfully fetched batch, runs the fn
 // callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
-	f.Logger.Println("Starting up Fetcher...")
+	f.logger.Println("Starting up Fetcher...")
 
 	if f.sth == nil {
 		if _, err := f.Prepare(ctx); err != nil {
@@ -128,9 +127,9 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			f.Logger.Printf("Starting Fetcher worker %d", idx)
+			f.logger.Printf("Starting Fetcher worker %d", idx)
 			f.runWorker(ctx, ranges, fn)
-			f.Logger.Printf("Fetcher worker %d finished", idx)
+			f.logger.Printf("Fetcher worker %d finished", idx)
 		}(w)
 	}
 	wg.Wait()
@@ -153,7 +152,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
-				f.Logger.Printf("Cancelling genRanges: %v", ctx.Err())
+				f.logger.Printf("Cancelling genRanges: %v", ctx.Err())
 				return
 			case ranges <- next:
 			}
@@ -174,12 +173,12 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		for r.start <= r.end {
 			// Fetcher.Run() can be cancelled while we are looping over this job.
 			if err := ctx.Err(); err != nil {
-				f.Logger.Printf("Worker context closed: %v", err)
+				f.logger.Printf("Worker context closed: %v", err)
 				return
 			}
 			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
-				f.Logger.Printf("GetRawEntries() failed: %v", err)
+				f.logger.Printf("GetRawEntries() failed: %v", err)
 				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
 				continue
 			}
