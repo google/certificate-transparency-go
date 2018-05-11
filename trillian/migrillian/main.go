@@ -53,6 +53,7 @@ var (
 
 func main() {
 	flag.Parse()
+	glog.CopyStandardLogTo("WARNING")
 	ctx := context.Background()
 
 	opts := core.Options{

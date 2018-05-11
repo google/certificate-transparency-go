@@ -121,6 +121,8 @@ func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 
 func main() {
 	flag.Parse()
+	glog.CopyStandardLogTo("WARNING")
+
 	var sctFileWriter io.Writer
 	var err error
 	if *sctInputFile != "" {

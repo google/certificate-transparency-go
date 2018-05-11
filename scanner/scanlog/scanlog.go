@@ -184,6 +184,7 @@ func createMatcherFromFlags(logClient *client.LogClient) (interface{}, error) {
 
 func main() {
 	flag.Parse()
+
 	logClient, err := client.New(*logURI, &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
