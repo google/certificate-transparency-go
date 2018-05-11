@@ -102,6 +102,7 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	f.Logger.Printf("Got STH with %d certs", sth.TreeSize)
 	if f.opts.EndIndex == 0 || f.opts.EndIndex > int64(sth.TreeSize) {
 		f.opts.EndIndex = int64(sth.TreeSize)
+		f.Logger.Printf("Reset EndIndex to %d", f.opts.EndIndex)
 	}
 	f.sth = sth
 	return sth, nil
@@ -127,6 +128,7 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
+			f.Logger.Printf("Starting Fetcher worker %d", idx)
 			f.runWorker(ctx, ranges, fn)
 			f.Logger.Printf("Fetcher worker %d finished", idx)
 		}(w)
@@ -151,7 +153,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
-				f.Logger.Printf("genRanges cancelled: %v", ctx.Err())
+				f.Logger.Printf("Cancelling genRanges: %v", ctx.Err())
 				return
 			case ranges <- next:
 			}
@@ -172,7 +174,7 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		for r.start <= r.end {
 			// Fetcher.Run() can be cancelled while we are looping over this job.
 			if err := ctx.Err(); err != nil {
-				f.Logger.Printf("Context closed: %v", err)
+				f.Logger.Printf("Worker context closed: %v", err)
 				return
 			}
 			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)

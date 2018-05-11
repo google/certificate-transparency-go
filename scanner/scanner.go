@@ -293,7 +293,8 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 
 	s.Logger.Printf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
 	s.Logger.Printf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen))
-	s.Logger.Printf("%d unparsable entries, %d non-fatal errors", atomic.LoadInt64(&s.unparsableEntries), atomic.LoadInt64(&s.entriesWithNonFatalErrors))
+	s.Logger.Printf("Saw %d unparsable entries", atomic.LoadInt64(&s.unparsableEntries))
+	s.Logger.Printf("Saw %d non-fatal errors", atomic.LoadInt64(&s.entriesWithNonFatalErrors))
 
 	return nil
 }
