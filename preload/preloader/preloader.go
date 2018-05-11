@@ -43,7 +43,6 @@ var (
 	parallelFetch        = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 	parallelSubmit       = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
 	startIndex           = flag.Int64("start_index", 0, "Log index to start scanning at")
-	quiet                = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 	sctInputFile         = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 	precertsOnly         = flag.Bool("precerts_only", false, "Only match precerts")
 )
