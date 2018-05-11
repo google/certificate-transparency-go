@@ -21,12 +21,12 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -81,11 +81,11 @@ func sctDumper(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer) {
 		if encoder != nil {
 			err := encoder.Encode(c)
 			if err != nil {
-				log.Fatalf("failed to encode to %s: %v", *sctInputFile, err)
+				glog.Fatalf("failed to encode to %s: %v", *sctInputFile, err)
 			}
 		}
 	}
-	log.Printf("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
+	glog.Infof("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
 }
 
 func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient client.AddLogClient, certs <-chan *ct.LogEntry) {
@@ -95,14 +95,12 @@ func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, lo
 		copy(chain[1:], c.Chain)
 		sct, err := logClient.AddChain(ctx, chain)
 		if err != nil {
-			log.Printf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
+			glog.Errorf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
 			continue
 		}
 		recordSct(addedCerts, chain[0], sct)
-		if !*quiet {
-			log.Printf("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
-		}
+		glog.V(2).Infof("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
 	}
 }
 
@@ -113,14 +111,12 @@ func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 		copy(chain[1:], c.Chain)
 		sct, err := logClient.AddPreChain(ctx, chain)
 		if err != nil {
-			log.Printf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
+			glog.Errorf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
 			continue
 		}
 		recordSct(addedCerts, chain[0], sct)
-		if !*quiet {
-			log.Printf("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
-		}
+		glog.V(2).Infof("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
 	}
 }
 
@@ -131,7 +127,7 @@ func main() {
 	if *sctInputFile != "" {
 		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
-			log.Fatalf("Failed to create SCT file: %v", err)
+			glog.Fatalf("Failed to create SCT file: %v", err)
 		}
 		defer sctFile.Close()
 		sctFileWriter = sctFile
@@ -143,7 +139,7 @@ func main() {
 	defer func() {
 		err := sctWriter.Close()
 		if err != nil {
-			log.Fatalf("Failed to close SCT file: %v", err)
+			glog.Fatalf("Failed to close SCT file: %v", err)
 		}
 	}()
 
@@ -162,7 +158,7 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
-		log.Fatalf("Failed to create client for source log: %v", err)
+		glog.Fatalf("Failed to create client for source log: %v", err)
 	}
 
 	opts := scanner.ScannerOptions{
@@ -170,7 +166,6 @@ func main() {
 			BatchSize:     *batchSize,
 			ParallelFetch: *parallelFetch,
 			StartIndex:    *startIndex,
-			Quiet:         *quiet,
 		},
 		Matcher:     scanner.MatchAll{},
 		PrecertOnly: *precertsOnly,
@@ -194,16 +189,16 @@ func main() {
 	if *targetTemporalLogCfg != "" {
 		cfg, err := client.TemporalLogConfigFromFile(*targetTemporalLogCfg)
 		if err != nil {
-			log.Fatalf("Failed to load temporal log config: %v", err)
+			glog.Fatalf("Failed to load temporal log config: %v", err)
 		}
 		submitLogClient, err = client.NewTemporalLogClient(*cfg, &http.Client{Transport: transport})
 		if err != nil {
-			log.Fatalf("Failed to create client for destination temporal log: %v", err)
+			glog.Fatalf("Failed to create client for destination temporal log: %v", err)
 		}
 	} else {
 		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
 		if err != nil {
-			log.Fatalf("Failed to create client for destination log: %v", err)
+			glog.Fatalf("Failed to create client for destination log: %v", err)
 		}
 	}
 

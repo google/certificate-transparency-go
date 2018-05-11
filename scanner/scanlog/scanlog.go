@@ -56,7 +56,6 @@ var (
 	startIndex    = flag.Int64("start_index", 0, "Log index to start scanning at")
 	endIndex      = flag.Int64("end_index", 0, "Log index to end scanning at (non-inclusive, 0 = end of log)")
 
-	quiet       = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 	printChains = flag.Bool("print_chains", false, "If true prints the whole chain rather than a summary")
 	dumpDir     = flag.String("dump_dir", "", "Directory to store matched certificates in")
 )
@@ -211,7 +210,6 @@ func main() {
 			ParallelFetch: *parallelFetch,
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
-			Quiet:         *quiet,
 		},
 		Matcher:    matcher,
 		NumWorkers: *numWorkers,

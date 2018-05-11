@@ -16,12 +16,9 @@ package scanner
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
 	"sync"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 )
@@ -38,9 +35,6 @@ type FetcherOptions struct {
 	// then it gets reassigned to sth.TreeSize.
 	StartIndex int64
 	EndIndex   int64
-
-	// Don't print any status messages to default logger.
-	Quiet bool
 }
 
 // DefaultFetcherOptions returns new FetcherOptions with sensible defaults.
@@ -50,7 +44,6 @@ func DefaultFetcherOptions() *FetcherOptions {
 		ParallelFetch: 1,
 		StartIndex:    0,
 		EndIndex:      0,
-		Quiet:         false,
 	}
 }
 
@@ -63,8 +56,6 @@ type Fetcher struct {
 
 	// Current STH of the Log this Fetcher sends queries to.
 	sth *ct.SignedTreeHead
-
-	logger *log.Logger
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -82,13 +73,7 @@ type fetchRange struct {
 // NewFetcher creates a Fetcher instance using client to talk to the log,
 // taking configuration options from opts.
 func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
-	fetcher := &Fetcher{client: client, opts: opts}
-	if opts.Quiet {
-		fetcher.logger = log.New(ioutil.Discard, "", 0)
-	} else {
-		fetcher.logger = log.New(os.Stderr, "", log.LstdFlags)
-	}
-	return fetcher
+	return &Fetcher{client: client, opts: opts}
 }
 
 // Prepare caches the latest Log's STH in the Fetcher and returns it. It also
@@ -96,11 +81,13 @@ func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
 func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	sth, err := f.client.GetSTH(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("GetSTH() failed: %v", err)
+		glog.Errorf("GetSTH() failed: %v", err)
+		return nil, err
 	}
-	f.logger.Printf("Got STH with %d certs", sth.TreeSize)
+	glog.Infof("Got STH with %d certs", sth.TreeSize)
+
 	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size {
-		f.logger.Printf("Reset EndIndex from %d to %d", f.opts.EndIndex, size)
+		glog.Warningf("Reset EndIndex from %d to %d", f.opts.EndIndex, size)
 		f.opts.EndIndex = size
 	}
 	f.sth = sth
@@ -111,7 +98,7 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 // context is cancelled. For each successfully fetched batch, runs the fn
 // callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
-	f.logger.Println("Starting up Fetcher...")
+	glog.V(1).Info("Starting up Fetcher...")
 
 	if f.sth == nil {
 		if _, err := f.Prepare(ctx); err != nil {
@@ -127,13 +114,14 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			f.logger.Printf("Starting Fetcher worker %d", idx)
+			glog.V(1).Infof("Starting up Fetcher worker %d...", idx)
 			f.runWorker(ctx, ranges, fn)
-			f.logger.Printf("Fetcher worker %d finished", idx)
+			glog.V(1).Infof("Fetcher worker %d finished", idx)
 		}(w)
 	}
 	wg.Wait()
 
+	glog.V(1).Info("Fetcher terminated")
 	return nil
 }
 
@@ -152,7 +140,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
-				f.logger.Printf("Cancelling genRanges: %v", ctx.Err())
+				glog.Warningf("Cancelling genRanges: %v", ctx.Err())
 				return
 			case ranges <- next:
 			}
@@ -173,12 +161,12 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		for r.start <= r.end {
 			// Fetcher.Run() can be cancelled while we are looping over this job.
 			if err := ctx.Err(); err != nil {
-				f.logger.Printf("Worker context closed: %v", err)
+				glog.Warningf("Worker context closed: %v", err)
 				return
 			}
 			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
-				f.logger.Printf("GetRawEntries() failed: %v", err)
+				glog.Errorf("GetRawEntries() failed: %v", err)
 				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
 				continue
 			}

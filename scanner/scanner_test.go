@@ -261,7 +261,4 @@ func TestDefaultScannerOptions(t *testing.T) {
 	if opts.StartIndex != 0 {
 		t.Fatalf("Expected StartIndex to be 0, but was %d", opts.StartIndex)
 	}
-	if opts.Quiet {
-		t.Fatal("Expected Quiet to be false.")
-	}
 }
