@@ -18,6 +18,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -73,7 +74,7 @@ type Scanner struct {
 	unparsableEntries         int64
 	entriesWithNonFatalErrors int64
 
-	Log func(msg string)
+	Logger *log.Logger
 }
 
 // entryInfo represents information about a log entry.
@@ -98,7 +99,7 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 	} else if _, ok := err.(x509.NonFatalErrors); ok {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
-		s.Log(fmt.Sprintf("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err))
+		s.Logger.Printf("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err)
 		return false
 	}
 	return true
@@ -178,7 +179,7 @@ func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEnt
 	for e := range entries {
 		if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
 			atomic.AddInt64(&s.unparsableEntries, 1)
-			s.Log(fmt.Sprintf("Failed to parse entry at index %d: %s", e.index, err.Error()))
+			s.Logger.Printf("Failed to parse entry at index %d: %s", e.index, err.Error())
 		}
 	}
 }
@@ -231,10 +232,10 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 			remainingCerts := treeSize - int64(s.opts.StartIndex) - certsCnt
 			remainingSeconds := int(float64(remainingCerts) / throughput)
 			remainingString := humanTime(time.Duration(remainingSeconds) * time.Second)
-			s.Log(fmt.Sprintf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
+			s.Logger.Printf("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
 				certsCnt, s.opts.StartIndex+certsCnt, certsMatched,
 				(100.0*float64(certsMatched))/float64(certsCnt),
-				filled, throughput, remainingString))
+				filled, throughput, remainingString)
 		}
 	}
 }
@@ -246,7 +247,7 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 // For each precert found, calls foundPrecert with the corresponding LogEntry,
 // which includes the index of the entry and the precert.
 func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	s.Log("Starting up Scanner...\n")
+	s.Logger.Println("Starting up Scanner...")
 	s.certsProcessed = 0
 	s.certsMatched = 0
 	s.precertsSeen = 0
@@ -274,7 +275,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		go func(idx int) {
 			defer wg.Done()
 			s.matcherJob(entries, foundCert, foundPrecert)
-			s.Log(fmt.Sprintf("Matcher %d finished", idx))
+			s.Logger.Printf("Matcher %d finished", idx)
 		}(w)
 	}
 
@@ -290,9 +291,9 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundP
 		return err
 	}
 
-	s.Log(fmt.Sprintf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime))))
-	s.Log(fmt.Sprintf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen)))
-	s.Log(fmt.Sprintf("%d unparsable entries, %d non-fatal errors", atomic.LoadInt64(&s.unparsableEntries), atomic.LoadInt64(&s.entriesWithNonFatalErrors)))
+	s.Logger.Printf("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
+	s.Logger.Printf("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen))
+	s.Logger.Printf("%d unparsable entries, %d non-fatal errors", atomic.LoadInt64(&s.unparsableEntries), atomic.LoadInt64(&s.entriesWithNonFatalErrors))
 
 	return nil
 }
@@ -303,7 +304,7 @@ func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
 	scanner.opts = opts
 	scanner.fetcher = NewFetcher(client, &scanner.opts.FetcherOptions)
-	scanner.Log = scanner.fetcher.Log
+	scanner.Logger = scanner.fetcher.Logger
 
 	// Set a default match-everything regex if none was provided.
 	if opts.Matcher == nil {
