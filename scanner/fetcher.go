@@ -200,7 +200,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 
 	lastSize := uint64(f.opts.EndIndex)
 	targetSize := lastSize + uint64(f.opts.BatchSize)
-	quickThreshold := time.Now().Add(quickDur)
+	quickDeadline := time.Now().Add(quickDur)
 
 	return f.sthBackoff.Retry(ctx, func() error {
 		sth, err := f.client.GetSTH(ctx)
@@ -209,7 +209,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 		}
 		f.Log(fmt.Sprintf("Got STH with %d certs", sth.TreeSize))
 
-		quick := (time.Now() < quickThreshold)
+		quick := time.Now().Before(quickDeadline)
 		if sth.TreeSize <= lastSize || quick && sth.TreeSize < targetSize {
 			return errors.New("waiting for bigger STH")
 		}
