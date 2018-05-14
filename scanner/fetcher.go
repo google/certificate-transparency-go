@@ -16,11 +16,14 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/trillian/client/backoff"
 )
 
 // FetcherOptions holds configuration options for the Fetcher.
@@ -35,6 +38,10 @@ type FetcherOptions struct {
 	// then it gets reassigned to sth.TreeSize.
 	StartIndex int64
 	EndIndex   int64
+
+	// Continuous determines whether Fetcher should run indefinitely after
+	// reaching EndIndex.
+	Continuous bool
 }
 
 // DefaultFetcherOptions returns new FetcherOptions with sensible defaults.
@@ -44,6 +51,7 @@ func DefaultFetcherOptions() *FetcherOptions {
 		ParallelFetch: 1,
 		StartIndex:    0,
 		EndIndex:      0,
+		Continuous:    false,
 	}
 }
 
@@ -56,6 +64,8 @@ type Fetcher struct {
 
 	// Current STH of the Log this Fetcher sends queries to.
 	sth *ct.SignedTreeHead
+	// The STH retrieval backoff state. Used only in Continuous fetch mode.
+	sthBackoff *backoff.Backoff
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -76,9 +86,13 @@ func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
 	return &Fetcher{client: client, opts: opts}
 }
 
-// Prepare caches the latest Log's STH in the Fetcher and returns it. It also
+// Prepare caches the latest Log's STH if not present and returns it. It also
 // adjusts the entry range to fit the size of the tree.
 func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
+	if f.sth != nil {
+		return f.sth, nil
+	}
+
 	sth, err := f.client.GetSTH(ctx)
 	if err != nil {
 		glog.Errorf("GetSTH() failed: %v", err)
@@ -99,11 +113,8 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 // callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
-
-	if f.sth == nil {
-		if _, err := f.Prepare(ctx); err != nil {
-			return err
-		}
+	if _, err := f.Prepare(ctx); err != nil {
+		return err
 	}
 
 	ranges := f.genRanges(ctx)
@@ -129,14 +140,15 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 // sends things down this channel. The goroutine terminates when all ranges
 // have been generated, or if context is cancelled.
 func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
-	start, end := f.opts.StartIndex, f.opts.EndIndex
 	batch := int64(f.opts.BatchSize)
-
 	ranges := make(chan fetchRange)
+
 	go func() {
 		defer close(ranges)
+		start, end := f.opts.StartIndex, f.opts.EndIndex
+
 		for start < end {
-			batchEnd := min(start+batch, end)
+			batchEnd := start + min(end-start, batch)
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
@@ -145,9 +157,61 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			case ranges <- next:
 			}
 			start = batchEnd
+
+			if start == end && f.opts.Continuous {
+				if err := f.updateSTH(ctx); err != nil {
+					glog.Warningf("STH update cancelled: %v", err)
+					return
+				}
+				end = f.opts.EndIndex
+			}
 		}
 	}()
+
 	return ranges
+}
+
+// updateSTH waits until a bigger STH is discovered, and updates the Fetcher
+// accordingly. It is optimized for both bulk-load (new STH is way bigger then
+// the last one) and keep-up (STH grows slowly) modes of operation. Waits for
+// some time until the STH grows enough to request a full batch, but falls back
+// to *any* STH bigger than the old one if it takes too long.
+// Returns error only if the context is cancelled.
+func (f *Fetcher) updateSTH(ctx context.Context) error {
+	// TODO(pavelkalinnikov): Make these parameters tunable.
+	const quickDur = 45 * time.Second
+	if f.sthBackoff == nil {
+		f.sthBackoff = &backoff.Backoff{
+			Min:    1 * time.Second,
+			Max:    30 * time.Second,
+			Factor: 2,
+			Jitter: true,
+		}
+	}
+
+	lastSize := uint64(f.opts.EndIndex)
+	targetSize := lastSize + uint64(f.opts.BatchSize)
+	quickDeadline := time.Now().Add(quickDur)
+
+	return f.sthBackoff.Retry(ctx, func() error {
+		sth, err := f.client.GetSTH(ctx)
+		if err != nil {
+			return err
+		}
+		glog.V(2).Infof("Got STH with %d certs", sth.TreeSize)
+
+		quick := time.Now().Before(quickDeadline)
+		if sth.TreeSize <= lastSize || quick && sth.TreeSize < targetSize {
+			return errors.New("waiting for bigger STH")
+		}
+
+		if quick {
+			f.sthBackoff.Reset() // Growth is presumably fast, set next pause to Min.
+		}
+		f.sth = sth
+		f.opts.EndIndex = int64(sth.TreeSize)
+		return nil
+	})
 }
 
 // runWorker is a worker function for handling fetcher ranges.

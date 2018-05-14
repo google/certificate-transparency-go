@@ -55,7 +55,8 @@ func NewController(opts Options) *Controller {
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
-// log via the other client.
+// log via the other client. If Options.Continuous is true then the migration
+// process runs continuously trying to keep up with the target CT log.
 func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClient *TrillianTreeClient) error {
 	var wg sync.WaitGroup
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
@@ -65,15 +66,16 @@ func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClie
 			c.runSubmitter(ctx, trClient)
 		}()
 	}
+	defer func() {
+		close(c.batches)
+		wg.Wait()
+	}()
 
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
 	}
 	fetcher := scanner.NewFetcher(ctClient, &c.opts.FetcherOptions)
-	err := fetcher.Run(ctx, handler)
-	close(c.batches)
-	wg.Wait()
-	return err
+	return fetcher.Run(ctx, handler)
 }
 
 // runSubmitter obtaines CT log entry batches from the controller's channel and
