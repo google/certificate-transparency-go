@@ -40,7 +40,7 @@ echo "Tagging docker image..."
 gcloud --quiet container images add-tag gcr.io/${PROJECT_NAME_CI}/ctfe:${TRAVIS_COMMIT} gcr.io/${PROJECT_NAME_CI}/ctfe:latest
 
 echo "Updating jobs..."
-kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
-kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-service.yaml
-kubectl apply -f trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
+envsubst < trillian/examples/deployment/kubernetes/ctfe-deployment.yaml | kubectl apply -f -
+envsubst < trillian/examples/deployment/kubernetes/ctfe-service.yaml | kubectl apply -f -
+envsubst < trillian/examples/deployment/kubernetes/ctfe-ingress.yaml | kubectl apply -f -
 kubectl set image deployment/trillian-ctfe-deployment trillian-ctfe=gcr.io/${PROJECT_NAME_CI}/ctfe:${TRAVIS_COMMIT}
