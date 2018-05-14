@@ -80,13 +80,9 @@ func (c *Controller) Run(ctx context.Context, ctClient *client.LogClient, trClie
 // submits them through Trillian client. Returns when the channel is closed.
 func (c *Controller) runSubmitter(ctx context.Context, tr *TrillianTreeClient) {
 	for b := range c.batches {
-		// TODO(pavelkalinnikov): Retry with backoff on errors.
-		err := tr.addSequencedLeaves(ctx, &b)
-		if c.opts.Quiet {
-			continue
-		}
 		end := b.Start + int64(len(b.Entries))
-		if err != nil {
+		// TODO(pavelkalinnikov): Retry with backoff on errors.
+		if err := tr.addSequencedLeaves(ctx, &b); err != nil {
 			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
 			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
