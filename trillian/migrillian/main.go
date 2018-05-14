@@ -50,12 +50,11 @@ var (
 	startIndex = flag.Int64("start_index", 0, "CT log index to start scanning at")
 	endIndex   = flag.Int64("end_index", 0, "CT log index to end scanning at (non-inclusive, 0 = end of log)")
 	mirror     = flag.Bool("mirror", false, "Run migration continuously")
-
-	verbose = flag.Bool("verbose", false, "Print out extra logging messages")
 )
 
 func main() {
 	flag.Parse()
+	glog.CopyStandardLogTo("WARNING")
 	ctx := context.Background()
 
 	opts := core.Options{
@@ -65,7 +64,6 @@ func main() {
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
 			Continuous:    *mirror,
-			Quiet:         !*verbose,
 		},
 
 		Submitters:          *submitters,

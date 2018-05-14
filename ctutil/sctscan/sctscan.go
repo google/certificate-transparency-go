@@ -44,7 +44,6 @@ var (
 	numWorkers    = flag.Int("num_workers", 2, "Number of concurrent matchers")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 	startIndex    = flag.Int64("start_index", 0, "Log index to start scanning at")
-	quiet         = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 )
 
 func main() {
@@ -93,7 +92,6 @@ func main() {
 			BatchSize:     *batchSize,
 			ParallelFetch: *parallelFetch,
 			StartIndex:    *startIndex,
-			Quiet:         *quiet,
 		},
 		Matcher:    EmbeddedSCTMatcher{},
 		NumWorkers: *numWorkers,
