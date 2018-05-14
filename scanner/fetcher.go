@@ -179,11 +179,11 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 // Returns error only if the context is cancelled.
 func (f *Fetcher) updateSTH(ctx context.Context) error {
 	// TODO(pavelkalinnikov): Make these parameters tunable.
-	const quickDur = 30 * time.Second
+	const quickDur = 45 * time.Second
 	if f.sthBackoff == nil {
 		f.sthBackoff = &backoff.Backoff{
-			Min:    500 * time.Millisecond,
-			Max:    20 * time.Second,
+			Min:    1 * time.Second,
+			Max:    30 * time.Second,
 			Factor: 2,
 			Jitter: true,
 		}
