@@ -128,7 +128,7 @@ func main() {
 	if *sctInputFile != "" {
 		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
-			glog.Fatalf("Failed to create SCT file: %v", err)
+			glog.Exitf("Failed to create SCT file: %v", err)
 		}
 		defer sctFile.Close()
 		sctFileWriter = sctFile
@@ -140,7 +140,7 @@ func main() {
 	defer func() {
 		err := sctWriter.Close()
 		if err != nil {
-			glog.Fatalf("Failed to close SCT file: %v", err)
+			glog.Exitf("Failed to close SCT file: %v", err)
 		}
 	}()
 
@@ -159,7 +159,7 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{})
 	if err != nil {
-		glog.Fatalf("Failed to create client for source log: %v", err)
+		glog.Exitf("Failed to create client for source log: %v", err)
 	}
 
 	opts := scanner.ScannerOptions{
@@ -190,16 +190,16 @@ func main() {
 	if *targetTemporalLogCfg != "" {
 		cfg, err := client.TemporalLogConfigFromFile(*targetTemporalLogCfg)
 		if err != nil {
-			glog.Fatalf("Failed to load temporal log config: %v", err)
+			glog.Exitf("Failed to load temporal log config: %v", err)
 		}
 		submitLogClient, err = client.NewTemporalLogClient(*cfg, &http.Client{Transport: transport})
 		if err != nil {
-			glog.Fatalf("Failed to create client for destination temporal log: %v", err)
+			glog.Exitf("Failed to create client for destination temporal log: %v", err)
 		}
 	} else {
 		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
 		if err != nil {
-			glog.Fatalf("Failed to create client for destination log: %v", err)
+			glog.Exitf("Failed to create client for destination log: %v", err)
 		}
 	}
 
