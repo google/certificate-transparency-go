@@ -86,6 +86,15 @@ const (
 		]
 	}`
 	GetSTHConsistencyResp = `{ "consistency": [ "IqlrapPQKtmCY1jCr8+lpCtscRyjjZAA7nyadtFPRFQ=", "ytf6K2GnSRZ3Au+YkivCb7N1DygfKyZmE4aEs9OXl\/8=" ] }`
+	GetEntryAndProofResp  = `{
+    "leaf_input": "AAAAAAFhw8UTtQAAAAJ1MIICcTCCAhegAwIBAgIFAN6tvu8wCgYIKoZIzj0EAwIwcjELMAkGA1UEBhMCR0IxDzANBgNVBAgTBkxvbmRvbjEPMA0GA1UEBxMGTG9uZG9uMQ8wDQYDVQQKEwZHb29nbGUxDDAKBgNVBAsTA0VuZzEiMCAGA1UEAxMZRmFrZUludGVybWVkaWF0ZUF1dGhvcml0eTAgFw0xNjEyMDcxNTEzMzZaGA8wMDAxMDEwMTAwMDAwMFowVjELMAkGA1UEBhMCR0IxDzANBgNVBAgMBkxvbmRvbjEPMA0GA1UECgwGR29vZ2xlMQwwCgYDVQQLDANFbmcxFzAVBgNVBAMMDmxlYWYwMS5jc3IucGVtMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6zdOUkWcRtWouMXtWLkwKaZwimmgJlyeL264ayNshOFGOpg2gkSliheLQYIy9C3gCFt+BzhS/EdWKCeb7WCLrKOBszCBsDAPBgNVHQ8BAf8EBQMDB/mAMIGLBgNVHQ4EgYMEgYBPRBC+90lR8pRLbTi3ID4j0WRzjoJOT3MGkKko87o8z6gEifk9zCwOiHeIgclTA0ZUTxXMRI5r+nUY0frjRCWZu4uthPlE90iJM+RyjcNTwDJGu2StvLnJ8y4t5fdnwdGssncXiBQMuM7/1eMEwAOfHgTFzJ0UBC2Umztl0hul3zAPBgNVHSMECDAGgAQBAgMEMAoGCCqGSM49BAMCA0gAMEUCIQCrwywGKvyt/BwR+e7yDs78qt4sSEVJltv7Y0W6gOI5awIgQ+IAjejYivLEfqNufFRezCBWHWhbq/HHGdNQtv6EArkAAA==",
+		"extra_data": "RXh0cmEK",
+		"audit_path": [
+		"pMumx96PIUB3TX543ljlpQ/RgZRqitRfykupIZrXq0Q=",
+		"5s2NQWkjmesu+Kqgp70TCwVLwq8obpHw/JyMGwN56pQ=",
+		"7VelXijfmGFSl62BWIsG8LRmxJGBq9XP8FxmszuT2Cg="
+		] 
+  }`
 )
 
 func b64(s string) []byte {
@@ -708,6 +717,72 @@ func TestGetAcceptedRootsErrors(t *testing.T) {
 				t.Errorf("GetAcceptedRoots()=nil, .(%T); want nil, .(RspError)", err)
 			} else if string(rspErr.Body) != test.rsp {
 				t.Errorf("GetAcceptedRoots()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
+			}
+		}
+	}
+}
+
+func TestGetEntryAndProof(t *testing.T) {
+	hs := serveRspAt(t, "/ct/v1/get-entry-and-proof", GetEntryAndProofResp)
+	defer hs.Close()
+	lc, err := client.New(hs.URL, &http.Client{}, jsonclient.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create client: %v", err)
+	}
+
+	tests := []struct {
+		index    uint64
+		treesize uint64
+	}{
+		{1000, 2000},
+	}
+
+	for _, test := range tests {
+		resp, err := lc.GetEntryAndProof(context.Background(), test.index, test.treesize)
+		if err != nil {
+			t.Errorf("GetEntryAndProof(%v, %v)=nil,%v; want proof,nil", test.index, test.treesize, err)
+		} else if got := len(resp.AuditPath); got < 1 {
+			t.Errorf("len(GetEntryAndProof(%v, %v)): %v; want > 1", test.index, test.treesize, got)
+		}
+	}
+}
+
+func TestGetEntryAndProofErrors(t *testing.T) {
+	ctx := context.Background()
+	var tests = []struct {
+		rsp, want string
+	}{
+		{rsp: "", want: "EOF"},
+		{rsp: "not-json", want: "invalid"},
+		{rsp: `{"leaf_input": "bogus", "extra_data": "Z29vZAo=", "audit_path": ["Z29vZAo="]}`, want: "illegal base64"},
+		{rsp: `{"leaf_input": "Z29vZAo=", "extra_data": "bogus", "audit_path": ["Z29vZAo="]}`, want: "illegal base64"},
+		{rsp: `{"leaf_input": "Z29vZAo=", "extra_data": "Z29vZAo=", "audit_path": ["bogus"]}`, want: "illegal base64"},
+		{rsp: `{"leaf_input": "Z29vZAo=", "extra_data": "Z29vZAo=", "audit_path": ["bbbb",]}`, want: "invalid"},
+	}
+
+	for _, test := range tests {
+		ts := serveRspAt(t, "/ct/v1/get-entry-and-proof", test.rsp)
+		defer ts.Close()
+		lc, err := client.New(ts.URL, &http.Client{}, jsonclient.Options{})
+		if err != nil {
+			t.Errorf("Failed to create client: %v", err)
+			continue
+		}
+		got, err := lc.GetEntryAndProof(ctx, 99, 100)
+		if err == nil {
+			t.Errorf("GetEntryAndProof()=%+v, nil; want nil, %q", got, test.want)
+		} else if !strings.Contains(err.Error(), test.want) {
+			t.Errorf("GetEntryAndProof()=nil, %q; want nil, %q", err, test.want)
+		}
+		if got != nil {
+			t.Errorf("GetEntryAndProof()=%+v, _; want nil, _", got)
+		}
+		if len(test.rsp) > 0 {
+			// Expect the error to include the HTTP response
+			if rspErr, ok := err.(client.RspError); !ok {
+				t.Errorf("GetEntryAndProof()=nil, .(%T); want nil, .(RspError)", err)
+			} else if string(rspErr.Body) != test.rsp {
+				t.Errorf("GetEntryAndProof()=nil, .Body=%q; want nil, .Body=%q", rspErr.Body, test.rsp)
 			}
 		}
 	}
