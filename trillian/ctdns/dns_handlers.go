@@ -1,21 +1,21 @@
-// Copyright 2018 Google Inc. All Rights Reserved.
+// Copyright 2018 Google LLC. All Rights Reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// ￼Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// ￼You may obtain a copy of the License at
+// ￼
+// ￼     http://www.apache.org/licenses/LICENSE-2.0
+// ￼
+// ￼Unless required by applicable law or agreed to in writing, software
+// ￼distributed under the License is distributed on an "AS IS" BASIS,
+// ￼WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// ￼See the License for the specific language governing permissions and
+// ￼limitations under the License.
 
 // These handlers implement the CT over DNS proposal documented at:
 // https://github.com/google/certificate-transparency-rfcs/blob/master/dns/draft-ct-over-dns.md
 
-package ctfe
+package ctdns
 
 import (
 	"context"
@@ -24,12 +24,13 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/trillian"
 	"github.com/miekg/dns"
 )
 
@@ -38,7 +39,7 @@ import (
 const maxProofLen = 255
 
 // The client omits the padding from the hash query so we need to add it back.
-const base32LeafPad = "==="
+const base32LeafPad = "===="
 
 const (
 	// Used for STH responses, which change over time.
@@ -56,13 +57,25 @@ var (
 	treeRE    = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)\.tree\.(.*)\.$`)
 )
 
-type dnsFunc func(context.Context, *CTDNSHandler, []string, dns.ResponseWriter, *dns.Msg)
+// DNSLogClient is the subset of client.LogClient required for the DNS
+// server -> CTFE interactions.
+type DNSLogClient interface {
+	GetSTH(context.Context) (*ct.SignedTreeHead, error)
+	GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error)
+	GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*ct.GetProofByHashResponse, error)
+	GetEntryAndProof(ctx context.Context, index, treeSize uint64) (*ct.GetEntryAndProofResponse, error)
+}
 
-// CTDNSHandler encapsulates all the logic for serving CT related DNS
+type dnsFunc func(context.Context, DNSLogClient, []string, dns.ResponseWriter, *dns.Msg)
+
+// Handler encapsulates all the logic for serving CT related DNS
 // requests.
-type CTDNSHandler struct {
+type Handler struct {
 	cfg      *configpb.LogConfig
-	logCtx   *LogContext
+	client   DNSLogClient
+	baseURI  string
+	opts     jsonclient.Options
+	timeout  time.Duration
 	handlers []dnsHandler
 }
 
@@ -71,11 +84,13 @@ type dnsHandler struct {
 	handleFn dnsFunc
 }
 
-// NewDNS creates a new DNS handler for use with a particular CT log.
-func NewDNS(cfg *configpb.LogConfig, logCtx *LogContext) dns.Handler {
-	return &CTDNSHandler{
-		cfg:    cfg,
-		logCtx: logCtx,
+// New creates a new DNS handler.
+func New(cfg *configpb.LogConfig, baseURI string, client DNSLogClient, timeout time.Duration) dns.Handler {
+	return &Handler{
+		cfg:     cfg,
+		baseURI: baseURI,
+		client:  client,
+		timeout: timeout,
 		handlers: []dnsHandler{
 			{matchRE: sthRE, handleFn: sthFunc},
 			{matchRE: consistRE, handleFn: consistFunc},
@@ -87,17 +102,17 @@ func NewDNS(cfg *configpb.LogConfig, logCtx *LogContext) dns.Handler {
 
 // ServeDNS implements the dns.Handler interface and is the main serving
 // API.
-func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+func (c *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// From the spec all requests must be class INET, type TXT.
 	if err := validate(r); err != nil {
-		glog.Warningf("CTDNSHandler.ServeDNS(): %v", err)
+		glog.Warningf("Handler.ServeDNS(): %v", err)
 		failWithRcode(w, r, dns.RcodeFormatError, err)
 		return
 	}
 
-	glog.V(1).Infof("CTDNSHandler.ServeDNS(): Query: %v", r.Question[0].Name)
+	glog.V(1).Infof("Handler.ServeDNS(): Query: %v", r.Question[0].Name)
 	q := dns.Fqdn(r.Question[0].Name)
-	ctx, cancel := context.WithTimeout(context.Background(), c.logCtx.instanceOpts.Deadline)
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
 	// Find the first handler that accepts the name pattern match.
@@ -110,7 +125,7 @@ func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			// whole string matched to avoid any false positives.
 			if params[0] == q && params[len(params)-1] == c.cfg.DnsZone {
 				// This handler accepted the match and provides the result.
-				h.handleFn(ctx, c, params, w, r)
+				h.handleFn(ctx, c.client, params, w, r)
 				return
 			}
 		}
@@ -119,16 +134,10 @@ func (c *CTDNSHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	failWithRcode(w, r, dns.RcodeNotZone, nil)
 }
 
-func sthFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
-	sth, err := GetTreeHead(ctx, c.logCtx.rpcClient, c.logCtx.logID, c.logCtx.LogPrefix)
+func sthFunc(ctx context.Context, lc DNSLogClient, params []string, w dns.ResponseWriter, r *dns.Msg) {
+	sth, err := lc.GetSTH(ctx)
 	if err != nil {
-		failWithRcode(w, r, dns.RcodeServerFailure, err)
-		return
-	}
-
-	// Add the signature over the STH contents.
-	err = c.logCtx.signV1TreeHead(c.logCtx.signer, sth)
-	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
+		glog.Warningf("sthFunc(): GetSTH=%v", err)
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
@@ -148,29 +157,25 @@ func sthFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.Respon
 
 // params will contain 0 = regex match text, 1 = start_index, 2 = first, 3 = second
 // 4 = zone.
-func consistFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
+func consistFunc(ctx context.Context, lc DNSLogClient, params []string, w dns.ResponseWriter, r *dns.Msg) {
 	// We don't expect these to fail as the regex matched digits but check anyway.
-	values, err := parseInts(params, 1, 4)
+	values, err := parseUints(params, 1, 4)
 	if err != nil {
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	req := &trillian.GetConsistencyProofRequest{
-		LogId:          c.cfg.LogId,
-		FirstTreeSize:  values[2],
-		SecondTreeSize: values[3]}
-	resp, err := c.logCtx.rpcClient.GetConsistencyProof(ctx, req)
+	proof, err := lc.GetSTHConsistency(ctx, values[2], values[3])
 	if err != nil {
-		glog.Warningf("consistFunc(): GetConsistencyProofRequest=%v", err)
+		glog.Warningf("consistFunc(): GetSTHConsistency=%v", err)
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
 	// Ensure the client requested a valid start index for the proof.
-	if values[1] < 0 || values[1] >= int64(len(resp.Proof.Hashes)) {
+	if values[1] >= uint64(len(proof)) {
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	rr := buildProofResponse(params[0], int(values[1]), resp.GetProof())
+	rr := buildProofResponse(params[0], int(values[1]), proof)
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -180,23 +185,27 @@ func consistFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.Re
 }
 
 // params will contain 0 = regex match text, 1 = base32 hash, 2 = zone.
-func hashFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
+func hashFunc(ctx context.Context, lc DNSLogClient, params []string, w dns.ResponseWriter, r *dns.Msg) {
 	h, err := base32.StdEncoding.DecodeString(params[1] + base32LeafPad)
 	if err != nil {
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	req := &trillian.GetLeavesByHashRequest{
-		LogId:    c.cfg.LogId,
-		LeafHash: [][]byte{h},
-	}
-	resp, err := c.logCtx.rpcClient.GetLeavesByHash(ctx, req)
-	if err != nil || len(resp.Leaves) != 1 {
-		glog.Warningf("hashFunc(): GetLeavesByHashRequest=%v, %v", resp, err)
+	// Sadly we need to obtain a tree size as it's not included in the DNS
+	// request.
+	sth, err := lc.GetSTH(ctx)
+	if err != nil {
+		glog.Warningf("hashFunc(): GetSTH=%v", err)
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	rr := buildHashResponse(params[0], resp.Leaves[0])
+	resp, err := lc.GetProofByHash(ctx, h, sth.TreeSize)
+	if err != nil {
+		glog.Warningf("hashFunc(): GetProofByHash=%v, %v", resp, err)
+		failWithRcode(w, r, dns.RcodeServerFailure, err)
+		return
+	}
+	rr := buildHashResponse(params[0], resp.LeafIndex)
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -207,30 +216,25 @@ func hashFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.Respo
 
 // params will contain 0 = regex match text, 1 = start index, 2 = leaf_index,
 // 3 = tree_size, 4 = zone.
-func treeFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.ResponseWriter, r *dns.Msg) {
+func treeFunc(ctx context.Context, lc DNSLogClient, params []string, w dns.ResponseWriter, r *dns.Msg) {
 	// We don't expect these to fail as the regex matched digits but check anyway.
-	values, err := parseInts(params, 1, 4)
+	values, err := parseUints(params, 1, 4)
 	if err != nil {
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	req := &trillian.GetInclusionProofRequest{
-		LogId:     c.cfg.LogId,
-		LeafIndex: values[2],
-		TreeSize:  values[3],
-	}
-	resp, err := c.logCtx.rpcClient.GetInclusionProof(ctx, req)
+	resp, err := lc.GetEntryAndProof(ctx, values[2], values[3])
 	if err != nil {
-		glog.Warningf("hashFunc(): GetInclusionProof=%v, %v", resp, err)
+		glog.Warningf("treeFunc(): GetEntryAndProof=%v, %v", resp, err)
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
 	// Ensure the client requested a valid start index for the proof.
-	if values[1] < 0 || values[1] >= int64(len(resp.Proof.Hashes)) {
+	if values[1] >= uint64(len(resp.AuditPath)) {
 		failWithRcode(w, r, dns.RcodeServerFailure, err)
 		return
 	}
-	rr := buildProofResponse(params[0], int(values[1]), resp.GetProof())
+	rr := buildProofResponse(params[0], int(values[1]), resp.AuditPath)
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Answer = append(m.Answer, rr)
@@ -239,24 +243,24 @@ func treeFunc(ctx context.Context, c *CTDNSHandler, params []string, w dns.Respo
 	}
 }
 
-func buildHashResponse(q string, l *trillian.LogLeaf) dns.RR {
+func buildHashResponse(q string, index int64) dns.RR {
 	// Response has one element, the leaf index.
 	rr := &dns.TXT{
 		Hdr: dns.RR_Header{Name: dns.Fqdn(q), Class: dns.ClassINET, Rrtype: dns.TypeTXT, Ttl: respTTL},
-		Txt: []string{fmt.Sprintf("%d", l.LeafIndex)},
+		Txt: []string{fmt.Sprintf("%d", index)},
 	}
 
 	return rr
 }
 
-func buildProofResponse(q string, s int, proof *trillian.Proof) dns.RR {
+func buildProofResponse(q string, s int, proof [][]byte) dns.RR {
 	var p []byte
 	// We can pack a limited number of proof elements into the dns response.
-	for i := s; i < len(proof.Hashes); i++ {
-		if len(p)+len(proof.Hashes[i]) > maxProofLen {
+	for i := s; i < len(proof); i++ {
+		if len(p)+len(proof[i]) > maxProofLen {
 			break
 		}
-		p = append(p, proof.Hashes[i]...)
+		p = append(p, proof[i]...)
 	}
 	// Response has one element. Note that the response is binary and not encoded.
 	rr := &dns.TXT{
@@ -299,14 +303,14 @@ func validate(r *dns.Msg) error {
 	return nil
 }
 
-func parseInts(p []string, first, last int) ([]int64, error) {
-	var values = make([]int64, last)
+func parseUints(p []string, first, last int) ([]uint64, error) {
+	var values = make([]uint64, last)
 	for i := first; i < last; i++ {
 		v, err := strconv.Atoi(p[i])
 		if err != nil {
 			return nil, err
 		}
-		values[i] = int64(v)
+		values[i] = uint64(v)
 	}
 
 	return values, nil
