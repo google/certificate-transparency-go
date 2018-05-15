@@ -291,7 +291,7 @@ func (c *LogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error)
 }
 
 // GetEntryAndProof returns a log entry and audit path for the index of a leaf.
-func (c *LogClient) GetEntryAndProof(ctx context.Context, index uint64, treeSize uint64) (*ct.GetEntryAndProofResponse, error) {
+func (c *LogClient) GetEntryAndProof(ctx context.Context, index, treeSize uint64) (*ct.GetEntryAndProofResponse, error) {
 	base10 := 10
 	params := map[string]string{
 		"leaf_index": strconv.FormatUint(index, base10),
