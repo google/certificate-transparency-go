@@ -77,8 +77,6 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
 	sth, err := fetcher.Prepare(ctx)
-	// TODO(pavelkalinnikov): Verify STH (should happen behind the scenes if
-	// using the PublicKey option in LogClient).
 	if err != nil {
 		return err
 	}

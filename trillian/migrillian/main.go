@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 
 var (
 	ctLogURI    = flag.String("ct_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key")
 	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
@@ -72,8 +74,17 @@ func main() {
 		Transport: transport,
 	}
 
-	// TODO(pavelkalinnikov): Use PublicKey option to verify the log's signatures.
-	ctClient, err := client.New(*ctLogURI, httpClient, jsonclient.Options{})
+	var ctOpts jsonclient.Options
+	if *pubKeyFile != "" {
+		pubKey, err := ioutil.ReadFile(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("Failed to read public key file: %v", err)
+		}
+		ctOpts.PublicKey = string(pubKey)
+	} else {
+		glog.Warningf("No public key for CT log %q", *ctLogURI)
+	}
+	ctClient, err := client.New(*ctLogURI, httpClient, ctOpts)
 	if err != nil {
 		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
 	}
