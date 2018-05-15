@@ -41,6 +41,7 @@ type CheckLogClient interface {
 	GetSTH(context.Context) (*ct.SignedTreeHead, error)
 	GetSTHConsistency(ctx context.Context, first, second uint64) ([][]byte, error)
 	GetProofByHash(ctx context.Context, hash []byte, treeSize uint64) (*ct.GetProofByHashResponse, error)
+	GetEntryAndProof(ctx context.Context, index, treeSize uint64) (*ct.GetEntryAndProofResponse, error)
 }
 
 // New constructs a new LogClient instance.
