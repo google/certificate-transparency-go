@@ -71,8 +71,8 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("Migrating tree %d continuously: updated entry range to [%d, %d)",
-			c.trClient.tree.TreeId, c.opts.StartIndex, c.opts.EndIndex)
+		glog.Warningf("Tree %d: updated entry range to [%d, INF)",
+			c.trClient.tree.TreeId, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
