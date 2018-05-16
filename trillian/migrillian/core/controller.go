@@ -18,7 +18,7 @@ package core
 import (
 	"bytes"
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/golang/glog"
@@ -49,21 +49,21 @@ type Controller struct {
 	opts     Options
 	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
-	trClient *TrillianTreeClient
+	plClient *PreorderedLogClient
 }
 
 // NewController creates a Controller configured by the passed in options.
-func NewController(opts Options, ctClient *client.LogClient, trClient *TrillianTreeClient) *Controller {
+func NewController(opts Options, ctClient *client.LogClient, plClient *PreorderedLogClient) *Controller {
 	bufferSize := opts.Submitters * opts.BatchesPerSubmitter
 	batches := make(chan scanner.EntryBatch, bufferSize)
-	return &Controller{opts: opts, batches: batches, ctClient: ctClient, trClient: trClient}
+	return &Controller{opts: opts, batches: batches, ctClient: ctClient, plClient: plClient}
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
 // log via the other client. If Options.Continuous is true then the migration
 // process runs continuously trying to keep up with the target CT log.
 func (c *Controller) Run(ctx context.Context) error {
-	root, err := c.trClient.getVerifiedRoot(ctx)
+	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
 		glog.Warningf("Tree %d: updated entry range to [%d, INF)",
-			c.trClient.tree.TreeId, c.opts.StartIndex)
+			c.plClient.tree.TreeId, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -106,12 +106,12 @@ func (c *Controller) Run(ctx context.Context) error {
 // verifyConsistency checks that the provided verified Trillian root is
 // consistent with the CT log's STH.
 func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV1, sth *ct.SignedTreeHead) error {
-	h := c.trClient.verif.Hasher
+	h := c.plClient.verif.Hasher
 	if root.TreeSize == 0 {
-		if bytes.Equal(root.RootHash, h.EmptyRoot()) {
-			return nil
+		if got, want := root.RootHash, h.EmptyRoot(); !bytes.Equal(got, want) {
+			return fmt.Errorf("invalid empty tree hash %x, want %x", got, want)
 		}
-		return errors.New("invalid empty tree")
+		return nil
 	}
 
 	resp, err := c.ctClient.GetEntryAndProof(ctx, root.TreeSize-1, sth.TreeSize)
@@ -129,8 +129,9 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(hash, root.RootHash) {
-		return errors.New("inconsistent root")
+
+	if got := root.RootHash; !bytes.Equal(got, hash) {
+		return fmt.Errorf("inconsistent root hash %x, want %x", got, hash)
 	}
 	return nil
 }
@@ -141,7 +142,7 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 	for b := range c.batches {
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
-		if err := c.trClient.addSequencedLeaves(ctx, &b); err != nil {
+		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
 			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
 			glog.Infof("Added batch [%d, %d)\n", b.Start, end)

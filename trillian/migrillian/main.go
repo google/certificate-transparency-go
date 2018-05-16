@@ -69,6 +69,7 @@ func main() {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 	// TODO(pavelkalinnikov): Share this between multiple CT clients.
+	// TODO(pavelkalinnikov): Make the timeout tunable.
 	httpClient := &http.Client{
 		Timeout:   10 * time.Second,
 		Transport: transport,
@@ -100,12 +101,9 @@ func main() {
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	trClient, err := core.NewTrillianTreeClient(ctx,
-		trillian.NewTrillianAdminClient(conn),
-		trillian.NewTrillianLogClient(conn),
-		*logID, fmt.Sprintf("%d", *logID))
+	plClient, err := newPreorderedLogClient(ctx, conn, *logID)
 	if err != nil {
-		glog.Exitf("Failed to create TrillianTreeClient: %v", err)
+		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
 	}
 
 	opts := core.Options{
@@ -119,11 +117,23 @@ func main() {
 		Submitters:          *submitters,
 		BatchesPerSubmitter: *submitterBatches,
 	}
-	ctrl := core.NewController(opts, ctClient, trClient)
+	ctrl := core.NewController(opts, ctClient, plClient)
 
 	cctx, cancel = core.WithSignalCancel(ctx)
 	defer cancel()
 	if err := ctrl.Run(cctx); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
+}
+
+func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID int64) (*core.PreorderedLogClient, error) {
+	admin := trillian.NewTrillianAdminClient(conn)
+	gt := trillian.GetTreeRequest{TreeId: treeID}
+	tree, err := admin.GetTree(ctx, &gt)
+	if err != nil {
+		return nil, err
+	}
+	log := trillian.NewTrillianLogClient(conn)
+	pref := fmt.Sprintf("%d", *logID)
+	return core.NewPreorderedLogClient(log, tree, pref)
 }

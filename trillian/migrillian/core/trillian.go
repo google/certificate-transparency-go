@@ -26,41 +26,35 @@ import (
 	"github.com/google/trillian/types"
 )
 
-// TrillianTreeClient is a means of communicating with a Trillian pre-ordered
-// log tree.
-type TrillianTreeClient struct {
+// PreorderedLogClient is a means of communicating with a single Trillian
+// pre-ordered log tree.
+type PreorderedLogClient struct {
 	cli    trillian.TrillianLogClient
 	verif  *client.LogVerifier
 	tree   *trillian.Tree
 	prefix string // TODO(pavelkalinnikov): Get rid of this.
 }
 
-// NewTrillianTreeClient creates and initializes a pre-ordered log client.
-func NewTrillianTreeClient(ctx context.Context,
-	admin trillian.TrillianAdminClient, log trillian.TrillianLogClient,
-	treeID int64, prefix string,
-) (*TrillianTreeClient, error) {
-	gt := trillian.GetTreeRequest{TreeId: treeID}
-	tree, err := admin.GetTree(ctx, &gt)
-	if err != nil {
-		return nil, err
-	} else if tree == nil {
-		return nil, errors.New("missing GetTree response")
+// NewPreorderedLogClient creates and initializes a pre-ordered log client.
+func NewPreorderedLogClient(
+	cli trillian.TrillianLogClient, tree *trillian.Tree, prefix string,
+) (*PreorderedLogClient, error) {
+	if tree == nil {
+		return nil, errors.New("missing Tree")
 	}
 	if got, want := tree.TreeType, trillian.TreeType_PREORDERED_LOG; got != want {
-		return nil, fmt.Errorf("tree %d is %v, want %v", treeID, got, want)
+		return nil, fmt.Errorf("tree %d is %v, want %v", tree.TreeId, got, want)
 	}
-
 	v, err := client.NewLogVerifierFromTree(tree)
 	if err != nil {
 		return nil, err
 	}
-	return &TrillianTreeClient{cli: log, verif: v, tree: tree, prefix: prefix}, nil
+	return &PreorderedLogClient{cli: cli, verif: v, tree: tree, prefix: prefix}, nil
 }
 
 // getVerifiedRoot returns the current root of the Trillian tree. Verifies the
 // log's signature.
-func (c *TrillianTreeClient) getVerifiedRoot(ctx context.Context) (*types.LogRootV1, error) {
+func (c *PreorderedLogClient) getVerifiedRoot(ctx context.Context) (*types.LogRootV1, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: c.tree.TreeId}
 	rsp, err := c.cli.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
@@ -73,7 +67,7 @@ func (c *TrillianTreeClient) getVerifiedRoot(ctx context.Context) (*types.LogRoo
 
 // addSequencedLeaves converts a batch of CT log entries into Trillian log
 // leaves and submits them to Trillian via AddSequencedLeaves API.
-func (c *TrillianTreeClient) addSequencedLeaves(ctx context.Context, b *scanner.EntryBatch) error {
+func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner.EntryBatch) error {
 	// TODO(pavelkalinnikov): Verify range inclusion against the remote STH.
 	leaves := make([]*trillian.LogLeaf, len(b.Entries))
 	for i, e := range b.Entries {
