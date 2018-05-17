@@ -64,6 +64,12 @@ type RequestLog interface {
 	// LeafHash will be called once for get proof by hash requests with the
 	// requested hash value (if the parameters parse correctly).
 	LeafHash(context.Context, []byte)
+	// SCT will be called once when the server is about to issue an SCT to a
+	// client. This need not be called if the submission process fails before an
+	// SCT could be presented to a client, even if this is unrelated to
+	// the validity of the submitted chain. The SCT bytes will be in TLS
+	// serialized format.
+	SCT(context.Context, []byte)
 	// Status will be called once to set the HTTP status code that was the
 	// the result after the request has been handled.
 	Status(context.Context, int)
@@ -123,6 +129,11 @@ func (dlr *DefaultRequestLog) TreeSize(_ context.Context, ts int64) {
 // LeafHash logs request parameters.
 func (dlr *DefaultRequestLog) LeafHash(_ context.Context, lh []byte) {
 	glog.V(vLevel).Infof("RL: LeafHash: %s", hex.EncodeToString(lh))
+}
+
+// SCT logs an SCT that will be issued to a client.
+func (dlr *DefaultRequestLog) SCT(_ context.Context, sct []byte) {
+	glog.V(vLevel).Infof("RL: Issuing SCT: %s", hex.EncodeToString(sct))
 }
 
 // Status logs the response HTTP status code after processing completes.
