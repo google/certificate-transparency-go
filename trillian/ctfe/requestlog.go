@@ -130,7 +130,7 @@ func (dlr *DefaultRequestLog) LeafHash(_ context.Context, lh []byte) {
 	glog.V(vLevel).Infof("RL: LeafHash: %x", lh)
 }
 
-// SCT logs an SCT that will be issued to a client.
+// IssueSCT logs an SCT that will be issued to a client.
 func (dlr *DefaultRequestLog) IssueSCT(_ context.Context, sct []byte) {
 	glog.V(vLevel).Infof("RL: Issuing SCT: %x", sct)
 }
