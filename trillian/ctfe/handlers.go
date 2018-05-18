@@ -394,6 +394,12 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to generate SCT: %v", err)
 	}
+	sctBytes, err := tls.Marshal(*sct)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshall SCT: %v", err)
+	}
+	// We could possibly fail to issue the SCT after this but it's v. unlikely.
+	c.RequestLog.IssueSCT(ctx, sctBytes)
 	err = marshalAndWriteAddChainResponse(sct, c.signer, w)
 	if err != nil {
 		// reason is logged and http status is already set
