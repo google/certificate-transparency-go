@@ -252,7 +252,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 			if !ok {
 				t.Fatal("Couldn't find AddChain handler")
 			}
-			gotOpts := addChainHandler.Context.validationOpts
+			gotOpts := addChainHandler.Info.validationOpts
 			if got, want := gotOpts.notAfterStart, test.cfg.NotAfterStart; want != nil && !equivalentTimes(got, want) {
 				t.Errorf("%v: handler notAfterStart %v, want %v", test.desc, got, want)
 			}
