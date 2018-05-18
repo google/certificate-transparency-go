@@ -271,14 +271,8 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		extKeyUsages:  keyUsages,
 	}
 	// Create and register the handlers using the RPC client we just set up.
-	logCtx := NewLogContext(cfg.LogId,
-		cfg.Prefix,
-		validationOpts,
-		client,
-		key,
-		opts,
-		new(util.SystemTimeSource))
+	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, validationOpts, client, key, opts, new(util.SystemTimeSource))
 
-	handlers := logCtx.Handlers(cfg.Prefix)
+	handlers := logInfo.Handlers(cfg.Prefix)
 	return &handlers, nil
 }

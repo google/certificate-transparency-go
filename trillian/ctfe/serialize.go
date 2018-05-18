@@ -27,12 +27,12 @@ import (
 
 // signV1TreeHead signs a tree head for CT. The input STH should have been built from a
 // backend response and already checked for validity.
-func (c *LogContext) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead) error {
+func (li *logInfo) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead) error {
 	sthBytes, err := ct.SerializeSTHSignatureInput(*sth)
 	if err != nil {
 		return err
 	}
-	if sig, ok := c.getLastSTHSignature(sthBytes); ok {
+	if sig, ok := li.getLastSTHSignature(sthBytes); ok {
 		sth.TreeHeadSignature = sig
 		return nil
 	}
@@ -51,7 +51,7 @@ func (c *LogContext) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead
 		},
 		Signature: signature,
 	}
-	c.setLastSTHSignature(sthBytes, sth.TreeHeadSignature)
+	li.setLastSTHSignature(sthBytes, sth.TreeHeadSignature)
 	return nil
 }
 

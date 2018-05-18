@@ -108,7 +108,7 @@ type handlerTestInfo struct {
 	notAfterStart time.Time
 	notAfterEnd   time.Time
 	client        *mockclient.MockTrillianLogClient
-	c             *LogContext
+	li            *logInfo
 }
 
 const certQuotaPrefix = "CERT:"
@@ -132,17 +132,17 @@ func quotaUsersForIssuers(t *testing.T, pem ...string) []string {
 
 func (info *handlerTestInfo) setRemoteQuotaUser(u string) {
 	if len(u) > 0 {
-		info.c.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
+		info.li.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
 	} else {
-		info.c.instanceOpts.RemoteQuotaUser = nil
+		info.li.instanceOpts.RemoteQuotaUser = nil
 	}
 }
 
 func (info *handlerTestInfo) enableCertQuota(e bool) {
 	if e {
-		info.c.instanceOpts.CertificateQuotaUser = quotaUserForCert
+		info.li.instanceOpts.CertificateQuotaUser = quotaUserForCert
 	} else {
-		info.c.instanceOpts.CertificateQuotaUser = nil
+		info.li.instanceOpts.CertificateQuotaUser = nil
 	}
 }
 
@@ -161,7 +161,7 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 	iOpts := InstanceOptions{Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}, RequestLog: new(DefaultRequestLog)}
-	info.c = NewLogContext(0x42, "test", vOpts, info.client, signer, iOpts, fakeTimeSource)
+	info.li = newLogInfo(0x42, "test", vOpts, info.client, signer, iOpts, fakeTimeSource)
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {
@@ -174,19 +174,19 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 
 func (info handlerTestInfo) getHandlers() map[string]AppHandler {
 	return map[string]AppHandler{
-		"get-sth":             {Context: info.c, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet},
-		"get-sth-consistency": {Context: info.c, Handler: getSTHConsistency, Name: "GetSTHConsistency", Method: http.MethodGet},
-		"get-proof-by-hash":   {Context: info.c, Handler: getProofByHash, Name: "GetProofByHash", Method: http.MethodGet},
-		"get-entries":         {Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet},
-		"get-roots":           {Context: info.c, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet},
-		"get-entry-and-proof": {Context: info.c, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet},
+		"get-sth":             {Info: info.li, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet},
+		"get-sth-consistency": {Info: info.li, Handler: getSTHConsistency, Name: "GetSTHConsistency", Method: http.MethodGet},
+		"get-proof-by-hash":   {Info: info.li, Handler: getProofByHash, Name: "GetProofByHash", Method: http.MethodGet},
+		"get-entries":         {Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet},
+		"get-roots":           {Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet},
+		"get-entry-and-proof": {Info: info.li, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet},
 	}
 }
 
 func (info handlerTestInfo) postHandlers() map[string]AppHandler {
 	return map[string]AppHandler{
-		"add-chain":     {Context: info.c, Handler: addChain, Name: "AddChain", Method: http.MethodPost},
-		"add-pre-chain": {Context: info.c, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost},
+		"add-chain":     {Info: info.li, Handler: addChain, Name: "AddChain", Method: http.MethodPost},
+		"add-pre-chain": {Info: info.li, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost},
 	}
 }
 
@@ -274,7 +274,7 @@ func TestHandlers(t *testing.T) {
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
 	for _, test := range tests {
-		handlers := info.c.Handlers(test)
+		handlers := info.li.Handlers(test)
 		if h, ok := handlers[path]; !ok {
 			t.Errorf("Handlers(%s)[%q]=%+v; want _", test, path, h)
 		} else if h.Name != "AddChain" {
@@ -299,7 +299,7 @@ func TestHandlers(t *testing.T) {
 func TestGetRoots(t *testing.T) {
 	info := setupTest(t, []string{caAndIntermediateCertsPEM}, nil)
 	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet}
+	handler := AppHandler{Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet}
 
 	req, err := http.NewRequest("GET", "http://example.com/ct/v1/get-roots", nil)
 	if err != nil {
@@ -450,7 +450,7 @@ func TestAddChain(t *testing.T) {
 			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
 
-		recorder := makeAddChainRequest(t, info.c, chain)
+		recorder := makeAddChainRequest(t, info.li, chain)
 		if recorder.Code != test.want {
 			t.Errorf("addChain(%s)=%d (body:%v); want %dv", test.descr, recorder.Code, recorder.Body, test.want)
 			continue
@@ -575,7 +575,7 @@ func TestAddPrechain(t *testing.T) {
 			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
 
-		recorder := makeAddPrechainRequest(t, info.c, chain)
+		recorder := makeAddPrechainRequest(t, info.li, chain)
 		if recorder.Code != test.want {
 			t.Errorf("addPrechain(%s)=%d (body:%v); want %d", test.descr, recorder.Code, recorder.Body, test.want)
 			continue
@@ -683,7 +683,7 @@ func TestGetSTH(t *testing.T) {
 				return
 			}
 
-			handler := AppHandler{Context: info.c, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet}
+			handler := AppHandler{Info: info.li, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet}
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, req)
 			if got := w.Code; got != test.want {
@@ -885,7 +885,7 @@ func runTestGetEntries(t *testing.T) {
 	for _, test := range tests {
 		info := setupTest(t, nil, nil)
 		info.setRemoteQuotaUser(test.wantQuotaUser)
-		handler := AppHandler{Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
+		handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 		path := fmt.Sprintf("/ct/v1/get-entries?%s", test.req)
 		req, err := http.NewRequest("GET", path, nil)
 		if err != nil {
@@ -1029,7 +1029,7 @@ func runTestGetEntriesRanges(t *testing.T) {
 
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
+	handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 
 	// This tests that only valid ranges make it to the backend for get-entries.
 	// We're testing request handling up to the point where we make the RPC so arrange for
@@ -1326,7 +1326,7 @@ func TestGetProofByHash(t *testing.T) {
 	}
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getProofByHash, Name: "GetProofByHash", Method: http.MethodGet}
+	handler := AppHandler{Info: info.li, Handler: getProofByHash, Name: "GetProofByHash", Method: http.MethodGet}
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
@@ -1625,7 +1625,7 @@ func TestGetSTHConsistency(t *testing.T) {
 
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getSTHConsistency, Name: "GetSTHConsistency", Method: http.MethodGet}
+	handler := AppHandler{Info: info.li, Handler: getSTHConsistency, Name: "GetSTHConsistency", Method: http.MethodGet}
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
@@ -1862,7 +1862,7 @@ func TestGetEntryAndProof(t *testing.T) {
 
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
-	handler := AppHandler{Context: info.c, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet}
+	handler := AppHandler{Info: info.li, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet}
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
@@ -1975,15 +1975,15 @@ func (d dlMatcher) String() string {
 	return fmt.Sprintf("deadline is %v", fakeDeadlineTime)
 }
 
-func makeAddPrechainRequest(t *testing.T, c *LogContext, body io.Reader) *httptest.ResponseRecorder {
+func makeAddPrechainRequest(t *testing.T, li *logInfo, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
-	handler := AppHandler{Context: c, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost}
+	handler := AppHandler{Info: li, Handler: addPreChain, Name: "AddPreChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-pre-chain", body)
 }
 
-func makeAddChainRequest(t *testing.T, c *LogContext, body io.Reader) *httptest.ResponseRecorder {
+func makeAddChainRequest(t *testing.T, li *logInfo, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
-	handler := AppHandler{Context: c, Handler: addChain, Name: "AddChain", Method: http.MethodPost}
+	handler := AppHandler{Info: li, Handler: addChain, Name: "AddChain", Method: http.MethodPost}
 	return makeAddChainRequestInternal(t, handler, "add-chain", body)
 }
 
