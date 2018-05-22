@@ -36,6 +36,7 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/naming"
@@ -244,7 +245,12 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
-	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
+	opts := ctfe.InstanceOptions{
+		Deadline:        deadline,
+		MetricFactory:   prometheus.MetricFactory{},
+		RequestLog:      new(ctfe.DefaultRequestLog),
+		RemoteQuotaUser: realip.FromRequest,
+	}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
 		return err
