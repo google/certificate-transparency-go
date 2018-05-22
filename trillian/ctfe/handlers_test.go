@@ -39,6 +39,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
@@ -108,11 +109,38 @@ type handlerTestInfo struct {
 	c             *LogContext
 }
 
+const certQuotaPrefix = "CERT:"
+
+func quotaUserForCert(c *x509.Certificate) string {
+	return fmt.Sprintf("%s %s", certQuotaPrefix, c.Subject.String())
+}
+
+func quotaUsersForChain(t *testing.T, pem ...string) []string {
+	t.Helper()
+	r := make([]string, 0)
+	for _, p := range pem {
+		c, err := x509util.CertificateFromPEM([]byte(p))
+		if err != nil {
+			t.Fatalf("Failed to parse pem: %v", err)
+		}
+		r = append(r, quotaUserForCert(c))
+	}
+	return r
+}
+
 func (h *handlerTestInfo) setRemoteQuotaUser(u string) {
 	if len(u) > 0 {
 		h.c.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
 	} else {
 		h.c.instanceOpts.RemoteQuotaUser = nil
+	}
+}
+
+func (h *handlerTestInfo) enableCertQuota(e bool) {
+	if e {
+		h.c.instanceOpts.CertificateQuotaUser = quotaUserForCert
+	} else {
+		h.c.instanceOpts.CertificateQuotaUser = nil
 	}
 }
 
@@ -302,12 +330,15 @@ func TestGetRoots(t *testing.T) {
 
 func TestAddChain(t *testing.T) {
 	var tests = []struct {
-		descr         string
-		chain         []string
-		toSign        string // hex-encoded
-		want          int
-		err           error
-		wantQuotaUser string
+		descr             string
+		chain             []string
+		toSign            string // hex-encoded
+		want              int
+		err               error
+		enableRemoteQuota bool
+		enableCertQuota   bool
+		// if remote quota enabled, it must be the first entry here
+		wantQuotaUsers []string
 	}{
 		{
 			descr: "leaf-only",
@@ -339,18 +370,37 @@ func TestAddChain(t *testing.T) {
 			want:   http.StatusOK,
 		},
 		{
-			descr:         "success-without-root",
-			chain:         []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM},
-			toSign:        "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
-			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			descr:             "success-without-root with remote quota",
+			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM},
+			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			enableRemoteQuota: true,
+			want:              http.StatusOK,
+			wantQuotaUsers:    []string{"moneybags"},
 		},
 		{
-			descr:         "success with quota",
-			chain:         []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
-			toSign:        "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
-			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			descr:             "success with remote quota",
+			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			enableRemoteQuota: true,
+			want:              http.StatusOK,
+			wantQuotaUsers:    []string{"moneybags"},
+		},
+		{
+			descr:           "success with chain quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			enableCertQuota: true,
+			want:            http.StatusOK,
+			wantQuotaUsers:  quotaUsersForChain(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM),
+		},
+		{
+			descr:             "success with remote and chain quota",
+			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			enableRemoteQuota: true,
+			enableCertQuota:   true,
+			want:              http.StatusOK,
+			wantQuotaUsers:    append([]string{"moneybags"}, quotaUsersForChain(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM)...),
 		},
 	}
 
@@ -363,7 +413,13 @@ func TestAddChain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
-		info.setRemoteQuotaUser(test.wantQuotaUser)
+		if test.enableRemoteQuota {
+			// first entry in wantQuotaUsers is the remote user
+			info.setRemoteQuotaUser(test.wantQuotaUsers[0])
+		} else {
+			info.setRemoteQuotaUser("")
+		}
+		info.enableCertQuota(test.enableCertQuota)
 		pool := loadCertsIntoPoolOrDie(t, test.chain)
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
@@ -391,8 +447,11 @@ func TestAddChain(t *testing.T) {
 			}
 			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
 			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
-			if len(test.wantQuotaUser) != 0 {
-				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			if len(test.wantQuotaUsers) > 0 {
+				req.ChargeTo = &trillian.ChargeTo{}
+				for _, u := range test.wantQuotaUsers {
+					req.ChargeTo.User = append(req.ChargeTo.User, u)
+				}
 			}
 			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
