@@ -31,8 +31,8 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
-	"github.com/google/certificate-transparency-go/trillian/ctdns/mockclient"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/ctdns/mockclient"
 	"github.com/miekg/dns"
 )
 

@@ -15,4 +15,4 @@
 // Package mockclient provides a mockable version of the DNSLogClient API.
 package mockclient
 
-//go:generate mockgen -package mockclient -destination mock_dns_client.go github.com/google/certificate-transparency-go/trillian/ctdns DNSLogClient
+//go:generate mockgen -package mockclient -destination mock_dns_client.go github.com/google/certificate-transparency-go/trillian/ctfe/ctdns DNSLogClient
