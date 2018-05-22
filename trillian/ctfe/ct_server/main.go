@@ -62,6 +62,8 @@ var (
 	tracing            = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
 	tracingProjectID   = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
 	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
+	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
+	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requestion of quota for intermediate certificates in sumbmitted chains")
 )
 
 func main() {
@@ -246,11 +248,17 @@ func awaitSignal(doneFn func()) {
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
 	opts := ctfe.InstanceOptions{
-		Deadline:             deadline,
-		MetricFactory:        prometheus.MetricFactory{},
-		RequestLog:           new(ctfe.DefaultRequestLog),
-		RemoteQuotaUser:      realip.FromRequest,
-		CertificateQuotaUser: ctfe.QuotaUserForCert,
+		Deadline:      deadline,
+		MetricFactory: prometheus.MetricFactory{},
+		RequestLog:    new(ctfe.DefaultRequestLog),
+	}
+	if *quotaRemote {
+		glog.Info("Enabling quota for requesting IP")
+		opts.RemoteQuotaUser = realip.FromRequest
+	}
+	if *quotaIntermediate {
+		glog.Info("Enabling quota for intermediate certificates")
+		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
 	}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
