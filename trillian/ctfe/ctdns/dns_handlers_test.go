@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,14 +166,14 @@ func TestDNSHandler(t *testing.T) {
 		{
 			name:      "STHBadQType",
 			zone:      "good.ct.googleapis.com",
-			msg:       &dns.Msg{Question: []dns.Question{{Name: "sth.good.ct.googleapis.com", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}}},
-			wantRcode: dns.RcodeFormatError,
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "sth.good.ct.googleapis.com", Qtype: dns.TypeA, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name:      "STHBadQClass",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "sth.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassCHAOS}}},
-			wantRcode: dns.RcodeFormatError,
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name:      "STHWrongZone",
@@ -184,6 +185,17 @@ func TestDNSHandler(t *testing.T) {
 			name: "STH",
 			zone: "good.ct.googleapis.com",
 			msg:  &dns.Msg{Question: []dns.Question{{Name: "sth.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			setup: func(c *mockclient.MockDNSLogClient) {
+				c.EXPECT().GetSTH(gomock.Any()).Times(1).Return(goodSTH, nil)
+			},
+			wantRRs: 1,
+			wantTxt: fmt.Sprintf("45678.12345.%s.%s", base64.StdEncoding.EncodeToString(hash[:]), base64.StdEncoding.EncodeToString(mSig)),
+			wantTTL: sthTTL,
+		},
+		{
+			name: "CaseInsensitiveSTH",
+			zone: "good.ct.googleapis.com",
+			msg:  &dns.Msg{Question: []dns.Question{{Name: "StH.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
 			setup: func(c *mockclient.MockDNSLogClient) {
 				c.EXPECT().GetSTH(gomock.Any()).Times(1).Return(goodSTH, nil)
 			},
@@ -213,13 +225,24 @@ func TestDNSHandler(t *testing.T) {
 		{
 			name:      "ConsistMismatchRegex",
 			zone:      "good.ct.googleapis.com",
-			msg:       &dns.Msg{Question: []dns.Question{{Name: "=7.123456.999999.sth-consistency.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "=7.123456.999999.sth-consistency.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
 			wantRcode: dns.RcodeNotZone,
 		},
 		{
 			name: "ConsistAllProofAndItFits",
 			zone: "good.ct.googleapis.com",
 			msg:  &dns.Msg{Question: []dns.Question{{Name: "0.123456.999999.sth-consistency.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			setup: func(c *mockclient.MockDNSLogClient) {
+				c.EXPECT().GetSTHConsistency(gomock.Any(), uint64(123456), uint64(999999)).Times(1).Return(makeProof(7), nil)
+			},
+			wantRRs: 1,
+			wantTxt: expectProof(0, 7),
+			wantTTL: respTTL,
+		},
+		{
+			name: "CaseInsensitiveConsist",
+			zone: "good.ct.googleapis.com",
+			msg:  &dns.Msg{Question: []dns.Question{{Name: "0.123456.999999.StH-ConsiSTencY.gooD.CT.googleAPIs.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
 			setup: func(c *mockclient.MockDNSLogClient) {
 				c.EXPECT().GetSTHConsistency(gomock.Any(), uint64(123456), uint64(999999)).Times(1).Return(makeProof(7), nil)
 			},
@@ -261,6 +284,12 @@ func TestDNSHandler(t *testing.T) {
 			wantTTL: respTTL,
 		},
 		{
+			name:      "ConsistOnly",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "sth-consistency.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeSuccess,
+		},
+		{
 			name:      "ConsistNotOurZone",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "8.123456.999999.sth-consistency.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
@@ -292,10 +321,24 @@ func TestDNSHandler(t *testing.T) {
 		{
 			// For this test the input matches the base32 regex but does not decode
 			// because it's an incomplete group.
-			name:      "HashBase32BadDecode",
+			name:      "HashBase32BadLength",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "NBSWY3DPGFUGK3DMN4ZGQZ.hash.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
-			wantRcode: dns.RcodeServerFailure,
+			wantRcode: dns.RcodeNameError,
+		},
+		{
+			// For this test the input matches the base32 regex but does not decode
+			// because it's an incomplete group.
+			name:      "HashNotBase32",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "/$!%/.hash.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeNameError,
+		},
+		{
+			name:      "HashOnly",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "hash.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name: "HashOK",
@@ -339,7 +382,7 @@ func TestDNSHandler(t *testing.T) {
 		{
 			name:      "TreeMismatchRegex",
 			zone:      "good.ct.googleapis.com",
-			msg:       &dns.Msg{Question: []dns.Question{{Name: "=7.123456.999999.tree.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "=7.123456.999999.tree.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
 			wantRcode: dns.RcodeNotZone,
 		},
 		{
@@ -387,6 +430,18 @@ func TestDNSHandler(t *testing.T) {
 			wantTTL: respTTL,
 		},
 		{
+			name:      "TreeOnly",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "tree.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeSuccess,
+		},
+		{
+			name:      "TreeSizeOnly",
+			zone:      "good.ct.googleapis.com",
+			msg:       &dns.Msg{Question: []dns.Question{{Name: "23.tree.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
+			wantRcode: dns.RcodeSuccess,
+		},
+		{
 			name:      "TreeNotOurZone",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "0.123456.999999.tree.notgood.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
@@ -397,7 +452,7 @@ func TestDNSHandler(t *testing.T) {
 			name:      "NotValidQuery",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "randomstuff.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
-			wantRcode: dns.RcodeNotZone,
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name:      "NotOurZone",
@@ -766,7 +821,7 @@ func serveRspsAt(t *testing.T, paths []httpPath, rsps []string) *httptest.Server
 		pp := paths[p]
 		m[pp.path] = func(w http.ResponseWriter, r *http.Request) {
 			for k, v := range pp.params {
-				if r.FormValue(k) != v {
+				if strings.ToLower(r.FormValue(k)) != strings.ToLower(v) {
 					w.WriteHeader(http.StatusInternalServerError)
 					t.Errorf("Incorrect query parameter: %v -> %v: %v", k, v, r.Form.Encode())
 					return

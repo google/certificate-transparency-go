@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -51,10 +52,10 @@ const (
 var (
 	// In these formats the last (.*) is always the zone, this is checked outside
 	// the regex matching.
-	sthRE     = regexp.MustCompile(`^sth\.(.*)\.$`)
-	consistRE = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)\.sth-consistency\.(.*)\.$`)
-	hashRE    = regexp.MustCompile(`^([A-Z0-9]+)\.hash\.(.*)\.$`)
-	treeRE    = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)\.tree\.(.*)\.$`)
+	sthRE     = regexp.MustCompile(`(?i)^sth\.(.*)\.$`)
+	consistRE = regexp.MustCompile(`(?i)^(\d+)\.(\d+)\.(\d+)\.sth-consistency\.(.*)\.$`)
+	hashRE    = regexp.MustCompile(`(?i)^([A-Z0-9]+)\.hash\.(.*)\.$`)
+	treeRE    = regexp.MustCompile(`(?i)^(\d+)\.(\d+)\.(\d+)\.tree\.(.*)\.$`)
 )
 
 // DNSLogClient is the subset of client.LogClient required for the DNS
@@ -106,7 +107,9 @@ func (c *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	// From the spec all requests must be class INET, type TXT.
 	if err := validate(r); err != nil {
 		glog.Warningf("Handler.ServeDNS(): %v", err)
-		failWithRcode(w, r, dns.RcodeFormatError, err)
+		// Request succeeded, we just don't have anything to return for that
+		// class / type.
+		failWithRcode(w, r, dns.RcodeSuccess, err)
 		return
 	}
 
@@ -122,13 +125,21 @@ func (c *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		// so we must have at least two results from the above.
 		if len(params) > 1 {
 			// Additionally check that the zone matched the last regex param and the
-			// whole string matched to avoid any false positives.
-			if params[0] == q && params[len(params)-1] == c.cfg.DnsZone {
+			// whole string matched to avoid any false positives. We don't just
+			// force everything to lower case because the base32 encoding is
+			// defined using upper case.
+			if strings.ToLower(params[0]) == strings.ToLower(q) && params[len(params)-1] == strings.ToLower(c.cfg.DnsZone) {
 				// This handler accepted the match and provides the result.
 				h.handleFn(ctx, c.client, params, w, r)
 				return
 			}
 		}
+	}
+	// If it's for our zone but anything else we don't know about it, but it's
+	// not an error.
+	if strings.HasSuffix(q, "."+strings.ToLower(dns.Fqdn(c.cfg.DnsZone))) {
+		failWithRcode(w, r, dns.RcodeSuccess, nil)
+		return
 	}
 	// No handler matched. Reject the request.
 	failWithRcode(w, r, dns.RcodeNotZone, nil)
