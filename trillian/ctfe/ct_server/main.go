@@ -201,7 +201,7 @@ func main() {
 				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
 				for t := range ticker.C {
 					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
-					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix); err != nil {
+					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix, nil /*quota user*/); err != nil {
 						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
 					}
 				}
