@@ -59,20 +59,6 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	ctx := context.Background()
 
-	opts := core.Options{
-		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     *ctBatchSize,
-			ParallelFetch: *ctFetchers,
-			StartIndex:    *startIndex,
-			EndIndex:      *endIndex,
-			Continuous:    *mirror,
-		},
-
-		Submitters:          *submitters,
-		BatchesPerSubmitter: *submitterBatches,
-	}
-	ctrl := core.NewController(opts)
-
 	transport := &http.Transport{
 		TLSHandshakeTimeout:   30 * time.Second,
 		DisableKeepAlives:     false,
@@ -81,6 +67,12 @@ func main() {
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+	}
+	// TODO(pavelkalinnikov): Share this between multiple CT clients.
+	// TODO(pavelkalinnikov): Make the timeout tunable.
+	httpClient := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: transport,
 	}
 
 	var ctOpts jsonclient.Options
@@ -93,10 +85,7 @@ func main() {
 	} else {
 		glog.Warningf("No public key for CT log %q", *ctLogURI)
 	}
-	ctClient, err := client.New(*ctLogURI, &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: transport,
-	}, ctOpts)
+	ctClient, err := client.New(*ctLogURI, httpClient, ctOpts)
 	if err != nil {
 		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
 	}
@@ -112,15 +101,39 @@ func main() {
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	treeClient := &core.TrillianTreeClient{
-		Client:    trillian.NewTrillianLogClient(conn),
-		LogID:     *logID,
-		LogPrefix: fmt.Sprintf("%d", *logID),
+	plClient, err := newPreorderedLogClient(ctx, conn, *logID)
+	if err != nil {
+		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
 	}
+
+	opts := core.Options{
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *ctBatchSize,
+			ParallelFetch: *ctFetchers,
+			StartIndex:    *startIndex,
+			EndIndex:      *endIndex,
+			Continuous:    *mirror,
+		},
+		Submitters:          *submitters,
+		BatchesPerSubmitter: *submitterBatches,
+	}
+	ctrl := core.NewController(opts, ctClient, plClient)
 
 	cctx, cancel = core.WithSignalCancel(ctx)
 	defer cancel()
-	if err := ctrl.Run(cctx, ctClient, treeClient); err != nil {
+	if err := ctrl.Run(cctx); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
+}
+
+func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID int64) (*core.PreorderedLogClient, error) {
+	admin := trillian.NewTrillianAdminClient(conn)
+	gt := trillian.GetTreeRequest{TreeId: treeID}
+	tree, err := admin.GetTree(ctx, &gt)
+	if err != nil {
+		return nil, err
+	}
+	log := trillian.NewTrillianLogClient(conn)
+	pref := fmt.Sprintf("%d", *logID)
+	return core.NewPreorderedLogClient(log, tree, pref)
 }
