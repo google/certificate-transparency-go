@@ -246,10 +246,11 @@ func awaitSignal(doneFn func()) {
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
 	opts := ctfe.InstanceOptions{
-		Deadline:        deadline,
-		MetricFactory:   prometheus.MetricFactory{},
-		RequestLog:      new(ctfe.DefaultRequestLog),
-		RemoteQuotaUser: realip.FromRequest,
+		Deadline:             deadline,
+		MetricFactory:        prometheus.MetricFactory{},
+		RequestLog:           new(ctfe.DefaultRequestLog),
+		RemoteQuotaUser:      realip.FromRequest,
+		CertificateQuotaUser: ctfe.QuotaUserForCert,
 	}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
