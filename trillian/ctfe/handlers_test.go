@@ -128,19 +128,19 @@ func quotaUsersForChain(t *testing.T, pem ...string) []string {
 	return r
 }
 
-func (h *handlerTestInfo) setRemoteQuotaUser(u string) {
+func (info *handlerTestInfo) setRemoteQuotaUser(u string) {
 	if len(u) > 0 {
-		h.c.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
+		info.c.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
 	} else {
-		h.c.instanceOpts.RemoteQuotaUser = nil
+		info.c.instanceOpts.RemoteQuotaUser = nil
 	}
 }
 
-func (h *handlerTestInfo) enableCertQuota(e bool) {
+func (info *handlerTestInfo) enableCertQuota(e bool) {
 	if e {
-		h.c.instanceOpts.CertificateQuotaUser = quotaUserForCert
+		info.c.instanceOpts.CertificateQuotaUser = quotaUserForCert
 	} else {
-		h.c.instanceOpts.CertificateQuotaUser = nil
+		info.c.instanceOpts.CertificateQuotaUser = nil
 	}
 }
 
