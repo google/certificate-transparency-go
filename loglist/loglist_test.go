@@ -246,6 +246,11 @@ func TestFuzzyFindLog(t *testing.T) {
 			want: []string{"Google 'Rocketeer' log"},
 		},
 		{
+			name: "FoundByKeyHashHexPrefix",
+			in:   "ee4bbdb7",
+			want: []string{"Google 'Rocketeer' log"},
+		},
+		{
 			name: "FoundByKeyHash64",
 			in:   "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=",
 			want: []string{"Google 'Rocketeer' log"},
