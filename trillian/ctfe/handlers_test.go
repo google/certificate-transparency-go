@@ -39,6 +39,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/testdata"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
@@ -99,6 +100,8 @@ const caAndIntermediateCertsPEM string = "-----BEGIN CERTIFICATE-----\n" +
 	intermediateCertB64 +
 	"\n-----END CERTIFICATE-----\n"
 
+const remoteQuotaUser = "Moneybags"
+
 type handlerTestInfo struct {
 	mockCtrl      *gomock.Controller
 	roots         *PEMCertPool
@@ -106,6 +109,41 @@ type handlerTestInfo struct {
 	notAfterEnd   time.Time
 	client        *mockclient.MockTrillianLogClient
 	c             *LogContext
+}
+
+const certQuotaPrefix = "CERT:"
+
+func quotaUserForCert(c *x509.Certificate) string {
+	return fmt.Sprintf("%s %s", certQuotaPrefix, c.Subject.String())
+}
+
+func quotaUsersForIssuers(t *testing.T, pem ...string) []string {
+	t.Helper()
+	r := make([]string, 0)
+	for _, p := range pem {
+		c, err := x509util.CertificateFromPEM([]byte(p))
+		if err != nil {
+			t.Fatalf("Failed to parse pem: %v", err)
+		}
+		r = append(r, quotaUserForCert(c))
+	}
+	return r
+}
+
+func (info *handlerTestInfo) setRemoteQuotaUser(u string) {
+	if len(u) > 0 {
+		info.c.instanceOpts.RemoteQuotaUser = func(_ *http.Request) string { return u }
+	} else {
+		info.c.instanceOpts.RemoteQuotaUser = nil
+	}
+}
+
+func (info *handlerTestInfo) enableCertQuota(e bool) {
+	if e {
+		info.c.instanceOpts.CertificateQuotaUser = quotaUserForCert
+	} else {
+		info.c.instanceOpts.CertificateQuotaUser = nil
+	}
 }
 
 // setupTest creates mock objects and contexts.  Caller should invoke info.mockCtrl.Finish().
@@ -294,11 +332,15 @@ func TestGetRoots(t *testing.T) {
 
 func TestAddChain(t *testing.T) {
 	var tests = []struct {
-		descr  string
-		chain  []string
-		toSign string // hex-encoded
-		want   int
-		err    error
+		descr           string
+		chain           []string
+		toSign          string // hex-encoded
+		want            int
+		err             error
+		remoteQuotaUser string
+		enableCertQuota bool
+		// if remote quota enabled, it must be the first entry here
+		wantQuotaUsers []string
 	}{
 		{
 			descr: "leaf-only",
@@ -329,6 +371,39 @@ func TestAddChain(t *testing.T) {
 			toSign: "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
 			want:   http.StatusOK,
 		},
+		{
+			descr:           "success-without-root with remote quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			want:            http.StatusOK,
+			wantQuotaUsers:  []string{remoteQuotaUser},
+		},
+		{
+			descr:           "success with remote quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			want:            http.StatusOK,
+			wantQuotaUsers:  []string{remoteQuotaUser},
+		},
+		{
+			descr:           "success with chain quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			enableCertQuota: true,
+			want:            http.StatusOK,
+			wantQuotaUsers:  quotaUsersForIssuers(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM),
+		},
+		{
+			descr:           "success with remote and chain quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			enableCertQuota: true,
+			want:            http.StatusOK,
+			wantQuotaUsers:  append([]string{remoteQuotaUser}, quotaUsersForIssuers(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM)...),
+		},
 	}
 
 	signer, err := setupSigner(fakeSignature)
@@ -340,6 +415,8 @@ func TestAddChain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.remoteQuotaUser)
+		info.enableCertQuota(test.enableCertQuota)
 		pool := loadCertsIntoPoolOrDie(t, test.chain)
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
@@ -366,7 +443,11 @@ func TestAddChain(t *testing.T) {
 				}
 			}
 			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
-			info.client.EXPECT().QueueLeaves(deadlineMatcher(), &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}).Return(&rsp, test.err)
+			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
+			if len(test.wantQuotaUsers) > 0 {
+				req.ChargeTo = &trillian.ChargeTo{User: test.wantQuotaUsers}
+			}
+			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
 
 		recorder := makeAddChainRequest(t, info.c, chain)
@@ -398,12 +479,13 @@ func TestAddChain(t *testing.T) {
 
 func TestAddPrechain(t *testing.T) {
 	var tests = []struct {
-		descr  string
-		chain  []string
-		root   string
-		toSign string // hex-encoded
-		err    error
-		want   int
+		descr         string
+		chain         []string
+		root          string
+		toSign        string // hex-encoded
+		err           error
+		want          int
+		wantQuotaUser string
 	}{
 		{
 			descr: "leaf-signed-by-different",
@@ -429,10 +511,24 @@ func TestAddPrechain(t *testing.T) {
 			want:   http.StatusOK,
 		},
 		{
+			descr:         "success with quota",
+			chain:         []string{cttestonly.PrecertPEMValid, cttestonly.CACertPEM},
+			toSign:        "92ecae1a2dc67a6c5f9c96fa5cab4c2faf27c48505b696dad926f161b0ca675a",
+			want:          http.StatusOK,
+			wantQuotaUser: remoteQuotaUser,
+		},
+		{
 			descr:  "success-without-root",
 			chain:  []string{cttestonly.PrecertPEMValid},
 			toSign: "92ecae1a2dc67a6c5f9c96fa5cab4c2faf27c48505b696dad926f161b0ca675a",
 			want:   http.StatusOK,
+		},
+		{
+			descr:         "success-without-root with quota",
+			chain:         []string{cttestonly.PrecertPEMValid},
+			toSign:        "92ecae1a2dc67a6c5f9c96fa5cab4c2faf27c48505b696dad926f161b0ca675a",
+			want:          http.StatusOK,
+			wantQuotaUser: remoteQuotaUser,
 		},
 	}
 
@@ -445,6 +541,7 @@ func TestAddPrechain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		pool := loadCertsIntoPoolOrDie(t, test.chain)
 		chain := createJSONChain(t, *pool)
 		if len(test.toSign) > 0 {
@@ -471,7 +568,11 @@ func TestAddPrechain(t *testing.T) {
 				}
 			}
 			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
-			info.client.EXPECT().QueueLeaves(deadlineMatcher(), &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}).Return(&rsp, test.err)
+			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
+			if len(test.wantQuotaUser) != 0 {
+				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			}
+			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
 
 		recorder := makeAddPrechainRequest(t, info.c, chain)
@@ -503,13 +604,14 @@ func TestAddPrechain(t *testing.T) {
 
 func TestGetSTH(t *testing.T) {
 	var tests = []struct {
-		descr   string
-		rpcRsp  *trillian.GetLatestSignedLogRootResponse
-		rpcErr  error
-		toSign  string // hex-encoded
-		signErr error
-		want    int
-		errStr  string
+		descr         string
+		rpcRsp        *trillian.GetLatestSignedLogRootResponse
+		rpcErr        error
+		toSign        string // hex-encoded
+		signErr       error
+		want          int
+		wantQuotaUser string
+		errStr        string
 	}{
 		{
 			descr:  "backend-failure",
@@ -542,6 +644,13 @@ func TestGetSTH(t *testing.T) {
 			toSign: "1e88546f5157bfaf77ca2454690b602631fedae925bbe7cf708ea275975bfe74",
 			want:   http.StatusOK,
 		},
+		{
+			descr:         "ok with quota",
+			rpcRsp:        makeGetRootResponseForTest(12345000000, 25, []byte("abcdabcdabcdabcdabcdabcdabcdabcd")),
+			toSign:        "1e88546f5157bfaf77ca2454690b602631fedae925bbe7cf708ea275975bfe74",
+			want:          http.StatusOK,
+			wantQuotaUser: remoteQuotaUser,
+		},
 	}
 
 	key, err := pem.UnmarshalPublicKey(testdata.DemoPublicKey)
@@ -560,9 +669,14 @@ func TestGetSTH(t *testing.T) {
 			}
 
 			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)
+			info.setRemoteQuotaUser(test.wantQuotaUser)
 			defer info.mockCtrl.Finish()
 
-			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), &trillian.GetLatestSignedLogRootRequest{LogId: 0x42}).Return(test.rpcRsp, test.rpcErr)
+			srReq := &trillian.GetLatestSignedLogRootRequest{LogId: 0x42}
+			if len(test.wantQuotaUser) != 0 {
+				srReq.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			}
+			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), srReq).Return(test.rpcRsp, test.rpcErr)
 			req, err := http.NewRequest("GET", "http://example.com/ct/v1/get-sth", nil)
 			if err != nil {
 				t.Errorf("Failed to create request: %v", err)
@@ -633,15 +747,16 @@ func runTestGetEntries(t *testing.T) {
 	}
 
 	var tests = []struct {
-		descr  string
-		req    string
-		want   int
-		glbir  *trillian.GetLeavesByIndexRequest
-		glbrr  *trillian.GetLeavesByRangeRequest
-		leaves []*trillian.LogLeaf
-		rpcErr error
-		slr    *trillian.SignedLogRoot
-		errStr string
+		descr         string
+		req           string
+		want          int
+		wantQuotaUser string
+		glbir         *trillian.GetLeavesByIndexRequest
+		glbrr         *trillian.GetLeavesByRangeRequest
+		leaves        []*trillian.LogLeaf
+		rpcErr        error
+		slr           *trillian.SignedLogRoot
+		errStr        string
 	}{
 		{
 			descr: "invalid &&s",
@@ -718,6 +833,16 @@ func runTestGetEntries(t *testing.T) {
 			},
 		},
 		{
+			descr:         "leaves ok with quota",
+			req:           "start=1&end=2",
+			want:          http.StatusOK,
+			wantQuotaUser: remoteQuotaUser,
+			leaves: []*trillian.LogLeaf{
+				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes1, ExtraData: []byte("extra1")},
+				{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes2, ExtraData: []byte("extra2")},
+			},
+		},
+		{
 			descr: "tree too small",
 			req:   "start=5&end=6",
 			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
@@ -759,6 +884,7 @@ func runTestGetEntries(t *testing.T) {
 
 	for _, test := range tests {
 		info := setupTest(t, nil, nil)
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		handler := AppHandler{Context: info.c, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 		path := fmt.Sprintf("/ct/v1/get-entries?%s", test.req)
 		req, err := http.NewRequest("GET", path, nil)
@@ -767,15 +893,19 @@ func runTestGetEntries(t *testing.T) {
 			continue
 		}
 		if test.leaves != nil || test.rpcErr != nil {
+			var chargeTo *trillian.ChargeTo
+			if len(test.wantQuotaUser) != 0 {
+				chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			}
 			if *getByRange {
-				glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2}
+				glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2, ChargeTo: chargeTo}
 				if test.glbrr != nil {
 					glbrr = test.glbrr
 				}
 				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: test.slr, Leaves: test.leaves}
 				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), glbrr).Return(&rsp, test.rpcErr)
 			} else {
-				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}}
+				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}, ChargeTo: chargeTo}
 				if test.glbir != nil {
 					glbir = test.glbir
 				}
@@ -827,12 +957,13 @@ func runTestGetEntries(t *testing.T) {
 
 func runTestGetEntriesRanges(t *testing.T) {
 	var tests = []struct {
-		desc   string
-		start  int64
-		end    int64
-		rpcEnd int64 // same as end if zero
-		want   int
-		rpc    bool
+		desc          string
+		start         int64
+		end           int64
+		rpcEnd        int64 // same as end if zero
+		want          int
+		wantQuotaUser string
+		rpc           bool
 	}{
 		{
 			desc:  "-ve start value not allowed",
@@ -866,6 +997,14 @@ func runTestGetEntriesRanges(t *testing.T) {
 			rpc:   true,
 		},
 		{
+			desc:          "valid range quota",
+			start:         10,
+			end:           20,
+			want:          http.StatusInternalServerError,
+			wantQuotaUser: remoteQuotaUser,
+			rpc:           true,
+		},
+		{
 			desc:  "valid range, one entry",
 			start: 10,
 			end:   10,
@@ -896,15 +1035,20 @@ func runTestGetEntriesRanges(t *testing.T) {
 	// We're testing request handling up to the point where we make the RPC so arrange for
 	// it to fail with a specific error.
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		if test.rpc {
 			end := test.rpcEnd
 			if end == 0 {
 				end = test.end
 			}
+			var chargeTo *trillian.ChargeTo
+			if len(test.wantQuotaUser) != 0 {
+				chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			}
 			if *getByRange {
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start}).Return(nil, errors.New("RPCMADE"))
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}).Return(nil, errors.New("RPCMADE"))
 			} else {
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end)}).Return(nil, errors.New("RPCMADE"))
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}).Return(nil, errors.New("RPCMADE"))
 			}
 		}
 
@@ -1000,13 +1144,14 @@ func TestGetProofByHash(t *testing.T) {
 	}
 
 	var tests = []struct {
-		req      string
-		want     int
-		rpcRsp   *trillian.GetInclusionProofByHashResponse
-		httpRsp  *ct.GetProofByHashResponse
-		httpJSON string
-		rpcErr   error
-		errStr   string
+		req           string
+		want          int
+		wantQuotaUser string
+		rpcRsp        *trillian.GetInclusionProofByHashResponse
+		httpRsp       *ct.GetProofByHashResponse
+		httpJSON      string
+		rpcErr        error
+		errStr        string
 	}{
 		{
 			req:  "",
@@ -1037,6 +1182,23 @@ func TestGetProofByHash(t *testing.T) {
 		{
 			req:  "tree_size=1&hash=YWhhc2g=",
 			want: http.StatusOK,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 0,
+						Hashes:    nil,
+					},
+				},
+			},
+			httpRsp: &ct.GetProofByHashResponse{LeafIndex: 0, AuditPath: nil},
+			// Check undecoded JSON to confirm use of '[]' not 'null'
+			httpJSON: "{\"leaf_index\":0,\"audit_path\":[]}",
+		},
+		{
+			req:  "tree_size=1&hash=YWhhc2g=",
+			want: http.StatusOK,
+			// Want quota
+			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
 				Proof: []*trillian.Proof{
 					{
@@ -1167,6 +1329,7 @@ func TestGetProofByHash(t *testing.T) {
 	handler := AppHandler{Context: info.c, Handler: getProofByHash, Name: "GetProofByHash", Method: http.MethodGet}
 
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/proof-by-hash?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
@@ -1220,6 +1383,7 @@ func TestGetSTHConsistency(t *testing.T) {
 	var tests = []struct {
 		req           string
 		want          int
+		wantQuotaUser string
 		first, second int64
 		rpcRsp        *trillian.GetConsistencyProofResponse
 		httpRsp       *ct.GetSTHConsistencyResponse
@@ -1265,6 +1429,17 @@ func TestGetSTHConsistency(t *testing.T) {
 		{
 			req:  "first=0&second=1",
 			want: http.StatusOK,
+			httpRsp: &ct.GetSTHConsistencyResponse{
+				Consistency: nil,
+			},
+			// Check a nil proof is passed through as '[]' not 'null' in raw JSON.
+			httpJSON: "{\"consistency\":[]}",
+		},
+		{
+			req:  "first=0&second=1",
+			want: http.StatusOK,
+			// Want quota
+			wantQuotaUser: remoteQuotaUser,
 			httpRsp: &ct.GetSTHConsistencyResponse{
 				Consistency: nil,
 			},
@@ -1453,6 +1628,7 @@ func TestGetSTHConsistency(t *testing.T) {
 	handler := AppHandler{Context: info.c, Handler: getSTHConsistency, Name: "GetSTHConsistency", Method: http.MethodGet}
 
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/get-sth-consistency?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
@@ -1463,6 +1639,9 @@ func TestGetSTHConsistency(t *testing.T) {
 				LogId:          0x42,
 				FirstTreeSize:  test.first,
 				SecondTreeSize: test.second,
+			}
+			if len(test.wantQuotaUser) > 0 {
+				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
 			info.client.EXPECT().GetConsistencyProof(deadlineMatcher(), &req).Return(test.rpcRsp, test.rpcErr)
 		}
@@ -1519,11 +1698,12 @@ func TestGetEntryAndProof(t *testing.T) {
 	}
 
 	var tests = []struct {
-		req    string
-		want   int
-		rpcRsp *trillian.GetEntryAndProofResponse
-		rpcErr error
-		errStr string
+		req           string
+		want          int
+		wantQuotaUser string
+		rpcRsp        *trillian.GetEntryAndProofResponse
+		rpcErr        error
+		errStr        string
 	}{
 		{
 			req:  "",
@@ -1580,6 +1760,28 @@ func TestGetEntryAndProof(t *testing.T) {
 		{
 			req:  "leaf_index=1&tree_size=3",
 			want: http.StatusOK,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes: [][]byte{
+						[]byte("abcdef"),
+						[]byte("ghijkl"),
+						[]byte("mnopqr"),
+					},
+				},
+				// To match merkleLeaf above.
+				Leaf: &trillian.LogLeaf{
+					LeafValue:      leafBytes,
+					MerkleLeafHash: []byte("ahash"),
+					ExtraData:      []byte("extra"),
+				},
+			},
+		},
+		{
+			req:  "leaf_index=1&tree_size=3",
+			want: http.StatusOK,
+			// wantQuota
+			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
@@ -1663,6 +1865,7 @@ func TestGetEntryAndProof(t *testing.T) {
 	handler := AppHandler{Context: info.c, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet}
 
 	for _, test := range tests {
+		info.setRemoteQuotaUser(test.wantQuotaUser)
 		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/get-entry-and-proof?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
@@ -1670,7 +1873,11 @@ func TestGetEntryAndProof(t *testing.T) {
 		}
 
 		if test.rpcRsp != nil || test.rpcErr != nil {
-			info.client.EXPECT().GetEntryAndProof(deadlineMatcher(), &trillian.GetEntryAndProofRequest{LogId: 0x42, LeafIndex: 1, TreeSize: 3}).Return(test.rpcRsp, test.rpcErr)
+			req := &trillian.GetEntryAndProofRequest{LogId: 0x42, LeafIndex: 1, TreeSize: 3}
+			if len(test.wantQuotaUser) > 0 {
+				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+			}
+			info.client.EXPECT().GetEntryAndProof(deadlineMatcher(), req).Return(test.rpcRsp, test.rpcErr)
 		}
 
 		w := httptest.NewRecorder()

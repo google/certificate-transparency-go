@@ -36,6 +36,7 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/naming"
@@ -61,6 +62,8 @@ var (
 	tracing            = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
 	tracingProjectID   = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
 	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
+	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
+	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
 )
 
 func main() {
@@ -201,7 +204,7 @@ func main() {
 				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
 				for t := range ticker.C {
 					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
-					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix); err != nil {
+					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix, nil /*quota user*/); err != nil {
 						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
 					}
 				}
@@ -244,7 +247,19 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
-	opts := ctfe.InstanceOptions{Deadline: deadline, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
+	opts := ctfe.InstanceOptions{
+		Deadline:      deadline,
+		MetricFactory: prometheus.MetricFactory{},
+		RequestLog:    new(ctfe.DefaultRequestLog),
+	}
+	if *quotaRemote {
+		glog.Info("Enabling quota for requesting IP")
+		opts.RemoteQuotaUser = realip.FromRequest
+	}
+	if *quotaIntermediate {
+		glog.Info("Enabling quota for intermediate certificates")
+		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
+	}
 	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {
 		return err
