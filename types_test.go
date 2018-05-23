@@ -15,7 +15,6 @@
 package ct
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -66,22 +65,28 @@ func TestUnmarshalMerkleTreeLeaf(t *testing.T) {
 	}
 }
 
-func mustB64Decode(s string) []byte {
-	b, err := base64.StdEncoding.DecodeString(s)
+const (
+	validRootHash = "708981e91d1487c2a9ea901ab5a8d053c1348585afcdb5e107bf60c0c1d20fc0"
+	longRootHash  = "708981e91d1487c2a9ea901ab5a8d053c1348585afcdb5e107bf60c0c1d20fc000"
+	shortRootHash = "708981e91d1487c2a9ea901ab5a8d053c1348585afcdb5e107bf60c0c1d20f"
+
+	validSignature = "040300473045022007fb5ae3cea8f076b534a01a9a19e60625c6cc70704c6c1a7c88b30d8f67d4af022100840d37b8f2f9ce134e74eefda6a0c2ad034d591b785cdc4973c4c4f5d03f0439"
+	longSignature  = "040300473045022007fb5ae3cea8f076b534a01a9a19e60625c6cc70704c6c1a7c88b30d8f67d4af022100840d37b8f2f9ce134e74eefda6a0c2ad034d591b785cdc4973c4c4f5d03f043900"
+)
+
+func mustHexDecode(s string) []byte {
+	h, err := hex.DecodeString(s)
 	if err != nil {
 		panic(err)
 	}
-	return b
+	return h
 }
 
 func TestToSignedTreeHead(t *testing.T) {
-	validRootHash := mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8A=")
-	validSignature := mustB64Decode("BAMARzBFAiAH+1rjzqjwdrU0oBqaGeYGJcbMcHBMbBp8iLMNj2fUrwIhAIQNN7jy+c4TTnTu/aagwq0DTVkbeFzcSXPExPXQPwQ5")
-
 	tests := []struct {
 		desc      string
-		rootHash  []byte
-		signature []byte
+		rootHash  string
+		signature string
 		wantErr   bool
 	}{
 		{
@@ -91,34 +96,36 @@ func TestToSignedTreeHead(t *testing.T) {
 		},
 		{
 			desc:      "root hash too long",
-			rootHash:  mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8Az"),
+			rootHash:  longRootHash,
 			signature: validSignature,
 			wantErr:   true,
 		},
 		{
 			desc:      "root hash too short",
-			rootHash:  mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8=="),
+			rootHash:  shortRootHash,
 			signature: validSignature,
 			wantErr:   true,
 		},
 		{
 			desc:      "signature trailing data",
 			rootHash:  validRootHash,
-			signature: mustB64Decode("BAMARzBFAiAH+1rjzqjwdrU0oBqaGeYGJcbMcHBMbBp8iLMNj2fUrwIhAIQNN7jy+c4TTnTu/aagwq0DTVkbeFzcSXPExPXQPwQ5aa=="),
+			signature: longSignature,
 			wantErr:   true,
 		},
 	}
 
 	for _, test := range tests {
-		sthResponse := &GetSTHResponse{
-			TreeSize:          278437663,
-			Timestamp:         1527076172068,
-			SHA256RootHash:    test.rootHash,
-			TreeHeadSignature: test.signature,
-		}
-		sth, err := sthResponse.ToSignedTreeHead()
-		if gotErr := (err != nil); gotErr != test.wantErr {
-			t.Errorf("%s: GetSTHResponse.ToSignedTreeHead() = %+v, %v, want err? %t", test.desc, sth, err, test.wantErr)
-		}
+		t.Run(test.desc, func(t *testing.T) {
+			sthResponse := &GetSTHResponse{
+				TreeSize:          278437663,
+				Timestamp:         1527076172068,
+				SHA256RootHash:    mustHexDecode(test.rootHash),
+				TreeHeadSignature: mustHexDecode(test.signature),
+			}
+			sth, err := sthResponse.ToSignedTreeHead()
+			if gotErr := (err != nil); gotErr != test.wantErr {
+				t.Errorf("GetSTHResponse.ToSignedTreeHead() = %+v, %v, want err? %t", sth, err, test.wantErr)
+			}
+		})
 	}
 }
