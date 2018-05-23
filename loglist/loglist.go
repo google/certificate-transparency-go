@@ -142,10 +142,26 @@ func (ll *LogList) FindLogByKeyHash(keyhash [sha256.Size]byte) *Log {
 	return nil
 }
 
+// FindLogByKeyHashPrefix finds all logs whose key hash starts with the prefix.
+func (ll *LogList) FindLogByKeyHashPrefix(prefix []byte) []*Log {
+	if len(prefix) > sha256.Size {
+		return nil
+	}
+	var results []*Log
+	for _, log := range ll.Logs {
+		h := sha256.Sum256(log.Key)
+		if bytes.Equal(h[:len(prefix)], prefix) {
+			log := log
+			results = append(results, &log)
+		}
+	}
+	return results
+}
+
 // FindLogByKey finds the log with the given DER-encoded key.
 func (ll *LogList) FindLogByKey(key []byte) *Log {
 	for _, log := range ll.Logs {
-		if bytes.Equal(log.Key[:], key[:]) {
+		if bytes.Equal(log.Key[:], key) {
 			return &log
 		}
 	}
@@ -189,6 +205,9 @@ func (ll *LogList) FuzzyFindLog(input string) []*Log {
 		}
 		if log := ll.FindLogByKey(data); log != nil {
 			return []*Log{log}
+		}
+		if logs := ll.FindLogByKeyHashPrefix(data); len(logs) > 0 {
+			return logs
 		}
 	}
 
