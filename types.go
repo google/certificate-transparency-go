@@ -421,6 +421,7 @@ type GetSTHResponse struct {
 	TreeHeadSignature []byte `json:"tree_head_signature"` // Log signature for this STH
 }
 
+// ToSignedTreeHead creates a SignedTreeHead from the GetSTHResponse.
 func (r *GetSTHResponse) ToSignedTreeHead() (*SignedTreeHead, error) {
 	sth := SignedTreeHead{
 		TreeSize:  r.TreeSize,
