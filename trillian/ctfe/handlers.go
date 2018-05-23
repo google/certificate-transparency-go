@@ -332,6 +332,15 @@ func appendUserCharge(a *trillian.ChargeTo, user string) *trillian.ChargeTo {
 	return a
 }
 
+// chargeUser returns a trillian.ChargeTo containing an ID for the remote User,
+// or nil if instanceOpts does not have a RemoteQuotaUser function set.
+func (c *LogContext) chargeUser(r *http.Request) *trillian.ChargeTo {
+	if c.instanceOpts.RemoteQuotaUser != nil {
+		return &trillian.ChargeTo{User: []string{c.instanceOpts.RemoteQuotaUser(r)}}
+	}
+	return nil
+}
+
 // addChainInternal is called by add-chain and add-pre-chain as the logic involved in
 // processing these requests is almost identical
 func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter, r *http.Request, isPrecert bool) (int, error) {
@@ -376,9 +385,10 @@ func addChainInternal(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	}
 
 	// Send the Merkle tree leaf on to the Log server.
-	req := trillian.QueueLeavesRequest{LogId: c.logID, Leaves: []*trillian.LogLeaf{&leaf}}
-	if c.instanceOpts.RemoteQuotaUser != nil {
-		req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+	req := trillian.QueueLeavesRequest{
+		LogId:    c.logID,
+		Leaves:   []*trillian.LogLeaf{&leaf},
+		ChargeTo: c.chargeUser(r),
 	}
 	if c.instanceOpts.CertificateQuotaUser != nil {
 		// TODO(al): ignore pre-issuers? Probably doesn't matter
@@ -534,9 +544,11 @@ func getSTHConsistency(ctx context.Context, c *LogContext, w http.ResponseWriter
 	c.RequestLog.FirstAndSecond(ctx, first, second)
 	var jsonRsp ct.GetSTHConsistencyResponse
 	if first != 0 {
-		req := trillian.GetConsistencyProofRequest{LogId: c.logID, FirstTreeSize: first, SecondTreeSize: second}
-		if c.instanceOpts.RemoteQuotaUser != nil {
-			req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+		req := trillian.GetConsistencyProofRequest{
+			LogId:          c.logID,
+			FirstTreeSize:  first,
+			SecondTreeSize: second,
+			ChargeTo:       c.chargeUser(r),
 		}
 
 		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", c.LogPrefix, first, second, req)
@@ -607,9 +619,7 @@ func getProofByHash(ctx context.Context, c *LogContext, w http.ResponseWriter, r
 		LeafHash:        leafHash,
 		TreeSize:        treeSize,
 		OrderBySequence: true,
-	}
-	if c.instanceOpts.RemoteQuotaUser != nil {
-		req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+		ChargeTo:        c.chargeUser(r),
 	}
 	rsp, err := c.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
@@ -675,9 +685,7 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 			LogId:      c.logID,
 			StartIndex: start,
 			Count:      count,
-		}
-		if c.instanceOpts.RemoteQuotaUser != nil {
-			req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+			ChargeTo:   c.chargeUser(r),
 		}
 		rsp, err := c.rpcClient.GetLeavesByRange(ctx, &req)
 		if err != nil {
@@ -702,9 +710,7 @@ func getEntries(ctx context.Context, c *LogContext, w http.ResponseWriter, r *ht
 		req := trillian.GetLeavesByIndexRequest{
 			LogId:     c.logID,
 			LeafIndex: buildIndicesForRange(start, end),
-		}
-		if c.instanceOpts.RemoteQuotaUser != nil {
-			req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+			ChargeTo:  c.chargeUser(r),
 		}
 		rsp, err := c.rpcClient.GetLeavesByIndex(ctx, &req)
 		if err != nil {
@@ -781,9 +787,11 @@ func getEntryAndProof(ctx context.Context, c *LogContext, w http.ResponseWriter,
 	c.RequestLog.LeafIndex(ctx, leafIndex)
 	c.RequestLog.TreeSize(ctx, treeSize)
 
-	req := trillian.GetEntryAndProofRequest{LogId: c.logID, LeafIndex: leafIndex, TreeSize: treeSize}
-	if c.instanceOpts.RemoteQuotaUser != nil {
-		req.ChargeTo = appendUserCharge(req.ChargeTo, c.instanceOpts.RemoteQuotaUser(r))
+	req := trillian.GetEntryAndProofRequest{
+		LogId:     c.logID,
+		LeafIndex: leafIndex,
+		TreeSize:  treeSize,
+		ChargeTo:  c.chargeUser(r),
 	}
 	rsp, err := c.rpcClient.GetEntryAndProof(ctx, &req)
 	if err != nil {
