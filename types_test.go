@@ -15,6 +15,7 @@
 package ct
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"strings"
 	"testing"
@@ -61,6 +62,63 @@ func TestUnmarshalMerkleTreeLeaf(t *testing.T) {
 		}
 		if got.TimestampedEntry.EntryType != test.want {
 			t.Errorf("tls.Unmarshal(%s, &MerkleTreeLeaf)=EntryType=%v,nil; want LeafType=%v", test.in, got.TimestampedEntry.EntryType, test.want)
+		}
+	}
+}
+
+func mustB64Decode(s string) []byte {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func TestToSignedTreeHead(t *testing.T) {
+	validRootHash := mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8A=")
+	validSignature := mustB64Decode("BAMARzBFAiAH+1rjzqjwdrU0oBqaGeYGJcbMcHBMbBp8iLMNj2fUrwIhAIQNN7jy+c4TTnTu/aagwq0DTVkbeFzcSXPExPXQPwQ5")
+
+	tests := []struct {
+		desc      string
+		rootHash  []byte
+		signature []byte
+		wantErr   bool
+	}{
+		{
+			desc:      "success",
+			rootHash:  validRootHash,
+			signature: validSignature,
+		},
+		{
+			desc:      "root hash too long",
+			rootHash:  mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8Az"),
+			signature: validSignature,
+			wantErr:   true,
+		},
+		{
+			desc:      "root hash too short",
+			rootHash:  mustB64Decode("cImB6R0Uh8Kp6pAatajQU8E0hYWvzbXhB79gwMHSD8=="),
+			signature: validSignature,
+			wantErr:   true,
+		},
+		{
+			desc:      "signature trailing data",
+			rootHash:  validRootHash,
+			signature: mustB64Decode("BAMARzBFAiAH+1rjzqjwdrU0oBqaGeYGJcbMcHBMbBp8iLMNj2fUrwIhAIQNN7jy+c4TTnTu/aagwq0DTVkbeFzcSXPExPXQPwQ5aa=="),
+			wantErr:   true,
+		},
+	}
+
+	for _, test := range tests {
+		sthResponse := &GetSTHResponse{
+			TreeSize:          278437663,
+			Timestamp:         1527076172068,
+			SHA256RootHash:    test.rootHash,
+			TreeHeadSignature: test.signature,
+		}
+		sth, err := sthResponse.ToSignedTreeHead()
+		if gotErr := (err != nil); gotErr != test.wantErr {
+			t.Errorf("%s: GetSTHResponse.ToSignedTreeHead() = %+v, %v, want err? %t", test.desc, sth, err, test.wantErr)
 		}
 	}
 }

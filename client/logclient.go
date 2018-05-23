@@ -19,7 +19,6 @@ package client
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -177,35 +176,16 @@ func (c *LogClient) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 		}
 		return nil, err
 	}
-	sth := ct.SignedTreeHead{
-		TreeSize:  resp.TreeSize,
-		Timestamp: resp.Timestamp,
-	}
 
-	if len(resp.SHA256RootHash) != sha256.Size {
-		return nil, RspError{
-			Err:        fmt.Errorf("sha256_root_hash is invalid length, expected %d got %d", sha256.Size, len(resp.SHA256RootHash)),
-			StatusCode: httpRsp.StatusCode,
-			Body:       body,
-		}
-	}
-	copy(sth.SHA256RootHash[:], resp.SHA256RootHash)
-
-	var ds ct.DigitallySigned
-	if rest, err := tls.Unmarshal(resp.TreeHeadSignature, &ds); err != nil {
-		return nil, RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
-	} else if len(rest) > 0 {
-		return nil, RspError{
-			Err:        fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest)),
-			StatusCode: httpRsp.StatusCode,
-			Body:       body,
-		}
-	}
-	sth.TreeHeadSignature = ds
-	if err := c.VerifySTHSignature(sth); err != nil {
+	sth, err := resp.ToSignedTreeHead()
+	if err != nil {
 		return nil, RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
 	}
-	return &sth, nil
+
+	if err := c.VerifySTHSignature(*sth); err != nil {
+		return nil, RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
+	}
+	return sth, nil
 }
 
 // VerifySTHSignature checks the signature in sth, returning any error encountered or nil if verification is

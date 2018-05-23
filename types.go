@@ -421,6 +421,28 @@ type GetSTHResponse struct {
 	TreeHeadSignature []byte `json:"tree_head_signature"` // Log signature for this STH
 }
 
+func (r *GetSTHResponse) ToSignedTreeHead() (*SignedTreeHead, error) {
+	sth := SignedTreeHead{
+		TreeSize:  r.TreeSize,
+		Timestamp: r.Timestamp,
+	}
+
+	if len(r.SHA256RootHash) != sha256.Size {
+		return nil, fmt.Errorf("sha256_root_hash is invalid length, expected %d got %d", sha256.Size, len(r.SHA256RootHash))
+	}
+	copy(sth.SHA256RootHash[:], r.SHA256RootHash)
+
+	var ds DigitallySigned
+	if rest, err := tls.Unmarshal(r.TreeHeadSignature, &ds); err != nil {
+		return nil, fmt.Errorf("tls.Unmarshal(): %s", err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest))
+	}
+	sth.TreeHeadSignature = ds
+
+	return &sth, nil
+}
+
 // GetSTHConsistencyResponse represents the JSON response to the get-sth-consistency
 // GET method from section 4.4.  (The corresponding GET request has parameters 'first' and
 // 'second'.)
