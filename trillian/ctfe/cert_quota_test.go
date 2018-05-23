@@ -48,8 +48,10 @@ func TestQuotaUserForCert(t *testing.T) {
 			want: "@intermediate CN=FakeIntermediateAuthority,OU=Eng,O=Google,L=London,ST=London,C=GB 6e62e56f67",
 		},
 	} {
-		if got := QuotaUserForCert(test.cert); got != test.want {
-			t.Errorf("%s: got %q, want %q", test.desc, got, test.want)
-		}
+		t.Run(test.desc, func(t *testing.T) {
+			if got := QuotaUserForCert(test.cert); got != test.want {
+				t.Fatalf("QuotaUserForCert() = %q, want %q", got, test.want)
+			}
+		})
 	}
 }

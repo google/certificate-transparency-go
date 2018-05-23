@@ -100,6 +100,8 @@ const caAndIntermediateCertsPEM string = "-----BEGIN CERTIFICATE-----\n" +
 	intermediateCertB64 +
 	"\n-----END CERTIFICATE-----\n"
 
+const remoteQuotaUser = "Moneybags"
+
 type handlerTestInfo struct {
 	mockCtrl      *gomock.Controller
 	roots         *PEMCertPool
@@ -115,7 +117,7 @@ func quotaUserForCert(c *x509.Certificate) string {
 	return fmt.Sprintf("%s %s", certQuotaPrefix, c.Subject.String())
 }
 
-func quotaUsersForChain(t *testing.T, pem ...string) []string {
+func quotaUsersForIssuers(t *testing.T, pem ...string) []string {
 	t.Helper()
 	r := make([]string, 0)
 	for _, p := range pem {
@@ -330,13 +332,13 @@ func TestGetRoots(t *testing.T) {
 
 func TestAddChain(t *testing.T) {
 	var tests = []struct {
-		descr             string
-		chain             []string
-		toSign            string // hex-encoded
-		want              int
-		err               error
-		enableRemoteQuota bool
-		enableCertQuota   bool
+		descr           string
+		chain           []string
+		toSign          string // hex-encoded
+		want            int
+		err             error
+		remoteQuotaUser string
+		enableCertQuota bool
 		// if remote quota enabled, it must be the first entry here
 		wantQuotaUsers []string
 	}{
@@ -370,20 +372,20 @@ func TestAddChain(t *testing.T) {
 			want:   http.StatusOK,
 		},
 		{
-			descr:             "success-without-root with remote quota",
-			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM},
-			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
-			enableRemoteQuota: true,
-			want:              http.StatusOK,
-			wantQuotaUsers:    []string{"moneybags"},
+			descr:           "success-without-root with remote quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			want:            http.StatusOK,
+			wantQuotaUsers:  []string{remoteQuotaUser},
 		},
 		{
-			descr:             "success with remote quota",
-			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
-			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
-			enableRemoteQuota: true,
-			want:              http.StatusOK,
-			wantQuotaUsers:    []string{"moneybags"},
+			descr:           "success with remote quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			want:            http.StatusOK,
+			wantQuotaUsers:  []string{remoteQuotaUser},
 		},
 		{
 			descr:           "success with chain quota",
@@ -391,16 +393,16 @@ func TestAddChain(t *testing.T) {
 			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
 			enableCertQuota: true,
 			want:            http.StatusOK,
-			wantQuotaUsers:  quotaUsersForChain(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM),
+			wantQuotaUsers:  quotaUsersForIssuers(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM),
 		},
 		{
-			descr:             "success with remote and chain quota",
-			chain:             []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
-			toSign:            "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
-			enableRemoteQuota: true,
-			enableCertQuota:   true,
-			want:              http.StatusOK,
-			wantQuotaUsers:    append([]string{"moneybags"}, quotaUsersForChain(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM)...),
+			descr:           "success with remote and chain quota",
+			chain:           []string{cttestonly.LeafSignedByFakeIntermediateCertPEM, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM},
+			toSign:          "1337d72a403b6539f58896decba416d5d4b3603bfa03e1f94bb9b4e898af897d",
+			remoteQuotaUser: remoteQuotaUser,
+			enableCertQuota: true,
+			want:            http.StatusOK,
+			wantQuotaUsers:  append([]string{remoteQuotaUser}, quotaUsersForIssuers(t, cttestonly.FakeIntermediateCertPEM, cttestonly.FakeCACertPEM)...),
 		},
 	}
 
@@ -413,12 +415,7 @@ func TestAddChain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
-		if test.enableRemoteQuota {
-			// first entry in wantQuotaUsers is the remote user
-			info.setRemoteQuotaUser(test.wantQuotaUsers[0])
-		} else {
-			info.setRemoteQuotaUser("")
-		}
+		info.setRemoteQuotaUser(test.remoteQuotaUser)
 		info.enableCertQuota(test.enableCertQuota)
 		pool := loadCertsIntoPoolOrDie(t, test.chain)
 		chain := createJSONChain(t, *pool)
@@ -448,10 +445,7 @@ func TestAddChain(t *testing.T) {
 			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
 			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
 			if len(test.wantQuotaUsers) > 0 {
-				req.ChargeTo = &trillian.ChargeTo{}
-				for _, u := range test.wantQuotaUsers {
-					req.ChargeTo.User = append(req.ChargeTo.User, u)
-				}
+				req.ChargeTo = &trillian.ChargeTo{User: test.wantQuotaUsers}
 			}
 			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 		}
@@ -521,7 +515,7 @@ func TestAddPrechain(t *testing.T) {
 			chain:         []string{cttestonly.PrecertPEMValid, cttestonly.CACertPEM},
 			toSign:        "92ecae1a2dc67a6c5f9c96fa5cab4c2faf27c48505b696dad926f161b0ca675a",
 			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 		},
 		{
 			descr:  "success-without-root",
@@ -534,7 +528,7 @@ func TestAddPrechain(t *testing.T) {
 			chain:         []string{cttestonly.PrecertPEMValid},
 			toSign:        "92ecae1a2dc67a6c5f9c96fa5cab4c2faf27c48505b696dad926f161b0ca675a",
 			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 		},
 	}
 
@@ -655,7 +649,7 @@ func TestGetSTH(t *testing.T) {
 			rpcRsp:        makeGetRootResponseForTest(12345000000, 25, []byte("abcdabcdabcdabcdabcdabcdabcdabcd")),
 			toSign:        "1e88546f5157bfaf77ca2454690b602631fedae925bbe7cf708ea275975bfe74",
 			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 		},
 	}
 
@@ -842,7 +836,7 @@ func runTestGetEntries(t *testing.T) {
 			descr:         "leaves ok with quota",
 			req:           "start=1&end=2",
 			want:          http.StatusOK,
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 			leaves: []*trillian.LogLeaf{
 				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes1, ExtraData: []byte("extra1")},
 				{LeafIndex: 2, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes2, ExtraData: []byte("extra2")},
@@ -1007,7 +1001,7 @@ func runTestGetEntriesRanges(t *testing.T) {
 			start:         10,
 			end:           20,
 			want:          http.StatusInternalServerError,
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 			rpc:           true,
 		},
 		{
@@ -1204,7 +1198,7 @@ func TestGetProofByHash(t *testing.T) {
 			req:  "tree_size=1&hash=YWhhc2g=",
 			want: http.StatusOK,
 			// Want quota
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
 				Proof: []*trillian.Proof{
 					{
@@ -1445,7 +1439,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			req:  "first=0&second=1",
 			want: http.StatusOK,
 			// Want quota
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 			httpRsp: &ct.GetSTHConsistencyResponse{
 				Consistency: nil,
 			},
@@ -1787,7 +1781,7 @@ func TestGetEntryAndProof(t *testing.T) {
 			req:  "leaf_index=1&tree_size=3",
 			want: http.StatusOK,
 			// wantQuota
-			wantQuotaUser: "moneybags",
+			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
