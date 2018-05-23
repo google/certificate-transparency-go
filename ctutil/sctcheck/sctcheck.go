@@ -214,9 +214,10 @@ func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, mer
 	sct, err := x509util.ExtractSCT(sctData)
 	if err != nil {
 		glog.Errorf("Failed to deserialize %s data: %v", subject, err)
+		glog.Errorf("Data: %x", sctData.Val)
 		return false
 	}
-	glog.Infof("Examine %s with timestamp: %d from logID: %x", subject, sct.Timestamp, sct.LogID.KeyID[:])
+	glog.Infof("Examine %s with timestamp: %d (%v) from logID: %x", subject, sct.Timestamp, ct.TimestampToTime(sct.Timestamp), sct.LogID.KeyID[:])
 	log := ll.FindLogByKeyHash(sct.LogID.KeyID)
 	if log == nil {
 		glog.Warningf("Unknown logID: %x, cannot validate %s", sct.LogID, subject)
