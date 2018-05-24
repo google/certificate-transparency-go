@@ -22,7 +22,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/pem"
-	"flag"
 	"fmt"
 	"log"
 
@@ -30,8 +29,10 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-var allowVerificationWithNonCompliantKeys = flag.Bool("allow_verification_with_non_compliant_keys", false,
-	"Allow a SignatureVerifier to use keys which are technically non-compliant with RFC6962.")
+// AllowVerificationWithNonCompliantKeys may be set to true in order to allow
+// SignatureVerifier to use keys which are technically non-compliant with
+// RFC6962.
+var AllowVerificationWithNonCompliantKeys = false
 
 // PublicKeyFromPEM parses a PEM formatted block and returns the public key contained within and any remaining unread bytes, or an error.
 func PublicKeyFromPEM(b []byte) (crypto.PublicKey, SHA256Hash, []byte, error) {
@@ -63,7 +64,7 @@ func NewSignatureVerifier(pk crypto.PublicKey) (*SignatureVerifier, error) {
 	case *rsa.PublicKey:
 		if pkType.N.BitLen() < 2048 {
 			e := fmt.Errorf("public key is RSA with < 2048 bits (size:%d)", pkType.N.BitLen())
-			if !(*allowVerificationWithNonCompliantKeys) {
+			if !AllowVerificationWithNonCompliantKeys {
 				return nil, e
 			}
 			log.Printf("WARNING: %v", e)
@@ -72,7 +73,7 @@ func NewSignatureVerifier(pk crypto.PublicKey) (*SignatureVerifier, error) {
 		params := *(pkType.Params())
 		if params != *elliptic.P256().Params() {
 			e := fmt.Errorf("public is ECDSA, but not on the P256 curve")
-			if !(*allowVerificationWithNonCompliantKeys) {
+			if !AllowVerificationWithNonCompliantKeys {
 				return nil, e
 			}
 			log.Printf("WARNING: %v", e)
