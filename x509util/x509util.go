@@ -717,8 +717,10 @@ func ExtractSCT(sctData *x509.SerializedSCT) (*ct.SignedCertificateTimestamp, er
 		return nil, errors.New("SCT is nil")
 	}
 	var sct ct.SignedCertificateTimestamp
-	if _, err := tls.Unmarshal(sctData.Val, &sct); err != nil {
+	if rest, err := tls.Unmarshal(sctData.Val, &sct); err != nil {
 		return nil, fmt.Errorf("error parsing SCT: %s", err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("extra data (%d bytes) after serialized SCT", len(rest))
 	}
 	return &sct, nil
 }
