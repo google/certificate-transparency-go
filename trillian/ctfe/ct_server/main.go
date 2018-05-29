@@ -221,9 +221,12 @@ func main() {
 	// Bring up the HTTP server and serve until we get a signal not to.
 	srv := http.Server{Addr: *httpEndpoint, Handler: handler}
 	go awaitSignal(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		// Allow 60s for any pending requests to finish then terminate any stragglers
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 		defer cancel()
+		glog.Info("Shutting down HTTP server...")
 		srv.Shutdown(ctx)
+		glog.Info("HTTP server shutdown")
 	})
 
 	err = srv.ListenAndServe()
