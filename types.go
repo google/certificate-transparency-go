@@ -374,20 +374,6 @@ func (m *MerkleTreeLeaf) Precertificate() (*x509.Certificate, error) {
 	return x509.ParseTBSCertificate(m.TimestampedEntry.PrecertEntry.TBSCertificate)
 }
 
-// URI paths for Log requests; see section 4.
-const (
-	AddChainPath          = "/ct/v1/add-chain"
-	AddPreChainPath       = "/ct/v1/add-pre-chain"
-	GetSTHPath            = "/ct/v1/get-sth"
-	GetEntriesPath        = "/ct/v1/get-entries"
-	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
-	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
-	GetRootsPath          = "/ct/v1/get-roots"
-	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
-
-	AddJSONPath = "/ct/v1/add-json" // Experimental addition
-)
-
 // APIEndpoint is a string that represents one of the Certificate Transparency
 // Log API endpoints.
 type APIEndpoint string
@@ -403,6 +389,22 @@ const (
 	GetSTHConsistencyStr APIEndpoint = "get-sth-consistency"
 	GetRootsStr          APIEndpoint = "get-roots"
 	GetEntryAndProofStr  APIEndpoint = "get-entry-and-proof"
+)
+
+// URI paths for Log requests; see section 4.
+const (
+	CTV1Prefix = "/ct/v1"
+
+	AddChainPath          = CTV1Prefix + AddChainStr
+	AddPreChainPath       = CTV1Prefix + AddPreChainStr
+	GetSTHPath            = CTV1Prefix + GetSTHStr
+	GetEntriesPath        = CTV1Prefix + GetEntriesStr
+	GetProofByHashPath    = CTV1Prefix + GetProofByHashStr
+	GetSTHConsistencyPath = CTV1Prefix + GetSTHConsistencyStr
+	GetRootsPath          = CTV1Prefix + GetRootsStr
+	GetEntryAndProofPath  = CTV1Prefix + GetEntryAndProofStr
+
+	AddJSONPath = CTV1Prefix + "add-json" // Experimental addition
 )
 
 // AddChainRequest represents the JSON request body sent to the add-chain and
