@@ -378,8 +378,8 @@ func (m *MerkleTreeLeaf) Precertificate() (*x509.Certificate, error) {
 // Log API endpoints.
 type APIEndpoint string
 
-// Certificate Transparency Log API endpoints - should match the URI paths
-// without the "/ct/v1/" prefix.
+// Certificate Transparency Log API endpoints - matches the URI paths without
+// the "/ct/v1/" prefix.
 const (
 	AddChainStr          APIEndpoint = "add-chain"
 	AddPreChainStr       APIEndpoint = "add-pre-chain"
@@ -393,7 +393,7 @@ const (
 
 // URI paths for Log requests; see section 4.
 const (
-	CTV1Prefix = "/ct/v1"
+	CTV1Prefix = "/ct/v1/"
 
 	AddChainPath          = CTV1Prefix + AddChainStr
 	AddPreChainPath       = CTV1Prefix + AddPreChainStr
