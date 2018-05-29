@@ -388,6 +388,23 @@ const (
 	AddJSONPath = "/ct/v1/add-json" // Experimental addition
 )
 
+// APIEndpoint is a string that represents one of the Certificate Transparency
+// Log API endpoints.
+type APIEndpoint string
+
+// Certificate Transparency Log API endpoints - should match the URI paths
+// without the "/ct/v1/" prefix.
+const (
+	AddChainStr          APIEndpoint = "add-chain"
+	AddPreChainStr       APIEndpoint = "add-pre-chain"
+	GetSTHStr            APIEndpoint = "get-sth"
+	GetEntriesStr        APIEndpoint = "get-entries"
+	GetProofByHashStr    APIEndpoint = "get-proof-by-hash"
+	GetSTHConsistencyStr APIEndpoint = "get-sth-consistency"
+	GetRootsStr          APIEndpoint = "get-roots"
+	GetEntryAndProofStr  APIEndpoint = "get-entry-and-proof"
+)
+
 // AddChainRequest represents the JSON request body sent to the add-chain and
 // add-pre-chain POST methods from sections 4.1 and 4.2.
 type AddChainRequest struct {
