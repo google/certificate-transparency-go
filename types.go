@@ -374,7 +374,27 @@ func (m *MerkleTreeLeaf) Precertificate() (*x509.Certificate, error) {
 	return x509.ParseTBSCertificate(m.TimestampedEntry.PrecertEntry.TBSCertificate)
 }
 
+// APIEndpoint is a string that represents one of the Certificate Transparency
+// Log API endpoints.
+type APIEndpoint string
+
+// Certificate Transparency Log API endpoints; see section 4.
+// WARNING: Should match the URI paths without the "/ct/v1/" prefix.  If
+// changing these constants, may need to change those too.
+const (
+	AddChainStr          APIEndpoint = "add-chain"
+	AddPreChainStr       APIEndpoint = "add-pre-chain"
+	GetSTHStr            APIEndpoint = "get-sth"
+	GetEntriesStr        APIEndpoint = "get-entries"
+	GetProofByHashStr    APIEndpoint = "get-proof-by-hash"
+	GetSTHConsistencyStr APIEndpoint = "get-sth-consistency"
+	GetRootsStr          APIEndpoint = "get-roots"
+	GetEntryAndProofStr  APIEndpoint = "get-entry-and-proof"
+)
+
 // URI paths for Log requests; see section 4.
+// WARNING: Should match the API endpoints, with the "/ct/v1/" prefix.  If
+// changing these constants, may need to change those too.
 const (
 	AddChainPath          = "/ct/v1/add-chain"
 	AddPreChainPath       = "/ct/v1/add-pre-chain"
