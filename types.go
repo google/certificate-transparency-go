@@ -393,18 +393,16 @@ const (
 
 // URI paths for Log requests; see section 4.
 const (
-	CTV1Prefix = "/ct/v1/"
+	AddChainPath          = "/ct/v1/add-chain"
+	AddPreChainPath       = "/ct/v1/add-pre-chain"
+	GetSTHPath            = "/ct/v1/get-sth"
+	GetEntriesPath        = "/ct/v1/get-entries"
+	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
+	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
+	GetRootsPath          = "/ct/v1/get-roots"
+	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
 
-	AddChainPath          = CTV1Prefix + AddChainStr
-	AddPreChainPath       = CTV1Prefix + AddPreChainStr
-	GetSTHPath            = CTV1Prefix + GetSTHStr
-	GetEntriesPath        = CTV1Prefix + GetEntriesStr
-	GetProofByHashPath    = CTV1Prefix + GetProofByHashStr
-	GetSTHConsistencyPath = CTV1Prefix + GetSTHConsistencyStr
-	GetRootsPath          = CTV1Prefix + GetRootsStr
-	GetEntryAndProofPath  = CTV1Prefix + GetEntryAndProofStr
-
-	AddJSONPath = CTV1Prefix + "add-json" // Experimental addition
+	AddJSONPath = "/ct/v1/add-json" // Experimental addition
 )
 
 // AddChainRequest represents the JSON request body sent to the add-chain and
