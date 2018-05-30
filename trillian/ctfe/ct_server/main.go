@@ -215,11 +215,6 @@ func main() {
 		}
 	}
 
-	// Bring up the HTTP server and serve until we get a signal not to.
-	go awaitSignal(func() {
-		os.Exit(1)
-	})
-
 	// If we're enabling tracing we need to use an instrumented http.Handler.
 	var handler http.Handler
 	if *tracing {
@@ -229,8 +224,21 @@ func main() {
 		}
 	}
 
-	err = http.ListenAndServe(*httpEndpoint, handler)
-	glog.Warningf("Server exited: %v", err)
+	// Bring up the HTTP server and serve until we get a signal not to.
+	srv := http.Server{Addr: *httpEndpoint, Handler: handler}
+	go awaitSignal(func() {
+		// Allow 60s for any pending requests to finish then terminate any stragglers
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+		defer cancel()
+		glog.Info("Shutting down HTTP server...")
+		srv.Shutdown(ctx)
+		glog.Info("HTTP server shutdown")
+	})
+
+	err = srv.ListenAndServe()
+	if err != http.ErrServerClosed {
+		glog.Warningf("Server exited: %v", err)
+	}
 	glog.Flush()
 }
 
