@@ -805,8 +805,11 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	// Apply some checks that we got reasonable data from the backend
-	if rsp.Proof == nil || rsp.Leaf == nil || len(rsp.Proof.Hashes) == 0 || len(rsp.Leaf.LeafValue) == 0 {
+	if rsp.Leaf == nil || len(rsp.Leaf.LeafValue) == 0 || rsp.Proof == nil {
 		return http.StatusInternalServerError, fmt.Errorf("got RPC bad response, possible extra info: %v", rsp)
+	}
+	if treeSize > 1 && len(rsp.Proof.Hashes) == 0 {
+		return http.StatusInternalServerError, fmt.Errorf("got RPC bad response (missing proof), possible extra info: %v", rsp)
 	}
 
 	// Build and marshal the response to the client

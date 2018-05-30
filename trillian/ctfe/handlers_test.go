@@ -1696,11 +1696,18 @@ func TestGetEntryAndProof(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to build test Merkle leaf data: %v", err)
 	}
+	proofRsp := ct.GetEntryAndProofResponse{
+		LeafInput: leafBytes,
+		ExtraData: []byte("extra"),
+		AuditPath: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
+	}
 
 	var tests = []struct {
 		req           string
+		idx, sz       int64
 		want          int
 		wantQuotaUser string
+		wantRsp       *ct.GetEntryAndProofResponse
 		rpcRsp        *trillian.GetEntryAndProofResponse
 		rpcErr        error
 		errStr        string
@@ -1747,19 +1754,26 @@ func TestGetEntryAndProof(t *testing.T) {
 		},
 		{
 			req:    "leaf_index=1&tree_size=3",
+			idx:    1,
+			sz:     3,
 			want:   http.StatusInternalServerError,
 			rpcErr: errors.New("RPCFAIL"),
 			errStr: "RPCFAIL",
 		},
 		{
 			req:  "leaf_index=1&tree_size=3",
+			idx:  1,
+			sz:   3,
 			want: http.StatusInternalServerError,
 			// No result data in backend response
 			rpcRsp: &trillian.GetEntryAndProofResponse{},
 		},
 		{
-			req:  "leaf_index=1&tree_size=3",
-			want: http.StatusOK,
+			req:     "leaf_index=1&tree_size=3",
+			idx:     1,
+			sz:      3,
+			want:    http.StatusOK,
+			wantRsp: &proofRsp,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
@@ -1778,8 +1792,11 @@ func TestGetEntryAndProof(t *testing.T) {
 			},
 		},
 		{
-			req:  "leaf_index=1&tree_size=3",
-			want: http.StatusOK,
+			req:     "leaf_index=1&tree_size=3",
+			idx:     1,
+			sz:      3,
+			want:    http.StatusOK,
+			wantRsp: &proofRsp,
 			// wantQuota
 			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
@@ -1801,6 +1818,8 @@ func TestGetEntryAndProof(t *testing.T) {
 		},
 		{
 			req:  "leaf_index=1&tree_size=3",
+			idx:  1,
+			sz:   3,
 			want: http.StatusBadRequest,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				SignedLogRoot: &trillian.SignedLogRoot{
@@ -1811,8 +1830,11 @@ func TestGetEntryAndProof(t *testing.T) {
 			},
 		},
 		{
-			req:  "leaf_index=1&tree_size=3",
-			want: http.StatusOK,
+			req:     "leaf_index=1&tree_size=3",
+			idx:     1,
+			sz:      3,
+			want:    http.StatusOK,
+			wantRsp: &proofRsp,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				SignedLogRoot: &trillian.SignedLogRoot{
 					// Server returns a tree just large enough for the proof.
@@ -1835,8 +1857,11 @@ func TestGetEntryAndProof(t *testing.T) {
 			},
 		},
 		{
-			req:  "leaf_index=1&tree_size=3",
-			want: http.StatusOK,
+			req:     "leaf_index=1&tree_size=3",
+			idx:     1,
+			sz:      3,
+			want:    http.StatusOK,
+			wantRsp: &proofRsp,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				SignedLogRoot: &trillian.SignedLogRoot{
 					// Server returns a tree larger than needed for the proof.
@@ -1858,6 +1883,67 @@ func TestGetEntryAndProof(t *testing.T) {
 				},
 			},
 		},
+		{
+			req:  "leaf_index=0&tree_size=1",
+			idx:  0,
+			sz:   1,
+			want: http.StatusOK,
+			wantRsp: &ct.GetEntryAndProofResponse{
+				LeafInput: leafBytes,
+				ExtraData: []byte("extra"),
+			},
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree larger than needed for the proof.
+					TreeSize: 300,
+				},
+				Proof: &trillian.Proof{
+					// Empty proof OK for requested tree size of 1.
+					LeafIndex: 0,
+				},
+				// To match merkleLeaf above.
+				Leaf: &trillian.LogLeaf{
+					LeafValue:      leafBytes,
+					MerkleLeafHash: []byte("ahash"),
+					ExtraData:      []byte("extra"),
+				},
+			},
+		},
+		{
+			req:  "leaf_index=0&tree_size=1",
+			idx:  0,
+			sz:   1,
+			want: http.StatusInternalServerError,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree larger than needed for the proof.
+					TreeSize: 300,
+				},
+				// No proof.
+				Leaf: &trillian.LogLeaf{
+					LeafValue:      leafBytes,
+					MerkleLeafHash: []byte("ahash"),
+					ExtraData:      []byte("extra"),
+				},
+			},
+		},
+		{
+			req:  "leaf_index=0&tree_size=1",
+			idx:  0,
+			sz:   1,
+			want: http.StatusInternalServerError,
+			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					// Server returns a tree larger than needed for the proof.
+					TreeSize: 300,
+				},
+				Proof: &trillian.Proof{
+					// Empty proof OK for requested tree size of 1.
+					LeafIndex: 0,
+				},
+				// No leaf.
+			},
+		},
 	}
 
 	info := setupTest(t, nil, nil)
@@ -1873,7 +1959,7 @@ func TestGetEntryAndProof(t *testing.T) {
 		}
 
 		if test.rpcRsp != nil || test.rpcErr != nil {
-			req := &trillian.GetEntryAndProofRequest{LogId: 0x42, LeafIndex: 1, TreeSize: 3}
+			req := &trillian.GetEntryAndProofRequest{LogId: 0x42, LeafIndex: test.idx, TreeSize: test.sz}
 			if len(test.wantQuotaUser) > 0 {
 				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
@@ -1901,12 +1987,7 @@ func TestGetEntryAndProof(t *testing.T) {
 			continue
 		}
 		// The result we expect after a roundtrip in the successful get entry and proof test
-		wantRsp := ct.GetEntryAndProofResponse{
-			LeafInput: leafBytes,
-			ExtraData: []byte("extra"),
-			AuditPath: [][]byte{[]byte("abcdef"), []byte("ghijkl"), []byte("mnopqr")},
-		}
-		if diff := pretty.Compare(resp, wantRsp); diff != "" {
+		if diff := pretty.Compare(&resp, test.wantRsp); diff != "" {
 			t.Errorf("getEntryAndProof(%q) diff:\n%v", test.req, diff)
 		}
 	}
