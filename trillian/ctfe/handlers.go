@@ -907,7 +907,7 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 	}
 
 	rsp := ct.AddChainResponse{
-		SCTVersion: ct.Version(sct.SCTVersion),
+		SCTVersion: sct.SCTVersion,
 		Timestamp:  sct.Timestamp,
 		ID:         logID[:],
 		Extensions: base64.StdEncoding.EncodeToString(sct.Extensions),
