@@ -228,8 +228,8 @@ func main() {
 	// Bring up the HTTP server and serve until we get a signal not to.
 	srv := http.Server{Addr: *httpEndpoint, Handler: handler}
 	shutdownWG := new(sync.WaitGroup)
-	shutdownWG.Add(1)
 	go awaitSignal(func() {
+		shutdownWG.Add(1)
 		defer shutdownWG.Done()
 		// Allow 60s for any pending requests to finish then terminate any stragglers
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
