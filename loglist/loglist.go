@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -143,14 +144,12 @@ func (ll *LogList) FindLogByKeyHash(keyhash [sha256.Size]byte) *Log {
 }
 
 // FindLogByKeyHashPrefix finds all logs whose key hash starts with the prefix.
-func (ll *LogList) FindLogByKeyHashPrefix(prefix []byte) []*Log {
-	if len(prefix) > sha256.Size {
-		return nil
-	}
+func (ll *LogList) FindLogByKeyHashPrefix(prefix string) []*Log {
 	var results []*Log
 	for _, log := range ll.Logs {
 		h := sha256.Sum256(log.Key)
-		if bytes.Equal(h[:len(prefix)], prefix) {
+		hh := hex.EncodeToString(h[:])
+		if strings.HasPrefix(hh, prefix) {
 			log := log
 			results = append(results, &log)
 		}
@@ -167,6 +166,8 @@ func (ll *LogList) FindLogByKey(key []byte) *Log {
 	}
 	return nil
 }
+
+var hexDigits = regexp.MustCompile("^[0-9a-fA-F]+$")
 
 // FuzzyFindLog tries to find logs that match the given unspecified input,
 // whose format is unspecified.  This generally returns a single log, but
@@ -206,7 +207,10 @@ func (ll *LogList) FuzzyFindLog(input string) []*Log {
 		if log := ll.FindLogByKey(data); log != nil {
 			return []*Log{log}
 		}
-		if logs := ll.FindLogByKeyHashPrefix(data); len(logs) > 0 {
+	}
+	// Finally, allow hex strings with an odd number of digits.
+	if hexDigits.MatchString(input) {
+		if logs := ll.FindLogByKeyHashPrefix(input); len(logs) > 0 {
 			return logs
 		}
 	}
