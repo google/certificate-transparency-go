@@ -226,7 +226,7 @@ func main() {
 
 	// Bring up the HTTP server and serve until we get a signal not to.
 	srv := http.Server{Addr: *httpEndpoint, Handler: handler}
-	waitForShutdown := make(chan bool, 1)
+	waitForShutdown := make(chan struct{})
 	go awaitSignal(func() {
 		// Allow 60s for any pending requests to finish then terminate any stragglers
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
@@ -234,7 +234,7 @@ func main() {
 		glog.Info("Shutting down HTTP server...")
 		srv.Shutdown(ctx)
 		glog.Info("HTTP server shutdown")
-		waitForShutdown <- true
+		close(waitForShutdown)
 	})
 
 	err = srv.ListenAndServe()
