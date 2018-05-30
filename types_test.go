@@ -16,6 +16,7 @@ package ct
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -127,5 +128,39 @@ func TestToSignedTreeHead(t *testing.T) {
 				t.Errorf("GetSTHResponse.ToSignedTreeHead() = %+v, %v, want err? %t", sth, err, test.wantErr)
 			}
 		})
+	}
+}
+
+// TestSignedCertificateTimestampMarshal tests that a
+// SignedCertificateTimestamp object can be marshaled to JSON and produces the
+// expected JSON object.
+func TestSignedCertificateTimestampMarshal(t *testing.T) {
+	// Define a dummy SCT object with some fake information
+	sctObj := &SignedCertificateTimestamp{
+		SCTVersion: V1,
+		LogID: LogID{
+			KeyID: [32]byte{0xC0, 0xFF, 0xEE},
+		},
+		Timestamp:  uint64(12345678),
+		Extensions: CTExtensions{0x13, 0x37},
+		Signature: DigitallySigned{
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA256,
+				Signature: tls.ECDSA,
+			},
+		},
+	}
+
+	// The SCT object should marshal to JSON without any error
+	jsonBytes, err := json.Marshal(sctObj)
+	if err != nil {
+		t.Errorf("Failed to marshal SignedCertificateTransparency ob to JSON: %s", err.Error())
+	}
+
+	// The SCT object should marshal to the expected JSON
+	expectedJSON := `{"sct_version":0,"id":{"KeyID":[192,255,238,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},"timestamp":12345678,"extensions":"Ezc=","Signature":"BAMAAA=="}`
+	if string(jsonBytes) != expectedJSON {
+		t.Errorf("Expected SignedCertificateTransparency ob to marshal to %q, got %q",
+			expectedJSON, string(jsonBytes))
 	}
 }

@@ -293,11 +293,11 @@ type TreeHeadSignature struct {
 // add-chain and add-pre-chain methods after base64 decoding; see sections
 // 3.2, 4.1 and 4.2.
 type SignedCertificateTimestamp struct {
-	SCTVersion Version `tls:"maxval:255"`
-	LogID      LogID
-	Timestamp  uint64
-	Extensions CTExtensions    `tls:"minlen:0,maxlen:65535"`
-	Signature  DigitallySigned // Signature over TLS-encoded CertificateTimestamp
+	SCTVersion Version         `tls:"maxval:255" json:"sct_version"`
+	LogID      LogID           `json:"id"`
+	Timestamp  uint64          `json:"timestamp"`
+	Extensions CTExtensions    `tls:"minlen:0,maxlen:65535" json:"extensions"`
+	Signature  DigitallySigned `json: "signature"` // Signature over TLS-encoded CertificateTimestamp
 }
 
 // CertificateTimestamp is the collection of data that the signature in an
