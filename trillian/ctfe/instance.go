@@ -123,36 +123,3 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
 	return logInfo, nil
 }
-
-// SetUpDNSInstance sets up a log instance that uses the specified client to communicate
-// with the Trillian RPC back end. It is customized from the CTFE one as
-// DNS clients can only make read requests and therefore it does not initialize
-// anything related to cert validation or trusted roots etc.
-func SetUpDNSInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts InstanceOptions) (*LogContext, error) {
-	// Check config validity.
-	if cfg.PrivateKey == nil {
-		return nil, errors.New("need to specify PrivateKey")
-	}
-
-	// Load the private key for this log.
-	var keyProto ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
-	}
-
-	key, err := keys.NewSigner(ctx, keyProto.Message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load private key: %v", err)
-	}
-
-	// Create and register the handlers using the RPC client we just set up.
-	logCtx := NewLogContext(cfg.LogId,
-		cfg.Prefix,
-		CertValidationOpts{},
-		client,
-		key,
-		opts,
-		new(util.SystemTimeSource))
-
-	return logCtx, nil
-}
