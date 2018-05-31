@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -226,7 +227,10 @@ func main() {
 
 	// Bring up the HTTP server and serve until we get a signal not to.
 	srv := http.Server{Addr: *httpEndpoint, Handler: handler}
+	shutdownWG := new(sync.WaitGroup)
 	go awaitSignal(func() {
+		shutdownWG.Add(1)
+		defer shutdownWG.Done()
 		// Allow 60s for any pending requests to finish then terminate any stragglers
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 		defer cancel()
@@ -239,6 +243,9 @@ func main() {
 	if err != http.ErrServerClosed {
 		glog.Warningf("Server exited: %v", err)
 	}
+	// Wait will only block if the function passed to awaitSignal was called,
+	// in which case it'll block until the HTTP server has gracefully shutdown
+	shutdownWG.Wait()
 	glog.Flush()
 }
 
