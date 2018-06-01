@@ -1834,6 +1834,8 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 }
 
 // ParseCertificate parses a single certificate from the given ASN.1 DER data.
+// This function can return both a Certificate and an error (in which case the
+// error will be of type NonFatalErrors).
 func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	var cert certificate
 	rest, err := asn1.Unmarshal(asn1Data, &cert)
@@ -1849,6 +1851,8 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 
 // ParseCertificates parses one or more certificates from the given ASN.1 DER
 // data. The certificates must be concatenated with no intermediate padding.
+// This function can return both a slice of Certificate and an error (in which
+// case the error will be of type NonFatalErrors).
 func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 	var v []*certificate
 
@@ -1862,15 +1866,23 @@ func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 		v = append(v, cert)
 	}
 
+	var nfe NonFatalErrors
 	ret := make([]*Certificate, len(v))
 	for i, ci := range v {
 		cert, err := parseCertificate(ci)
 		if err != nil {
-			return nil, err
+			if errs, ok := err.(NonFatalErrors); !ok {
+				return nil, err
+			} else {
+				nfe.Errors = append(nfe.Errors, errs.Errors...)
+			}
 		}
 		ret[i] = cert
 	}
 
+	if nfe.HasError() {
+		return ret, nfe
+	}
 	return ret, nil
 }
 
