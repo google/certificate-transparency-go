@@ -15,7 +15,7 @@ ct_gosmin_config "${CT_SERVER_1}"
 ct_goshawk_config "${CT_SERVER_1}"
 
 # Cleanup for the Trillian components
-TO_DELETE="${TO_DELETE} ${ETCD_DB_DIR}"
+TO_DELETE="${TO_DELETE} ${ETCD_DB_DIR} ${PROMETHEUS_CFGDIR}"
 TO_KILL+=(${LOG_SIGNER_PIDS[@]})
 TO_KILL+=(${RPC_SERVER_PIDS[@]})
 TO_KILL+=(${ETCD_PID})

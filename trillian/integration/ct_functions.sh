@@ -6,6 +6,7 @@ CT_SERVERS=
 CT_CFG=
 CT_LIFECYCLE_CFG=
 CT_COMBINED_CFG=
+PROMETHEUS_CFGDIR=
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
@@ -19,8 +20,9 @@ CT_COMBINED_CFG=
 #  - CT_SERVER_PIDS     : bash array of CT HTTP server pids
 # in addition to the variables populated by log_prep_test.
 # If etcd and Prometheus are configured, it also populates:
-#  - ETCDISCOVER_PID : pid of etcd service watcher
-#  - PROMETHEUS_PID  : pid of local Prometheus server
+#  - ETCDISCOVER_PID   : pid of etcd service watcher
+#  - PROMETHEUS_PID    : pid of local Prometheus server
+#  - PROMETHEUS_CFGDIR : Prometheus configuration directory
 ct_prep_test() {
   # Default to one of everything.
   local rpc_server_count=${1:-1}
@@ -63,13 +65,21 @@ ct_prep_test() {
 
   if [[ -x "${PROMETHEUS_DIR}/prometheus" ]]; then
     if [[ ! -z "${ETCD_OPTS}" ]]; then
+        PROMETHEUS_CFGDIR="$(mktemp -d ${TMPDIR}/ct-prometheus-XXXXXX)"
+        local prom_cfg="${PROMETHEUS_CFGDIR}/config.yaml"
+        local etcdiscovered="${PROMETHEUS_CFGDIR}/trillian.json"
+        sed "s!@ETCDISCOVERED@!${etcdiscovered}!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml > "${prom_cfg}"
+        echo "Prometheus configuration in ${prom_cfg}:"
+        cat ${prom_cfg}
+
         echo "Building etcdiscover"
         go build github.com/google/trillian/monitoring/prometheus/etcdiscover
-        echo "Launching etcd service monitor"
-        ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-metrics-http,trillian-logserver-http,trillian-logsigner-http -target=./trillian.json --logtostderr &
+
+        echo "Launching etcd service monitor updating ${etcdiscovered}"
+        ./etcdiscover ${ETCD_OPTS} --etcd_services=trillian-ctfe-metrics-http,trillian-logserver-http,trillian-logsigner-http -target=${etcdiscovered} --logtostderr &
         ETCDISCOVER_PID=$!
         echo "Launching Prometheus (default location localhost:9090)"
-        ${PROMETHEUS_DIR}/prometheus --config.file=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml \
+        ${PROMETHEUS_DIR}/prometheus --config.file=${prom_cfg} \
                            --web.console.templates=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/consoles \
                            --web.console.libraries=${GOPATH}/src/github.com/google/certificate-transparency-go/third_party/prometheus/console_libs &
         PROMETHEUS_PID=$!
@@ -105,9 +115,9 @@ ct_provision() {
   CT_COMBINED_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
   cat ${CT_CFG} ${CT_LIFECYCLE_CFG} > ${CT_COMBINED_CFG}
 
-  echo "CT Integration Configuration:"
+  echo "CT Integration Configuration in ${CT_CFG}:"
   cat "${CT_CFG}"
-  echo "CT Lifeycle Configuration:"
+  echo "CT Lifeycle Configuration in ${CT_LIFECYCLE_CFG}:"
   cat "${CT_LIFECYCLE_CFG}"
   echo
 }
