@@ -98,11 +98,13 @@ func (c *Controller) RunWithElection(ctx context.Context) error {
 		}
 		err = c.Run(run.Ctx)
 		if ctx.Err() != nil { // Canceling everything.
+			<-run.Done // Wait until mastership run releases the resources.
 			return err
 		} else if run.Ctx.Err() == nil { // Not mastership lost.
-			run.Stop()
+			run.Stop() // Release run's resources.
 			return err
 		}
+		// Else mastership is lost, try to acquire it again.
 	}
 }
 
