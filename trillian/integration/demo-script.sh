@@ -95,3 +95,25 @@ echo 'Remember to kill off all of the jobs, so their (hard-coded) ports get free
 ./trillian/integration/ct_killall.sh
 echo '...but ct_killall does not kill the hammer'
 killall -9 ct_hammer
+
+
+# Other ideas to extend a linear demo:
+#  1) Add a temporal log config, which just involves adding a fragment like the following (for 2017):
+#         not_after_start {
+#           seconds: 1483228800
+#         }
+#         not_after_limit {
+#           seconds: 1514764800
+#         }
+#  2) Run multiple signers and use etcd to provide mastership election:
+#       - install etcd with: go install ./vendor/github.com/coreos/etcd/cmd/etcd
+#       - run etcd, which listens on default port :2379
+#       - drop the --force_master argument to the signer
+#       - add argument to the signers:  --etcd_servers=localhost:2379
+#  3) Run Prometheus for metrics collection and examination (best to use top-level scripts for this):
+#       - go get github.com/prometheus/prometheus/cmd/...
+#       - export ETCD_DIR=${GOPATH}/bin
+#       - export PROMETHEUS_DIR=${GOPATH}/bin
+#       - ./trillian/integration/ct_hammer_test.sh 3 3 1
+#       - open http://localhost:9090/targets to see what's being monitored
+#       - open http://localhost:9090/consoles/trillian.html to see Trillian-specific metrics
