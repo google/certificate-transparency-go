@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
@@ -28,6 +29,9 @@ import (
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/types"
+
+	"github.com/google/trillian/util"
+	"github.com/google/trillian/util/election"
 )
 
 // Options holds configuration for a Controller.
@@ -40,7 +44,6 @@ type Options struct {
 // Controller coordinates migration from a CT log to a Trillian tree.
 //
 // TODO(pavelkalinnikov):
-// - Add per-tree master election.
 // - Coordinate multiple trees.
 // - Schedule a distributed fetch to increase throughput.
 // - Store CT STHs in Trillian or make this tool stateful on its own.
@@ -50,19 +53,70 @@ type Controller struct {
 	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
+	ef       election.Factory
 }
 
-// NewController creates a Controller configured by the passed in options.
-func NewController(opts Options, ctClient *client.LogClient, plClient *PreorderedLogClient) *Controller {
-	bufferSize := opts.Submitters * opts.BatchesPerSubmitter
-	batches := make(chan scanner.EntryBatch, bufferSize)
-	return &Controller{opts: opts, batches: batches, ctClient: ctClient, plClient: plClient}
+// NewController creates a Controller configured by the passed in options, CT
+// and Trillian clients, and a (possibly nil) master election factory.
+func NewController(opts Options, ctClient *client.LogClient,
+	plClient *PreorderedLogClient, ef election.Factory,
+) *Controller {
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef}
+}
+
+// RunWithElection is a master-elected version of Run method. It executes Run
+// whenever this instance captures mastership of the tree ID. As soon as the
+// instance stops being the master, Run is canceled. The method returns if an
+// error occurs, the passed in context is canceled, or fetching is done (in
+// non-Continuous mode).
+//
+// If election factory is not provided, assumes unconditional mastership and
+// executes Run method directly.
+func (c *Controller) RunWithElection(ctx context.Context) error {
+	if c.ef == nil {
+		return c.Run(ctx)
+	}
+
+	logID := c.plClient.tree.TreeId
+	el, err := c.ef.NewElection(ctx, logID)
+	if err != nil {
+		return err
+	}
+
+	// TODO(pavelkalinnikov): Make these tunable.
+	cfg := election.Config{
+		PreElectionPause:    1 * time.Second,
+		MasterCheckInterval: 5 * time.Second,
+	}
+	runner := election.NewRunner(&cfg, el, util.SystemTimeSource{}, fmt.Sprintf("%d: ", logID))
+	defer runner.Close(ctx)
+	for {
+		run, err := runner.AwaitMastership(ctx)
+		if err != nil {
+			glog.Errorf("AwaitMastership(): %v", err)
+			return err
+		}
+		err = c.Run(run.Ctx)
+		if ctx.Err() != nil { // Canceling everything.
+			<-run.Done // Wait until mastership run releases the resources.
+			return err
+		} else if run.Ctx.Err() == nil { // Not mastership lost.
+			run.Stop() // Release run's resources.
+			return err
+		}
+		// Else mastership is lost, try to acquire it again.
+	}
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
-// log via the other client. If Options.Continuous is true then the migration
-// process runs continuously trying to keep up with the target CT log.
+// pre-ordered log via Trillian client. If Options.Continuous is true then the
+// migration process runs continuously trying to keep up with the target CT
+// log. Returns if an error occurs, the context is canceled, or all the entries
+// have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
+	logID := c.plClient.tree.TreeId
+	glog.Infof("Running as master for log %d", logID)
+
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
 		return err
@@ -71,8 +125,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("Tree %d: updated entry range to [%d, INF)",
-			c.plClient.tree.TreeId, c.opts.StartIndex)
+		glog.Warningf("Tree %d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -85,17 +138,21 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			c.runSubmitter(ctx)
-		}()
-	}
+	bufferSize := c.opts.Submitters * c.opts.BatchesPerSubmitter
+	c.batches = make(chan scanner.EntryBatch, bufferSize)
 	defer func() {
 		close(c.batches)
 		wg.Wait()
 	}()
+
+	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
+	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
+		wg.Add(1)
+		go func() {
+			c.runSubmitter(ctx)
+			wg.Done()
+		}()
+	}
 
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
