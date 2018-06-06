@@ -32,6 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/trillian"
+	"github.com/google/trillian/util"
 )
 
 var (
@@ -119,8 +120,10 @@ func main() {
 	}
 	ctrl := core.NewController(opts, ctClient, plClient)
 
-	cctx, cancel = core.WithSignalCancel(ctx)
+	cctx, cancel = context.WithCancel(ctx)
 	defer cancel()
+	go util.AwaitSignal(cctx, cancel)
+
 	if err := ctrl.Run(cctx); err != nil {
 		glog.Exitf("Controller.Run() returned error: %v", err)
 	}
