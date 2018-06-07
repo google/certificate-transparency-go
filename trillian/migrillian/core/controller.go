@@ -87,11 +87,9 @@ func (c *Controller) RunWithElection(ctx context.Context) error {
 			return err
 		}
 		err = c.Run(mctx)
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return err
-		case <-mctx.Done():
-		default:
+		} else if mctx.Err() == nil {
 			return err
 		}
 	}

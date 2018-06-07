@@ -73,14 +73,13 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	}
 
 	go func() {
-		defer cancel()
 		for rsp := range ch {
 			if string(rsp.Kvs[0].Value) != e.instanceID {
-				glog.Warning("Election: observed another master")
-				return
+				break
 			}
 		}
-		glog.Warning("Election: observe channel closed")
+		glog.Warningf("%d: canceling master context", e.treeID)
+		cancel()
 	}()
 
 	e.ctx, e.cancel = cctx, cancel
@@ -103,7 +102,9 @@ func (e *Election) Close(ctx context.Context) error {
 	if e.cancel != nil {
 		e.cancel()
 	}
-	_ = e.Resign(ctx)
+	if err := e.Resign(ctx); err != nil {
+		glog.Errorf("%d: Resign(): %v", e.treeID, err)
+	}
 	// In case ctx is canceled, session.Close should do best effort on revoking
 	// the lease, which in turn will remove the election-related keys.
 	return e.session.Close()
