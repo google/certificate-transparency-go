@@ -14,6 +14,7 @@
 
 // Package election provides master election tools, and interfaces for plugging
 // in a custom underlying mechanism.
+// TODO(pavelkalinnikov): Migrate this package to Trillian.
 package election
 
 import "context"
