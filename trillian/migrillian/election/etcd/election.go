@@ -103,7 +103,10 @@ func (e *Election) Close(ctx context.Context) error {
 	if e.cancel != nil {
 		e.cancel()
 	}
-	return e.election.Resign(ctx)
+	_ = e.Resign(ctx)
+	// In case ctx is canceled, session.Close should do best effort on revoking
+	// the lease, which in turn will remove the election-related keys.
+	return e.session.Close()
 }
 
 // Factory creates Election instances.
