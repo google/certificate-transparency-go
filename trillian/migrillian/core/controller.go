@@ -28,6 +28,8 @@ import (
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/types"
+
+	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 )
 
 // Options holds configuration for a Controller.
@@ -40,7 +42,6 @@ type Options struct {
 // Controller coordinates migration from a CT log to a Trillian tree.
 //
 // TODO(pavelkalinnikov):
-// - Add per-tree master election.
 // - Coordinate multiple trees.
 // - Schedule a distributed fetch to increase throughput.
 // - Store CT STHs in Trillian or make this tool stateful on its own.
@@ -50,19 +51,61 @@ type Controller struct {
 	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
+	ef       election.Factory
 }
 
-// NewController creates a Controller configured by the passed in options.
-func NewController(opts Options, ctClient *client.LogClient, plClient *PreorderedLogClient) *Controller {
-	bufferSize := opts.Submitters * opts.BatchesPerSubmitter
-	batches := make(chan scanner.EntryBatch, bufferSize)
-	return &Controller{opts: opts, batches: batches, ctClient: ctClient, plClient: plClient}
+// NewController creates a Controller configured by the passed in options, CT
+// and Trillian clients, and a (possibly nil) master election factory.
+func NewController(opts Options, ctClient *client.LogClient,
+	plClient *PreorderedLogClient, ef election.Factory,
+) *Controller {
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef}
+}
+
+// RunWithElection is a master-elected version of Run method. It executes Run
+// whenever this instance captures mastership of the tree ID. As soon as the
+// instance stops being the master, Run is canceled. The method returns if an
+// error occurs, the passed in context is canceled, or fetching is done (in
+// non-Continuous mode).
+func (c *Controller) RunWithElection(ctx context.Context) error {
+	logID := c.plClient.tree.TreeId
+
+	el, err := c.ef.NewElection(ctx, logID)
+	if err != nil {
+		return err
+	}
+	defer func(ctx context.Context) {
+		if err := el.Close(ctx); err != nil {
+			glog.Warningf("Election.Close(): %v", err)
+		}
+	}(ctx)
+
+	for {
+		mctx, err := el.Await(ctx)
+		if err != nil {
+			glog.Errorf("Await(): %v", err)
+			return err
+		}
+		err = c.Run(mctx)
+		select {
+		case <-ctx.Done():
+			return err
+		case <-mctx.Done():
+		default:
+			return err
+		}
+	}
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
-// log via the other client. If Options.Continuous is true then the migration
-// process runs continuously trying to keep up with the target CT log.
+// pre-ordered log via Trillian client. If Options.Continuous is true then the
+// migration process runs continuously trying to keep up with the target CT
+// log. Returns if an error occurs, the context is canceled, or all the entries
+// have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
+	logID := c.plClient.tree.TreeId
+	glog.Infof("Running as master for log %d", logID)
+
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
 		return err
@@ -71,8 +114,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("Tree %d: updated entry range to [%d, INF)",
-			c.plClient.tree.TreeId, c.opts.StartIndex)
+		glog.Warningf("Tree %d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -85,17 +127,21 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			c.runSubmitter(ctx)
-		}()
-	}
+	bufferSize := c.opts.Submitters * c.opts.BatchesPerSubmitter
+	c.batches = make(chan scanner.EntryBatch, bufferSize)
 	defer func() {
 		close(c.batches)
 		wg.Wait()
 	}()
+
+	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
+	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
+		wg.Add(1)
+		go func() {
+			c.runSubmitter(ctx)
+			wg.Done()
+		}()
+	}
 
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
