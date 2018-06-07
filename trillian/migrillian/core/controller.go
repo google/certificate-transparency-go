@@ -22,14 +22,15 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
+
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/types"
-
-	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 )
 
 // Options holds configuration for a Controller.
