@@ -58,6 +58,8 @@ var (
 func main() {
 	flag.Parse()
 	glog.CopyStandardLogTo("WARNING")
+	defer glog.Flush()
+
 	ctx := context.Background()
 
 	transport := &http.Transport{
