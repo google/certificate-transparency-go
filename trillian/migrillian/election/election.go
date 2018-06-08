@@ -20,6 +20,7 @@ package election
 import "context"
 
 // Election controls an instance's participation in master election process.
+// Note: Implementations are not intended to be thread-safe.
 type Election interface {
 	// Await blocks until the instance captures mastership. Returns the "master
 	// context" which remains active until the instance stops being the master,

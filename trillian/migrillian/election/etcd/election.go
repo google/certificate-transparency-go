@@ -27,6 +27,12 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 )
 
+var (
+	masterAlready     = errors.New("already master")
+	masterUnconfirmed = errors.New("mastership unconfirmed")
+	masterOvertaken   = errors.New("mastership overtaken")
+)
+
 // Election is an implementation of election.Election based on etcd.
 type Election struct {
 	treeID     int64
@@ -46,8 +52,9 @@ type Election struct {
 // the passed in context is canceled. Returns an error if capturing fails, or
 // the passed in context is canceled before mastership is captured.
 func (e *Election) Await(ctx context.Context) (context.Context, error) {
+	// Return an error if the Election already maintains mastership context.
 	if e.ctx != nil && e.ctx.Err() == nil {
-		return e.ctx, nil
+		return nil, masterAlready
 	}
 
 	if err := e.election.Campaign(ctx, e.instanceID); err != nil {
@@ -67,11 +74,11 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	case rsp, ok := <-ch:
 		if !ok {
 			cancel()
-			return nil, errors.New("mastership unconfirmed")
+			return nil, masterUnconfirmed
 		}
 		if string(rsp.Kvs[0].Value) != e.instanceID {
 			cancel()
-			return nil, errors.New("mastership overtaken")
+			return nil, masterOvertaken
 		}
 	}
 
