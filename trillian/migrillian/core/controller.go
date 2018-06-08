@@ -54,9 +54,7 @@ type Controller struct {
 
 // NewController creates a Controller configured by the passed in options.
 func NewController(opts Options, ctClient *client.LogClient, plClient *PreorderedLogClient) *Controller {
-	bufferSize := opts.Submitters * opts.BatchesPerSubmitter
-	batches := make(chan scanner.EntryBatch, bufferSize)
-	return &Controller{opts: opts, batches: batches, ctClient: ctClient, plClient: plClient}
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient}
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
@@ -85,17 +83,21 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			c.runSubmitter(ctx)
-		}()
-	}
+	bufferSize := c.opts.Submitters * c.opts.BatchesPerSubmitter
+	c.batches = make(chan scanner.EntryBatch, bufferSize)
 	defer func() {
 		close(c.batches)
 		wg.Wait()
 	}()
+
+	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
+	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
+		wg.Add(1)
+		go func() {
+			c.runSubmitter(ctx)
+			wg.Done()
+		}()
+	}
 
 	handler := func(b scanner.EntryBatch) {
 		c.batches <- b
