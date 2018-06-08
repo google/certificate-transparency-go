@@ -24,14 +24,14 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // LogConfig describes the configuration options for a Log.
 type LogConfig struct {
 	// Human-readable name for the log; must be unique
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Base URL for the log.
-	Url string `protobuf:"bytes,2,opt,name=url" json:"url,omitempty"`
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	// Log's public key. This is optional, but if omitted signatures from
 	// the log will not be checked.
-	PublicKey *keyspb.PublicKey `protobuf:"bytes,3,opt,name=public_key,json=publicKey" json:"public_key,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	// Minimum interval between requests to the log, for rate limiting.
-	MinReqInterval       *duration.Duration `protobuf:"bytes,4,opt,name=min_req_interval,json=minReqInterval" json:"min_req_interval,omitempty"`
+	MinReqInterval       *duration.Duration `protobuf:"bytes,4,opt,name=min_req_interval,json=minReqInterval,proto3" json:"min_req_interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -92,20 +92,20 @@ func (m *LogConfig) GetMinReqInterval() *duration.Duration {
 // GossipConfig describes the configuration of a gossiper.
 type GossipConfig struct {
 	// The source logs whose STHs will be logged.
-	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog" json:"source_log,omitempty"`
+	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
 	// The destination logs to which the minimal-gossip certificates will
 	// be submitted.  These destination logs need to be configured to accept
 	// root_cert as an acceptable root.
-	DestLog []*LogConfig `protobuf:"bytes,2,rep,name=dest_log,json=destLog" json:"dest_log,omitempty"`
+	DestLog []*LogConfig `protobuf:"bytes,2,rep,name=dest_log,json=destLog,proto3" json:"dest_log,omitempty"`
 	// The root certificate used for submissions, in PEM format; this should
 	// include the public key corresponding to private_key below.
-	RootCert string `protobuf:"bytes,3,opt,name=root_cert,json=rootCert" json:"root_cert,omitempty"`
+	RootCert string `protobuf:"bytes,3,opt,name=root_cert,json=rootCert,proto3" json:"root_cert,omitempty"`
 	// The private key that will be used to sign synthetic leaf certificates
 	// that chain to the root_cert.
-	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
 	// Number of buffered STHs allowed.
 	// TODO(drysdale): investigate sensible ranges for this.
-	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize" json:"buffer_size,omitempty"`
+	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -173,11 +173,11 @@ func (m *GossipConfig) GetBufferSize() int32 {
 // GoshawkConfig describes the configuration of a gossiper.
 type GoshawkConfig struct {
 	// The source logs whose STHs will be checked.
-	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog" json:"source_log,omitempty"`
+	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
 	// The destination log which will be scanned for minimal-gossip certificates.
-	DestLog *LogConfig `protobuf:"bytes,2,opt,name=dest_log,json=destLog" json:"dest_log,omitempty"`
+	DestLog *LogConfig `protobuf:"bytes,2,opt,name=dest_log,json=destLog,proto3" json:"dest_log,omitempty"`
 	// Number of STHs pending verification that can be buffered up for each source log.
-	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize" json:"buffer_size,omitempty"`
+	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

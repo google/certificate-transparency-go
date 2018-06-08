@@ -23,11 +23,11 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type LogBackend struct {
 	// name defines the name of the log backend for use in LogConfig messages and must be unique.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// backend_spec defines the RPC endpoint that clients should use to send requests
 	// to this log backend. These should be in the same format as rpcBackendFlag in the
 	// CTFE main and must not be an empty string.
-	BackendSpec          string   `protobuf:"bytes,2,opt,name=backend_spec,json=backendSpec" json:"backend_spec,omitempty"`
+	BackendSpec          string   `protobuf:"bytes,2,opt,name=backend_spec,json=backendSpec,proto3" json:"backend_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -75,7 +75,7 @@ func (m *LogBackend) GetBackendSpec() string {
 // requests for multiple backends. For example this could be used to run different
 // backends in different geographic regions.
 type LogBackendSet struct {
-	Backend              []*LogBackend `protobuf:"bytes,1,rep,name=backend" json:"backend,omitempty"`
+	Backend              []*LogBackend `protobuf:"bytes,1,rep,name=backend,proto3" json:"backend,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -114,7 +114,7 @@ func (m *LogBackendSet) GetBackend() []*LogBackend {
 
 // LogConfigSet is a set of LogConfig messages.
 type LogConfigSet struct {
-	Config               []*LogConfig `protobuf:"bytes,1,rep,name=config" json:"config,omitempty"`
+	Config               []*LogConfig `protobuf:"bytes,1,rep,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -153,35 +153,35 @@ func (m *LogConfigSet) GetConfig() []*LogConfig {
 
 // LogConfig describes the configuration options for a log instance.
 type LogConfig struct {
-	LogId        int64    `protobuf:"varint,1,opt,name=log_id,json=logId" json:"log_id,omitempty"`
-	Prefix       string   `protobuf:"bytes,2,opt,name=prefix" json:"prefix,omitempty"`
-	RootsPemFile []string `protobuf:"bytes,3,rep,name=roots_pem_file,json=rootsPemFile" json:"roots_pem_file,omitempty"`
-	PrivateKey   *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	LogId        int64    `protobuf:"varint,1,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
+	Prefix       string   `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	RootsPemFile []string `protobuf:"bytes,3,rep,name=roots_pem_file,json=rootsPemFile,proto3" json:"roots_pem_file,omitempty"`
+	PrivateKey   *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
 	// The public key is included for the convenience of test tools (and obviously
 	// should match the private key above); it is not used by the CT personality.
-	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey" json:"public_key,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	// If reject_expired is true then the certificate validity period will be
 	// checked against the current time during the validation of submissions.
 	// This will cause expired certificates to be rejected.
-	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired" json:"reject_expired,omitempty"`
+	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired,proto3" json:"reject_expired,omitempty"`
 	// If set, ext_key_usages will restrict the set of such usages that the
 	// server will accept. By default all are accepted. The values specified
 	// must be ones known to the x509 package.
-	ExtKeyUsages []string `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages" json:"ext_key_usages,omitempty"`
+	ExtKeyUsages []string `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages,proto3" json:"ext_key_usages,omitempty"`
 	// not_after_start defines the start of the range of acceptable NotAfter
 	// values, inclusive.
 	// Leaving this unset implies no lower bound to the range.
-	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,8,opt,name=not_after_start,json=notAfterStart" json:"not_after_start,omitempty"`
+	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,8,opt,name=not_after_start,json=notAfterStart,proto3" json:"not_after_start,omitempty"`
 	// not_after_limit defines the end of the range of acceptable NotAfter values,
 	// exclusive.
 	// Leaving this unset implies no upper bound to the range.
-	NotAfterLimit *timestamp.Timestamp `protobuf:"bytes,9,opt,name=not_after_limit,json=notAfterLimit" json:"not_after_limit,omitempty"`
+	NotAfterLimit *timestamp.Timestamp `protobuf:"bytes,9,opt,name=not_after_limit,json=notAfterLimit,proto3" json:"not_after_limit,omitempty"`
 	// accept_only_ca controls whether or not *only* certificates with the CA bit
 	// set will be accepted.
-	AcceptOnlyCa bool `protobuf:"varint,10,opt,name=accept_only_ca,json=acceptOnlyCa" json:"accept_only_ca,omitempty"`
+	AcceptOnlyCa bool `protobuf:"varint,10,opt,name=accept_only_ca,json=acceptOnlyCa,proto3" json:"accept_only_ca,omitempty"`
 	// backend_name if set indicates which backend serves this log. The name must be
 	// one of those defined in the LogBackendSet.
-	LogBackendName       string   `protobuf:"bytes,11,opt,name=log_backend_name,json=logBackendName" json:"log_backend_name,omitempty"`
+	LogBackendName       string   `protobuf:"bytes,11,opt,name=log_backend_name,json=logBackendName,proto3" json:"log_backend_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -293,10 +293,10 @@ func (m *LogConfig) GetLogBackendName() string {
 type LogMultiConfig struct {
 	// The set of backends that this configuration will use to send requests to.
 	// The names of the backends in the LogBackendSet must all be distinct.
-	Backends *LogBackendSet `protobuf:"bytes,1,opt,name=backends" json:"backends,omitempty"`
+	Backends *LogBackendSet `protobuf:"bytes,1,opt,name=backends,proto3" json:"backends,omitempty"`
 	// The set of logs that will use the above backends. All the protos in this
 	// LogConfigSet must set a valid log_backend_name for the config to be usable.
-	LogConfigs           *LogConfigSet `protobuf:"bytes,2,opt,name=log_configs,json=logConfigs" json:"log_configs,omitempty"`
+	LogConfigs           *LogConfigSet `protobuf:"bytes,2,opt,name=log_configs,json=logConfigs,proto3" json:"log_configs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`

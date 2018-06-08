@@ -22,7 +22,7 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 // TemporalLogConfig is a set of LogShardConfig messages, whose
 // time limits should be contiguous.
 type TemporalLogConfig struct {
-	Shard                []*LogShardConfig `protobuf:"bytes,1,rep,name=shard" json:"shard,omitempty"`
+	Shard                []*LogShardConfig `protobuf:"bytes,1,rep,name=shard,proto3" json:"shard,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -62,17 +62,17 @@ func (m *TemporalLogConfig) GetShard() []*LogShardConfig {
 // LogShardConfig describes the acceptable date range for a single shard of a temporal
 // log.
 type LogShardConfig struct {
-	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
 	// The log's public key in DER-encoded PKIX form.
 	PublicKeyDer []byte `protobuf:"bytes,2,opt,name=public_key_der,json=publicKeyDer,proto3" json:"public_key_der,omitempty"`
 	// not_after_start defines the start of the range of acceptable NotAfter
 	// values, inclusive.
 	// Leaving this unset implies no lower bound to the range.
-	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,3,opt,name=not_after_start,json=notAfterStart" json:"not_after_start,omitempty"`
+	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,3,opt,name=not_after_start,json=notAfterStart,proto3" json:"not_after_start,omitempty"`
 	// not_after_limit defines the end of the range of acceptable NotAfter values,
 	// exclusive.
 	// Leaving this unset implies no upper bound to the range.
-	NotAfterLimit        *timestamp.Timestamp `protobuf:"bytes,4,opt,name=not_after_limit,json=notAfterLimit" json:"not_after_limit,omitempty"`
+	NotAfterLimit        *timestamp.Timestamp `protobuf:"bytes,4,opt,name=not_after_limit,json=notAfterLimit,proto3" json:"not_after_limit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
