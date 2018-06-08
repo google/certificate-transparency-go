@@ -26,6 +26,10 @@ type Election interface {
 	// context" which remains active until the instance stops being the master,
 	// or the passed in context is canceled. Returns an error if capturing fails,
 	// or the passed in context is canceled before mastership is captured.
+	//
+	// Await is safe to be called again when the current mastership context is
+	// canceled, which might happen implicitly when mastership is overtaken, or
+	// explicitly when Resign is called.
 	Await(ctx context.Context) (context.Context, error)
 
 	// Resign cancels the mastership context and releases mastership for this
