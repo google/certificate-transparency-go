@@ -25,13 +25,14 @@ type Election interface {
 	// context" which remains active until the instance stops being the master,
 	// or the passed in context is canceled. Returns an error if capturing fails,
 	// or the passed in context is canceled before mastership is captured.
-	//
-	// Warning: It is not recommended to pass the returned master context to
-	// Election methods. A higher level context should be passed in instead.
 	Await(ctx context.Context) (context.Context, error)
 
 	// Resign cancels the master context and releases mastership for this
 	// instance. The instance can be elected again using Await.
+	//
+	// Master context cancelation is guaranteed, but the returned error can
+	// indicate that resigning has failed. In the latter case it might be helpful
+	// to retry, the call is idempotent.
 	Resign(ctx context.Context) error
 
 	// Close cancels the master context, permanently stops participating in

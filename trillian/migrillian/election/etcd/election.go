@@ -95,10 +95,12 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 // Resign cancels the master context and releases mastership for this instance.
 // The instance can be elected again using Await.
 func (e *Election) Resign(ctx context.Context) error {
+	err := e.election.Resign(ctx)
+	// Cancel after Resign to tolerate situations when ctx is the master context.
 	if e.cancel != nil {
 		e.cancel()
 	}
-	return e.election.Resign(ctx)
+	return err
 }
 
 // Close cancels the master context, permanently stops participating in
