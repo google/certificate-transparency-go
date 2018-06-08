@@ -47,7 +47,7 @@ type Election struct {
 	cancel context.CancelFunc
 }
 
-// Await blocks until the instance captures mastership. Returns the "master
+// Await blocks until the instance captures mastership. Returns a "mastership
 // context" which remains active until the instance stops being the master, or
 // the passed in context is canceled. Returns an error if capturing fails, or
 // the passed in context is canceled before mastership is captured.
@@ -91,7 +91,7 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 				break
 			}
 		}
-		glog.Infof("%d: canceling master context", e.treeID)
+		glog.Infof("%d: canceling mastership context", e.treeID)
 		cancel()
 	}()
 
@@ -99,18 +99,18 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	return cctx, nil
 }
 
-// Resign cancels the master context and releases mastership for this instance.
-// The instance can be elected again using Await.
+// Resign cancels the mastership context and releases mastership for this
+// instance. The instance can be elected again using Await.
 func (e *Election) Resign(ctx context.Context) error {
 	err := e.election.Resign(ctx)
-	// Cancel after Resign to tolerate situations when ctx is the master context.
+	// Cancel after Resign to tolerate ctx being the mastership context.
 	if e.cancel != nil {
 		e.cancel()
 	}
 	return err
 }
 
-// Close cancels the master context, permanently stops participating in
+// Close cancels the mastership context, permanently stops participating in
 // election, and releases the resources. It does best effort on resigning
 // despite potential cancelation of the passed in context. No other method
 // should be called after Close.
