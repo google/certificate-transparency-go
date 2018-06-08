@@ -56,19 +56,19 @@ type Controller struct {
 }
 
 // NewController creates a Controller configured by the passed in options, CT
-// and Trillian clients, and a (possibly nil) master election factory.
+// and Trillian clients, and a master election factory.
 func NewController(opts Options, ctClient *client.LogClient,
 	plClient *PreorderedLogClient, ef election.Factory,
 ) *Controller {
 	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef}
 }
 
-// RunWithElection is a master-elected version of Run method. It executes Run
+// RunWhenMaster is a master-elected version of Run method. It executes Run
 // whenever this instance captures mastership of the tree ID. As soon as the
-// instance stops being the master, Run is canceled. The method returns if an
-// error occurs, the passed in context is canceled, or fetching is done (in
-// non-Continuous mode).
-func (c *Controller) RunWithElection(ctx context.Context) error {
+// instance stops being the master, Run is canceled. The method returns if a
+// severe error occurs, the passed in context is canceled, or fetching is
+// completed (in non-Continuous mode). Releases mastership when terminates.
+func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	logID := c.plClient.tree.TreeId
 
 	el, err := c.ef.NewElection(ctx, logID)
@@ -77,7 +77,7 @@ func (c *Controller) RunWithElection(ctx context.Context) error {
 	}
 	defer func(ctx context.Context) {
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("Election.Close(): %v", err)
+			glog.Warningf("%d: Election.Close(): %v", logID, err)
 		}
 	}(ctx)
 
@@ -87,12 +87,19 @@ func (c *Controller) RunWithElection(ctx context.Context) error {
 			glog.Errorf("Await(): %v", err)
 			return err
 		}
+		glog.Infof("Running as master for log %d", logID)
+
+		// Run while still master (or until an error).
 		err = c.Run(mctx)
 		if ctx.Err() != nil {
+			// We have been externally canceled, so return the current error (which
+			// could be nil or a cancelation-related error).
 			return err
 		} else if mctx.Err() == nil {
+			// We are still the master, so emit the real error.
 			return err
 		}
+		// Otherwise the mastership has been canceled, retry.
 	}
 }
 
@@ -103,7 +110,6 @@ func (c *Controller) RunWithElection(ctx context.Context) error {
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
 	logID := c.plClient.tree.TreeId
-	glog.Infof("Running as master for log %d", logID)
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
@@ -113,7 +119,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("Tree %d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
+		glog.Warningf("%d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)

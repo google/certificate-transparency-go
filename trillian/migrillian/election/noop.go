@@ -24,12 +24,12 @@ func (ne NoopElection) Await(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
-// Resign releases mastership for this instance.
+// Resign does nothing because NoopElection is always the master.
 func (ne NoopElection) Resign(ctx context.Context) error {
 	return nil
 }
 
-// Close permanently stops the instance's participation in election.
+// Close does nothing because NoopElection is always the master.
 func (ne NoopElection) Close(ctx context.Context) error {
 	return nil
 }

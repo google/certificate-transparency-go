@@ -136,8 +136,8 @@ func main() {
 	defer cancel()
 	go util.AwaitSignal(cctx, cancel)
 
-	if err := ctrl.RunWithElection(cctx); err != nil {
-		glog.Exitf("Controller.RunWithElection() returned: %v", err)
+	if err := ctrl.RunWhenMaster(cctx); err != nil {
+		glog.Exitf("Controller.RunWhenMaster() returned: %v", err)
 	}
 }
 
@@ -153,11 +153,12 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 	return core.NewPreorderedLogClient(log, tree, pref)
 }
 
-func getElectionFactory() (factory election.Factory, closeFn func()) {
-	closeFn = func() {}
+// getElectionFactory return an election factory based on flags, and a function
+// which releases the resources associated with the factory.
+func getElectionFactory() (election.Factory, func()) {
 	if *forceMaster {
 		glog.Warning("Acting as master for all logs")
-		return election.NoopFactory{}, closeFn
+		return election.NoopFactory{}, func() {}
 	}
 	if len(*etcdServers) == 0 {
 		glog.Exit("Either --force_master or --etcd_servers must be supplied")
@@ -170,7 +171,7 @@ func getElectionFactory() (factory election.Factory, closeFn func()) {
 	if err != nil || cli == nil {
 		glog.Exitf("Failed to create etcd client: %v", err)
 	}
-	closeFn = func() {
+	closeFn := func() {
 		if err := cli.Close(); err != nil {
 			glog.Warningf("etcd client Close(): %v", err)
 		}
@@ -178,7 +179,7 @@ func getElectionFactory() (factory election.Factory, closeFn func()) {
 
 	hostname, _ := os.Hostname()
 	instanceID := fmt.Sprintf("%s.%d", hostname, os.Getpid())
-	factory = etcd.NewFactory(instanceID, cli, *lockDir)
+	factory := etcd.NewFactory(instanceID, cli, *lockDir)
 
 	return factory, closeFn
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Google Inc. All Rights Reserved.
+// Copyright 2017 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package etcd provides implementation master election based on etcd.
+// Package etcd provides an implementation of master election based on etcd.
 package etcd
 
 import (
@@ -41,10 +41,10 @@ type Election struct {
 	cancel context.CancelFunc
 }
 
-// Await blocks until the instance captures mastership. Returns the context
-// which remains active until the instance stops believing to be the master,
-// or the passed in context is canceled. Returns an error if capturing fails
-// or the passed in context is canceled before that.
+// Await blocks until the instance captures mastership. Returns the "master
+// context" which remains active until the instance stops being the master, or
+// the passed in context is canceled. Returns an error if capturing fails, or
+// the passed in context is canceled before mastership is captured.
 func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	if e.ctx != nil && e.ctx.Err() == nil {
 		return e.ctx, nil
@@ -54,6 +54,9 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 		return nil, err
 	}
 
+	// Get a channel for notifications of election status (using the cancelable
+	// context so that the monitoring goroutine below and the goroutine started
+	// by Observe will reliably terminate).
 	cctx, cancel := context.WithCancel(ctx)
 	ch := e.election.Observe(cctx)
 
@@ -72,13 +75,16 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 		}
 	}
 
+	// At this point we have observed confirmation that we are the master; start
+	// a goroutine to monitor for anyone else overtaking us.
 	go func() {
 		for rsp := range ch {
 			if string(rsp.Kvs[0].Value) != e.instanceID {
+				glog.Warningf("%d: mastership overtaken", e.treeID)
 				break
 			}
 		}
-		glog.Warningf("%d: canceling master context", e.treeID)
+		glog.Infof("%d: canceling master context", e.treeID)
 		cancel()
 	}()
 
@@ -86,8 +92,8 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	return cctx, nil
 }
 
-// Resign releases mastership for this instance. The instance is still ready
-// to be elected again using the Await method.
+// Resign cancels the master context and releases mastership for this instance.
+// The instance can be elected again using Await.
 func (e *Election) Resign(ctx context.Context) error {
 	if e.cancel != nil {
 		e.cancel()
@@ -95,18 +101,17 @@ func (e *Election) Resign(ctx context.Context) error {
 	return e.election.Resign(ctx)
 }
 
-// Close permanently stops the instance's participation in election and
-// releases its resources. As a best effort, it might also try to explicitly
-// resign. No other method should be called after Close.
+// Close cancels the master context, permanently stops participating in
+// election, and releases the resources. It does best effort on resigning
+// despite potential cancelation of the passed in context. No other method
+// should be called after Close.
 func (e *Election) Close(ctx context.Context) error {
-	if e.cancel != nil {
-		e.cancel()
-	}
 	if err := e.Resign(ctx); err != nil {
 		glog.Errorf("%d: Resign(): %v", e.treeID, err)
 	}
-	// In case ctx is canceled, session.Close should do best effort on revoking
-	// the lease, which in turn will remove the election-related keys.
+	// Session's Close revokes the underlying lease, which results in removing
+	// the election-related keys. This achieves the effect of resignation even if
+	// the above Resign call failed (e.g. due to ctx cancelation).
 	return e.session.Close()
 }
 
