@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	errMasterAlready     = errors.New("already master")
+	errAlreadyRunning    = errors.New("already running")
 	errMasterUnconfirmed = errors.New("mastership unconfirmed")
 	errMasterOvertaken   = errors.New("mastership overtaken")
 )
@@ -43,8 +43,8 @@ type Election struct {
 	session  *concurrency.Session
 	election *concurrency.Election
 
-	ctx    context.Context
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // Await blocks until the instance captures mastership. Returns a "mastership
@@ -53,8 +53,12 @@ type Election struct {
 // the passed in context is canceled before mastership is captured.
 func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	// Return an error if the Election already maintains mastership context.
-	if e.ctx != nil && e.ctx.Err() == nil {
-		return nil, errMasterAlready
+	if e.done != nil {
+		select {
+		case <-e.done:
+		default:
+			return nil, errAlreadyRunning
+		}
 	}
 
 	if err := e.election.Campaign(ctx, e.instanceID); err != nil {
@@ -84,28 +88,37 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 
 	// At this point we have observed confirmation that we are the master; start
 	// a goroutine to monitor for anyone else overtaking us.
+	done := make(chan struct{})
 	go func() {
+		defer func() {
+			glog.Infof("%d: canceling mastership context", e.treeID)
+			// Note: Close comes before context cancelation, so that Await can be
+			// invoked immediately after the cancelation without an error.
+			close(done)
+			cancel()
+		}()
 		for rsp := range ch {
 			if string(rsp.Kvs[0].Value) != e.instanceID {
 				glog.Warningf("%d: mastership overtaken", e.treeID)
 				break
 			}
 		}
-		glog.Infof("%d: canceling mastership context", e.treeID)
-		cancel()
 	}()
 
-	e.ctx, e.cancel = cctx, cancel
+	e.cancel, e.done = cancel, done
 	return cctx, nil
 }
 
-// Resign cancels the mastership context and releases mastership for this
-// instance. The instance can be elected again using Await.
+// Resign releases mastership for this instance and cancels the mastership
+// context. The instance can be elected again using Await.
 func (e *Election) Resign(ctx context.Context) error {
 	err := e.election.Resign(ctx)
 	// Cancel after Resign to tolerate ctx being the mastership context.
 	if e.cancel != nil {
 		e.cancel()
+		// Ignore cxt.Done() while waiting for e.done, to tolerate ctx being the
+		// canceled mastership context. This wait will reliably terminate anyway.
+		<-e.done
 	}
 	return err
 }

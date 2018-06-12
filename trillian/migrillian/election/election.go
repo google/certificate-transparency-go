@@ -30,14 +30,22 @@ type Election interface {
 	// Await is safe to be called again when the current mastership context is
 	// canceled, which might happen implicitly when mastership is overtaken, or
 	// explicitly when Resign is called.
+	//
+	// TODO(pavelkalinnikov): It makes sense to distinguish the ctx being passed
+	// in only for waiting, and a "master context" used to derive the mastership
+	// context from. This way, we could put a deadline on waiting for mastership,
+	// and not cancel mastership in case it gets acquired within the deadline.
 	Await(ctx context.Context) (context.Context, error)
 
-	// Resign cancels the mastership context and releases mastership for this
-	// instance. The instance can be elected again using Await.
+	// Resign releases mastership for this instance and cancels the mastership
+	// context. The instance can be elected again using Await.
 	//
 	// Mastership context cancelation is guaranteed, but the returned error can
 	// indicate that resigning has failed. In the latter case it might be helpful
 	// to retry, the call is idempotent.
+	//
+	// The caller is advised to tear down mastership-related work before invoking
+	// Resign to have best protection against double-master situations.
 	Resign(ctx context.Context) error
 
 	// Close cancels the mastership context, permanently stops participating in
