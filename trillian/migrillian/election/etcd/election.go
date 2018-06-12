@@ -52,11 +52,11 @@ type Election struct {
 // the passed in context is canceled. Returns an error if capturing fails, or
 // the passed in context is canceled before mastership is captured.
 func (e *Election) Await(ctx context.Context) (context.Context, error) {
-	// Return an error if the Election already maintains mastership context.
 	if e.done != nil {
+		// There was a previous monitoring goroutine, so check its completion.
 		select {
-		case <-e.done:
-		default:
+		case <-e.done: // Completed OK.
+		default: // Still running.
 			return nil, errAlreadyRunning
 		}
 	}
@@ -92,7 +92,7 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 	go func() {
 		defer func() {
 			glog.Infof("%d: canceling mastership context", e.treeID)
-			// Note: Close comes before context cancelation, so that Await can be
+			// Note: close comes before context cancelation, so that Await can be
 			// invoked immediately after the cancelation without an error.
 			close(done)
 			cancel()
