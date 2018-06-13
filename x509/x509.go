@@ -1317,6 +1317,20 @@ func (e *NonFatalErrors) HasError() bool {
 	return len(e.Errors) > 0
 }
 
+// IsFatal indicates whether an error is fatal.
+func IsFatal(err error) bool {
+	if err == nil {
+		return false
+	}
+	if _, ok := err.(NonFatalErrors); ok {
+		return false
+	}
+	if errs, ok := err.(*Errors); ok {
+		return errs.Fatal()
+	}
+	return true
+}
+
 func parseDistributionPoints(data []byte, crldp *[]string) error {
 	// CRLDistributionPoints ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
 	//
