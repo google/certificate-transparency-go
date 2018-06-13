@@ -387,7 +387,7 @@ func TestMatchIP(t *testing.T) {
 func TestCertificateParse(t *testing.T) {
 	s, _ := hex.DecodeString(certBytes)
 	certs, err := ParseCertificates(s)
-	if err != nil {
+	if IsFatal(err) {
 		t.Error(err)
 	}
 	if len(certs) != 2 {
@@ -1290,6 +1290,26 @@ func TestNonFatalErrors(t *testing.T) {
 	}
 }
 
+func TestIsFatal(t *testing.T) {
+	tests := []struct {
+		err  error
+		want bool
+	}{
+		{err: errors.New("normal error"), want: true},
+		{err: NonFatalErrors{}, want: false},
+		{err: nil, want: false},
+		{err: &Errors{}, want: false},
+		{err: &Errors{Errs: []Error{{ID: 1, Summary: "test", Fatal: true}}}, want: true},
+		{err: &Errors{Errs: []Error{{ID: 1, Summary: "test", Fatal: false}}}, want: false},
+	}
+	for _, test := range tests {
+		got := IsFatal(test.err)
+		if got != test.want {
+			t.Errorf("IsFatal(%T %v)=%v, want %v", test.err, test.err, got, test.want)
+		}
+	}
+}
+
 const (
 	tbsNoPoison = "30820245a003020102020842822a5b866fbfeb300d06092a864886f70d01010b" +
 		"05003071310b3009060355040613024742310f300d060355040813064c6f6e64" +
@@ -2145,7 +2165,7 @@ func TestPKIXNameString(t *testing.T) {
 		t.Fatal(err)
 	}
 	certs, err := ParseCertificates(pem)
-	if err != nil {
+	if IsFatal(err) {
 		t.Fatal(err)
 	}
 
@@ -2341,7 +2361,7 @@ func TestAdditionFieldsInGeneralSubtree(t *testing.T) {
 	// GeneralSubtree structure. This tests that such certificates can be
 	// parsed.
 	block, _ := pem.Decode([]byte(additionalGeneralSubtreePEM))
-	if _, err := ParseCertificate(block.Bytes); err != nil {
+	if _, err := ParseCertificate(block.Bytes); IsFatal(err) {
 		t.Fatalf("failed to parse certificate: %s", err)
 	}
 }

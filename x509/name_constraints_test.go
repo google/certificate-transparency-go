@@ -1589,12 +1589,7 @@ func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.
 		return nil, err
 	}
 
-	caCert, err := ParseCertificate(derBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return caCert, nil
+	return ParseCertificate(derBytes)
 }
 
 func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
@@ -1840,7 +1835,7 @@ func TestConstraintCases(t *testing.T) {
 
 		for _, root := range test.roots {
 			rootCert, err := makeConstraintsCACert(root, rootName, rootKey, nil, rootKey)
-			if err != nil {
+			if IsFatal(err) {
 				t.Fatalf("#%d: failed to create root: %s", i, err)
 			}
 
@@ -1858,7 +1853,7 @@ func TestConstraintCases(t *testing.T) {
 
 			for _, intermediate := range intermediates {
 				caCert, err := makeConstraintsCACert(intermediate, levelName, levelKey, parent, parentKey)
-				if err != nil {
+				if IsFatal(err) {
 					t.Fatalf("#%d: failed to create %q: %s", i, levelName, err)
 				}
 
