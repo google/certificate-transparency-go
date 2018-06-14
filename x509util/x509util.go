@@ -428,6 +428,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	showCertPolicies(&result, cert)
 	showCRLDPs(&result, cert)
 	showAuthInfoAccess(&result, cert)
+	showSubjectInfoAccess(&result, cert)
 	showRPKIAddressRanges(&result, cert)
 	showRPKIASIdentifiers(&result, cert)
 	showCTPoison(&result, cert)
@@ -594,6 +595,28 @@ func showAuthInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showSubjectInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionSubjectInfoAccess, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            Subject Information Access:"))
+		showCritical(result, critical)
+		var tsBuf bytes.Buffer
+		for _, ts := range cert.SubjectTimestamps {
+			commaAppend(&tsBuf, "URI:"+ts)
+		}
+		if tsBuf.Len() > 0 {
+			result.WriteString(fmt.Sprintf("                AD Time Stamping - %v\n", tsBuf.String()))
+		}
+		var repoBuf bytes.Buffer
+		for _, repo := range cert.SubjectCARepositories {
+			commaAppend(&repoBuf, "URI:"+repo)
+		}
+		if repoBuf.Len() > 0 {
+			result.WriteString(fmt.Sprintf("                CA repository - %v\n", repoBuf.String()))
+		}
+	}
+}
+
 func showAddressRange(prefix x509.IPAddressPrefix, afi uint16) string {
 	switch afi {
 	case x509.IPv4AddressFamilyIndicator, x509.IPv6AddressFamilyIndicator:
@@ -671,7 +694,6 @@ func showRPKIASIdentifiers(result *bytes.Buffer, cert *x509.Certificate) {
 		showASIDs(result, cert.RPKIRoutingDomainIDs, "Routing Domain Identifiers")
 	}
 }
-
 func showCTPoison(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(x509.OIDExtensionCTPoison, cert.Extensions)
 	if count > 0 {
@@ -761,6 +783,7 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionNameConstraints) ||
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionSubjectInfoAccess) ||
 		oid.Equal(x509.OIDExtensionIPPrefixList) ||
 		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
