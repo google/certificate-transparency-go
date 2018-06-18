@@ -194,7 +194,7 @@ func (src *sourceLog) GetSTHAsCert(ctx context.Context, g *Gossiper) (*ct.ASN1Ce
 	src.mu.Lock()
 	defer src.mu.Unlock()
 	if reflect.DeepEqual(sth, src.lastSTH) {
-		glog.Infof("Retriever(%d): same STH as previous", src.Name)
+		glog.Infof("Retriever(%s): same STH as previous", src.Name)
 		return nil, nil
 	}
 	src.lastSTH = sth
