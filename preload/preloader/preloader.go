@@ -51,7 +51,7 @@ var (
 	maxIdleConns          = flag.Int("max_idle_conns", 100, "Maximum number of idle connections (see http.Transport)")
 	idleTimeout           = flag.Duration("idle_conn_timeout", 90*time.Second, "Idle connections with no use within this period will be closed (see http.Transport)")
 	disableKeepAlive      = flag.Bool("disable_keepalive", false, "Disable HTTP Keep-Alive (see http.Transport)")
-	expectContinueTimeout = flag.Duration("expect_continue_timeout", time.Second, "Amount of time to wait for response if request usesExpect: 100-continue (see http.Transport")
+	expectContinueTimeout = flag.Duration("expect_continue_timeout", time.Second, "Amount of time to wait for a response if request uses Expect: 100-continue (see http.Transport")
 )
 
 func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
