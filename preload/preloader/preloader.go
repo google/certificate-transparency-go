@@ -35,16 +35,23 @@ import (
 )
 
 var (
-	sourceLogURI         = flag.String("source_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-	targetLogURI         = flag.String("target_log_uri", "https://example.com/ct", "CT log base URI to add entries to")
-	targetTemporalLogCfg = flag.String("target_temporal_log_cfg", "", "File holding temporal log configuration")
-	batchSize            = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
-	numWorkers           = flag.Int("num_workers", 2, "Number of concurrent matchers")
-	parallelFetch        = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
-	parallelSubmit       = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
-	startIndex           = flag.Int64("start_index", 0, "Log index to start scanning at")
-	sctInputFile         = flag.String("sct_file", "", "File to save SCTs & leaf data to")
-	precertsOnly         = flag.Bool("precerts_only", false, "Only match precerts")
+	sourceLogURI          = flag.String("source_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
+	targetLogURI          = flag.String("target_log_uri", "https://example.com/ct", "CT log base URI to add entries to")
+	targetTemporalLogCfg  = flag.String("target_temporal_log_cfg", "", "File holding temporal log configuration")
+	batchSize             = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
+	numWorkers            = flag.Int("num_workers", 2, "Number of concurrent matchers")
+	parallelFetch         = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+	parallelSubmit        = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
+	startIndex            = flag.Int64("start_index", 0, "Log index to start scanning at")
+	sctInputFile          = flag.String("sct_file", "", "File to save SCTs & leaf data to")
+	precertsOnly          = flag.Bool("precerts_only", false, "Only match precerts")
+	tlsTimeout            = flag.Duration("tls_timeout", 30*time.Second, "TLS handshake timeout (see http.Transport)")
+	rspHeaderTimeout      = flag.Duration("response_header_timeout", 30*time.Second, "Response header timeout (see http.Transport)")
+	maxIdlePerHost        = flag.Int("max_idle_conns_per_host", 10, "Maximum number of idle connections per host (see http.Transport)")
+	maxIdleConns          = flag.Int("max_idle_conns", 100, "Maximum number of idle connections (see http.Transport)")
+	idleTimeout           = flag.Duration("idle_conn_timeout", 90*time.Second, "Idle connections with no use within this period will be closed (see http.Transport)")
+	disableKeepAlive      = flag.Bool("disable_keepalive", false, "Disable HTTP Keep-Alive (see http.Transport)")
+	expectContinueTimeout = flag.Duration("expect_continue_timeout", time.Second, "Amount of time to wait for a response if request uses Expect: 100-continue (see http.Transport")
 )
 
 func recordSct(addedCerts chan<- *preload.AddedCert, certDer ct.ASN1Cert, sct *ct.SignedCertificateTimestamp) {
@@ -145,13 +152,13 @@ func main() {
 	}()
 
 	transport := &http.Transport{
-		TLSHandshakeTimeout:   30 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		MaxIdleConnsPerHost:   10,
-		DisableKeepAlives:     false,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		TLSHandshakeTimeout:   *tlsTimeout,
+		ResponseHeaderTimeout: *rspHeaderTimeout,
+		MaxIdleConnsPerHost:   *maxIdlePerHost,
+		DisableKeepAlives:     *disableKeepAlive,
+		MaxIdleConns:          *maxIdleConns,
+		IdleConnTimeout:       *idleTimeout,
+		ExpectContinueTimeout: *expectContinueTimeout,
 	}
 
 	fetchLogClient, err := client.New(*sourceLogURI, &http.Client{
