@@ -462,7 +462,7 @@ func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID i
 	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
 	glog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
 	if err != nil {
-		return nil, fmt.Errorf("backend GetLatestSignedLogRoot request failed: %v", err)
+		return nil, err
 	}
 
 	// Check over the response.
@@ -501,7 +501,7 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 
 	sth, err := GetTreeHead(ctx, li.rpcClient, li.logID, li.LogPrefix, remoteQuotaUser)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return li.toHTTPStatus(err), err
 	}
 
 	// Add the signature over the STH contents.

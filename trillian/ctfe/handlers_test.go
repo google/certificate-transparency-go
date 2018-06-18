@@ -617,7 +617,7 @@ func TestGetSTH(t *testing.T) {
 			descr:  "backend-failure",
 			rpcErr: errors.New("backendfailure"),
 			want:   http.StatusInternalServerError,
-			errStr: "request failed",
+			errStr: "backendfailure",
 		},
 		{
 			descr:  "bad-tree-size",
