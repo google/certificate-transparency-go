@@ -29,6 +29,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/client/configpb"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
@@ -356,11 +357,11 @@ func TestTemporalAddChain(t *testing.T) {
 	}
 	certChain := []ct.ASN1Cert{{Data: cert.Raw}}
 	precert, err := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
 	issuer, err := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}
 	precertChain := []ct.ASN1Cert{{Data: precert.Raw}, {Data: issuer.Raw}}

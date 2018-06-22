@@ -36,6 +36,7 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
@@ -93,7 +94,7 @@ const (
 		"pMumx96PIUB3TX543ljlpQ/RgZRqitRfykupIZrXq0Q=",
 		"5s2NQWkjmesu+Kqgp70TCwVLwq8obpHw/JyMGwN56pQ=",
 		"7VelXijfmGFSl62BWIsG8LRmxJGBq9XP8FxmszuT2Cg="
-		] 
+		]
   }`
 )
 
@@ -468,7 +469,7 @@ func TestAddChain(t *testing.T) {
 	}
 
 	cert, err := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse certificate from PEM: %v", err)
 	}
 
@@ -489,11 +490,11 @@ func TestAddPreChain(t *testing.T) {
 	}
 
 	cert, err := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse pre-certificate from PEM: %v", err)
 	}
 	issuer, err := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse issuer certificate from PEM: %v", err)
 	}
 
