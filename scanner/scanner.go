@@ -94,7 +94,7 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 	if err == nil {
 		// No error to handle.
 		return false
-	} else if _, ok := err.(x509.NonFatalErrors); ok {
+	} else if !x509.IsFatal(err) {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
 		glog.V(1).Infof("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err)

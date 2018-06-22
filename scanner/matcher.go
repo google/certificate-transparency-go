@@ -166,10 +166,10 @@ type CertParseFailMatcher struct {
 func (m CertParseFailMatcher) Matches(leaf *ct.LeafEntry) bool {
 	_, err := ct.LogEntryFromLeaf(1, leaf)
 	if err != nil {
-		if _, ok := err.(x509.NonFatalErrors); ok {
-			return m.MatchNonFatalErrs
+		if x509.IsFatal(err) {
+			return true
 		}
-		return true
+		return m.MatchNonFatalErrs
 	}
 	return false
 }
