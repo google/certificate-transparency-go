@@ -60,7 +60,7 @@ func ValidateConfig(cfg *configpb.MigrationConfig) error {
 
 func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
 	logEntry, err := ct.LogEntryFromLeaf(index, entry)
-	if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+	if x509.IsFatal(err) {
 		return nil, fmt.Errorf("failed to build LogEntry: %v", err)
 	}
 	// TODO(pavelkalinnikov): Verify the cert chain.
