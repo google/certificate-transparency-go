@@ -82,11 +82,16 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	}(ctx)
 
 	for {
-		mctx, err := el.Await(ctx)
-		if err != nil {
+		if err := el.Await(ctx); err != nil {
 			glog.Errorf("Await(): %v", err)
 			return err
 		}
+		mctx, err := el.Observe(ctx)
+		if err != nil {
+			glog.Errorf("Observe(): %v", err)
+			return err
+		}
+
 		glog.Infof("Running as master for log %d", logID)
 
 		// Run while still master (or until an error).

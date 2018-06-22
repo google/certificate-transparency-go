@@ -22,36 +22,43 @@ import "context"
 // Election controls an instance's participation in master election process.
 // Note: Implementations are not intended to be thread-safe.
 type Election interface {
-	// Await blocks until the instance captures mastership. Returns a "mastership
-	// context" which remains active until the instance stops being the master,
-	// or the passed in context is canceled. Returns an error if capturing fails,
-	// or the passed in context is canceled before mastership is captured.
-	//
-	// Await is safe to be called again when the current mastership context is
-	// canceled, which might happen implicitly when mastership is overtaken, or
-	// explicitly when Resign is called.
-	//
-	// TODO(pavelkalinnikov): It makes sense to distinguish the ctx being passed
-	// in only for waiting, and a "master context" used to derive the mastership
-	// context from. This way, we could put a deadline on waiting for mastership,
-	// and not cancel mastership in case it gets acquired within the deadline.
-	Await(ctx context.Context) (context.Context, error)
+	// Await blocks until the instance captures mastership. Returns immediately
+	// if it is already the master. Returns an error if capturing fails, or the
+	// passed in context is canceled before mastership is captured. If an error
+	// is returned, the instance might still have become the master. Idempotent,
+	// might be useful to retry in case of an error.
+	Await(ctx context.Context) error
 
-	// Resign releases mastership for this instance and cancels the mastership
-	// context. The instance can be elected again using Await.
+	// Observe returns a "mastership context" which remains active until the
+	// instance stops being the master, or the passed in context is canceled. If
+	// the instance is not the master during this call, returns an outright
+	// canceled context.
 	//
-	// Mastership context cancelation is guaranteed, but the returned error can
-	// indicate that resigning has failed. In the latter case it might be helpful
-	// to retry, the call is idempotent.
+	// The resources used for mainaining the mastership context are released when
+	// the latter gets canceled. This happens when the instance loses / gives up on
+	// mastership, an error occurs in mastership monitoring, or the context passed
+	// in to Observe is explicitly canceled.
+	Observe(ctx context.Context) (context.Context, error)
+
+	// Resign releases mastership for this instance. The instance can be elected
+	// again using Await. Idempotent, might be useful to retry if fails.
+	//
+	// Note: Resign does not guarantee immediate cancelation of the context
+	// returned from Observe. However, the latter will happen *eventually* if
+	// resigning is successfull. The caller can force mastership context
+	// cancelation by explicitly canceling the context passed in to Observe.
 	//
 	// The caller is advised to tear down mastership-related work before invoking
 	// Resign to have best protection against double-master situations.
 	Resign(ctx context.Context) error
 
-	// Close cancels the mastership context, permanently stops participating in
-	// election, and releases the resources. As a best effort, it might also try
-	// to explicitly Resign so that other instances can overtake mastership
+	// Close permanently stops participating in election, and releases the
+	// resources. It does best effort on resigning despite potential cancelation
+	// of the passed in context, so that other instances can overtake mastership
 	// faster. No other method should be called after Close.
+	//
+	// Note: Does not guarantee immediate mastership context cancelation, see
+	// Resign comment for details.
 	Close(ctx context.Context) error
 }
 
