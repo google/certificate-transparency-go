@@ -32,7 +32,7 @@ import (
 
 func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
 	cert, err := x509util.CertificateFromPEM([]byte(testonly.LeafSignedByFakeIntermediateCertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("failed to set up test cert: %v", err)
 	}
 
