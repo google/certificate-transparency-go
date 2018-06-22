@@ -123,7 +123,7 @@ func quotaUsersForIssuers(t *testing.T, pem ...string) []string {
 	r := make([]string, 0)
 	for _, p := range pem {
 		c, err := x509util.CertificateFromPEM([]byte(p))
-		if err != nil {
+		if x509.IsFatal(err) {
 			t.Fatalf("Failed to parse pem: %v", err)
 		}
 		r = append(r, quotaUserForCert(c))
