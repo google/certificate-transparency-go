@@ -17,7 +17,6 @@ package etcd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -25,10 +24,6 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
-)
-
-var (
-	errMasterUnconfirmed = errors.New("mastership unconfirmed")
 )
 
 // Election is an implementation of election.Election based on etcd.
@@ -61,12 +56,9 @@ func (e *Election) Observe(ctx context.Context) (context.Context, error) {
 		cancel()
 		return nil, ctx.Err()
 	case rsp, ok := <-ch:
-		if !ok {
+		if !ok || string(rsp.Kvs[0].Value) != e.instanceID {
+			// Mastership has been overtaken in the meantime, or not capturead at all.
 			cancel()
-			return nil, errMasterUnconfirmed
-		}
-		if string(rsp.Kvs[0].Value) != e.instanceID {
-			cancel() // Mastership has been overtaken in the meantime.
 			return cctx, nil
 		}
 	}

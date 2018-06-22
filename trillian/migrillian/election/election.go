@@ -45,7 +45,7 @@ type Election interface {
 	//
 	// Note: Resign does not guarantee immediate cancelation of the context
 	// returned from Observe. However, the latter will happen *eventually* if
-	// resigning is successfull. The caller can force mastership context
+	// resigning is successful. The caller can force mastership context
 	// cancelation by explicitly canceling the context passed in to Observe.
 	//
 	// The caller is advised to tear down mastership-related work before invoking
