@@ -128,7 +128,7 @@ func MerkleTreeLeafFromRawChain(rawChain []ASN1Cert, etype LogEntryType, timesta
 	chain := make([]*x509.Certificate, count)
 	for i := range chain {
 		cert, err := x509.ParseCertificate(rawChain[i].Data)
-		if err != nil {
+		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("failed to parse chain[%d] cert: %v", i, err)
 		}
 		chain[i] = cert
@@ -251,7 +251,7 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 // LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data after JSON parsing)
 // into a LogEntry object (which includes x509.Certificate objects, after TLS and ASN.1 parsing).
 // Note that this function may return a valid LogEntry object and a non-nil error value, when
-// the error indicates a non-fatal parsing error (of type x509.NonFatalErrors).
+// the error indicates a non-fatal parsing error.
 func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 	var leaf MerkleTreeLeaf
 	if rest, err := tls.Unmarshal(leafEntry.LeafInput, &leaf); err != nil {
@@ -272,7 +272,7 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 		}
 		entry.Chain = certChain.Entries
 		entry.X509Cert, err = leaf.X509Certificate()
-		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
 		}
 
@@ -286,7 +286,7 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 		entry.Chain = precertChain.CertificateChain
 		var tbsCert *x509.Certificate
 		tbsCert, err = leaf.Precertificate()
-		if _, ok := err.(x509.NonFatalErrors); !ok && err != nil {
+		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
 		}
 		entry.Precert = &Precertificate{
@@ -298,7 +298,7 @@ func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
 	default:
 		return nil, fmt.Errorf("saw unknown entry type at index %d: %v", index, leaf.TimestampedEntry.EntryType)
 	}
-	// err may hold a x509.NonFatalErrors object.
+	// err may be non-nil for a non-fatal error
 	return &entry, err
 }
 
