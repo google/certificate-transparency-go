@@ -83,12 +83,12 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 
 	for {
 		if err := el.Await(ctx); err != nil {
-			glog.Errorf("Await(): %v", err)
 			return err
 		}
 		mctx, err := el.Observe(ctx)
 		if err != nil {
-			glog.Errorf("Observe(): %v", err)
+			return err
+		} else if err := mctx.Err(); err != nil {
 			return err
 		}
 
