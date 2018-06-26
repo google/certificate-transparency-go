@@ -32,12 +32,13 @@ type Election interface {
 	// Observe returns a "mastership context" which remains active until the
 	// instance stops being the master, or the passed in context is canceled. If
 	// the instance is not the master during this call, returns an outright
-	// canceled context.
+	// canceled context. In particular, this will happen if Observe is called
+	// without a preceding Await.
 	//
-	// The resources used for mainaining the mastership context are released when
-	// the latter gets canceled. This happens when the instance loses / gives up on
-	// mastership, an error occurs in mastership monitoring, or the context passed
-	// in to Observe is explicitly canceled.
+	// The resources used for maintaining the mastership context are released
+	// when the latter gets canceled. This happens when the instance loses
+	// mastership, calls Resign, an error occurs in mastership monitoring, or the
+	// context passed in to Observe is explicitly canceled.
 	Observe(ctx context.Context) (context.Context, error)
 
 	// Resign releases mastership for this instance. The instance can be elected
