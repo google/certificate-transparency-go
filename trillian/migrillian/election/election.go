@@ -31,7 +31,7 @@ type Election interface {
 
 	// Observe returns a "mastership context" which remains active until the
 	// instance stops being the master, or the passed in context is canceled. If
-	// the instance is not the master during this call, returns an outright
+	// the instance is not the master during this call, returns an already
 	// canceled context. In particular, this will happen if Observe is called
 	// without a preceding Await.
 	//
