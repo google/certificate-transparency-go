@@ -19,8 +19,13 @@ import "context"
 // NoopElection is a stub Election that always believes to be the master.
 type NoopElection int64
 
-// Await returns the passed in context as a mastership context.
-func (ne NoopElection) Await(ctx context.Context) (context.Context, error) {
+// Await returns immediately, as the instance is always the master.
+func (ne NoopElection) Await(ctx context.Context) error {
+	return nil
+}
+
+// Observe returns the passed in context as a mastership context.
+func (ne NoopElection) Observe(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 

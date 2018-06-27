@@ -17,7 +17,6 @@ package etcd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -25,12 +24,6 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
-)
-
-var (
-	errAlreadyRunning    = errors.New("already running")
-	errMasterUnconfirmed = errors.New("mastership unconfirmed")
-	errMasterOvertaken   = errors.New("mastership overtaken")
 )
 
 // Election is an implementation of election.Election based on etcd.
@@ -42,29 +35,16 @@ type Election struct {
 	client   *clientv3.Client
 	session  *concurrency.Session
 	election *concurrency.Election
-
-	cancel context.CancelFunc
-	done   chan struct{}
 }
 
-// Await blocks until the instance captures mastership. Returns a "mastership
-// context" which remains active until the instance stops being the master, or
-// the passed in context is canceled. Returns an error if capturing fails, or
-// the passed in context is canceled before mastership is captured.
-func (e *Election) Await(ctx context.Context) (context.Context, error) {
-	if e.done != nil {
-		// There was a previous monitoring goroutine, so check its completion.
-		select {
-		case <-e.done: // Completed OK.
-		default: // Still running.
-			return nil, errAlreadyRunning
-		}
-	}
+// Await blocks until the instance captures mastership.
+func (e *Election) Await(ctx context.Context) error {
+	return e.election.Campaign(ctx, e.instanceID)
+}
 
-	if err := e.election.Campaign(ctx, e.instanceID); err != nil {
-		return nil, err
-	}
-
+// Observe returns a "mastership context" which remains active until the
+// instance stops being the master, or the passed in context is canceled.
+func (e *Election) Observe(ctx context.Context) (context.Context, error) {
 	// Get a channel for notifications of election status (using the cancelable
 	// context so that the monitoring goroutine below and the goroutine started
 	// by Observe will reliably terminate).
@@ -76,27 +56,21 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 		cancel()
 		return nil, ctx.Err()
 	case rsp, ok := <-ch:
-		if !ok {
+		if !ok || string(rsp.Kvs[0].Value) != e.instanceID {
+			// Mastership has been overtaken in the meantime, or not capturead at all.
 			cancel()
-			return nil, errMasterUnconfirmed
-		}
-		if string(rsp.Kvs[0].Value) != e.instanceID {
-			cancel()
-			return nil, errMasterOvertaken
+			return cctx, nil
 		}
 	}
 
 	// At this point we have observed confirmation that we are the master; start
 	// a goroutine to monitor for anyone else overtaking us.
-	done := make(chan struct{})
 	go func() {
 		defer func() {
-			glog.Infof("%d: canceling mastership context", e.treeID)
-			// Note: close comes before context cancelation, so that Await can be
-			// invoked immediately after the cancelation without an error.
-			close(done)
 			cancel()
+			glog.Infof("%d: canceled mastership context", e.treeID)
 		}()
+
 		for rsp := range ch {
 			if string(rsp.Kvs[0].Value) != e.instanceID {
 				glog.Warningf("%d: mastership overtaken", e.treeID)
@@ -105,28 +79,17 @@ func (e *Election) Await(ctx context.Context) (context.Context, error) {
 		}
 	}()
 
-	e.cancel, e.done = cancel, done
 	return cctx, nil
 }
 
-// Resign releases mastership for this instance and cancels the mastership
-// context. The instance can be elected again using Await.
+// Resign releases mastership for this instance. The instance can be elected
+// again using Await. Idempotent, might be useful to retry if fails.
 func (e *Election) Resign(ctx context.Context) error {
-	err := e.election.Resign(ctx)
-	// Cancel after Resign to tolerate ctx being the mastership context.
-	if e.cancel != nil {
-		e.cancel()
-		// Ignore cxt.Done() while waiting for e.done, to tolerate ctx being the
-		// canceled mastership context. This wait will reliably terminate anyway.
-		<-e.done
-	}
-	return err
+	return e.election.Resign(ctx)
 }
 
-// Close cancels the mastership context, permanently stops participating in
-// election, and releases the resources. It does best effort on resigning
-// despite potential cancelation of the passed in context. No other method
-// should be called after Close.
+// Close resigns and permanently stops participating in election. No other
+// method should be called after Close.
 func (e *Election) Close(ctx context.Context) error {
 	if err := e.Resign(ctx); err != nil {
 		glog.Errorf("%d: Resign(): %v", e.treeID, err)
