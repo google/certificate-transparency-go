@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # This is a linear script for demonstrating a Trillian-backed CT log; its contents
 # are extracted from the main trillian/integration/ct_integration_test.sh script.
 
@@ -6,6 +6,15 @@ if [ $(uname) == "Darwin" ]; then
   URLOPEN=open
 else
   URLOPEN=xdg-open
+fi
+hash ${URLOPEN} 2>/dev/null || { echo >&2 "WARNING: ${URLOPEN} not found - browser windows will fail to open"; }
+if [[ ! -d "${GOPATH}" ]]; then
+  echo "Error: GOPATH not set"
+  exit 1
+fi
+if [[ ${PWD} -ef ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration ]]; then
+  echo "Error: cannot run from directory ${PWD}; try: cd ../..; ./trillian/integration/demo-script.sh"
+  exit 1
 fi
 
 echo 'Prepared before demo: edit trillian/integration/demo-script.cfg to fill in local GOPATH'
@@ -92,7 +101,7 @@ hammer_pid=$!
 sleep 30
 
 echo 'Remember to kill off all of the jobs, so their (hard-coded) ports get freed up.  Shortcut:'
-./trillian/integration/ct_killall.sh
+${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_killall.sh
 echo '...but ct_killall does not kill the hammer'
 killall -9 ct_hammer
 
