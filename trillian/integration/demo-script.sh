@@ -101,7 +101,7 @@ hammer_pid=$!
 sleep 30
 
 echo 'Remember to kill off all of the jobs, so their (hard-coded) ports get freed up.  Shortcut:'
-${GOPATH}/trillian/integration/ct_killall.sh
+${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_killall.sh
 echo '...but ct_killall does not kill the hammer'
 killall -9 ct_hammer
 
