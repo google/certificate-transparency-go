@@ -57,15 +57,6 @@ func addCerts(filename string, pool *x509.CertPool) {
 func main() {
 	flag.Parse()
 
-	opts := x509.VerifyOptions{
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		Roots:             x509.NewCertPool(),
-		Intermediates:     x509.NewCertPool(),
-		DisableTimeChecks: !*timecheck,
-	}
-	addCerts(*root, opts.Roots)
-	addCerts(*intermediate, opts.Intermediates)
-
 	failed := false
 	for _, filename := range flag.Args() {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
@@ -100,26 +91,7 @@ func main() {
 			}
 		}
 		if *validate && len(chain) > 0 {
-			if *root == "" && *intermediate == "" {
-				// No explicit CA certs provided, so treat the file as a chain.
-				count := len(chain)
-				if len(chain) > 1 {
-					last := chain[len(chain)-1]
-					if bytes.Equal(last.RawSubject, last.RawIssuer) {
-						if *verbose {
-							fmt.Print("Treating final cert in chain as a root\n")
-						}
-						opts.Roots.AddCert(last)
-						count--
-					}
-				}
-				for i := 1; i < count; i++ {
-					opts.Intermediates.AddCert(chain[i])
-				}
-			}
-
-			_, err := chain[0].Verify(opts)
-			if err != nil {
+			if err := validateChain(chain, *timecheck, *root, *intermediate); err != nil {
 				glog.Errorf("%s: verification error: %v", filename, err)
 				failed = true
 			}
@@ -128,6 +100,34 @@ func main() {
 	if failed {
 		os.Exit(1)
 	}
+}
+
+func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string) error {
+	opts := x509.VerifyOptions{
+		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		Roots:             x509.NewCertPool(),
+		Intermediates:     x509.NewCertPool(),
+		DisableTimeChecks: !timecheck,
+	}
+	addCerts(rootsFile, opts.Roots)
+	addCerts(intermediatesFile, opts.Intermediates)
+
+	if rootsFile == "" && intermediatesFile == "" {
+		// No explicit CA certs provided, so assume the chain is self-contained.
+		count := len(chain)
+		if len(chain) > 1 {
+			last := chain[len(chain)-1]
+			if bytes.Equal(last.RawSubject, last.RawIssuer) {
+				opts.Roots.AddCert(last)
+				count--
+			}
+		}
+		for i := 1; i < count; i++ {
+			opts.Intermediates.AddCert(chain[i])
+		}
+	}
+	_, err := chain[0].Verify(opts)
+	return err
 }
 
 func checkRevocation(cert *x509.Certificate, verbose bool) error {
