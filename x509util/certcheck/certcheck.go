@@ -17,9 +17,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
@@ -58,8 +61,14 @@ func main() {
 	flag.Parse()
 
 	failed := false
-	for _, filename := range flag.Args() {
-		chain, err := chainFromFile(filename)
+	for _, target := range flag.Args() {
+		var err error
+		var chain []*x509.Certificate
+		if strings.HasPrefix(target, "https://") {
+			chain, err = chainFromSite(target)
+		} else {
+			chain, err = chainFromFile(target)
+		}
 		if err != nil {
 			glog.Errorf("%v", err)
 			failed = true
@@ -71,7 +80,7 @@ func main() {
 			}
 			if *revokecheck {
 				if err := checkRevocation(cert, *verbose); err != nil {
-					glog.Errorf("%s: certificate is revoked: %v", filename, err)
+					glog.Errorf("%s: certificate is revoked: %v", target, err)
 					failed = true
 				}
 			}
@@ -85,7 +94,7 @@ func main() {
 				}
 			}
 			if err := validateChain(chain, *timecheck, *root, *intermediate); err != nil {
-				glog.Errorf("%s: verification error: %v", filename, err)
+				glog.Errorf("%s: verification error: %v", target, err)
 				failed = true
 			}
 		}
@@ -93,6 +102,39 @@ func main() {
 	if failed {
 		os.Exit(1)
 	}
+}
+
+func chainFromSite(target string) ([]*x509.Certificate, error) {
+	u, err := url.Parse(target)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to parse URL: %v", target, err)
+	}
+	if u.Scheme != "https" {
+		return nil, fmt.Errorf("%s: non-https URL provided", target)
+	}
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		host += ":443"
+	}
+
+	conn, err := tls.Dial("tcp", host, &tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to dial %q: %v", target, host, err)
+	}
+	defer conn.Close()
+
+	// Convert base crypto/x509.Certificates to our forked x509.Certificate type.
+	goChain := conn.ConnectionState().PeerCertificates
+	chain := make([]*x509.Certificate, len(goChain))
+	for i, goCert := range goChain {
+		cert, err := x509.ParseCertificate(goCert.Raw)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to convert Go Certificate [%d]: %v", target, i, err)
+		}
+		chain[i] = cert
+	}
+
+	return chain, nil
 }
 
 func chainFromFile(filename string) ([]*x509.Certificate, error) {
