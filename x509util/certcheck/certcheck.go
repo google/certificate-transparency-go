@@ -66,12 +66,12 @@ func main() {
 	addCerts(*root, opts.Roots)
 	addCerts(*intermediate, opts.Intermediates)
 
-	errcount := 0
+	failed := false
 	for _, filename := range flag.Args() {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
 			glog.Errorf("%s: Failed to read data: %v", filename, err)
-			errcount++
+			failed = true
 			continue
 		}
 		var chain []*x509.Certificate
@@ -79,7 +79,7 @@ func main() {
 			certs, err := x509.ParseCertificates(data)
 			if err != nil {
 				glog.Errorf("%s: Failed to parse: %v", filename, err)
-				errcount++
+				failed = true
 			}
 			for _, cert := range certs {
 				if *verbose {
@@ -91,9 +91,9 @@ func main() {
 					cert.UnhandledCriticalExtensions = nil
 				}
 				if *revokecheck {
-					if err := checkRevocation(cert); err != nil {
+					if err := checkRevocation(cert, *verbose); err != nil {
 						glog.Errorf("%s: certificate is revoked: %v", filename, err)
-						errcount++
+						failed = true
 					}
 				}
 				chain = append(chain, cert)
@@ -121,16 +121,16 @@ func main() {
 			_, err := chain[0].Verify(opts)
 			if err != nil {
 				glog.Errorf("%s: verification error: %v", filename, err)
-				errcount++
+				failed = true
 			}
 		}
 	}
-	if errcount > 0 {
+	if failed {
 		os.Exit(1)
 	}
 }
 
-func checkRevocation(cert *x509.Certificate) error {
+func checkRevocation(cert *x509.Certificate, verbose bool) error {
 	for _, crldp := range cert.CRLDistributionPoints {
 		crlDataList, err := x509util.ReadPossiblePEMURL(crldp, "X509 CRL")
 		if err != nil {
@@ -143,7 +143,7 @@ func checkRevocation(cert *x509.Certificate) error {
 				glog.Errorf("failed to parse CRL from %q: %v", crldp, err)
 				continue
 			}
-			if *verbose {
+			if verbose {
 				fmt.Printf("\nRevocation data from %s:\n", crldp)
 				fmt.Print(x509util.CRLToString(crl))
 			}
