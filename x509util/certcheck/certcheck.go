@@ -59,38 +59,31 @@ func main() {
 
 	failed := false
 	for _, filename := range flag.Args() {
-		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+		chain, err := chainFromFile(filename)
 		if err != nil {
-			glog.Errorf("%s: Failed to read data: %v", filename, err)
+			glog.Errorf("%v", err)
 			failed = true
 			continue
 		}
-		var chain []*x509.Certificate
-		for _, data := range dataList {
-			certs, err := x509.ParseCertificates(data)
-			if err != nil {
-				glog.Errorf("%s: Failed to parse: %v", filename, err)
-				failed = true
+		for _, cert := range chain {
+			if *verbose {
+				fmt.Print(x509util.CertificateToString(cert))
 			}
-			for _, cert := range certs {
-				if *verbose {
-					fmt.Print(x509util.CertificateToString(cert))
+			if *revokecheck {
+				if err := checkRevocation(cert, *verbose); err != nil {
+					glog.Errorf("%s: certificate is revoked: %v", filename, err)
+					failed = true
 				}
-				if *ignoreUnknownCriticalExts {
-					// We don't want failures from Verify due to unknown critical extensions,
-					// so clear them out.
-					cert.UnhandledCriticalExtensions = nil
-				}
-				if *revokecheck {
-					if err := checkRevocation(cert, *verbose); err != nil {
-						glog.Errorf("%s: certificate is revoked: %v", filename, err)
-						failed = true
-					}
-				}
-				chain = append(chain, cert)
 			}
 		}
 		if *validate && len(chain) > 0 {
+			if *ignoreUnknownCriticalExts {
+				// We don't want failures from Verify due to unknown critical extensions,
+				// so clear them out.
+				for _, cert := range chain {
+					cert.UnhandledCriticalExtensions = nil
+				}
+			}
 			if err := validateChain(chain, *timecheck, *root, *intermediate); err != nil {
 				glog.Errorf("%s: verification error: %v", filename, err)
 				failed = true
@@ -100,6 +93,22 @@ func main() {
 	if failed {
 		os.Exit(1)
 	}
+}
+
+func chainFromFile(filename string) ([]*x509.Certificate, error) {
+	dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
+	}
+	var chain []*x509.Certificate
+	for _, data := range dataList {
+		certs, err := x509.ParseCertificates(data)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
+		}
+		chain = append(chain, certs...)
+	}
+	return chain, nil
 }
 
 func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string) error {
