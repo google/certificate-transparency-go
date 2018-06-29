@@ -32,6 +32,7 @@ import (
 var (
 	root                      = flag.String("root", "", "Root CA certificate file")
 	intermediate              = flag.String("intermediate", "", "Intermediate CA certificate file")
+	useSystemRoots            = flag.Bool("system_roots", false, "Use system roots")
 	verbose                   = flag.Bool("verbose", false, "Verbose output")
 	validate                  = flag.Bool("validate", false, "Validate certificate signatures")
 	timecheck                 = flag.Bool("timecheck", false, "Check current validity of certificate")
@@ -93,7 +94,7 @@ func main() {
 					cert.UnhandledCriticalExtensions = nil
 				}
 			}
-			if err := validateChain(chain, *timecheck, *root, *intermediate); err != nil {
+			if err := validateChain(chain, *timecheck, *root, *intermediate, *useSystemRoots); err != nil {
 				glog.Errorf("%s: verification error: %v", target, err)
 				failed = true
 			}
@@ -153,18 +154,26 @@ func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	return chain, nil
 }
 
-func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string) error {
+func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string, useSystemRoots bool) error {
+	roots := x509.NewCertPool()
+	if useSystemRoots {
+		systemRoots, err := x509.SystemCertPool()
+		if err != nil {
+			glog.Errorf("Failed to get system roots: %v", err)
+		}
+		roots = systemRoots
+	}
 	opts := x509.VerifyOptions{
 		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		Roots:             x509.NewCertPool(),
+		Roots:             roots,
 		Intermediates:     x509.NewCertPool(),
 		DisableTimeChecks: !timecheck,
 	}
 	addCerts(rootsFile, opts.Roots)
 	addCerts(intermediatesFile, opts.Intermediates)
 
-	if rootsFile == "" && intermediatesFile == "" {
-		// No explicit CA certs provided, so assume the chain is self-contained.
+	if !useSystemRoots && len(rootsFile) == 0 {
+		// No root CA certs provided, so assume the chain is self-contained.
 		count := len(chain)
 		if len(chain) > 1 {
 			last := chain[len(chain)-1]
@@ -173,7 +182,10 @@ func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, interme
 				count--
 			}
 		}
-		for i := 1; i < count; i++ {
+	}
+	if len(intermediatesFile) == 0 {
+		// No intermediate CA certs provided, so assume later entries in the chain are intermediates.
+		for i := 1; i < len(chain); i++ {
 			opts.Intermediates.AddCert(chain[i])
 		}
 	}
