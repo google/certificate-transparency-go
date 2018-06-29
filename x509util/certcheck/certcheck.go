@@ -19,9 +19,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 )
@@ -40,12 +40,12 @@ func addCerts(filename string, pool *x509.CertPool) {
 	if filename != "" {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
-			log.Fatalf("Failed to read certificate file: %v\n", err)
+			glog.Exitf("Failed to read certificate file: %v", err)
 		}
 		for _, data := range dataList {
 			certs, err := x509.ParseCertificates(data)
 			if err != nil {
-				log.Fatalf("Failed to parse certificate from %s: %v\n", filename, err)
+				glog.Exitf("Failed to parse certificate from %s: %v", filename, err)
 			}
 			for _, cert := range certs {
 				pool.AddCert(cert)
@@ -70,7 +70,7 @@ func main() {
 	for _, filename := range flag.Args() {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: Failed to read data: %v\n", filename, err)
+			glog.Errorf("%s: Failed to read data: %v", filename, err)
 			errcount++
 			continue
 		}
@@ -78,7 +78,7 @@ func main() {
 		for _, data := range dataList {
 			certs, err := x509.ParseCertificates(data)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", filename, err.Error())
+				glog.Errorf("%s: Failed to parse: %v", filename, err)
 				errcount++
 			}
 			for _, cert := range certs {
@@ -92,7 +92,7 @@ func main() {
 				}
 				if *revokecheck {
 					if err := checkRevocation(cert); err != nil {
-						fmt.Fprintf(os.Stderr, "%s: certificate is revoked: %v\n", filename, err)
+						glog.Errorf("%s: certificate is revoked: %v", filename, err)
 						errcount++
 					}
 				}
@@ -120,7 +120,7 @@ func main() {
 
 			_, err := chain[0].Verify(opts)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: Verification error: %v\n", filename, err)
+				glog.Errorf("%s: verification error: %v", filename, err)
 				errcount++
 			}
 		}
@@ -134,13 +134,13 @@ func checkRevocation(cert *x509.Certificate) error {
 	for _, crldp := range cert.CRLDistributionPoints {
 		crlDataList, err := x509util.ReadPossiblePEMURL(crldp, "X509 CRL")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to retrieve CRL from %q: %v\n", crldp, err)
+			glog.Errorf("failed to retrieve CRL from %q: %v", crldp, err)
 			continue
 		}
 		for _, crlData := range crlDataList {
 			crl, err := x509.ParseCertificateList(crlData)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to parse CRL from %q: %v\n", crldp, err)
+				glog.Errorf("failed to parse CRL from %q: %v", crldp, err)
 				continue
 			}
 			if *verbose {
