@@ -17,7 +17,11 @@ package integration
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -70,6 +74,25 @@ type errSkip struct{}
 func (e errSkip) Error() string {
 	return "test operation skipped"
 }
+
+// Choice represents a random decision about a hammer operation.
+type Choice string
+
+// Constants for both invalid operation choices.
+const (
+	ParamTooBig         = Choice("ParamTooBig")
+	Param2TooBig        = Choice("Param2TooBig")
+	ParamNegative       = Choice("ParamNegative")
+	ParamInvalid        = Choice("ParamInvalid")
+	ParamsInverted      = Choice("ParamsInverted")
+	InvalidBase64       = Choice("InvalidBase64")
+	EmptyChain          = Choice("EmptyChain")
+	CertNotPrecert      = Choice("CertNotPrecert")
+	PrecertNotCert      = Choice("PrecertNotCert")
+	NoChainToRoot       = Choice("NoChainToRoot")
+	UnparsableCert      = Choice("UnparsableCert")
+	SignatureNotCorrect = Choice("SignatureNotCorrect")
+)
 
 // Limiter is an interface to allow different rate limiters to be used with the
 // hammer.
@@ -253,8 +276,10 @@ func (pc *pendingCerts) dropOldest() {
 // hammerState tracks the operations that have been performed during a test run, including
 // earlier SCTs/STHs for later checking.
 type hammerState struct {
-	cfg *HammerConfig
-	mu  sync.RWMutex
+	cfg       *HammerConfig
+	altSigner crypto.Signer
+
+	mu sync.RWMutex
 	// STHs are arranged from later to earlier (so [0] is the most recent), and the
 	// discovery of new STHs will push older ones off the end.
 	sth [sthCount]*ct.SignedTreeHead
@@ -297,10 +322,17 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 	glog.Infof("%v: using NotAfter = %v", cfg.LogCfg.Prefix, notAfter)
 
+	// Build a signer for a different private key
+	altSigner, err := ecdsa.GenerateKey(elliptic.P224(), cryptorand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a spare ECDSA private key: %v", err)
+	}
+
 	state := hammerState{
-		cfg:      cfg,
-		nextOp:   make([]ctfe.EntrypointName, 0),
-		notAfter: notAfter,
+		cfg:       cfg,
+		altSigner: altSigner,
+		nextOp:    make([]ctfe.EntrypointName, 0),
+		notAfter:  notAfter,
 	}
 	return &state, nil
 }
@@ -403,14 +435,49 @@ func (s *hammerState) addChain(ctx context.Context) error {
 }
 
 func (s *hammerState) addChainInvalid(ctx context.Context) error {
-	// Invalid because it's a pre-cert chain, not a cert chain.
-	chain, _, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
-	if err != nil {
-		return fmt.Errorf("failed to make fresh cert: %v", err)
+	choices := []Choice{EmptyChain, PrecertNotCert, NoChainToRoot, UnparsableCert, SignatureNotCorrect}
+	choice := choices[rand.Intn(len(choices))]
+
+	var err error
+	var chain []ct.ASN1Cert
+	switch choice {
+	case EmptyChain:
+	case PrecertNotCert:
+		chain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
+		}
+	case NoChainToRoot:
+		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
+		}
+		// Drop the intermediate (chain[1]).
+		chain = append(chain[:1], chain[2:]...)
+	case UnparsableCert:
+		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
+		}
+		// Remove the initial ASN.1 SEQUENCE type byte (0x30) to make an unparsable cert.
+		chain[0].Data[0] = 0x00
+	case SignatureNotCorrect:
+		// Use a signer for a different key than the intermediate CA's key.
+		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.altSigner, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
+		}
+	default:
+		glog.Exitf("Unhandled choice %s", choice)
 	}
+
 	sct, err := s.client().AddChain(ctx, chain)
+	glog.V(3).Infof("invalid add-chain(%s) => error %v", choice, err)
+	if err, ok := err.(client.RspError); ok {
+		glog.V(3).Infof("   HTTP status %d body %s", err.StatusCode, err.Body)
+	}
 	if err == nil {
-		return fmt.Errorf("unexpected success: add-chain: %+v", sct)
+		return fmt.Errorf("unexpected success: add-chain(%s): %+v", choice, sct)
 	}
 	return nil
 }
@@ -452,12 +519,47 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 }
 
 func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
-	// Invalid because it's a cert chain, not a pre-cert chain.
-	prechain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
-	if err != nil {
-		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
+	choices := []Choice{EmptyChain, CertNotPrecert, NoChainToRoot, UnparsableCert, SignatureNotCorrect}
+	choice := choices[rand.Intn(len(choices))]
+
+	var err error
+	var prechain []ct.ASN1Cert
+	switch choice {
+	case EmptyChain:
+	case CertNotPrecert:
+		prechain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
+		}
+	case NoChainToRoot:
+		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
+		}
+		// Drop the intermediate (prechain[1]).
+		prechain = append(prechain[:1], prechain[2:]...)
+	case UnparsableCert:
+		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
+		}
+		// Remove the initial ASN.1 SEQUENCE type byte (0x30) to make an unparsable cert.
+		prechain[0].Data[0] = 0x00
+	case SignatureNotCorrect:
+		// Use a signer for a different key than the intermediate CA's key.
+		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.altSigner, s.notAfter)
+		if err != nil {
+			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
+		}
+	default:
+		glog.Exitf("Unhandled choice %s", choice)
 	}
+
 	sct, err := s.client().AddPreChain(ctx, prechain)
+	glog.V(3).Infof("invalid add-pre-chain(%s) => error %v", choice, err)
+	if err, ok := err.(client.RspError); ok {
+		glog.V(3).Infof("   HTTP status %d body %s", err.StatusCode, err.Body)
+	}
 	if err == nil {
 		return fmt.Errorf("unexpected success: add-pre-chain: %+v", sct)
 	}
@@ -478,51 +580,105 @@ func (s *hammerState) getSTH(ctx context.Context) error {
 	return nil
 }
 
-func (s *hammerState) getSTHConsistency(ctx context.Context) error {
+// chooseSTHs gets the current STH, and also picks an earlier STH.
+func (s *hammerState) chooseSTHs(ctx context.Context) (*ct.SignedTreeHead, *ct.SignedTreeHead, error) {
 	// Get current size, and pick an earlier size
 	sthNow, err := s.client().GetSTH(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get-sth for current tree: %v", err)
+		return nil, nil, fmt.Errorf("failed to get-sth for current tree: %v", err)
 	}
 	which := rand.Intn(sthCount)
 	if s.sth[which] == nil {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
 		s.needOps(ctfe.GetSTHName)
-		return errSkip{}
+		return nil, nil, errSkip{}
 	}
 	if s.sth[which].TreeSize == 0 {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
 		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
-		return errSkip{}
+		return nil, nil, errSkip{}
 	}
 	if s.sth[which].TreeSize == sthNow.TreeSize {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as same size (%d)", s.cfg.LogCfg.Prefix, sthNow.TreeSize)
 		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
-		return errSkip{}
+		return nil, nil, errSkip{}
+	}
+	return s.sth[which], sthNow, nil
+}
+
+func (s *hammerState) getSTHConsistency(ctx context.Context) error {
+	sthOld, sthNow, err := s.chooseSTHs(ctx)
+	if err != nil {
+		return err
 	}
 
-	proof, err := s.client().GetSTHConsistency(ctx, s.sth[which].TreeSize, sthNow.TreeSize)
+	proof, err := s.client().GetSTHConsistency(ctx, sthOld.TreeSize, sthNow.TreeSize)
 	if err != nil {
-		return fmt.Errorf("failed to get-sth-consistency(%d, %d): %v", s.sth[which].TreeSize, sthNow.TreeSize, err)
+		return fmt.Errorf("failed to get-sth-consistency(%d, %d): %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}
-	if err := checkCTConsistencyProof(s.sth[which], sthNow, proof); err != nil {
-		return fmt.Errorf("get-sth-consistency(%d, %d) proof check failed: %v", s.sth[which].TreeSize, sthNow.TreeSize, err)
+	if err := checkCTConsistencyProof(sthOld, sthNow, proof); err != nil {
+		return fmt.Errorf("get-sth-consistency(%d, %d) proof check failed: %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}
 	glog.V(2).Infof("%s: Got STH consistency proof (size=%d => %d) len %d",
-		s.cfg.LogCfg.Prefix, s.sth[which].TreeSize, sthNow.TreeSize, len(proof))
+		s.cfg.LogCfg.Prefix, sthOld.TreeSize, sthNow.TreeSize, len(proof))
 	return nil
 }
 
 func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
 	if s.lastTreeSize() == 0 {
-		return nil
+		return errSkip{}
 	}
-	// Invalid because it's beyond the tree size.
-	first := s.lastTreeSize() + uint64(invalidStretch)
-	second := first + 100
-	proof, err := s.client().GetSTHConsistency(ctx, first, second)
+
+	choices := []Choice{ParamTooBig, ParamsInverted, ParamNegative, ParamInvalid}
+	choice := choices[rand.Intn(len(choices))]
+
+	var err error
+	var proof [][]byte
+	switch choice {
+	case ParamTooBig:
+		first := s.lastTreeSize() + uint64(invalidStretch)
+		second := first + 100
+		proof, err = s.client().GetSTHConsistency(ctx, first, second)
+	case Param2TooBig:
+		first := s.lastTreeSize()
+		second := s.lastTreeSize() + uint64(invalidStretch)
+		proof, err = s.client().GetSTHConsistency(ctx, first, second)
+	case ParamsInverted:
+		var sthOld, sthNow *ct.SignedTreeHead
+		sthOld, sthNow, err = s.chooseSTHs(ctx)
+		if err != nil {
+			return err
+		}
+		proof, err = s.client().GetSTHConsistency(ctx, sthNow.TreeSize, sthOld.TreeSize)
+	case ParamNegative, ParamInvalid:
+		params := make(map[string]string)
+		switch choice {
+		case ParamNegative:
+			params["first"] = "-3"
+			params["second"] = "-1"
+		case ParamInvalid:
+			params["first"] = "foo"
+			params["second"] = "bar"
+		}
+		// Need to use lower-level API to be able to use invalid parameters
+		var resp ct.GetSTHConsistencyResponse
+		var httpRsp *http.Response
+		var body []byte
+		httpRsp, body, err = s.client().GetAndParse(ctx, ct.GetSTHConsistencyPath, params, &resp)
+		if err != nil && httpRsp != nil {
+			err = client.RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
+		}
+		proof = resp.Consistency
+	default:
+		glog.Exitf("Unhandled choice %s", choice)
+	}
+
+	glog.V(3).Infof("invalid get-sth-consistency(%s) => error %v", choice, err)
+	if err, ok := err.(client.RspError); ok {
+		glog.V(3).Infof("   HTTP status %d body %s", err.StatusCode, err.Body)
+	}
 	if err == nil {
-		return fmt.Errorf("unexpected success: get-sth-consistency(%d, %d): %+v", first, second, proof)
+		return fmt.Errorf("unexpected success: get-sth-consistency(%s): %+v", choice, proof)
 	}
 	return nil
 }
@@ -551,10 +707,56 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 }
 
 func (s *hammerState) getProofByHashInvalid(ctx context.Context) error {
-	// Invalid because the hash is wrong.
-	rsp, err := s.client().GetProofByHash(ctx, []byte{0x01, 0x02}, 1)
+	lastSize := s.lastTreeSize()
+	if lastSize == 0 {
+		return errSkip{}
+	}
+	submitted := s.pending.oldestIfMMDPassed(time.Now())
+
+	choices := []Choice{ParamInvalid, ParamTooBig, ParamNegative, InvalidBase64}
+	choice := choices[rand.Intn(len(choices))]
+
+	var err error
+	var rsp *ct.GetProofByHashResponse
+	switch choice {
+	case ParamInvalid:
+		rsp, err = s.client().GetProofByHash(ctx, []byte{0x01, 0x02}, 1) // Hash too short
+	case ParamTooBig:
+		if submitted == nil {
+			return errSkip{}
+		}
+		rsp, err = s.client().GetProofByHash(ctx, submitted.leafHash[:], lastSize+uint64(invalidStretch))
+	case ParamNegative, InvalidBase64:
+		params := make(map[string]string)
+		switch choice {
+		case ParamNegative:
+			if submitted == nil {
+				return errSkip{}
+			}
+			params["tree_size"] = "-1"
+			params["hash"] = base64.StdEncoding.EncodeToString(submitted.leafHash[:])
+		case InvalidBase64:
+			params["tree_size"] = "1"
+			params["hash"] = "@^()"
+		}
+		var r ct.GetProofByHashResponse
+		rsp = &r
+		var httpRsp *http.Response
+		var body []byte
+		httpRsp, body, err = s.client().GetAndParse(ctx, ct.GetProofByHashPath, params, &r)
+		if err != nil && httpRsp != nil {
+			err = client.RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
+		}
+	default:
+		glog.Exitf("Unhandled choice %s", choice)
+	}
+
+	glog.V(3).Infof("invalid get-proof-by-hash(%s) => error %v", choice, err)
+	if err, ok := err.(client.RspError); ok {
+		glog.V(3).Infof("   HTTP status %d body %s", err.StatusCode, err.Body)
+	}
 	if err == nil {
-		return fmt.Errorf("unexpected success: get-proof-by-hash(0x0102, 1): %+v", rsp)
+		return fmt.Errorf("unexpected success: get-proof-by-hash(%s): %+v", choice, rsp)
 	}
 	return nil
 }
@@ -612,13 +814,34 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 }
 
 func (s *hammerState) getEntriesInvalid(ctx context.Context) error {
-	if s.lastTreeSize() == 0 {
-		return nil
+	lastSize := s.lastTreeSize()
+	if lastSize == 0 {
+		return errSkip{}
 	}
-	// Invalid because it's beyond the tree size.
-	last := int64(s.lastTreeSize()) + invalidStretch
-	first := last - 4
+
+	choices := []Choice{ParamTooBig, ParamNegative, ParamsInverted}
+	choice := choices[rand.Intn(len(choices))]
+
+	var first, last int64
+	switch choice {
+	case ParamTooBig:
+		last = int64(lastSize) + invalidStretch
+		first = last - 4
+	case ParamNegative:
+		first = -2
+		last = 10
+	case ParamsInverted:
+		first = 10
+		last = 5
+	default:
+		glog.Exitf("Unhandled choice %s", choice)
+	}
+
 	entries, err := s.client().GetEntries(ctx, first, last)
+	glog.V(3).Infof("invalid get-entries(%s) => error %v", choice, err)
+	if err, ok := err.(client.RspError); ok {
+		glog.V(3).Infof("   HTTP status %d body %s", err.StatusCode, err.Body)
+	}
 	if err == nil {
 		return fmt.Errorf("unexpected success: get-entries(%d,%d): %d entries", first, last, len(entries))
 	}
@@ -737,7 +960,12 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	if invalid {
 		glog.V(3).Infof("perform invalid %s operation", ep)
 		invalidReqs.Inc(s.label(), string(ep))
-		return s.performInvalidOp(ctx, ep)
+		err := s.performInvalidOp(ctx, ep)
+		if _, ok := err.(errSkip); ok {
+			glog.V(2).Infof("invalid operation %s was skipped", ep)
+			return nil
+		}
+		return err
 	}
 
 	glog.V(3).Infof("perform %s operation", ep)
