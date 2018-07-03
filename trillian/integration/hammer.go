@@ -78,7 +78,7 @@ func (e errSkip) Error() string {
 // Choice represents a random decision about a hammer operation.
 type Choice string
 
-// Constants for both invalid operation choices.
+// Constants for per-operation choices.
 const (
 	ParamTooBig         = Choice("ParamTooBig")
 	Param2TooBig        = Choice("Param2TooBig")
@@ -92,6 +92,9 @@ const (
 	NoChainToRoot       = Choice("NoChainToRoot")
 	UnparsableCert      = Choice("UnparsableCert")
 	SignatureNotCorrect = Choice("SignatureNotCorrect")
+	NewCert             = Choice("NewCert")
+	LastCert            = Choice("LastCert")
+	FirstCert           = Choice("FirstCert")
 )
 
 // Limiter is an interface to allow different rate limiters to be used with the
@@ -279,6 +282,13 @@ type hammerState struct {
 	cfg       *HammerConfig
 	altSigner crypto.Signer
 
+	// Store the first submitted and the most recently submitted [pre-]chain,
+	// to allow submission of both old and new duplicates.
+	chainMu                     sync.Mutex
+	firstChain, lastChain       []ct.ASN1Cert
+	firstPreChain, lastPreChain []ct.ASN1Cert
+	firstTBS, lastTBS           []byte
+
 	mu sync.RWMutex
 	// STHs are arranged from later to earlier (so [0] is the most recent), and the
 	// discovery of new STHs will push older ones off the end.
@@ -382,6 +392,7 @@ func (s *hammerState) needOps(ops ...ctfe.EntrypointName) {
 func (s *hammerState) addMultiple(ctx context.Context, addOne func(context.Context) error) error {
 	var wg sync.WaitGroup
 	numAdds := rand.Intn(s.cfg.MaxParallelChains) + 1
+	glog.V(2).Infof("%s: do %d parallel add operations...", s.cfg.LogCfg.Prefix, numAdds)
 	errs := make(chan error, numAdds)
 	for i := 0; i < numAdds; i++ {
 		wg.Add(1)
@@ -393,6 +404,7 @@ func (s *hammerState) addMultiple(ctx context.Context, addOne func(context.Conte
 		}()
 	}
 	wg.Wait()
+	glog.V(2).Infof("%s: do %d parallel add operations...done", s.cfg.LogCfg.Prefix, numAdds)
 	select {
 	case err := <-errs:
 		return err
@@ -401,16 +413,48 @@ func (s *hammerState) addMultiple(ctx context.Context, addOne func(context.Conte
 	return nil
 }
 
-func (s *hammerState) addChain(ctx context.Context) error {
-	chain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
-	if err != nil {
-		return fmt.Errorf("failed to make fresh cert: %v", err)
+func (s *hammerState) getChain() (Choice, []ct.ASN1Cert, error) {
+	s.chainMu.Lock()
+	defer s.chainMu.Unlock()
+
+	choices := []Choice{NewCert, FirstCert, LastCert}
+	choice := choices[rand.Intn(len(choices))]
+	if s.lastChain == nil {
+		choice = NewCert
 	}
+	switch choice {
+	case NewCert:
+		chain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return choice, nil, fmt.Errorf("failed to make fresh cert: %v", err)
+		}
+		if s.firstChain == nil {
+			s.firstChain = chain
+		}
+		s.lastChain = chain
+		return choice, chain, nil
+	case FirstCert:
+		return choice, s.firstChain, nil
+	case LastCert:
+		return choice, s.lastChain, nil
+	}
+	return choice, nil, fmt.Errorf("unhandled choice %s", choice)
+}
+
+func (s *hammerState) addChain(ctx context.Context) error {
+	choice, chain, err := s.getChain()
+	if err != nil {
+		return fmt.Errorf("failed to make chain (%s): %v", choice, err)
+	}
+
 	sct, err := s.client().AddChain(ctx, chain)
 	if err != nil {
-		return fmt.Errorf("failed to add-chain: %v", err)
+		if err, ok := err.(client.RspError); ok {
+			glog.Errorf("%s: add-chain(%s): error %v HTTP status %d body %s", s.cfg.LogCfg.Prefix, choice, err.Error(), err.StatusCode, err.Body)
+		}
+		return fmt.Errorf("failed to add-chain(%s): %v", choice, err)
 	}
-	glog.V(2).Infof("%s: Uploaded cert, got SCT(time=%q)", s.cfg.LogCfg.Prefix, timeFromMS(sct.Timestamp))
+	glog.V(2).Infof("%s: Uploaded %s cert, got SCT(time=%q)", s.cfg.LogCfg.Prefix, choice, timeFromMS(sct.Timestamp))
 	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
 	submitted := submittedCert{precert: false, sct: sct}
 	leaf := ct.MerkleTreeLeaf{
@@ -430,7 +474,7 @@ func (s *hammerState) addChain(ctx context.Context) error {
 	}
 	submitted.leafHash = sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, submitted.leafData...))
 	s.pending.tryAppendCert(time.Now(), s.cfg.MMD, &submitted)
-	glog.V(3).Infof("%s: Uploaded cert has leaf-hash %x", s.cfg.LogCfg.Prefix, submitted.leafHash)
+	glog.V(3).Infof("%s: Uploaded %s cert has leaf-hash %x", s.cfg.LogCfg.Prefix, choice, submitted.leafHash)
 	return nil
 }
 
@@ -482,16 +526,50 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	return nil
 }
 
-func (s *hammerState) addPreChain(ctx context.Context) error {
-	prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
-	if err != nil {
-		return fmt.Errorf("failed to make fresh pre-cert: %v", err)
+func (s *hammerState) getPreChain() (Choice, []ct.ASN1Cert, []byte, error) {
+	s.chainMu.Lock()
+	defer s.chainMu.Unlock()
+
+	choices := []Choice{NewCert, FirstCert, LastCert}
+	choice := choices[rand.Intn(len(choices))]
+	if s.lastPreChain == nil {
+		choice = NewCert
 	}
+	switch choice {
+	case NewCert:
+		prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		if err != nil {
+			return choice, nil, nil, fmt.Errorf("failed to make fresh pre-cert: %v", err)
+		}
+		if s.firstPreChain == nil {
+			s.firstPreChain = prechain
+			s.firstTBS = tbs
+		}
+		s.lastPreChain = prechain
+		s.lastTBS = tbs
+		return choice, prechain, tbs, nil
+	case FirstCert:
+		return choice, s.firstPreChain, s.firstTBS, nil
+	case LastCert:
+		return choice, s.lastPreChain, s.lastTBS, nil
+	}
+	return choice, nil, nil, fmt.Errorf("unhandled choice %s", choice)
+}
+
+func (s *hammerState) addPreChain(ctx context.Context) error {
+	choice, prechain, tbs, err := s.getPreChain()
+	if err != nil {
+		return fmt.Errorf("failed to make pre-cert chain (%s): %v", choice, err)
+	}
+
 	sct, err := s.client().AddPreChain(ctx, prechain)
 	if err != nil {
+		if err, ok := err.(client.RspError); ok {
+			glog.Errorf("%s: add-pre-chain(%s): error %v HTTP status %d body %s", s.cfg.LogCfg.Prefix, choice, err.Error(), err.StatusCode, err.Body)
+		}
 		return fmt.Errorf("failed to add-pre-chain: %v", err)
 	}
-	glog.V(2).Infof("%s: Uploaded pre-cert, got SCT(time=%q)", s.cfg.LogCfg.Prefix, timeFromMS(sct.Timestamp))
+	glog.V(2).Infof("%s: Uploaded %s pre-cert, got SCT(time=%q)", s.cfg.LogCfg.Prefix, choice, timeFromMS(sct.Timestamp))
 	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
 	submitted := submittedCert{precert: true, sct: sct}
 	leaf := ct.MerkleTreeLeaf{
@@ -514,7 +592,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 	}
 	submitted.leafHash = sha256.Sum256(append([]byte{ct.TreeLeafPrefix}, submitted.leafData...))
 	s.pending.tryAppendCert(time.Now(), s.cfg.MMD, &submitted)
-	glog.V(3).Infof("%s: Uploaded pre-cert has leaf-hash %x", s.cfg.LogCfg.Prefix, submitted.leafHash)
+	glog.V(3).Infof("%s: Uploaded %s pre-cert has leaf-hash %x", s.cfg.LogCfg.Prefix, choice, submitted.leafHash)
 	return nil
 }
 
