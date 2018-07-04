@@ -9,7 +9,7 @@ RPC_SERVER_COUNT=${1:-1}
 LOG_SIGNER_COUNT=${2:-1}
 HTTP_SERVER_COUNT=${3:-1}
 
-go build github.com/google/certificate-transparency-go/trillian/integration/ct_hammer
+go build ${GOFLAGS} github.com/google/certificate-transparency-go/trillian/integration/ct_hammer
 ct_prep_test "${RPC_SERVER_COUNT}" "${LOG_SIGNER_COUNT}" "${HTTP_SERVER_COUNT}"
 ct_gosmin_config "${CT_SERVER_1}"
 ct_goshawk_config "${CT_SERVER_1}"
