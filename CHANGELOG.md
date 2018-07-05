@@ -1,5 +1,19 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
+## v1.0.20 - Minimal Gossip / Go 1.11 Fix / Utility Improvements
+
+Published 2018-07-05 09:21:34 +0000 UTC
+
+Enhancements have been made to various utilities including `scanner`, `sctcheck`, `loglist` and `x509util`.
+
+The `allow_verification_with_non_compliant_keys` flag has been removed from `signatures.go`.
+
+An implementation of Gossip has been added. See the `gossip/minimal` package for more information.
+
+An X.509 compatibility issue for Go 1.11 has been fixed. This should be backwards compatible with 1.10.
+
+Commit [37a384cd035e722ea46e55029093e26687138edf](https://api.github.com/repos/google/certificate-transparency-go/commits/37a384cd035e722ea46e55029093e26687138edf) Download [zip](https://api.github.com/repos/google/certificate-transparency-go/zipball/v1.0.20)
+
 ## v1.0.19 - CTFE User Quota
 
 Published 2018-06-01 13:51:52 +0000 UTC
