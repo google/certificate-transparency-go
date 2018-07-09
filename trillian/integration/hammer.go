@@ -286,7 +286,9 @@ type hammerState struct {
 	// to allow submission of both old and new duplicates.
 	chainMu                     sync.Mutex
 	firstChain, lastChain       []ct.ASN1Cert
+	firstChainIntegrated        time.Time
 	firstPreChain, lastPreChain []ct.ASN1Cert
+	firstPreChainIntegrated     time.Time
 	firstTBS, lastTBS           []byte
 
 	mu sync.RWMutex
@@ -417,9 +419,13 @@ func (s *hammerState) getChain() (Choice, []ct.ASN1Cert, error) {
 	s.chainMu.Lock()
 	defer s.chainMu.Unlock()
 
-	choices := []Choice{NewCert, FirstCert, LastCert}
+	// TODO(drysdale): restore LastCert as an option
+	choices := []Choice{NewCert, FirstCert}
 	choice := choices[rand.Intn(len(choices))]
 	if s.lastChain == nil {
+		choice = NewCert
+	}
+	if choice == FirstCert && time.Now().Before(s.firstChainIntegrated) {
 		choice = NewCert
 	}
 	switch choice {
@@ -430,6 +436,7 @@ func (s *hammerState) getChain() (Choice, []ct.ASN1Cert, error) {
 		}
 		if s.firstChain == nil {
 			s.firstChain = chain
+			s.firstChainIntegrated = time.Now().Add(s.cfg.MMD)
 		}
 		s.lastChain = chain
 		return choice, chain, nil
@@ -530,9 +537,13 @@ func (s *hammerState) getPreChain() (Choice, []ct.ASN1Cert, []byte, error) {
 	s.chainMu.Lock()
 	defer s.chainMu.Unlock()
 
-	choices := []Choice{NewCert, FirstCert, LastCert}
+	// TODO(drysdale): restore LastCert as an option
+	choices := []Choice{NewCert, FirstCert}
 	choice := choices[rand.Intn(len(choices))]
 	if s.lastPreChain == nil {
+		choice = NewCert
+	}
+	if choice == FirstCert && time.Now().Before(s.firstPreChainIntegrated) {
 		choice = NewCert
 	}
 	switch choice {
@@ -543,6 +554,7 @@ func (s *hammerState) getPreChain() (Choice, []ct.ASN1Cert, []byte, error) {
 		}
 		if s.firstPreChain == nil {
 			s.firstPreChain = prechain
+			s.firstPreChainIntegrated = time.Now().Add(s.cfg.MMD)
 			s.firstTBS = tbs
 		}
 		s.lastPreChain = prechain
