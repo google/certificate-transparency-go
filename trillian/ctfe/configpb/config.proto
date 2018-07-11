@@ -43,12 +43,19 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 message LogConfig {
+  // The ID of a Trillian tree that stores the log data. The tree type is LOG
+  // for regular CT logs, and PREORDERED_LOG for mirror logs.
   int64 log_id = 1;
+  // TODO(pavelkalinnikov): Comment this.
   string prefix = 2;
+  // Paths to the files containing root certificates that are acceptable to the
+  // log. The certs are served through get-roots endpoint. Optional in mirrors.
   repeated string roots_pem_file = 3;
+  // The private key that is used for signing STHs etc. Optional for mirrors.
   google.protobuf.Any private_key = 4;
-  // The public key is included for the convenience of test tools (and obviously
-  // should match the private key above); it is not used by the CT personality.
+  // The public key matching the above private key (if both are present). It is
+  // used only by mirror logs for verifying the source log's signatures, but can
+  // be specified for regular logs as well for the convenience of test tools.
   keyspb.PublicKey public_key = 5;
   // If reject_expired is true then the certificate validity period will be
   // checked against the current time during the validation of submissions.
@@ -72,6 +79,13 @@ message LogConfig {
   // backend_name if set indicates which backend serves this log. The name must be
   // one of those defined in the LogBackendSet.
   string log_backend_name = 11;
+  // If set, the log is a mirror, i.e. it serves the data of another (source)
+  // log. It doesn't handle write requests (add-chain, etc.), so it's not a
+  // fully fledged RFC-6962 log, but the tree read requests like get-entries and
+  // get-consistency-proof are compatible. A mirror doesn't have the source
+  // log's key and can't sign STHs. Consequently, the log operator must ensure
+  // to channel source log's STHs into CTFE.
+  bool is_mirror = 12;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
