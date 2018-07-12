@@ -16,6 +16,7 @@ package ctfe
 
 import (
 	"context"
+	"crypto"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -206,13 +207,9 @@ type InstanceOptions struct {
 // with the Trillian RPC back end.
 func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts InstanceOptions) (*PathHandlers, error) {
 	// Check config validity.
-	if len(cfg.RootsPemFile) == 0 {
+	if !cfg.IsMirror && len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
 	}
-	if cfg.PrivateKey == nil {
-		return nil, errors.New("need to specify PrivateKey")
-	}
-
 	// Load the trusted roots
 	roots := NewPEMCertPool()
 	for _, pemFile := range cfg.RootsPemFile {
@@ -221,15 +218,28 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		}
 	}
 
-	// Load the private key for this log.
-	var keyProto ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
-	}
-
-	key, err := keys.NewSigner(ctx, keyProto.Message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load private key: %v", err)
+	var signer crypto.Signer
+	if !cfg.IsMirror {
+		if cfg.PrivateKey == nil {
+			return nil, errors.New("need to specify PrivateKey")
+		}
+		// Load the private key for this log.
+		var keyProto ptypes.DynamicAny
+		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
+		}
+		var err error
+		if signer, err = keys.NewSigner(ctx, keyProto.Message); err != nil {
+			return nil, fmt.Errorf("failed to load private key: %v", err)
+		}
+	} else {
+		if cfg.PrivateKey != nil {
+			return nil, errors.New("mirror needs no PrivateKey")
+		}
+		// TODO(pavelkalinnikov): Parse cfg.PublicKey properly.
+		if cfg.PublicKey == nil {
+			return nil, errors.New("need to specify PublicKey")
+		}
 	}
 
 	var keyUsages []x509.ExtKeyUsage
@@ -271,7 +281,8 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		extKeyUsages:  keyUsages,
 	}
 	// Create and register the handlers using the RPC client we just set up.
-	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, validationOpts, client, key, opts, new(util.SystemTimeSource))
+	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, validationOpts, client, signer, opts, new(util.SystemTimeSource))
+	logInfo.isMirror = cfg.IsMirror
 
 	handlers := logInfo.Handlers(cfg.Prefix)
 	return &handlers, nil

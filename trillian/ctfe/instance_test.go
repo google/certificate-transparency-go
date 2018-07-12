@@ -21,12 +21,12 @@ import (
 	"time"
 
 	// Register PEMKeyFile ProtoHandler
+	ct "github.com/google/certificate-transparency-go"
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
@@ -39,6 +39,8 @@ func TestSetUpInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not marshal private key proto: %v", err)
 	}
+	// TODO(pavelkalinnikov): Load from "../testdata/ct-http-server.pubkey.pem".
+	pubKey := keyspb.PublicKey{Der: []byte{}}
 
 	missingPrivKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/bogus.privkey.pem", Password: "dirk"})
 	if err != nil {
@@ -65,6 +67,16 @@ func TestSetUpInstance(t *testing.T) {
 			},
 		},
 		{
+			desc: "valid-mirror",
+			cfg: configpb.LogConfig{
+				LogId:        1,
+				Prefix:       "log",
+				RootsPemFile: []string{"../testdata/fake-ca.cert"},
+				PublicKey:    &pubKey,
+				IsMirror:     true,
+			},
+		},
+		{
 			desc: "no-roots",
 			cfg: configpb.LogConfig{
 				LogId:      1,
@@ -74,6 +86,15 @@ func TestSetUpInstance(t *testing.T) {
 			wantErr: "specify RootsPemFile",
 		},
 		{
+			desc: "no-roots-mirror",
+			cfg: configpb.LogConfig{
+				LogId:     1,
+				Prefix:    "log",
+				PublicKey: &pubKey,
+				IsMirror:  true,
+			},
+		},
+		{
 			desc: "no-priv-key",
 			cfg: configpb.LogConfig{
 				LogId:        1,
@@ -81,6 +102,26 @@ func TestSetUpInstance(t *testing.T) {
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 			},
 			wantErr: "specify PrivateKey",
+		},
+		{
+			desc: "priv-key-mirror",
+			cfg: configpb.LogConfig{
+				LogId:      1,
+				Prefix:     "log",
+				PrivateKey: privKey,
+				PublicKey:  &pubKey,
+				IsMirror:   true,
+			},
+			wantErr: "needs no PrivateKey",
+		},
+		{
+			desc: "no-pub-key-mirror",
+			cfg: configpb.LogConfig{
+				LogId:    1,
+				Prefix:   "log",
+				IsMirror: true,
+			},
+			wantErr: "specify PublicKey",
 		},
 		{
 			desc: "missing-root-cert",
