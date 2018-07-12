@@ -43,8 +43,10 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 message LogConfig {
-  // The ID of a Trillian tree that stores the log data. The tree type is LOG
-  // for regular CT logs, and PREORDERED_LOG for mirror logs.
+  // The ID of a Trillian tree that stores the log data. The tree type must be
+  // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
+  // or LOG, and can change at runtime because CTFE in mirror mode uses only
+  // read API which is common for both types.
   int64 log_id = 1;
   // TODO(pavelkalinnikov): Comment this.
   string prefix = 2;

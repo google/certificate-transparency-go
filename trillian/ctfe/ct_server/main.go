@@ -203,6 +203,10 @@ func main() {
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes that are not triggered by us.
 		for _, c := range cfg.LogConfigs.Config {
+			// TODO(pavelkalinnikov): Update mirror STHs when there is a way to.
+			if c.IsMirror {
+				continue
+			}
 			ticker := time.NewTicker(*getSTHInterval)
 			go func(c *configpb.LogConfig) {
 				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)

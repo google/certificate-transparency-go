@@ -231,8 +231,10 @@ type logInfo struct {
 	validationOpts CertValidationOpts
 	// rpcClient is the client used to communicate with the trillian backend
 	rpcClient trillian.TrillianLogClient
-	// signer signs objects
+	// signer signs objects (e.g. STHs, SCTs) for regular logs
 	signer crypto.Signer
+	// sthProvider provides STHs for mirror logs
+	sthProvider STHProvider
 
 	// Cache the last signature generated for an STH, to reduce re-signing
 	// and slightly reduce the chances of being able to fingerprint get-sth
@@ -460,9 +462,8 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 	return addChainInternal(ctx, li, w, r, true)
 }
 
-// GetTreeHead retrieves and builds a tree head structure for the given log; the returned
-// tree head is not yet signed.
-func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string, remoteQuota *string) (*ct.SignedTreeHead, error) {
+// getSignedLogRoot obtains the latest SignedLogRoot from Trillian log.
+func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string, remoteQuota *string) (*trillian.SignedLogRoot, error) {
 	// Send request to the Log server.
 	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
 	if remoteQuota != nil {
@@ -484,9 +485,19 @@ func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID i
 	if treeSize := slr.TreeSize; treeSize < 0 {
 		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
 	}
-
 	if hashSize := len(slr.RootHash); hashSize != sha256.Size {
 		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
+	}
+
+	return slr, nil
+}
+
+// GetTreeHead retrieves and builds a tree head structure for the given log.
+// The returned tree head is not yet signed.
+func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string, remoteQuota *string) (*ct.SignedTreeHead, error) {
+	slr, err := getSignedLogRoot(ctx, client, logID, prefix, remoteQuota)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build the CT STH object, except the signature.
@@ -520,34 +531,72 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 		return http.StatusInternalServerError, fmt.Errorf("failed to sign tree head: %v", err)
 	}
 
-	// Now build the final result object that will be marshaled to JSON
+	if err = writeSTH(sth, w); err != nil {
+		return http.StatusInternalServerError, err
+	}
+	return http.StatusOK, nil
+}
+
+// getMirrorSTH returns a known source log's STH with as biggest TreeSize
+// and/or timestamp as possible, but such that TreeSize <= Trillian log size.
+// This is to ensure that the mirror doesn't expose a "future" state of the log
+// before it is properly stored in Trillian.
+func getMirrorSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	if li.sthProvider == nil {
+		return http.StatusInternalServerError, errors.New("STH is not provided")
+	}
+
+	var remoteQuotaUser *string
+	if li.instanceOpts.RemoteQuotaUser != nil {
+		rqu := li.instanceOpts.RemoteQuotaUser(r)
+		remoteQuotaUser = &rqu
+	}
+
+	slr, err := getSignedLogRoot(ctx, li.rpcClient, li.logID, li.LogPrefix, remoteQuotaUser)
+	if err != nil {
+		return li.toHTTPStatus(err), err
+	}
+
+	sth, err := li.sthProvider.GetSTH(ctx, slr.TreeSize)
+	if err != nil {
+		return li.toHTTPStatus(err), err
+	}
+	// TODO(pavelkalinnikov): Check sth signature.
+	// TODO(pavelkalinnikov): Check consistency between slr and sth.
+
+	if err := writeSTH(sth, w); err != nil {
+		return http.StatusInternalServerError, err
+	}
+	return http.StatusOK, nil
+}
+
+// writeSTH marshals the STH to JSON and writes it to HTTP response.
+func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 	jsonRsp := ct.GetSTHResponse{
 		TreeSize:       sth.TreeSize,
 		SHA256RootHash: sth.SHA256RootHash[:],
 		Timestamp:      sth.Timestamp,
 	}
+	var err error
 	jsonRsp.TreeHeadSignature, err = tls.Marshal(sth.TreeHeadSignature)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to tls.Marshal signature: %v", err)
+		return fmt.Errorf("failed to tls.Marshal signature: %v", err)
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshal response: %v %v", jsonRsp, err)
+		return fmt.Errorf("failed to marshal response: %v %v", jsonRsp, err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
-		// Probably too late for this as headers might have been written but we don't know for sure
-		return http.StatusInternalServerError, fmt.Errorf("failed to write response data: %v", err)
+		// Probably too late for this as headers might have been written but we
+		// don't know for sure.
+		return fmt.Errorf("failed to write response data: %v", err)
 	}
 
-	return http.StatusOK, nil
-}
-
-func getMirrorSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	return http.StatusInternalServerError, errors.New("not implemented")
+	return nil
 }
 
 func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {

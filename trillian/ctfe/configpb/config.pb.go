@@ -37,7 +37,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f52a9474f69d49a7, []int{0}
+	return fileDescriptor_config_f06ee4fb5fd4931d, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -85,7 +85,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f52a9474f69d49a7, []int{1}
+	return fileDescriptor_config_f06ee4fb5fd4931d, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -124,7 +124,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f52a9474f69d49a7, []int{2}
+	return fileDescriptor_config_f06ee4fb5fd4931d, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -153,8 +153,10 @@ func (m *LogConfigSet) GetConfig() []*LogConfig {
 
 // LogConfig describes the configuration options for a log instance.
 type LogConfig struct {
-	// The ID of a Trillian tree that stores the log data. The tree type is LOG
-	// for regular CT logs, and PREORDERED_LOG for mirror logs.
+	// The ID of a Trillian tree that stores the log data. The tree type must be
+	// LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
+	// or LOG, and can change at runtime because CTFE in mirror mode uses only
+	// read API which is common for both types.
 	LogId int64 `protobuf:"varint,1,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
 	// TODO(pavelkalinnikov): Comment this.
 	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
@@ -205,7 +207,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f52a9474f69d49a7, []int{3}
+	return fileDescriptor_config_f06ee4fb5fd4931d, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -327,7 +329,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_f52a9474f69d49a7, []int{4}
+	return fileDescriptor_config_f06ee4fb5fd4931d, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -369,9 +371,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_f52a9474f69d49a7) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_f06ee4fb5fd4931d) }
 
-var fileDescriptor_config_f52a9474f69d49a7 = []byte{
+var fileDescriptor_config_f06ee4fb5fd4931d = []byte{
 	// 558 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x51, 0x6f, 0xd3, 0x3c,
 	0x14, 0x55, 0xbf, 0x6e, 0x5d, 0x7b, 0xd3, 0xf5, 0x03, 0x03, 0x23, 0x8c, 0x07, 0x4a, 0x05, 0x52,
