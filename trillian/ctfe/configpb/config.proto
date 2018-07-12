@@ -51,7 +51,7 @@ message LogConfig {
   // Paths to the files containing root certificates that are acceptable to the
   // log. The certs are served through get-roots endpoint. Optional in mirrors.
   repeated string roots_pem_file = 3;
-  // The private key that is used for signing STHs etc. Optional for mirrors.
+  // The private key used for signing STHs etc. Not required for mirrors.
   google.protobuf.Any private_key = 4;
   // The public key matching the above private key (if both are present). It is
   // used only by mirror logs for verifying the source log's signatures, but can

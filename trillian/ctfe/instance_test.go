@@ -106,13 +106,13 @@ func TestSetUpInstance(t *testing.T) {
 		{
 			desc: "priv-key-mirror",
 			cfg: configpb.LogConfig{
-				LogId:        1,
-				Prefix:       "log",
-				RootsPemFile: []string{"../testdata/fake-ca.cert"},
-				PrivateKey:   privKey,
-				PublicKey:    &pubKey,
-				IsMirror:     true,
+				LogId:      1,
+				Prefix:     "log",
+				PrivateKey: privKey,
+				PublicKey:  &pubKey,
+				IsMirror:   true,
 			},
+			wantErr: "needs no PrivateKey",
 		},
 		{
 			desc: "no-pub-key-mirror",

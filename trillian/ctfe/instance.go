@@ -233,6 +233,9 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 			return nil, fmt.Errorf("failed to load private key: %v", err)
 		}
 	} else {
+		if cfg.PrivateKey != nil {
+			return nil, errors.New("mirror needs no PrivateKey")
+		}
 		// TODO(pavelkalinnikov): Parse cfg.PublicKey properly.
 		if cfg.PublicKey == nil {
 			return nil, errors.New("need to specify PublicKey")
