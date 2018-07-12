@@ -23,11 +23,11 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type LogBackend struct {
 	// name defines the name of the log backend for use in LogConfig messages and must be unique.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// backend_spec defines the RPC endpoint that clients should use to send requests
 	// to this log backend. These should be in the same format as rpcBackendFlag in the
 	// CTFE main and must not be an empty string.
-	BackendSpec          string   `protobuf:"bytes,2,opt,name=backend_spec,json=backendSpec" json:"backend_spec,omitempty"`
+	BackendSpec          string   `protobuf:"bytes,2,opt,name=backend_spec,json=backendSpec,proto3" json:"backend_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -37,7 +37,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c7acbea0cd5c69db, []int{0}
+	return fileDescriptor_config_f52a9474f69d49a7, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -75,7 +75,7 @@ func (m *LogBackend) GetBackendSpec() string {
 // requests for multiple backends. For example this could be used to run different
 // backends in different geographic regions.
 type LogBackendSet struct {
-	Backend              []*LogBackend `protobuf:"bytes,1,rep,name=backend" json:"backend,omitempty"`
+	Backend              []*LogBackend `protobuf:"bytes,1,rep,name=backend,proto3" json:"backend,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -85,7 +85,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c7acbea0cd5c69db, []int{1}
+	return fileDescriptor_config_f52a9474f69d49a7, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -114,7 +114,7 @@ func (m *LogBackendSet) GetBackend() []*LogBackend {
 
 // LogConfigSet is a set of LogConfig messages.
 type LogConfigSet struct {
-	Config               []*LogConfig `protobuf:"bytes,1,rep,name=config" json:"config,omitempty"`
+	Config               []*LogConfig `protobuf:"bytes,1,rep,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -124,7 +124,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c7acbea0cd5c69db, []int{2}
+	return fileDescriptor_config_f52a9474f69d49a7, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -155,47 +155,47 @@ func (m *LogConfigSet) GetConfig() []*LogConfig {
 type LogConfig struct {
 	// The ID of a Trillian tree that stores the log data. The tree type is LOG
 	// for regular CT logs, and PREORDERED_LOG for mirror logs.
-	LogId int64 `protobuf:"varint,1,opt,name=log_id,json=logId" json:"log_id,omitempty"`
+	LogId int64 `protobuf:"varint,1,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
 	// TODO(pavelkalinnikov): Comment this.
-	Prefix string `protobuf:"bytes,2,opt,name=prefix" json:"prefix,omitempty"`
+	Prefix string `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	// Paths to the files containing root certificates that are acceptable to the
 	// log. The certs are served through get-roots endpoint. Optional in mirrors.
-	RootsPemFile []string `protobuf:"bytes,3,rep,name=roots_pem_file,json=rootsPemFile" json:"roots_pem_file,omitempty"`
-	// The private key that is used for signing STHs etc. Optional for mirrors.
-	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	RootsPemFile []string `protobuf:"bytes,3,rep,name=roots_pem_file,json=rootsPemFile,proto3" json:"roots_pem_file,omitempty"`
+	// The private key used for signing STHs etc. Not required for mirrors.
+	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
 	// The public key matching the above private key (if both are present). It is
 	// used only by mirror logs for verifying the source log's signatures, but can
 	// be specified for regular logs as well for the convenience of test tools.
-	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey" json:"public_key,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	// If reject_expired is true then the certificate validity period will be
 	// checked against the current time during the validation of submissions.
 	// This will cause expired certificates to be rejected.
-	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired" json:"reject_expired,omitempty"`
+	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired,proto3" json:"reject_expired,omitempty"`
 	// If set, ext_key_usages will restrict the set of such usages that the
 	// server will accept. By default all are accepted. The values specified
 	// must be ones known to the x509 package.
-	ExtKeyUsages []string `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages" json:"ext_key_usages,omitempty"`
+	ExtKeyUsages []string `protobuf:"bytes,7,rep,name=ext_key_usages,json=extKeyUsages,proto3" json:"ext_key_usages,omitempty"`
 	// not_after_start defines the start of the range of acceptable NotAfter
 	// values, inclusive.
 	// Leaving this unset implies no lower bound to the range.
-	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,8,opt,name=not_after_start,json=notAfterStart" json:"not_after_start,omitempty"`
+	NotAfterStart *timestamp.Timestamp `protobuf:"bytes,8,opt,name=not_after_start,json=notAfterStart,proto3" json:"not_after_start,omitempty"`
 	// not_after_limit defines the end of the range of acceptable NotAfter values,
 	// exclusive.
 	// Leaving this unset implies no upper bound to the range.
-	NotAfterLimit *timestamp.Timestamp `protobuf:"bytes,9,opt,name=not_after_limit,json=notAfterLimit" json:"not_after_limit,omitempty"`
+	NotAfterLimit *timestamp.Timestamp `protobuf:"bytes,9,opt,name=not_after_limit,json=notAfterLimit,proto3" json:"not_after_limit,omitempty"`
 	// accept_only_ca controls whether or not *only* certificates with the CA bit
 	// set will be accepted.
-	AcceptOnlyCa bool `protobuf:"varint,10,opt,name=accept_only_ca,json=acceptOnlyCa" json:"accept_only_ca,omitempty"`
+	AcceptOnlyCa bool `protobuf:"varint,10,opt,name=accept_only_ca,json=acceptOnlyCa,proto3" json:"accept_only_ca,omitempty"`
 	// backend_name if set indicates which backend serves this log. The name must be
 	// one of those defined in the LogBackendSet.
-	LogBackendName string `protobuf:"bytes,11,opt,name=log_backend_name,json=logBackendName" json:"log_backend_name,omitempty"`
+	LogBackendName string `protobuf:"bytes,11,opt,name=log_backend_name,json=logBackendName,proto3" json:"log_backend_name,omitempty"`
 	// If set, the log is a mirror, i.e. it serves the data of another (source)
 	// log. It doesn't handle write requests (add-chain, etc.), so it's not a
 	// fully fledged RFC-6962 log, but the tree read requests like get-entries and
 	// get-consistency-proof are compatible. A mirror doesn't have the source
 	// log's key and can't sign STHs. Consequently, the log operator must ensure
 	// to channel source log's STHs into CTFE.
-	IsMirror             bool     `protobuf:"varint,12,opt,name=is_mirror,json=isMirror" json:"is_mirror,omitempty"`
+	IsMirror             bool     `protobuf:"varint,12,opt,name=is_mirror,json=isMirror,proto3" json:"is_mirror,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -205,7 +205,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c7acbea0cd5c69db, []int{3}
+	return fileDescriptor_config_f52a9474f69d49a7, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -314,10 +314,10 @@ func (m *LogConfig) GetIsMirror() bool {
 type LogMultiConfig struct {
 	// The set of backends that this configuration will use to send requests to.
 	// The names of the backends in the LogBackendSet must all be distinct.
-	Backends *LogBackendSet `protobuf:"bytes,1,opt,name=backends" json:"backends,omitempty"`
+	Backends *LogBackendSet `protobuf:"bytes,1,opt,name=backends,proto3" json:"backends,omitempty"`
 	// The set of logs that will use the above backends. All the protos in this
 	// LogConfigSet must set a valid log_backend_name for the config to be usable.
-	LogConfigs           *LogConfigSet `protobuf:"bytes,2,opt,name=log_configs,json=logConfigs" json:"log_configs,omitempty"`
+	LogConfigs           *LogConfigSet `protobuf:"bytes,2,opt,name=log_configs,json=logConfigs,proto3" json:"log_configs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -327,7 +327,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_c7acbea0cd5c69db, []int{4}
+	return fileDescriptor_config_f52a9474f69d49a7, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -369,9 +369,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_c7acbea0cd5c69db) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_f52a9474f69d49a7) }
 
-var fileDescriptor_config_c7acbea0cd5c69db = []byte{
+var fileDescriptor_config_f52a9474f69d49a7 = []byte{
 	// 558 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x51, 0x6f, 0xd3, 0x3c,
 	0x14, 0x55, 0xbf, 0x6e, 0x5d, 0x7b, 0xd3, 0xf5, 0x03, 0x03, 0x23, 0x8c, 0x07, 0x4a, 0x05, 0x52,
