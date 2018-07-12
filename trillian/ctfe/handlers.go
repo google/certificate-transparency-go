@@ -221,6 +221,8 @@ type logInfo struct {
 
 	// Instance-wide options
 	instanceOpts InstanceOptions
+	// isMirror specifies whether the log is a mirror
+	isMirror bool
 	// logID is the tree ID that identifies this log in node storage
 	logID int64
 	// urlPrefix is the prefix for URLs for this log
@@ -284,7 +286,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	prefix = strings.TrimRight(prefix, "/")
 
 	// Bind the logInfo instance to give an appHandler instance for each entrypoint.
-	return PathHandlers{
+	ph := PathHandlers{
 		prefix + ct.AddChainPath:          AppHandler{Info: li, Handler: addChain, Name: AddChainName, Method: http.MethodPost},
 		prefix + ct.AddPreChainPath:       AppHandler{Info: li, Handler: addPreChain, Name: AddPreChainName, Method: http.MethodPost},
 		prefix + ct.GetSTHPath:            AppHandler{Info: li, Handler: getSTH, Name: GetSTHName, Method: http.MethodGet},
@@ -294,6 +296,14 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
 	}
+	// Override mirror methods.
+	if li.isMirror {
+		delete(ph, prefix+ct.AddChainPath)
+		delete(ph, prefix+ct.AddPreChainPath)
+		ph[prefix+ct.GetSTHPath] = AppHandler{Info: li, Handler: getMirrorSTH, Name: GetSTHName, Method: http.MethodGet}
+	}
+
+	return ph
 }
 
 func parseBodyAsJSONChain(li *logInfo, r *http.Request) (ct.AddChainRequest, error) {
@@ -534,6 +544,10 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 	}
 
 	return http.StatusOK, nil
+}
+
+func getMirrorSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	return http.StatusInternalServerError, errors.New("not implemented")
 }
 
 func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {

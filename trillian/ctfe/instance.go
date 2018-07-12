@@ -282,6 +282,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	}
 	// Create and register the handlers using the RPC client we just set up.
 	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, validationOpts, client, signer, opts, new(util.SystemTimeSource))
+	logInfo.isMirror = cfg.IsMirror
 
 	handlers := logInfo.Handlers(cfg.Prefix)
 	return &handlers, nil
