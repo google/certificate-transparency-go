@@ -232,21 +232,21 @@ type logInfo struct {
 	rpcClient trillian.TrillianLogClient
 	// signer signs objects (e.g. STHs, SCTs) for regular logs
 	signer crypto.Signer
-	// sthProvider provides STHs for mirror logs
-	sthProvider STHProvider
-
-	// Cache the last signature generated for an STH, to reduce re-signing and
-	// slightly reduce the chances of being able to fingerprint get-sth users by
-	// their STH signature value.
-	sthSigCache SignatureCache
+	// sthGetter provides STHs for the log
+	sthGetter STHGetter
 }
 
 // newLogInfo creates a new instance of logInfo.
-func newLogInfo(logID int64, prefix string, validationOpts CertValidationOpts, rpcClient trillian.TrillianLogClient, signer crypto.Signer, instanceOpts InstanceOptions, timeSource util.TimeSource) *logInfo {
-	ctx := &logInfo{
+func newLogInfo(
+	logID int64, prefix string, isMirror bool, validationOpts CertValidationOpts,
+	rpcClient trillian.TrillianLogClient, signer crypto.Signer,
+	instanceOpts InstanceOptions, timeSource util.TimeSource,
+) *logInfo {
+	li := &logInfo{
 		logID:          logID,
 		urlPrefix:      prefix,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
+		isMirror:       isMirror,
 		rpcClient:      rpcClient,
 		signer:         signer,
 		TimeSource:     timeSource,
@@ -254,10 +254,16 @@ func newLogInfo(logID int64, prefix string, validationOpts CertValidationOpts, r
 		validationOpts: validationOpts,
 		RequestLog:     instanceOpts.RequestLog,
 	}
+	li.sthGetter = &LogSTHGetter{li: li}
+	if isMirror {
+		// TODO(pavelkalinnikov): Implement a real mirror STH storage.
+		li.sthGetter = &MirrorSTHGetter{li: li, st: &defaultMirrorSTHStorage{}}
+	}
+
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
 	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))
 
-	return ctx
+	return li
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances
@@ -283,7 +289,6 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	if li.isMirror {
 		delete(ph, prefix+ct.AddChainPath)
 		delete(ph, prefix+ct.AddPreChainPath)
-		ph[prefix+ct.GetSTHPath] = AppHandler{Info: li, Handler: getMirrorSTH, Name: GetSTHName, Method: http.MethodGet}
 	}
 
 	return ph
@@ -443,108 +448,30 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 	return addChainInternal(ctx, li, w, r, true)
 }
 
-// getSignedLogRoot obtains the latest SignedLogRoot from Trillian log.
-func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string, remoteQuota *string) (*trillian.SignedLogRoot, error) {
-	// Send request to the Log server.
-	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
-	if remoteQuota != nil {
-		req.ChargeTo = appendUserCharge(req.ChargeTo, *remoteQuota)
-	}
-	glog.V(2).Infof("%s: GetSTH => grpc.GetLatestSignedLogRoot %+v", prefix, req)
-	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
-	glog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
+// PingTreeHead retrieves a tree head for the given log, and updates the STH
+// timestamp metrics correspondingly.
+// TODO(pavelkalinnikov): Should we cache the resulting STH?
+func PingTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) error {
+	slr, err := getSignedLogRoot(ctx, client, logID, prefix)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	// Check over the response.
-	slr := rsp.SignedLogRoot
-	if slr == nil {
-		return nil, errors.New("no log root returned")
-	}
-	glog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
-	if treeSize := slr.TreeSize; treeSize < 0 {
-		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
-	}
-	if hashSize := len(slr.RootHash); hashSize != sha256.Size {
-		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
-	}
-
-	return slr, nil
-}
-
-// GetTreeHead retrieves and builds a tree head structure for the given log.
-// The returned tree head is not yet signed.
-func GetTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string, remoteQuota *string) (*ct.SignedTreeHead, error) {
-	slr, err := getSignedLogRoot(ctx, client, logID, prefix, remoteQuota)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build the CT STH object, except the signature.
-	sth := ct.SignedTreeHead{
-		Version:   ct.V1,
-		TreeSize:  uint64(slr.TreeSize),
-		Timestamp: uint64(slr.TimestampNanos / 1000 / 1000),
-	}
-	copy(sth.SHA256RootHash[:], slr.RootHash) // Checked size above.
-	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(logID, 10))
-	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(logID, 10))
-
-	return &sth, nil
+	lastSTHTimestamp.Set(float64(slr.TimestampNanos/1000/1000), strconv.FormatInt(logID, 10))
+	lastSTHTreeSize.Set(float64(slr.TreeSize), strconv.FormatInt(logID, 10))
+	return nil
 }
 
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	var remoteQuotaUser *string
+	qctx := ctx
 	if li.instanceOpts.RemoteQuotaUser != nil {
 		rqu := li.instanceOpts.RemoteQuotaUser(r)
-		remoteQuotaUser = &rqu
+		qctx = context.WithValue(ctx, remoteQuotaCtxKey, rqu)
 	}
 
-	sth, err := GetTreeHead(ctx, li.rpcClient, li.logID, li.LogPrefix, remoteQuotaUser)
+	sth, err := li.sthGetter.GetSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
 	}
-
-	// Add the signature over the STH contents.
-	err = signV1TreeHead(li.signer, sth, &li.sthSigCache)
-	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
-		return http.StatusInternalServerError, fmt.Errorf("failed to sign tree head: %v", err)
-	}
-
-	if err = writeSTH(sth, w); err != nil {
-		return http.StatusInternalServerError, err
-	}
-	return http.StatusOK, nil
-}
-
-// getMirrorSTH returns a known source log's STH with as biggest TreeSize
-// and/or timestamp as possible, but such that TreeSize <= Trillian log size.
-// This is to ensure that the mirror doesn't expose a "future" state of the log
-// before it is properly stored in Trillian.
-func getMirrorSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	if li.sthProvider == nil {
-		return http.StatusInternalServerError, errors.New("STH is not provided")
-	}
-
-	var remoteQuotaUser *string
-	if li.instanceOpts.RemoteQuotaUser != nil {
-		rqu := li.instanceOpts.RemoteQuotaUser(r)
-		remoteQuotaUser = &rqu
-	}
-
-	slr, err := getSignedLogRoot(ctx, li.rpcClient, li.logID, li.LogPrefix, remoteQuotaUser)
-	if err != nil {
-		return li.toHTTPStatus(err), err
-	}
-
-	sth, err := li.sthProvider.GetSTH(ctx, slr.TreeSize)
-	if err != nil {
-		return li.toHTTPStatus(err), err
-	}
-	// TODO(pavelkalinnikov): Check sth signature.
-	// TODO(pavelkalinnikov): Check consistency between slr and sth.
-
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
 	}

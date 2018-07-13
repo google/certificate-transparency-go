@@ -281,9 +281,8 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		extKeyUsages:  keyUsages,
 	}
 	// Create and register the handlers using the RPC client we just set up.
-	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, validationOpts, client, signer, opts, new(util.SystemTimeSource))
-	logInfo.isMirror = cfg.IsMirror
-	// TODO(pavelkalinnikov): Add sthProvider for the mirror.
+	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, cfg.IsMirror, validationOpts,
+		client, signer, opts, new(util.SystemTimeSource))
 
 	handlers := logInfo.Handlers(cfg.Prefix)
 	return &handlers, nil
