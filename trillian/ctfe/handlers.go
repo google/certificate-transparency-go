@@ -15,7 +15,6 @@
 package ctfe
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/sha256"
@@ -234,12 +233,10 @@ type logInfo struct {
 	// signer signs objects
 	signer crypto.Signer
 
-	// Cache the last signature generated for an STH, to reduce re-signing
-	// and slightly reduce the chances of being able to fingerprint get-sth
-	// users by their STH signature value.
-	lastSTHMu        sync.RWMutex
-	lastSTHBytes     []byte
-	lastSTHSignature ct.DigitallySigned
+	// Cache the last signature generated for an STH, to reduce re-signing and
+	// slightly reduce the chances of being able to fingerprint get-sth users by
+	// their STH signature value.
+	sthSigCache SignatureCache
 }
 
 // newLogInfo creates a new instance of logInfo.
@@ -259,22 +256,6 @@ func newLogInfo(logID int64, prefix string, validationOpts CertValidationOpts, r
 	knownLogs.Set(1.0, strconv.FormatInt(logID, 10))
 
 	return ctx
-}
-
-func (li *logInfo) setLastSTHSignature(sthBytes []byte, sig ct.DigitallySigned) {
-	li.lastSTHMu.Lock()
-	defer li.lastSTHMu.Unlock()
-	li.lastSTHBytes = sthBytes
-	li.lastSTHSignature = sig
-}
-
-func (li *logInfo) getLastSTHSignature(sthBytes []byte) (ct.DigitallySigned, bool) {
-	li.lastSTHMu.RLock()
-	defer li.lastSTHMu.RUnlock()
-	if !bytes.Equal(sthBytes, li.lastSTHBytes) {
-		return ct.DigitallySigned{}, false
-	}
-	return li.lastSTHSignature, true
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances
@@ -515,7 +496,7 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 	}
 
 	// Add the signature over the STH contents.
-	err = li.signV1TreeHead(li.signer, sth)
+	err = signV1TreeHead(li.signer, sth, &li.sthSigCache)
 	if err != nil || len(sth.TreeHeadSignature.Signature) == 0 {
 		return http.StatusInternalServerError, fmt.Errorf("failed to sign tree head: %v", err)
 	}
