@@ -25,9 +25,11 @@ import (
 	"github.com/google/trillian"
 )
 
+type contextKey string
+
 // remoteQuotaCtxKey is the key used to attach a Trillian quota user to
 // context.Context passed in to STH getters.
-const remoteQuotaCtxKey = "quotaUser"
+var remoteQuotaCtxKey = contextKey("quotaUser")
 
 // MirrorSTHStorage provides STHs of a source log to be served from a mirror.
 type MirrorSTHStorage interface {
