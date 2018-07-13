@@ -151,15 +151,14 @@ func TestSignV1TreeHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create signer: %v", err)
 	}
-	logID := int64(6962)
-	li := &logInfo{logID: logID, signer: signer}
+	var cache SignatureCache
 
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
 		TreeSize:  10,
 		Timestamp: 1512993312000,
 	}
-	if err := li.signV1TreeHead(signer, &sth); err != nil {
+	if err := signV1TreeHead(signer, &sth, &cache); err != nil {
 		t.Fatalf("signV1TreeHead()=%v; want nil", err)
 	}
 	prevSig := make([]byte, len(sth.TreeHeadSignature.Signature))
@@ -167,7 +166,7 @@ func TestSignV1TreeHead(t *testing.T) {
 
 	// Signing the same contents should get the same cached signature regardless.
 	for i := 0; i < 5; i++ {
-		if err := li.signV1TreeHead(signer, &sth); err != nil {
+		if err := signV1TreeHead(signer, &sth, &cache); err != nil {
 			t.Fatalf("signV1TreeHead()=%v; want nil", err)
 		}
 		sig := make([]byte, len(sth.TreeHeadSignature.Signature))
@@ -181,7 +180,7 @@ func TestSignV1TreeHead(t *testing.T) {
 	// But changing the contents does change the signature.
 	for i := 0; i < 5; i++ {
 		sth.TreeSize = uint64(11 + i)
-		if err := li.signV1TreeHead(signer, &sth); err != nil {
+		if err := signV1TreeHead(signer, &sth, &cache); err != nil {
 			t.Errorf("signV1TreeHead()=%v; want nil", err)
 		}
 		sig := make([]byte, len(sth.TreeHeadSignature.Signature))
@@ -193,7 +192,7 @@ func TestSignV1TreeHead(t *testing.T) {
 		prevSig := sig
 
 		// Repeating should again return the cached signature.
-		if err := li.signV1TreeHead(signer, &sth); err != nil {
+		if err := signV1TreeHead(signer, &sth, &cache); err != nil {
 			t.Errorf("signV1TreeHead(size=%d)=%v; want nil", sth.TreeSize, err)
 		}
 		sig = make([]byte, len(sth.TreeHeadSignature.Signature))
@@ -202,7 +201,6 @@ func TestSignV1TreeHead(t *testing.T) {
 			t.Fatalf("signV1TreeHead(size=%d).TreeHeadSignature mismatched, diff:\n%v", sth.TreeSize, diff)
 		}
 	}
-
 }
 
 func TestSignV1TreeHeadDifferentSigners(t *testing.T) {
@@ -210,28 +208,25 @@ func TestSignV1TreeHeadDifferentSigners(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create signer1: %v", err)
 	}
-	logID := int64(6962)
-	li1 := &logInfo{logID: logID, signer: signer1}
-
 	signer2, err := setupSigner(fakeSignature)
 	if err != nil {
 		t.Fatalf("could not create signer2: %v", err)
 	}
-	li2 := &logInfo{logID: 6963, signer: signer2}
 
+	var cache1, cache2 SignatureCache
 	sth := ct.SignedTreeHead{
 		Version:   ct.V1,
 		TreeSize:  10,
 		Timestamp: 1512993312000,
 	}
 
-	if err := li1.signV1TreeHead(signer1, &sth); err != nil {
+	if err := signV1TreeHead(signer1, &sth, &cache1); err != nil {
 		t.Fatalf("signV1TreeHead(signer1)=%v; want nil", err)
 	}
 	sig1 := make([]byte, len(sth.TreeHeadSignature.Signature))
 	copy(sig1, sth.TreeHeadSignature.Signature)
 
-	if err := li2.signV1TreeHead(signer2, &sth); err != nil {
+	if err := signV1TreeHead(signer2, &sth, &cache2); err != nil {
 		t.Fatalf("signV1TreeHead(signer2)=%v; want nil", err)
 	}
 	sig2 := make([]byte, len(sth.TreeHeadSignature.Signature))
