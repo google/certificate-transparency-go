@@ -30,7 +30,6 @@ import (
 const remoteQuotaCtxKey = "quotaUser"
 
 // MirrorSTHStorage provides STHs of a source log to be served from a mirror.
-// TODO(pavelkalinnikov): Add a default implementation.
 type MirrorSTHStorage interface {
 	// GetMirrorSTH returns an STH of TreeSize <= maxTreeSize. It does best
 	// effort to maximize the returned STH's TreeSize and/or Timestamp.
@@ -77,14 +76,15 @@ func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) 
 }
 
 // MirrorSTHGetter is an STHGetter implementation for mirror logs. It assumes
-// no knowledge of the key, and returns STHs obtained from an external source.
+// no knowledge of the key, and returns STHs obtained from an external source
+// represented by the MirrorSTHStorage interface.
 type MirrorSTHGetter struct {
 	li *logInfo
 	st MirrorSTHStorage
 }
 
-// GetSTH returns a known source log's STH with as biggest TreeSize and/or
-// timestamp as possible, but such that TreeSize <= Trillian log size.  This is
+// GetSTH returns a known source log's STH with as large TreeSize and/or
+// timestamp as possible, but such that TreeSize <= Trillian log size. This is
 // to ensure that the mirror doesn't expose a "future" state of the log before
 // it is properly stored in Trillian.
 func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
