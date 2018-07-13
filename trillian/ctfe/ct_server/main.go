@@ -203,12 +203,16 @@ func main() {
 		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
 		// changes that are not triggered by us.
 		for _, c := range cfg.LogConfigs.Config {
+			// TODO(pavelkalinnikov): Update mirror STHs when there is a way to.
+			if c.IsMirror {
+				continue
+			}
 			ticker := time.NewTicker(*getSTHInterval)
 			go func(c *configpb.LogConfig) {
 				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
 				for t := range ticker.C {
 					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
-					if _, err := ctfe.GetTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix, nil /*quota user*/); err != nil {
+					if err := ctfe.PingTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix); err != nil {
 						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
 					}
 				}
