@@ -27,10 +27,10 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
-// SignatureCache stores the last generated signature for a given bytes input.
-// It helps to reduce the number of signing operations, and the number of
-// distinct signatures produced for the same input (some signing methods are
-// non-deterministic).
+// SignatureCache is a one-entry cache that stores the last generated signature
+// for a given bytes input. It helps to reduce the number of signing
+// operations, and the number of distinct signatures produced for the same
+// input (some signing methods are non-deterministic).
 type SignatureCache struct {
 	mu    sync.RWMutex
 	input []byte
