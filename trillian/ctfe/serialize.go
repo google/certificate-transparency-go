@@ -25,14 +25,14 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
-// signV1TreeHead signs a tree head for CT. The input STH should have been built from a
-// backend response and already checked for validity.
-func (li *logInfo) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead) error {
+// signV1TreeHead signs a tree head for CT. The input STH should have been
+// built from a backend response and already checked for validity.
+func signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead, cache *SignatureCache) error {
 	sthBytes, err := ct.SerializeSTHSignatureInput(*sth)
 	if err != nil {
 		return err
 	}
-	if sig, ok := li.getLastSTHSignature(sthBytes); ok {
+	if sig, ok := cache.GetSignature(sthBytes); ok {
 		sth.TreeHeadSignature = sig
 		return nil
 	}
@@ -51,7 +51,7 @@ func (li *logInfo) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead) 
 		},
 		Signature: signature,
 	}
-	li.setLastSTHSignature(sthBytes, sth.TreeHeadSignature)
+	cache.SetSignature(sthBytes, sth.TreeHeadSignature)
 	return nil
 }
 
