@@ -237,6 +237,7 @@ type logInfo struct {
 }
 
 // newLogInfo creates a new instance of logInfo.
+// TODO(pavelkalinnikov): Too many arguments, split it.
 func newLogInfo(
 	logID int64, prefix string, isMirror bool, validationOpts CertValidationOpts,
 	rpcClient trillian.TrillianLogClient, signer crypto.Signer,
@@ -254,10 +255,11 @@ func newLogInfo(
 		validationOpts: validationOpts,
 		RequestLog:     instanceOpts.RequestLog,
 	}
-	li.sthGetter = &LogSTHGetter{li: li}
 	if isMirror {
 		// TODO(pavelkalinnikov): Implement a real mirror STH storage.
 		li.sthGetter = &MirrorSTHGetter{li: li, st: &defaultMirrorSTHStorage{}}
+	} else {
+		li.sthGetter = &LogSTHGetter{li: li}
 	}
 
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
@@ -465,13 +467,16 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 	qctx := ctx
 	if li.instanceOpts.RemoteQuotaUser != nil {
 		rqu := li.instanceOpts.RemoteQuotaUser(r)
-		qctx = context.WithValue(ctx, remoteQuotaCtxKey, rqu)
+		qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
 	}
 
 	sth, err := li.sthGetter.GetSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
 	}
+	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(li.logID, 10))
+	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(li.logID, 10))
+
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
 	}
