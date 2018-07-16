@@ -761,6 +761,9 @@ type Certificate struct {
 
 	PolicyIdentifiers []asn1.ObjectIdentifier
 
+	RPKIAddressRanges                   []*IPAddressFamilyBlocks
+	RPKIASNumbers, RPKIRoutingDomainIDs *ASIdentifiers
+
 	// Certificate Transparency SCT extension contents; this is a TLS-encoded
 	// SignedCertificateTimestampList (RFC 6962 s3.3).
 	RawSCT  []byte
@@ -1790,6 +1793,10 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 					out.IssuingCertificateURL = append(out.IssuingCertificateURL, string(v.Location.Bytes))
 				}
 			}
+		} else if e.Id.Equal(OIDExtensionIPPrefixList) {
+			out.RPKIAddressRanges = parseRPKIAddrBlocks(e.Value, &nfe)
+		} else if e.Id.Equal(OIDExtensionASList) {
+			out.RPKIASNumbers, out.RPKIRoutingDomainIDs = parseRPKIASIdentifiers(e.Value, &nfe)
 		} else if e.Id.Equal(OIDExtensionCTSCT) {
 			if rest, err := asn1.Unmarshal(e.Value, &out.RawSCT); err != nil {
 				nfe.AddError(fmt.Errorf("failed to asn1.Unmarshal SCT list extension: %v", err))
@@ -1934,10 +1941,15 @@ var (
 
 	OIDExtensionAuthorityInfoAccess = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 1}
 	OIDExtensionSubjectInfoAccess   = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 11}
+
 	// OIDExtensionCTPoison is defined in RFC 6962 s3.1.
 	OIDExtensionCTPoison = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}
 	// OIDExtensionCTSCT is defined in RFC 6962 s3.3.
 	OIDExtensionCTSCT = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 2}
+	// OIDExtensionIPPrefixList is defined in RFC 3779 s2.
+	OIDExtensionIPPrefixList = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 7}
+	// OIDExtensionASList is defined in RFC 3779 s3.
+	OIDExtensionASList = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 8}
 )
 
 var (
