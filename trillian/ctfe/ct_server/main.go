@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -269,7 +270,13 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux) error {
+	if cfg.IsMirror {
+		return errors.New("mirrors are not supported")
+	}
+
 	opts := ctfe.InstanceOptions{
+		Config:        cfg,
+		Client:        client,
 		Deadline:      deadline,
 		MetricFactory: prometheus.MetricFactory{},
 		RequestLog:    new(ctfe.DefaultRequestLog),
@@ -282,7 +289,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		glog.Info("Enabling quota for intermediate certificates")
 		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
 	}
-	handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
+	handlers, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {
 		return err
 	}

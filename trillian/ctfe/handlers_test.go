@@ -48,6 +48,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	cttestonly "github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 )
 
@@ -160,8 +161,10 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 		rejectExpired: false,
 		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
-	iOpts := InstanceOptions{Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}, RequestLog: new(DefaultRequestLog)}
-	info.li = newLogInfo(0x42, "test", false /* isMirror */, vOpts, info.client, signer, iOpts, fakeTimeSource)
+
+	cfg := &configpb.LogConfig{LogId: 0x42, Prefix: "test", IsMirror: false}
+	iOpts := InstanceOptions{Config: cfg, Client: info.client, Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}, RequestLog: new(DefaultRequestLog)}
+	info.li = newLogInfo(iOpts, vOpts, signer, fakeTimeSource)
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {

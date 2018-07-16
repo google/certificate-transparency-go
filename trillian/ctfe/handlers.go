@@ -220,15 +220,11 @@ type logInfo struct {
 
 	// Instance-wide options
 	instanceOpts InstanceOptions
-	// isMirror specifies whether the log is a mirror
-	isMirror bool
 	// logID is the tree ID that identifies this log in node storage
 	logID int64
-	// urlPrefix is the prefix for URLs for this log
-	urlPrefix string
 	// validationOpts contains the certificate chain validation parameters
 	validationOpts CertValidationOpts
-	// rpcClient is the client used to communicate with the trillian backend
+	// rpcClient is the client used to communicate with the Trillian backend
 	rpcClient trillian.TrillianLogClient
 	// signer signs objects (e.g. STHs, SCTs) for regular logs
 	signer crypto.Signer
@@ -237,18 +233,17 @@ type logInfo struct {
 }
 
 // newLogInfo creates a new instance of logInfo.
-// TODO(pavelkalinnikov): Too many arguments, split it.
 func newLogInfo(
-	logID int64, prefix string, isMirror bool, validationOpts CertValidationOpts,
-	rpcClient trillian.TrillianLogClient, signer crypto.Signer,
-	instanceOpts InstanceOptions, timeSource util.TimeSource,
+	instanceOpts InstanceOptions,
+	validationOpts CertValidationOpts,
+	signer crypto.Signer,
+	timeSource util.TimeSource,
 ) *logInfo {
+	logID, prefix := instanceOpts.Config.LogId, instanceOpts.Config.Prefix
 	li := &logInfo{
 		logID:          logID,
-		urlPrefix:      prefix,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
-		isMirror:       isMirror,
-		rpcClient:      rpcClient,
+		rpcClient:      instanceOpts.Client,
 		signer:         signer,
 		TimeSource:     timeSource,
 		instanceOpts:   instanceOpts,
@@ -256,8 +251,7 @@ func newLogInfo(
 		RequestLog:     instanceOpts.RequestLog,
 	}
 
-	if isMirror {
-		// TODO(pavelkalinnikov): Implement a real mirror STH storage.
+	if instanceOpts.Config.IsMirror {
 		li.sthGetter = &MirrorSTHGetter{li: li, st: DefaultMirrorSTHStorage{}}
 	} else {
 		li.sthGetter = &LogSTHGetter{li: li}
@@ -289,7 +283,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
 	}
 	// Override mirror methods.
-	if li.isMirror {
+	if li.instanceOpts.Config.IsMirror {
 		delete(ph, prefix+ct.AddChainPath)
 		delete(ph, prefix+ct.AddPreChainPath)
 	}

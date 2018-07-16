@@ -197,10 +197,10 @@ func TestSetUpInstance(t *testing.T) {
 		},
 	}
 
-	opts := InstanceOptions{Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 	for _, test := range tests {
+		opts := InstanceOptions{Config: &test.cfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 		t.Run(test.desc, func(t *testing.T) {
-			if _, err := SetUpInstance(ctx, nil, &test.cfg, opts, DefaultMirrorSTHFactory{}); err != nil {
+			if _, err := SetUpInstance(ctx, opts); err != nil {
 				if test.wantErr == "" {
 					t.Errorf("SetUpInstance()=_,%v; want _,nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
@@ -282,10 +282,10 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		},
 	}
 
-	opts := InstanceOptions{Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			h, err := SetUpInstance(ctx, nil, &test.cfg, opts, nil)
+			opts := InstanceOptions{Config: &test.cfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
+			h, err := SetUpInstance(ctx, opts)
 			if err != nil {
 				t.Fatalf("%v: SetUpInstance() = %v, want no error", test.desc, err)
 			}

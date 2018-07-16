@@ -17,7 +17,6 @@ package ctfe
 import (
 	"context"
 	"crypto"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -184,19 +183,23 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // InstanceOptions describes the options for a log instance.
 type InstanceOptions struct {
-	// Deadline is a timeout for backend Trillian RPC requests.
+	// Config holds the original configuration options for the log.
+	Config *configpb.LogConfig
+	// Client is a corresponding Trillian log client.
+	Client trillian.TrillianLogClient
+	// Deadline is a timeout for Trillian RPC requests.
 	Deadline time.Duration
 	// MetricFactory allows creating metrics.
 	MetricFactory monitoring.MetricFactory
 	// ErrorMapper converts an error from an RPC request to an HTTP status, plus
 	// a boolean to indicate whether the conversion succeeded.
 	ErrorMapper func(error) (int, bool)
-	RequestLog  RequestLog
+	// RequestLog provides structured logging of CTFE requests.
+	RequestLog RequestLog
 	// RemoteUser returns a string representing the originating host for the
 	// given request. This string will be used as a User quota key.
 	// If unset, no quota will be requested for remote users.
 	RemoteQuotaUser func(*http.Request) string
-
 	// CertificateQuotaUser returns a string represeing the passed in
 	// intermediate certificate. This string will be user as a User quota key for
 	// the cert. Quota will be requested for each intermediate in an
@@ -206,15 +209,32 @@ type InstanceOptions struct {
 	CertificateQuotaUser func(*x509.Certificate) string
 }
 
-// SetUpInstance sets up a log instance that uses the specified client to
-// communicate with the Trillian RPC back end.
-func SetUpInstance(
-	ctx context.Context,
-	client trillian.TrillianLogClient,
-	cfg *configpb.LogConfig,
-	opts InstanceOptions,
-	mfact MirrorSTHFactory,
-) (*PathHandlers, error) {
+// SetUpInstance sets up a log instance using the provided configuration, and
+// returns a set of handlers for this log.
+func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, error) {
+	logInfo, err := setUpLogInfo(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	handlers := logInfo.Handlers(opts.Config.Prefix)
+	return &handlers, nil
+}
+
+// SetUpInstance sets up a log mirror instance using the provided
+// configuration, and returns a set of handlers for it.
+func SetUpMirrorInstance(ctx context.Context, opts InstanceOptions, stor MirrorSTHStorage) (*PathHandlers, error) {
+	logInfo, err := setUpLogInfo(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	logInfo.sthGetter = &MirrorSTHGetter{li: logInfo, st: stor}
+	handlers := logInfo.Handlers(opts.Config.Prefix)
+	return &handlers, nil
+}
+
+func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
+	cfg := opts.Config
+
 	// Check config validity.
 	if !cfg.IsMirror && len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
@@ -289,22 +309,6 @@ func SetUpInstance(
 		extKeyUsages:  keyUsages,
 	}
 
-	// Create and register the handlers using the RPC client we just set up.
-	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, cfg.IsMirror, validationOpts,
-		client, signer, opts, new(util.SystemTimeSource))
-
-	if cfg.IsMirror {
-		if mfact == nil {
-			return nil, errors.New("mirror STH factory not provided")
-		}
-		logID := sha256.Sum256(cfg.PublicKey.Der)
-		st, err := mfact.NewStorage(logID)
-		if err != nil {
-			return nil, err
-		}
-		logInfo.sthGetter = &MirrorSTHGetter{li: logInfo, st: st}
-	}
-
-	handlers := logInfo.Handlers(cfg.Prefix)
-	return &handlers, nil
+	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
+	return logInfo, nil
 }
