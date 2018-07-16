@@ -27,6 +27,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -57,6 +58,8 @@ func OIDForStandardExtension(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionFreshestCRL) ||
 		oid.Equal(x509.OIDExtensionSubjectInfoAccess) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionIPPrefixList) ||
+		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
 		oid.Equal(x509.OIDExtensionCTSCT) {
 		return true
@@ -425,6 +428,8 @@ func CertificateToString(cert *x509.Certificate) string {
 	showCertPolicies(&result, cert)
 	showCRLDPs(&result, cert)
 	showAuthInfoAccess(&result, cert)
+	showRPKIAddressRanges(&result, cert)
+	showRPKIASIdentifiers(&result, cert)
 	showCTPoison(&result, cert)
 	showCTSCT(&result, cert)
 	showCTLogSTHInfo(&result, cert)
@@ -589,6 +594,84 @@ func showAuthInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showAddressRange(prefix x509.IPAddressPrefix, afi uint16) string {
+	switch afi {
+	case x509.IPv4AddressFamilyIndicator, x509.IPv6AddressFamilyIndicator:
+		size := 4
+		if afi == x509.IPv6AddressFamilyIndicator {
+			size = 16
+		}
+		ip := make([]byte, size)
+		copy(ip, prefix.Bytes)
+		addr := net.IPNet{IP: ip, Mask: net.CIDRMask(prefix.BitLength, 8*size)}
+		return addr.String()
+	default:
+		return fmt.Sprintf("%x/%d", prefix.Bytes, prefix.BitLength)
+	}
+
+}
+
+func showRPKIAddressRanges(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionIPPrefixList, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            sbgp-ipAddrBlock:"))
+		showCritical(result, critical)
+		for _, blocks := range cert.RPKIAddressRanges {
+			afi := blocks.AFI
+			switch afi {
+			case x509.IPv4AddressFamilyIndicator:
+				result.WriteString("                IPv4")
+			case x509.IPv6AddressFamilyIndicator:
+				result.WriteString("                IPv6")
+			default:
+				result.WriteString(fmt.Sprintf("                %d", afi))
+			}
+			if blocks.SAFI != 0 {
+				result.WriteString(fmt.Sprintf(" SAFI=%d", blocks.SAFI))
+			}
+			result.WriteString(":")
+			if blocks.InheritFromIssuer {
+				result.WriteString(" inherit\n")
+				continue
+			}
+			result.WriteString("\n")
+			for _, prefix := range blocks.AddressPrefixes {
+				result.WriteString(fmt.Sprintf("                  %s\n", showAddressRange(prefix, afi)))
+			}
+			for _, ipRange := range blocks.AddressRanges {
+				result.WriteString(fmt.Sprintf("                  [%s, %s]\n", showAddressRange(ipRange.Min, afi), showAddressRange(ipRange.Max, afi)))
+			}
+		}
+	}
+}
+
+func showASIDs(result *bytes.Buffer, asids *x509.ASIdentifiers, label string) {
+	if asids == nil {
+		return
+	}
+	result.WriteString(fmt.Sprintf("                %s:\n", label))
+	if asids.InheritFromIssuer {
+		result.WriteString("                  inherit\n")
+		return
+	}
+	for _, id := range asids.ASIDs {
+		result.WriteString(fmt.Sprintf("                  %d\n", id))
+	}
+	for _, idRange := range asids.ASIDRanges {
+		result.WriteString(fmt.Sprintf("                  %d-%d\n", idRange.Min, idRange.Max))
+	}
+}
+
+func showRPKIASIdentifiers(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionASList, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            sbgp-autonomousSysNum:"))
+		showCritical(result, critical)
+		showASIDs(result, cert.RPKIASNumbers, "Autonomous System Numbers")
+		showASIDs(result, cert.RPKIRoutingDomainIDs, "Routing Domain Identifiers")
+	}
+}
+
 func showCTPoison(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(x509.OIDExtensionCTPoison, cert.Extensions)
 	if count > 0 {
@@ -678,6 +761,8 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionNameConstraints) ||
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionIPPrefixList) ||
+		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
 		oid.Equal(x509.OIDExtensionCTSCT) ||
 		oid.Equal(x509ext.OIDExtensionCTSTH) {
