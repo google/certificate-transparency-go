@@ -160,7 +160,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// POSTs will decode the raw request body as JSON later.
 	if r.Method == http.MethodGet {
 		if err := r.ParseForm(); err != nil {
-			sendHTTPError(w, http.StatusBadRequest, fmt.Errorf("failed to parse form data: %v", err))
+			sendHTTPError(w, http.StatusBadRequest, fmt.Errorf("failed to parse form data: %s", err))
 			a.Info.RequestLog.Status(logCtx, http.StatusBadRequest)
 			return
 		}
@@ -355,7 +355,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Check the contents of the request and convert to slice of certificates.
 	addChainReq, err := parseBodyAsJSONChain(li, r)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to parse add-chain body: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("failed to parse add-chain body: %s", err)
 	}
 	// Log the DERs now because they might not parse as valid X.509.
 	for _, der := range addChainReq.Chain {
@@ -363,7 +363,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 	chain, err := verifyAddChain(li, addChainReq, isPrecert)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to verify add-chain contents: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("failed to verify add-chain contents: %s", err)
 	}
 	for _, cert := range chain {
 		li.RequestLog.AddCertToChain(ctx, cert)
@@ -375,11 +375,11 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
 	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %s", err)
 	}
 	leaf, err := buildLogLeafForAddChain(li, *merkleLeaf, chain, isPrecert)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %s", err)
 	}
 
 	// Send the Merkle tree leaf on to the Log server.
@@ -399,7 +399,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	rsp, err := li.rpcClient.QueueLeaves(ctx, &req)
 	glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v", li.LogPrefix, method, err)
 	if err != nil {
-		return li.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
+		return li.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %s", err)
 	}
 	if rsp == nil {
 		return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
@@ -412,7 +412,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Always use the returned leaf as the basis for an SCT.
 	var loggedLeaf ct.MerkleTreeLeaf
 	if rest, err := tls.Unmarshal(queuedLeaf.Leaf.LeafValue, &loggedLeaf); err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to reconstruct MerkleTreeLeaf: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to reconstruct MerkleTreeLeaf: %s", err)
 	} else if len(rest) > 0 {
 		return http.StatusInternalServerError, fmt.Errorf("extra data (%d bytes) on reconstructing MerkleTreeLeaf", len(rest))
 	}
@@ -421,18 +421,18 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// generate an SCT and respond with it.
 	sct, err := buildV1SCT(li.signer, &loggedLeaf)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to generate SCT: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to generate SCT: %s", err)
 	}
 	sctBytes, err := tls.Marshal(*sct)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshall SCT: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshall SCT: %s", err)
 	}
 	// We could possibly fail to issue the SCT after this but it's v. unlikely.
 	li.RequestLog.IssueSCT(ctx, sctBytes)
 	err = marshalAndWriteAddChainResponse(sct, li.signer, w)
 	if err != nil {
 		// reason is logged and http status is already set
-		return http.StatusInternalServerError, fmt.Errorf("failed to write response: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to write response: %s", err)
 	}
 	glog.V(3).Infof("%s: %s <= SCT", li.LogPrefix, method)
 	if sct.Timestamp == timeMillis {
@@ -493,20 +493,20 @@ func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 	var err error
 	jsonRsp.TreeHeadSignature, err = tls.Marshal(sth.TreeHeadSignature)
 	if err != nil {
-		return fmt.Errorf("failed to tls.Marshal signature: %v", err)
+		return fmt.Errorf("failed to tls.Marshal signature: %s", err)
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		return fmt.Errorf("failed to marshal response: %v %v", jsonRsp, err)
+		return fmt.Errorf("failed to marshal response: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
 		// Probably too late for this as headers might have been written but we
 		// don't know for sure.
-		return fmt.Errorf("failed to write response data: %v", err)
+		return fmt.Errorf("failed to write response data: %s", err)
 	}
 
 	return nil
@@ -515,7 +515,7 @@ func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	first, second, err := parseGetSTHConsistencyRange(r)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to parse consistency range: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("failed to parse consistency range: %s", err)
 	}
 	li.RequestLog.FirstAndSecond(ctx, first, second)
 	var jsonRsp ct.GetSTHConsistencyResponse
@@ -531,7 +531,7 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 		rsp, err := li.rpcClient.GetConsistencyProof(ctx, &req)
 		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", li.LogPrefix, err)
 		if err != nil {
-			return li.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
+			return li.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %s", err)
 		}
 
 		// We can get here with a tree size too small to satisfy the proof.
@@ -557,13 +557,13 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-sth-consistency resp: %v because %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-sth-consistency resp: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
 		// Probably too late for this as headers might have been written but we don't know for sure
-		return http.StatusInternalServerError, fmt.Errorf("failed to write get-sth-consistency resp: %v because %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-sth-consistency resp: %s", err)
 	}
 
 	return http.StatusOK, nil
@@ -577,7 +577,7 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	}
 	leafHash, err := base64.StdEncoding.DecodeString(hash)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("get-proof-by-hash: invalid base64 hash: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("get-proof-by-hash: invalid base64 hash: %s", err)
 	}
 
 	treeSize, err := strconv.ParseInt(r.FormValue(getProofParamTreeSize), 10, 64)
@@ -599,7 +599,7 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	}
 	rsp, err := li.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
-		return li.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
+		return li.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %s", err)
 	}
 
 	// We could fail to get the proof because the tree size that the server has
@@ -631,13 +631,13 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	jsonData, err := json.Marshal(&proofRsp)
 	if err != nil {
 		glog.Warningf("%s: Failed to marshal get-proof-by-hash resp: %v", li.LogPrefix, proofRsp)
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-proof-by-hash resp: %v, error: %v", proofRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-proof-by-hash resp: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
 		// Probably too late for this as headers might have been written but we don't know for sure
-		return http.StatusInternalServerError, fmt.Errorf("failed to write get-proof-by-hash resp: %v", proofRsp)
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-proof-by-hash resp: %s", err)
 	}
 
 	return http.StatusOK, nil
@@ -649,7 +649,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	// size and prefer to let the backend handle this case
 	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %s", err)
 	}
 	li.RequestLog.StartAndEnd(ctx, start, end)
 
@@ -665,7 +665,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		}
 		rsp, err := li.rpcClient.GetLeavesByRange(ctx, &req)
 		if err != nil {
-			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
+			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
 		}
 		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
 			// If the returned tree is too small to contain any leaves return the 4xx
@@ -690,7 +690,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		}
 		rsp, err := li.rpcClient.GetLeavesByIndex(ctx, &req)
 		if err != nil {
-			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %v", err)
+			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %s", err)
 		}
 
 		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
@@ -705,7 +705,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		// needs to return leaves in order.  Therefore, sort the results (and check for missing
 		// or duplicate indices along the way).
 		if err := sortLeafRange(rsp, start, end); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("backend get-entries range invalid: %v", err)
+			return http.StatusInternalServerError, fmt.Errorf("backend get-entries range invalid: %s", err)
 		}
 		leaves = rsp.Leaves
 	}
@@ -716,19 +716,19 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	// prevent bad / corrupt data from reaching the client.
 	jsonRsp, err := marshalGetEntriesResponse(li, leaves)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %s", err)
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-entries resp: %v because: %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-entries resp: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
 		// Probably too late for this as headers might have been written but we don't know for sure
-		return http.StatusInternalServerError, fmt.Errorf("failed to write get-entries resp: %v because: %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-entries resp: %s", err)
 	}
 
 	return http.StatusOK, nil
@@ -747,7 +747,7 @@ func getRoots(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.R
 	err := enc.Encode(jsonMap)
 	if err != nil {
 		glog.Warningf("%s: get_roots failed: %v", li.LogPrefix, err)
-		return http.StatusInternalServerError, fmt.Errorf("get-roots failed with: %v", err)
+		return http.StatusInternalServerError, fmt.Errorf("get-roots failed with: %s", err)
 	}
 
 	return http.StatusOK, nil
@@ -758,7 +758,7 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Ensure both numeric params are present and look reasonable.
 	leafIndex, treeSize, err := parseGetEntryAndProofParams(r)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to parse get-entry-and-proof params: %v", err)
+		return http.StatusBadRequest, fmt.Errorf("failed to parse get-entry-and-proof params: %s", err)
 	}
 	li.RequestLog.LeafIndex(ctx, leafIndex)
 	li.RequestLog.TreeSize(ctx, treeSize)
@@ -771,7 +771,7 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 	rsp, err := li.rpcClient.GetEntryAndProof(ctx, &req)
 	if err != nil {
-		return li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %v", err)
+		return li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %s", err)
 	}
 
 	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
@@ -798,14 +798,14 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-entry-and-proof resp: %v because: %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-entry-and-proof resp: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
 
 		// Probably too late for this as headers might have been written but we don't know for sure
-		return http.StatusInternalServerError, fmt.Errorf("failed to write get-entry-and-proof resp: %v because: %v", jsonRsp, err)
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-entry-and-proof resp: %s", err)
 	}
 
 	return http.StatusOK, nil
@@ -832,12 +832,12 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 	if err != nil {
 		// We rejected it because the cert failed checks or we could not find a path to a root etc.
 		// Lots of possible causes for errors
-		return nil, fmt.Errorf("chain failed to verify: %v because: %v", req, err)
+		return nil, fmt.Errorf("chain failed to verify: %s", req, err)
 	}
 
 	isPrecert, err := IsPrecertificate(validPath[0])
 	if err != nil {
-		return nil, fmt.Errorf("precert test failed: %v", err)
+		return nil, fmt.Errorf("precert test failed: %s", err)
 	}
 
 	// The type of the leaf must match the one the handler expects
@@ -847,7 +847,7 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 		} else {
 			glog.Warningf("%s: Precert (or cert with invalid CT ext) submitted as cert chain: %x", li.LogPrefix, req.Chain)
 		}
-		return nil, fmt.Errorf("cert / precert mismatch: %v", expectingPrecert)
+		return nil, fmt.Errorf("cert / precert mismatch: %T", expectingPrecert)
 	}
 
 	return validPath, nil
@@ -875,11 +875,11 @@ func buildLogLeafForAddChain(li *logInfo,
 func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer crypto.Signer, w http.ResponseWriter) error {
 	logID, err := GetCTLogID(signer.Public())
 	if err != nil {
-		return fmt.Errorf("failed to marshal logID: %v", err)
+		return fmt.Errorf("failed to marshal logID: %s", err)
 	}
 	sig, err := tls.Marshal(sct.Signature)
 	if err != nil {
-		return fmt.Errorf("failed to marshal signature: %v", err)
+		return fmt.Errorf("failed to marshal signature: %s", err)
 	}
 
 	rsp := ct.AddChainResponse{
@@ -893,12 +893,12 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&rsp)
 	if err != nil {
-		return fmt.Errorf("failed to marshal add-chain resp: %v because: %v", rsp, err)
+		return fmt.Errorf("failed to marshal add-chain: %s", err)
 	}
 
 	_, err = w.Write(jsonData)
 	if err != nil {
-		return fmt.Errorf("failed to write add-chain resp: %v", rsp)
+		return fmt.Errorf("failed to write add-chain resp: %s", err)
 	}
 
 	return nil
