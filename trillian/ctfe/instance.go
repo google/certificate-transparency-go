@@ -17,6 +17,7 @@ package ctfe
 import (
 	"context"
 	"crypto"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -183,7 +184,9 @@ var stringToKeyUsage = map[string]x509.ExtKeyUsage{
 
 // InstanceOptions describes the options for a log instance.
 type InstanceOptions struct {
-	Deadline      time.Duration
+	// Deadline is a timeout for backend Trillian RPC requests.
+	Deadline time.Duration
+	// MetricFactory allows creating metrics.
 	MetricFactory monitoring.MetricFactory
 	// ErrorMapper converts an error from an RPC request to an HTTP status, plus
 	// a boolean to indicate whether the conversion succeeded.
@@ -196,16 +199,22 @@ type InstanceOptions struct {
 
 	// CertificateQuotaUser returns a string represeing the passed in
 	// intermediate certificate. This string will be user as a User quota key for
-	// the cert.  Quota will be requested for each intermediate in an
+	// the cert. Quota will be requested for each intermediate in an
 	// add-[pre]-chain request so as to allow individual issers to be rate
-	// limited.  If unset, no quota will be requested for intermediate
+	// limited. If unset, no quota will be requested for intermediate
 	// certificates.
 	CertificateQuotaUser func(*x509.Certificate) string
 }
 
-// SetUpInstance sets up a log instance that uses the specified client to communicate
-// with the Trillian RPC back end.
-func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *configpb.LogConfig, opts InstanceOptions) (*PathHandlers, error) {
+// SetUpInstance sets up a log instance that uses the specified client to
+// communicate with the Trillian RPC back end.
+func SetUpInstance(
+	ctx context.Context,
+	client trillian.TrillianLogClient,
+	cfg *configpb.LogConfig,
+	opts InstanceOptions,
+	mfact MirrorSTHFactory,
+) (*PathHandlers, error) {
 	// Check config validity.
 	if !cfg.IsMirror && len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
@@ -236,7 +245,6 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		if cfg.PrivateKey != nil {
 			return nil, errors.New("mirror needs no PrivateKey")
 		}
-		// TODO(pavelkalinnikov): Parse cfg.PublicKey properly.
 		if cfg.PublicKey == nil {
 			return nil, errors.New("need to specify PublicKey")
 		}
@@ -280,9 +288,22 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		acceptOnlyCA:  cfg.AcceptOnlyCa,
 		extKeyUsages:  keyUsages,
 	}
+
 	// Create and register the handlers using the RPC client we just set up.
 	logInfo := newLogInfo(cfg.LogId, cfg.Prefix, cfg.IsMirror, validationOpts,
 		client, signer, opts, new(util.SystemTimeSource))
+
+	if cfg.IsMirror {
+		if mfact == nil {
+			return nil, errors.New("mirror STH factory not provided")
+		}
+		logID := sha256.Sum256(cfg.PublicKey.Der)
+		st, err := mfact.NewStorage(logID)
+		if err != nil {
+			return nil, err
+		}
+		logInfo.sthGetter = &MirrorSTHGetter{li: logInfo, st: st}
+	}
 
 	handlers := logInfo.Handlers(cfg.Prefix)
 	return &handlers, nil

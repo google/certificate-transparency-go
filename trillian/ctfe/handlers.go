@@ -255,9 +255,10 @@ func newLogInfo(
 		validationOpts: validationOpts,
 		RequestLog:     instanceOpts.RequestLog,
 	}
+
 	if isMirror {
 		// TODO(pavelkalinnikov): Implement a real mirror STH storage.
-		li.sthGetter = &MirrorSTHGetter{li: li, st: &defaultMirrorSTHStorage{}}
+		li.sthGetter = &MirrorSTHGetter{li: li, st: DefaultMirrorSTHStorage{}}
 	} else {
 		li.sthGetter = &LogSTHGetter{li: li}
 	}

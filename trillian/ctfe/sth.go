@@ -31,6 +31,13 @@ type contextKey string
 // context.Context passed in to STH getters.
 var remoteQuotaCtxKey = contextKey("quotaUser")
 
+// MirrorSTHFactory creates instances of MirrorSTHStorage.
+type MirrorSTHFactory interface {
+	// NewStorage creates a MirrorSTHStorage for the specified log ID, which is a
+	// SHA-256 of the log's public key.
+	NewStorage(logID [sha256.Size]byte) (MirrorSTHStorage, error)
+}
+
 // MirrorSTHStorage provides STHs of a source log to be served from a mirror.
 type MirrorSTHStorage interface {
 	// GetMirrorSTH returns an STH of TreeSize <= maxTreeSize. It does best
@@ -138,10 +145,16 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 	return slr, nil
 }
 
+type DefaultMirrorSTHFactory struct{}
+
+func (f DefaultMirrorSTHFactory) NewStorage(logID [sha256.Size]byte) (MirrorSTHStorage, error) {
+	return DefaultMirrorSTHStorage{}, nil
+}
+
 // defaultMirrorSTHStorage is a dummy STH storage that always returns an error.
-type defaultMirrorSTHStorage struct{}
+type DefaultMirrorSTHStorage struct{}
 
 // GetMirrorSTH returns an error.
-func (st *defaultMirrorSTHStorage) GetMirrorSTH(ctx context.Context, maxTreeSize int64) (*ct.SignedTreeHead, error) {
+func (st DefaultMirrorSTHStorage) GetMirrorSTH(ctx context.Context, maxTreeSize int64) (*ct.SignedTreeHead, error) {
 	return nil, errors.New("not implemented")
 }
