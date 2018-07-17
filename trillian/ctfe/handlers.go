@@ -271,7 +271,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	}
 	prefix = strings.TrimRight(prefix, "/")
 
-	// Bind the logInfo instance to give an appHandler instance for each entrypoint.
+	// Bind the logInfo instance to give an AppHandler instance for each endpoint.
 	ph := PathHandlers{
 		prefix + ct.AddChainPath:          AppHandler{Info: li, Handler: addChain, Name: AddChainName, Method: http.MethodPost},
 		prefix + ct.AddPreChainPath:       AppHandler{Info: li, Handler: addPreChain, Name: AddPreChainName, Method: http.MethodPost},
@@ -282,7 +282,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
 	}
-	// Override mirror methods.
+	// Remove endpoints not provided by mirrors.
 	if li.instanceOpts.Config.IsMirror {
 		delete(ph, prefix+ct.AddChainPath)
 		delete(ph, prefix+ct.AddPreChainPath)
