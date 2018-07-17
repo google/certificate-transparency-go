@@ -220,7 +220,7 @@ func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, er
 	return &handlers, nil
 }
 
-// SetUpInstance sets up a log mirror instance using the provided
+// SetUpMirrorInstance sets up a log mirror instance using the provided
 // configuration, and returns a set of handlers for it.
 func SetUpMirrorInstance(ctx context.Context, opts InstanceOptions, stor MirrorSTHStorage) (*PathHandlers, error) {
 	logInfo, err := setUpLogInfo(ctx, opts)
