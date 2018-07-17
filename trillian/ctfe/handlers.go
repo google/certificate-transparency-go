@@ -832,7 +832,7 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 	if err != nil {
 		// We rejected it because the cert failed checks or we could not find a path to a root etc.
 		// Lots of possible causes for errors
-		return nil, fmt.Errorf("chain failed to verify: %s", req, err)
+		return nil, fmt.Errorf("chain failed to verify: %s", err)
 	}
 
 	isPrecert, err := IsPrecertificate(validPath[0])
