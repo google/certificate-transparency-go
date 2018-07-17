@@ -138,10 +138,18 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 	return slr, nil
 }
 
-// defaultMirrorSTHStorage is a dummy STH storage that always returns an error.
-type defaultMirrorSTHStorage struct{}
+// DefaultMirrorSTHFactory creates DefaultMirrorSTHStorage instances.
+type DefaultMirrorSTHFactory struct{}
+
+// NewStorage creates a dummy STH storage.
+func (f DefaultMirrorSTHFactory) NewStorage(logID [sha256.Size]byte) (MirrorSTHStorage, error) {
+	return DefaultMirrorSTHStorage{}, nil
+}
+
+// DefaultMirrorSTHStorage is a dummy STH storage that always returns an error.
+type DefaultMirrorSTHStorage struct{}
 
 // GetMirrorSTH returns an error.
-func (st *defaultMirrorSTHStorage) GetMirrorSTH(ctx context.Context, maxTreeSize int64) (*ct.SignedTreeHead, error) {
+func (st DefaultMirrorSTHStorage) GetMirrorSTH(ctx context.Context, maxTreeSize int64) (*ct.SignedTreeHead, error) {
 	return nil, errors.New("not implemented")
 }
