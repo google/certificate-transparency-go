@@ -13,7 +13,8 @@
 set -eu
 
 
-# Retries running a command N times whenever the command returns X, with exponential backoff between failures.
+# Retries running a command N times whenever the command returns X, with
+# exponential backoff between failures.
 #
 # Usage:
 #   retry N X command ...args
