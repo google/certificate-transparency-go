@@ -13,12 +13,14 @@
 set -eu
 
 
-# Retries running a command N times, with exponential backoff between failures.
+# Retries running a command N times whenever the command returns X, with exponential backoff between failures.
 #
 # Usage:
-#   retry N command ...args
+#   retry N X command ...args
 retry() {
   local retries=$1
+  shift
+  local retry_rc=$1
   shift
 
   local count=0
@@ -26,6 +28,9 @@ retry() {
     local exit=$?
     local wait=$((2 ** $count))
     local count=$(($count + 1))
+    if [ $exit -ne $retry_rc ]; then
+      return $exit
+    fi
     if [ $count -lt $retries ]; then
       echo "Attempt $count/$retries: $1 exited $exit, retrying in $wait seconds..."
       sleep $wait
@@ -162,7 +167,8 @@ main() {
       'have you installed github.com/alecthomas/gometalinter?' || exit 1
 
     echo 'running gometalinter'
-    retry 5 gometalinter --config=gometalinter.json --deadline=2m ./...
+    # gometalinter returns rc=2 for a linter timeout
+    retry 5 2 gometalinter --config=gometalinter.json --deadline=2m ./...
   fi
 
   if [[ "${run_generate}" -eq 1 ]]; then
