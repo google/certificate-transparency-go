@@ -75,7 +75,7 @@ func dumpData(entry *ct.LogEntry) {
 			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
 		}
 	} else if entry.Leaf.TimestampedEntry.EntryType == ct.PrecertLogEntryType {
-		prefix = "pecert"
+		prefix = "precert"
 		// For a pre-certificate the TimestampedEntry only holds the TBSCertificate, but
 		// the Chain data has the full pre-certificate as the first entry.
 		name := fmt.Sprintf("%s-%014d-precert.der", prefix, entry.Index)
