@@ -257,7 +257,7 @@ type objectIdentifierTest struct {
 	in  []byte
 	lax bool
 	ok  bool
-	out []int
+	out ObjectIdentifier // has base type[]int
 }
 
 var objectIdentifierTestData = []objectIdentifierTest{
@@ -459,6 +459,7 @@ var parseFieldParametersTestData []parseFieldParametersTest = []parseFieldParame
 	{"optional", fieldParameters{optional: true}},
 	{"explicit", fieldParameters{explicit: true, tag: new(int)}},
 	{"application", fieldParameters{application: true, tag: new(int)}},
+	{"private", fieldParameters{private: true, tag: new(int)}},
 	{"optional,explicit", fieldParameters{optional: true, explicit: true, tag: new(int)}},
 	{"default:42", fieldParameters{defaultValue: newInt64(42)}},
 	{"tag:17", fieldParameters{tag: newInt(17)}},
@@ -1233,6 +1234,7 @@ func TestTaggedRawValue(t *testing.T) {
 		{true, []byte{0x30, 3, (ClassContextSpecific << 6) | tag, 1, 1}},
 		{true, []byte{0x30, 3, (ClassContextSpecific << 6) | tag | isCompound, 1, 1}},
 		{false, []byte{0x30, 3, (ClassApplication << 6) | tag | isCompound, 1, 1}},
+		{false, []byte{0x30, 3, (ClassPrivate << 6) | tag | isCompound, 1, 1}},
 	}
 
 	for i, test := range tests {
