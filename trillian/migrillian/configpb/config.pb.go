@@ -30,7 +30,7 @@ type MigrationConfig struct {
 	TrillianUri string `protobuf:"bytes,3,opt,name=trillian_uri,json=trillianUri,proto3" json:"trillian_uri,omitempty"`
 	// The ID of a Trillian PREORDERED_LOG tree that stores the log data.
 	LogId int64 `protobuf:"varint,4,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
-	// Max number of entries to request from this log via get-entries endpoint.
+	// Max number of entries per get-entries request from this log.
 	BatchSize            int32    `protobuf:"varint,5,opt,name=batch_size,json=batchSize,proto3" json:"batch_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -41,7 +41,7 @@ func (m *MigrationConfig) Reset()         { *m = MigrationConfig{} }
 func (m *MigrationConfig) String() string { return proto.CompactTextString(m) }
 func (*MigrationConfig) ProtoMessage()    {}
 func (*MigrationConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_a8d1619ef73c0871, []int{0}
+	return fileDescriptor_config_a48676a7a037262a, []int{0}
 }
 func (m *MigrationConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrationConfig.Unmarshal(m, b)
@@ -100,9 +100,9 @@ func init() {
 	proto.RegisterType((*MigrationConfig)(nil), "configpb.MigrationConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_a8d1619ef73c0871) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_a48676a7a037262a) }
 
-var fileDescriptor_config_a8d1619ef73c0871 = []byte{
+var fileDescriptor_config_a48676a7a037262a = []byte{
 	// 231 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x34, 0xcf, 0xc1, 0x4a, 0xc4, 0x30,
 	0x10, 0x06, 0x60, 0xe2, 0xda, 0xc5, 0xce, 0x2e, 0x88, 0x05, 0xa1, 0x08, 0x42, 0xf5, 0xd4, 0x53,
