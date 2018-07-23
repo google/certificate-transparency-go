@@ -46,6 +46,8 @@ func ValidateConfig(cfg *configpb.MigrationConfig) error {
 	switch {
 	case len(cfg.SourceUri) == 0:
 		return errors.New("missing CT log URI")
+	case cfg.PublicKey == nil:
+		return errors.New("missing public key")
 	case len(cfg.TrillianUri) == 0:
 		return errors.New("missing Trillian URI")
 	case cfg.LogId <= 0:
