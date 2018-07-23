@@ -18,9 +18,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -33,6 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
@@ -41,10 +42,7 @@ import (
 )
 
 var (
-	ctLogURI    = flag.String("ct_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key")
-	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
-	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
+	cfgPath = flag.String("config", "", "Path to migration config file")
 
 	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
 	etcdServers = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
@@ -54,7 +52,6 @@ var (
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
 	dialTimeout         = flag.Duration("grpc_dial_timeout", 5*time.Second, "Timeout for dialling Trillian")
 
-	ctBatchSize      = flag.Int("ct_batch_size", 512, "Max number of entries to request per get-entries call")
 	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
 	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
 	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
@@ -69,58 +66,45 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	defer glog.Flush()
 
-	ctx := context.Background()
-
-	transport := &http.Transport{
-		TLSHandshakeTimeout:   30 * time.Second,
-		DisableKeepAlives:     false,
-		MaxIdleConns:          *maxIdleConns,
-		MaxIdleConnsPerHost:   *maxIdleConnsPerHost,
-		IdleConnTimeout:       90 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	// TODO(pavelkalinnikov): Share this between multiple CT clients.
-	// TODO(pavelkalinnikov): Make the timeout tunable.
-	httpClient := &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: transport,
+	cfg, err := getConfig()
+	if err != nil {
+		glog.Exitf("Failed to load/construct MigrationConfig: %v", err)
 	}
 
 	var ctOpts jsonclient.Options
-	if *pubKeyFile != "" {
-		pubKey, err := ioutil.ReadFile(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("Failed to read public key file: %v", err)
-		}
-		ctOpts.PublicKey = string(pubKey)
+	if key := cfg.PublicKey; key != nil {
+		ctOpts.PublicKey = string(key.Der)
 	} else {
-		glog.Warningf("No public key for CT log %q", *ctLogURI)
+		glog.Warningf("No public key for CT log %q", cfg.SourceUri)
 	}
-	ctClient, err := client.New(*ctLogURI, httpClient, ctOpts)
+	httpClient := getHTTPClient()
+	// TODO(pavelkalinnikov): Share httpClient between multiple CT clients.
+
+	ctClient, err := client.New(cfg.SourceUri, httpClient, ctOpts)
 	if err != nil {
-		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
+		glog.Exitf("Failed to create CT client for log %q: %v", cfg.SourceUri, err)
 	}
 	glog.Info("Created CT client")
 
+	ctx := context.Background()
 	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
-	conn, err := grpc.DialContext(cctx, *trillianURI,
+	conn, err := grpc.DialContext(cctx, cfg.TrillianUri,
 		grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
 	cancel()
 	if err != nil {
-		glog.Exitf("Could not dial Trillian server %q: %v", *trillianURI, err)
+		glog.Exitf("Could not dial Trillian server %q: %v", cfg.TrillianUri, err)
 	}
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	plClient, err := newPreorderedLogClient(ctx, conn, *logID)
+	plClient, err := newPreorderedLogClient(ctx, conn, cfg.LogId)
 	if err != nil {
 		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
 	}
 
 	opts := core.Options{
 		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     *ctBatchSize,
+			BatchSize:     int(cfg.BatchSize),
 			ParallelFetch: *ctFetchers,
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
@@ -143,6 +127,39 @@ func main() {
 	}
 }
 
+// getConfig returns a verified config loaded from the file specified in flags.
+func getConfig() (*configpb.MigrationConfig, error) {
+	if len(*cfgPath) == 0 {
+		return nil, errors.New("config file not specified")
+	}
+	cfg, err := core.LoadConfigFromFile(*cfgPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := core.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// getHTTPClient returns an HTTP client created from flags.
+func getHTTPClient() *http.Client {
+	transport := &http.Transport{
+		TLSHandshakeTimeout:   30 * time.Second,
+		DisableKeepAlives:     false,
+		MaxIdleConns:          *maxIdleConns,
+		MaxIdleConnsPerHost:   *maxIdleConnsPerHost,
+		IdleConnTimeout:       90 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	// TODO(pavelkalinnikov): Make the timeout tunable.
+	return &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: transport,
+	}
+}
+
 func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID int64) (*core.PreorderedLogClient, error) {
 	admin := trillian.NewTrillianAdminClient(conn)
 	gt := trillian.GetTreeRequest{TreeId: treeID}
@@ -151,7 +168,7 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 		return nil, err
 	}
 	log := trillian.NewTrillianLogClient(conn)
-	pref := fmt.Sprintf("%d", *logID)
+	pref := fmt.Sprintf("%d", treeID)
 	return core.NewPreorderedLogClient(log, tree, pref)
 }
 
