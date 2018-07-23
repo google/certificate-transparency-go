@@ -31,7 +31,7 @@ message MigrationConfig {
   // The ID of a Trillian PREORDERED_LOG tree that stores the log data.
   int64 log_id = 4;
 
-  // Max number of entries to request from this log via get-entries endpoint.
+  // Max number of entries per get-entries request from this log.
   int32 batch_size = 5;
 
   // TODO(pavelkalinnikov): Fetch and push quotas, priorities, etc.
