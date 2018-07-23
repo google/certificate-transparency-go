@@ -1,0 +1,38 @@
+// Copyright 2018 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package configpb;
+
+import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
+
+// MigrationConfig describes the configuration options for a single CT log
+// migration instance.
+message MigrationConfig {
+  // The URI for the source CT log.
+  string source_uri = 1;
+  // The public key of the source log.
+  keyspb.PublicKey public_key = 2;
+
+  // Trillian backend URI specification.
+  string trillian_uri = 3;
+  // The ID of a Trillian PREORDERED_LOG tree that stores the log data.
+  int64 log_id = 4;
+
+  // Max number of entries to request from this log via get-entries endpoint.
+  int32 batch_size = 5;
+
+  // TODO(pavelkalinnikov): Fetch and push quotas, priorities, etc.
+}

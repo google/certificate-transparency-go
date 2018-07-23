@@ -33,16 +33,20 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
 	"github.com/google/trillian"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/util"
 )
 
 var (
+	cfgPath = flag.String("config", "", "Path to migration config file")
+
 	ctLogURI    = flag.String("ct_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key")
+	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key in DER-encoded PKIX form")
 	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
 	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
@@ -69,58 +73,45 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	defer glog.Flush()
 
-	ctx := context.Background()
-
-	transport := &http.Transport{
-		TLSHandshakeTimeout:   30 * time.Second,
-		DisableKeepAlives:     false,
-		MaxIdleConns:          *maxIdleConns,
-		MaxIdleConnsPerHost:   *maxIdleConnsPerHost,
-		IdleConnTimeout:       90 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	// TODO(pavelkalinnikov): Share this between multiple CT clients.
-	// TODO(pavelkalinnikov): Make the timeout tunable.
-	httpClient := &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: transport,
+	cfg, err := getConfig()
+	if err != nil {
+		glog.Exitf("Failed to load/construct MigrationConfig: %v", err)
 	}
 
 	var ctOpts jsonclient.Options
-	if *pubKeyFile != "" {
-		pubKey, err := ioutil.ReadFile(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("Failed to read public key file: %v", err)
-		}
-		ctOpts.PublicKey = string(pubKey)
+	if key := cfg.PublicKey; key != nil {
+		ctOpts.PublicKey = string(key.Der)
 	} else {
-		glog.Warningf("No public key for CT log %q", *ctLogURI)
+		glog.Warningf("No public key for CT log %q", cfg.SourceUri)
 	}
-	ctClient, err := client.New(*ctLogURI, httpClient, ctOpts)
+	httpClient := getHTTPClient()
+	// TODO(pavelkalinnikov): Share httpClient between multiple CT clients.
+
+	ctClient, err := client.New(cfg.SourceUri, httpClient, ctOpts)
 	if err != nil {
-		glog.Exitf("Failed to create CT client for log at %q: %v", *ctLogURI, err)
+		glog.Exitf("Failed to create CT client for log %q: %v", cfg.SourceUri, err)
 	}
 	glog.Info("Created CT client")
 
+	ctx := context.Background()
 	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
-	conn, err := grpc.DialContext(cctx, *trillianURI,
+	conn, err := grpc.DialContext(cctx, cfg.TrillianUri,
 		grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
 	cancel()
 	if err != nil {
-		glog.Exitf("Could not dial Trillian server %q: %v", *trillianURI, err)
+		glog.Exitf("Could not dial Trillian server %q: %v", cfg.TrillianUri, err)
 	}
 	defer conn.Close()
 	glog.Info("Connected to Trillian")
 
-	plClient, err := newPreorderedLogClient(ctx, conn, *logID)
+	plClient, err := newPreorderedLogClient(ctx, conn, cfg.LogId)
 	if err != nil {
 		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
 	}
 
 	opts := core.Options{
 		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     *ctBatchSize,
+			BatchSize:     int(cfg.BatchSize),
 			ParallelFetch: *ctFetchers,
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
@@ -140,6 +131,52 @@ func main() {
 
 	if err := ctrl.RunWhenMaster(cctx); err != nil {
 		glog.Exitf("Controller.RunWhenMaster() returned: %v", err)
+	}
+}
+
+// getConfig returns the migration config loaded from a file, if specified, or
+// constructs one from flags. The config is validated.
+func getConfig() (*configpb.MigrationConfig, error) {
+	if len(*cfgPath) != 0 {
+		return core.LoadConfigFromFile(*cfgPath)
+	}
+
+	cfg := &configpb.MigrationConfig{
+		SourceUri:   *ctLogURI,
+		TrillianUri: *trillianURI,
+		LogId:       *logID,
+		BatchSize:   int32(*ctBatchSize),
+	}
+
+	if len(*pubKeyFile) != 0 {
+		pubKey, err := ioutil.ReadFile(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("Failed to read public key file: %v", err)
+		}
+		cfg.PublicKey = &keyspb.PublicKey{Der: pubKey}
+	}
+
+	if err := core.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// getHTTPClient returns an HTTP client created from flags.
+func getHTTPClient() *http.Client {
+	transport := &http.Transport{
+		TLSHandshakeTimeout:   30 * time.Second,
+		DisableKeepAlives:     false,
+		MaxIdleConns:          *maxIdleConns,
+		MaxIdleConnsPerHost:   *maxIdleConnsPerHost,
+		IdleConnTimeout:       90 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	// TODO(pavelkalinnikov): Make the timeout tunable.
+	return &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: transport,
 	}
 }
 
