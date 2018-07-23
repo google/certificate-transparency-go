@@ -18,9 +18,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -38,17 +38,11 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/util"
 )
 
 var (
 	cfgPath = flag.String("config", "", "Path to migration config file")
-
-	ctLogURI    = flag.String("ct_log_uri", "https://ct.googleapis.com/aviator", "CT log base URI to fetch entries from")
-	pubKeyFile  = flag.String("pub_key", "", "Name of file containing CT log's public key in DER-encoded PKIX form")
-	trillianURI = flag.String("trillian_uri", "localhost:8090", "Trillian log server URI to add entries to")
-	logID       = flag.Int64("log_id", 0, "Trillian log tree ID to add entries to")
 
 	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
 	etcdServers = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
@@ -58,7 +52,6 @@ var (
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
 	dialTimeout         = flag.Duration("grpc_dial_timeout", 5*time.Second, "Timeout for dialling Trillian")
 
-	ctBatchSize      = flag.Int("ct_batch_size", 512, "Max number of entries to request per get-entries call")
 	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
 	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
 	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
@@ -134,28 +127,15 @@ func main() {
 	}
 }
 
-// getConfig returns the migration config loaded from a file, if specified, or
-// constructs one from flags. The config is validated.
+// getConfig returns a verified config loaded from the file specified in flags.
 func getConfig() (*configpb.MigrationConfig, error) {
-	if len(*cfgPath) != 0 {
-		return core.LoadConfigFromFile(*cfgPath)
+	if len(*cfgPath) == 0 {
+		return nil, errors.New("config file not specified")
 	}
-
-	cfg := &configpb.MigrationConfig{
-		SourceUri:   *ctLogURI,
-		TrillianUri: *trillianURI,
-		LogId:       *logID,
-		BatchSize:   int32(*ctBatchSize),
+	cfg, err := core.LoadConfigFromFile(*cfgPath)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(*pubKeyFile) != 0 {
-		pubKey, err := ioutil.ReadFile(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("Failed to read public key file: %v", err)
-		}
-		cfg.PublicKey = &keyspb.PublicKey{Der: pubKey}
-	}
-
 	if err := core.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -188,7 +168,7 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 		return nil, err
 	}
 	log := trillian.NewTrillianLogClient(conn)
-	pref := fmt.Sprintf("%d", *logID)
+	pref := fmt.Sprintf("%d", treeID)
 	return core.NewPreorderedLogClient(log, tree, pref)
 }
 
