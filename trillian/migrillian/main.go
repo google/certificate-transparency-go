@@ -55,10 +55,6 @@ var (
 	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
 	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
 	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
-
-	startIndex = flag.Int64("start_index", 0, "CT log index to start scanning at")
-	endIndex   = flag.Int64("end_index", 0, "CT log index to end scanning at (non-inclusive, 0 = end of log)")
-	mirror     = flag.Bool("mirror", false, "Run migration continuously")
 )
 
 func main() {
@@ -68,7 +64,7 @@ func main() {
 
 	cfg, err := getConfig()
 	if err != nil {
-		glog.Exitf("Failed to load/construct MigrationConfig: %v", err)
+		glog.Exitf("Failed to load MigrationConfig: %v", err)
 	}
 
 	var ctOpts jsonclient.Options
@@ -106,9 +102,9 @@ func main() {
 		FetcherOptions: scanner.FetcherOptions{
 			BatchSize:     int(cfg.BatchSize),
 			ParallelFetch: *ctFetchers,
-			StartIndex:    *startIndex,
-			EndIndex:      *endIndex,
-			Continuous:    *mirror,
+			StartIndex:    cfg.StartIndex,
+			EndIndex:      cfg.EndIndex,
+			Continuous:    cfg.IsContinuous,
 		},
 		Submitters:          *submitters,
 		BatchesPerSubmitter: *submitterBatches,

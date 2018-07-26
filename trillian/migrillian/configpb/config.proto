@@ -21,18 +21,32 @@ import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
 // MigrationConfig describes the configuration options for a single CT log
 // migration instance.
 message MigrationConfig {
-  // The URI for the source CT log.
+  // The URI of the source CT log, e.g. "https://ct.googleapis.com/pilot".
   string source_uri = 1;
   // The public key of the source log.
   keyspb.PublicKey public_key = 2;
 
-  // Trillian backend URI specification.
+  // Trillian backend RPC endpoint (host:port), e.g. "localhost:8090".
+  // TODO(pavelkalinnikov): Reference a CTFE's LogBackend by name.
   string trillian_uri = 3;
   // The ID of a Trillian PREORDERED_LOG tree that stores the log data.
   int64 log_id = 4;
 
-  // Max number of entries per get-entries request from this log.
+  // Max number of entries per get-entries request from the source log.
   int32 batch_size = 5;
+
+  // Determines whether the migration should run continuously, i.e. watch and
+  // follow the updates of the source log's STH. For example, this mode can be
+  // used to support a mirror CT log.
+  bool is_continuous = 6;
+  // The log entry index to start fetching at. Ignored in continuous mode which
+  // starts at the point where it stopped (e.g. the current Trillian tree size
+  // in a simple case).
+  int64 start_index = 7;
+  // The log index to end fetching at, non-inclusive. If zero, fetch up to the
+  // source log's current STH. Ignored in continuous mode which keeps updating
+  // STH and fetching up to that.
+  int64 end_index = 8;
 
   // TODO(pavelkalinnikov): Fetch and push quotas, priorities, etc.
 }
