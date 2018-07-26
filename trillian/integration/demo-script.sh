@@ -34,7 +34,7 @@ echo 'Start a Trillian Log server (do in separate terminal)'
 ./trillian_log_server --rpc_endpoint=localhost:6962 --http_endpoint=localhost:6963 --logtostderr &
 
 echo 'Start a Trillian Log signer (do in separate terminal)'
-./trillian_log_signer --force_master --sequencer_interval=1s --batch_size=500 --http_endpoint=localhost:6964 --num_sequencers 2 --logtostderr &
+./trillian_log_signer --force_master --sequencer_interval=1s --batch_size=500 --rpc_endpoint=localhost:6961 --http_endpoint=localhost:6964 --num_sequencers 2 --logtostderr &
 
 echo 'Wait for things to come up'
 sleep 8
