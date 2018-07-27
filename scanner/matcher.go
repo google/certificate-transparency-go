@@ -133,6 +133,20 @@ func (m MatchIssuerRegex) PrecertificateMatches(p *ct.Precertificate) bool {
 	return m.PrecertificateIssuerRegex.FindStringIndex(p.TBSCertificate.Issuer.CommonName) != nil
 }
 
+// MatchSCTTimestamp is a matcher which matches leaf entries with the specified Timestamp.
+type MatchSCTTimestamp struct {
+	Timestamp uint64
+}
+
+func (m MatchSCTTimestamp) Matches(leaf *ct.LeafEntry) bool {
+	entry, _ := ct.LogEntryFromLeaf(1, leaf)
+	if entry == nil {
+		// Can't validate if we can't parse
+		return false
+	}
+	return entry.Leaf.TimestampedEntry.Timestamp == m.Timestamp
+}
+
 // LeafMatcher describes how to match log entries, based on the Log LeafEntry
 // (which includes the unparsed [pre-]certificate; clients should implement this
 // interface to perform their own match criteria.
