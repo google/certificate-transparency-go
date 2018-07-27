@@ -138,6 +138,8 @@ type MatchSCTTimestamp struct {
 	Timestamp uint64
 }
 
+// Matches returns true if the timestamp embedded in the leaf matches the one
+// specified by this matcher.
 func (m MatchSCTTimestamp) Matches(leaf *ct.LeafEntry) bool {
 	entry, _ := ct.LogEntryFromLeaf(1, leaf)
 	if entry == nil {

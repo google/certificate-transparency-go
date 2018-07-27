@@ -45,7 +45,7 @@ var (
 	matchIssuerRegex  = flag.String("match_issuer_regex", "", "Regex to match in issuer CN")
 	precertsOnly      = flag.Bool("precerts_only", false, "Only match precerts")
 	serialNumber      = flag.String("serial_number", "", "Serial number of certificate of interest")
-	sctTimestamp      = flag.Uint64("sct_timestamp", 0, "Timestamp of logged SCT")
+	sctTimestamp      = flag.Uint64("sct_timestamp_ms", 0, "Timestamp of logged SCT")
 
 	parseErrors    = flag.Bool("parse_errors", false, "Only match certificates with parse errors")
 	nfParseErrors  = flag.Bool("non_fatal_errors", false, "Treat non-fatal parse errors as also matching (with --parse_errors)")
