@@ -8,9 +8,39 @@
 // can be used to override the system default locations for the SSL certificate
 // file and SSL certificate files directory, respectively.
 //
-// This is a fork of the go library crypto/x509 package, it's more relaxed
-// about certificates that it'll accept, and exports the TBSCertificate
-// structure.
+// This is a fork of the Go library crypto/x509 package, primarily adapted for
+// use with Certificate Transparency.  Main areas of difference are:
+//
+//  - Life as a fork:
+//     - Rename OS-specific cgo code so it doesn't clash with main Go library.
+//     - Use local library imports (asn1, pkix) throughout.
+//     - Add version-specific wrappers for Go version-incompatible code (in
+//       nilref_*_darwin.go, ptr_*_windows.go).
+//  - Laxer certificate parsing:
+//     - Add options to disable various validation checks (times, EKUs etc).
+//     - Use NonFatalErrors type for some errors and continue parsing; this
+//       can be checked with IsFatal(err).
+//  - Certificate Transparency specific function:
+//     - Parsing and marshaling of SCTList extension.
+//     - RemoveSCTList() function for rebuilding CT leaf entry.
+//     - Pre-certificate processing (RemoveCTPoison(), BuildPrecertTBS(),
+//       ParseTBSCertificate(), IsPrecertificate()).
+//  - Revocation list processing:
+//     - Detailed CRL parsing (in revoked.go)
+//     - Detailed error recording mechanism (in error.go, errors.go)
+//     - Factor out parseDistributionPoints() for reuse.
+//     - Factor out and generalize GeneralNames parsing (in names.go)
+//     - Fix CRL commenting.
+//  - RPKI support:
+//     - Support for SubjectInfoAccess extension
+//     - Support for RFC3779 extensions (in rpki.go)
+//  - General improvements:
+//     - Export and use OID values throughout.
+//     - Export OIDFromNamedCurve().
+//     - Export SignatureAlgorithmFromAI().
+//     - Add OID value to UnhandledCriticalExtension error.
+//     - Minor typo/lint fixes.
+
 package x509
 
 import (
