@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/trillian/crypto/keys/der"
 )
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
@@ -78,6 +79,63 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 	return &cfg, nil
 }
 
+// ValidateLogConfig checks that a signle log config is valid. In particular:
+//  - A mirror log has a valid public key and no private key.
+//  - A non-mirror log has a private, and optionally a public key (both valid).
+//  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
+//    proto. If both are set then NotBeforeStart <= NotBeforeLimit.
+//
+// TODO(pavelkalinnikov): Return the parsed values so that we don't have to
+// parse them again after validation.
+func ValidateLogConfig(cfg *configpb.LogConfig) error {
+	if cfg.LogId == 0 {
+		return errors.New("empty log ID")
+	}
+	var err error
+
+	// Validate the public key.
+	pubKey := cfg.PublicKey
+	if pubKey != nil {
+		if _, err = der.UnmarshalPublicKey(pubKey.Der); err != nil {
+			return fmt.Errorf("invalid public key: %v", err)
+		}
+	} else if cfg.IsMirror {
+		return errors.New("empty public key")
+	}
+
+	// Validate the private key.
+	if !cfg.IsMirror {
+		if cfg.PrivateKey == nil {
+			return errors.New("empty private key")
+		}
+		var keyProto ptypes.DynamicAny
+		if err = ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+			return fmt.Errorf("invalid private key: %v", err)
+		}
+	} else if cfg.PrivateKey != nil {
+		return errors.New("unnecessary private key")
+	}
+
+	// Validate NotAfter time interval.
+	start, limit := cfg.NotAfterStart, cfg.NotAfterLimit
+	var tStart, tLimit time.Time
+	if start != nil {
+		if tStart, err = ptypes.Timestamp(start); err != nil {
+			return fmt.Errorf("invalid start timestamp %v: %v", start, err)
+		}
+	}
+	if limit != nil {
+		if tLimit, err = ptypes.Timestamp(limit); err != nil {
+			return fmt.Errorf("invalid limit timestamp %v: %v", limit, err)
+		}
+	}
+	if start != nil && limit != nil && tLimit.Before(tStart) {
+		return errors.New("limit before start")
+	}
+
+	return nil
+}
+
 // ValidateLogMultiConfig checks that a config is valid for use with multiple
 // backend log servers. The rules applied are:
 //
@@ -86,12 +144,10 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 // 2. The backend specs must all be distinct.
 // 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
-// 4. If NotBeforeStart or NotBeforeLimit are set for a log then these fields
-// must be valid timestamp protos. If both are set then NotBeforeLimit must
-// not be before NotBeforeStart.
-// 5. The prefixes of configured logs must all be distinct and must not be
+// 4. The prefixes of configured logs must all be distinct and must not be
 // empty.
-// 6. The set of tree ids for each configured backend must be distinct.
+// 5. The set of tree ids for each configured backend must be distinct.
+// 6. All log configs must be valid (see ValidateLogConfig).
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)
@@ -101,7 +157,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 			return nil, fmt.Errorf("empty backend name: %v", backend)
 		}
 		if len(backend.BackendSpec) == 0 {
-			return nil, fmt.Errorf("empty backend_spec for backend: %v", backend)
+			return nil, fmt.Errorf("empty backend spec: %v", backend)
 		}
 		if _, ok := backendMap[backend.Name]; ok {
 			return nil, fmt.Errorf("duplicate backend name: %v", backend)
@@ -118,6 +174,9 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 	logNameMap := make(map[string]bool)
 	logIDMap := make(map[string]bool)
 	for _, logCfg := range cfg.LogConfigs.Config {
+		if err := ValidateLogConfig(logCfg); err != nil {
+			return nil, fmt.Errorf("log config: %v: %v", err, logCfg)
+		}
 		if len(logCfg.Prefix) == 0 {
 			return nil, fmt.Errorf("log config: empty prefix: %v", logCfg)
 		}
@@ -131,26 +190,6 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 		logIDKey := fmt.Sprintf("%s-%d", logCfg.LogBackendName, logCfg.LogId)
 		if ok := logIDMap[logIDKey]; ok {
 			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
-		}
-		var err error
-		var tStart time.Time
-		start := logCfg.GetNotAfterStart()
-		if start != nil {
-			tStart, err = ptypes.Timestamp(start)
-			if err != nil {
-				return nil, fmt.Errorf("log_config: invalid start timestamp %v for: %v", err, logCfg)
-			}
-		}
-		var tLimit time.Time
-		limit := logCfg.GetNotAfterLimit()
-		if limit != nil {
-			tLimit, err = ptypes.Timestamp(limit)
-			if err != nil {
-				return nil, fmt.Errorf("log_config: invalid limit timestamp %v for: %v", err, logCfg)
-			}
-		}
-		if start != nil && limit != nil && tLimit.Before(tStart) {
-			return nil, fmt.Errorf("log_config: limit before start for: %v", logCfg)
 		}
 		logIDMap[logIDKey] = true
 	}
