@@ -107,6 +107,15 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "unknown-ext-key-usage",
+			wantErr: "unknown extended key usage",
+			cfg: configpb.LogConfig{
+				LogId:        123,
+				PrivateKey:   privKey,
+				ExtKeyUsages: []string{"wrong_usage"},
+			},
+		},
+		{
 			desc:    "invalid-start-timestamp",
 			wantErr: "invalid start timestamp",
 			cfg: configpb.LogConfig{
@@ -161,6 +170,14 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc: "ok-ext-key-usages",
+			cfg: configpb.LogConfig{
+				LogId:        123,
+				PrivateKey:   privKey,
+				ExtKeyUsages: []string{"ServerAuth", "ClientAuth", "OCSPSigning"},
+			},
+		},
+		{
 			desc: "ok-start-timestamp",
 			cfg: configpb.LogConfig{
 				LogId:         123,
@@ -187,13 +204,17 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := ValidateLogConfig(&tc.cfg)
+			vc, err := ValidateLogConfig(&tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
 				t.Errorf("ValidateLogConfig()=%v, want nil", err)
 			}
 			if len(tc.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
 				t.Errorf("ValidateLogConfig()=%v, want err containing %q", err, tc.wantErr)
 			}
+			if err == nil && vc == nil {
+				t.Error("err and ValidatedLogConfig are both nil")
+			}
+			// TODO(pavelkalinnikov): Test that ValidatedLogConfig is correct.
 		})
 	}
 }

@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -30,21 +29,6 @@ import (
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
 )
-
-var stringToKeyUsage = map[string]x509.ExtKeyUsage{
-	"Any":                        x509.ExtKeyUsageAny,
-	"ServerAuth":                 x509.ExtKeyUsageServerAuth,
-	"ClientAuth":                 x509.ExtKeyUsageClientAuth,
-	"CodeSigning":                x509.ExtKeyUsageCodeSigning,
-	"EmailProtection":            x509.ExtKeyUsageEmailProtection,
-	"IPSECEndSystem":             x509.ExtKeyUsageIPSECEndSystem,
-	"IPSECTunnel":                x509.ExtKeyUsageIPSECTunnel,
-	"IPSECUser":                  x509.ExtKeyUsageIPSECUser,
-	"TimeStamping":               x509.ExtKeyUsageTimeStamping,
-	"OCSPSigning":                x509.ExtKeyUsageOCSPSigning,
-	"MicrosoftServerGatedCrypto": x509.ExtKeyUsageMicrosoftServerGatedCrypto,
-	"NetscapeServerGatedCrypto":  x509.ExtKeyUsageNetscapeServerGatedCrypto,
-}
 
 // InstanceOptions describes the options for a log instance.
 type InstanceOptions struct {
@@ -98,13 +82,20 @@ func SetUpMirrorInstance(ctx context.Context, opts InstanceOptions, stor MirrorS
 }
 
 func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
-	cfg := opts.Config
+	// TODO(pavelkalinnikov): Callers of SetUp[Mirror]Instance usually validate
+	// the config beforehand, so we should pass ValidatedLogConfig in directly to
+	// encourage that.
+	vCfg, err := ValidateLogConfig(opts.Config)
+	if err != nil {
+		return nil, err
+	}
+	cfg := vCfg.Config
 
 	// Check config validity.
 	if !cfg.IsMirror && len(cfg.RootsPemFile) == 0 {
 		return nil, errors.New("need to specify RootsPemFile")
 	}
-	// Load the trusted roots
+	// Load the trusted roots.
 	roots := NewPEMCertPool()
 	for _, pemFile := range cfg.RootsPemFile {
 		if err := roots.AppendCertsFromPEMFile(pemFile); err != nil {
@@ -114,66 +105,19 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 
 	var signer crypto.Signer
 	if !cfg.IsMirror {
-		if cfg.PrivateKey == nil {
-			return nil, errors.New("need to specify PrivateKey")
-		}
-		// Load the private key for this log.
-		var keyProto ptypes.DynamicAny
-		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
-		}
 		var err error
-		if signer, err = keys.NewSigner(ctx, keyProto.Message); err != nil {
+		if signer, err = keys.NewSigner(ctx, vCfg.PrivKey.Message); err != nil {
 			return nil, fmt.Errorf("failed to load private key: %v", err)
 		}
-	} else {
-		if cfg.PrivateKey != nil {
-			return nil, errors.New("mirror needs no PrivateKey")
-		}
-		if cfg.PublicKey == nil {
-			return nil, errors.New("need to specify PublicKey")
-		}
-	}
-
-	// TODO(pavelkalinnikov): Move this to ValidateLogConfig.
-	var keyUsages []x509.ExtKeyUsage
-	if len(cfg.ExtKeyUsages) > 0 {
-		for _, kuStr := range cfg.ExtKeyUsages {
-			if ku, present := stringToKeyUsage[kuStr]; present {
-				keyUsages = append(keyUsages, ku)
-			} else {
-				return nil, fmt.Errorf("unknown extended key usage: %s", kuStr)
-			}
-		}
-	} else {
-		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
-	}
-
-	// TODO(pavelkalinnikov): Get these from ValidateLogConfig.
-	var naStart, naLimit *time.Time
-
-	if cfg.NotAfterStart != nil {
-		t, err := ptypes.Timestamp(cfg.NotAfterStart)
-		if err != nil {
-			return nil, fmt.Errorf("invalid not_after_start: %v", err)
-		}
-		naStart = &t
-	}
-	if cfg.NotAfterLimit != nil {
-		t, err := ptypes.Timestamp(cfg.NotAfterLimit)
-		if err != nil {
-			return nil, fmt.Errorf("invalid not_after_limit: %v", err)
-		}
-		naLimit = &t
 	}
 
 	validationOpts := CertValidationOpts{
 		trustedRoots:  roots,
 		rejectExpired: cfg.RejectExpired,
-		notAfterStart: naStart,
-		notAfterLimit: naLimit,
+		notAfterStart: vCfg.NotAfterStart,
+		notAfterLimit: vCfg.NotAfterLimit,
 		acceptOnlyCA:  cfg.AcceptOnlyCa,
-		extKeyUsages:  keyUsages,
+		extKeyUsages:  vCfg.KeyUsages,
 	}
 
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
