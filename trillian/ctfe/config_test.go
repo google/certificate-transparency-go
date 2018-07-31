@@ -435,7 +435,7 @@ func TestToMultiLogConfig(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			got := ToMultiLogConfig(tc.cfg, "spec")
 			if !proto.Equal(got, tc.want) {
-				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, test.want)
+				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, tc.want)
 			}
 		})
 	}
