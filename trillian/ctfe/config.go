@@ -79,7 +79,7 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 	return &cfg, nil
 }
 
-// ValidateLogConfig checks that a signle log config is valid. In particular:
+// ValidateLogConfig checks that a single log config is valid. In particular:
 //  - A mirror log has a valid public key and no private key.
 //  - A non-mirror log has a private, and optionally a public key (both valid).
 //  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
@@ -91,16 +91,14 @@ func ValidateLogConfig(cfg *configpb.LogConfig) error {
 	if cfg.LogId == 0 {
 		return errors.New("empty log ID")
 	}
-	var err error
 
 	// Validate the public key.
-	pubKey := cfg.PublicKey
-	if pubKey != nil {
-		if _, err = der.UnmarshalPublicKey(pubKey.Der); err != nil {
+	if pubKey := cfg.PublicKey; pubKey != nil {
+		if _, err := der.UnmarshalPublicKey(pubKey.Der); err != nil {
 			return fmt.Errorf("invalid public key: %v", err)
 		}
 	} else if cfg.IsMirror {
-		return errors.New("empty public key")
+		return errors.New("empty public key for mirror")
 	}
 
 	// Validate the private key.
@@ -109,16 +107,17 @@ func ValidateLogConfig(cfg *configpb.LogConfig) error {
 			return errors.New("empty private key")
 		}
 		var keyProto ptypes.DynamicAny
-		if err = ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
 			return fmt.Errorf("invalid private key: %v", err)
 		}
 	} else if cfg.PrivateKey != nil {
-		return errors.New("unnecessary private key")
+		return errors.New("unnecessary private key for mirror")
 	}
 
-	// Validate NotAfter time interval.
+	// Validate time interval.
 	start, limit := cfg.NotAfterStart, cfg.NotAfterLimit
 	var tStart, tLimit time.Time
+	var err error
 	if start != nil {
 		if tStart, err = ptypes.Timestamp(start); err != nil {
 			return fmt.Errorf("invalid start timestamp %v: %v", start, err)

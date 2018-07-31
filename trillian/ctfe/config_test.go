@@ -50,11 +50,6 @@ func mustMarshalAny(pb proto.Message) *any.Any {
 }
 
 func TestValidateLogConfig(t *testing.T) {
-	// Note: Substituting this as a PrivateKey will not fail the validation,
-	// because the actual key loading happens at runtime.
-	// TODO(pavelkalinnikov): Decouple key protos validation and loading.
-	notAPrivKey := mustMarshalAny(&configpb.LogConfig{})
-
 	for _, tc := range []struct {
 		desc    string
 		cfg     configpb.LogConfig
@@ -147,11 +142,14 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
-			// TODO(pavelkalinnikov): Make this test fail.
+			// Note: Substituting an arbitrary proto.Message as a PrivateKey will not
+			// fail the validation because the actual key loading happens at runtime.
+			// TODO(pavelkalinnikov): Decouple key protos validation and loading, and
+			// make this test fail.
 			desc: "ok-not-a-key",
 			cfg: configpb.LogConfig{
 				LogId:      123,
-				PrivateKey: notAPrivKey,
+				PrivateKey: mustMarshalAny(&configpb.LogConfig{}),
 			},
 		},
 		{
@@ -191,10 +189,10 @@ func TestValidateLogConfig(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			err := ValidateLogConfig(&tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
-				t.Errorf("ValidateLogConfig(): %v", err)
+				t.Errorf("ValidateLogConfig()=%v, want nil", err)
 			}
 			if len(tc.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
-				t.Errorf("ValidateLogConfig() returned %v, want %v", err, tc.wantErr)
+				t.Errorf("ValidateLogConfig()=%v, want err containing %q", err, tc.wantErr)
 			}
 		})
 	}
@@ -378,10 +376,10 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := ValidateLogMultiConfig(&tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
-				t.Fatalf("ValidateLogMultiConfig()=%v, want: nil", err)
+				t.Fatalf("ValidateLogMultiConfig()=%v, want nil", err)
 			}
 			if len(tc.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
-				t.Errorf("ValidateLogMultiConfig()=%v, want: %v", err, tc.wantErr)
+				t.Errorf("ValidateLogMultiConfig()=%v, want err containing %q", err, tc.wantErr)
 			}
 		})
 	}
@@ -433,7 +431,7 @@ func TestToMultiLogConfig(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			got := ToMultiLogConfig(test.cfg, "spec")
 			if !proto.Equal(got, test.want) {
-				t.Errorf("TestToMultiLogConfig() got: %v, want: %v", got, test.want)
+				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, test.want)
 			}
 		})
 	}
