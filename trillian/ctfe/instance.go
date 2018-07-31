@@ -135,6 +135,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		}
 	}
 
+	// TODO(pavelkalinnikov): Move this to ValidateLogConfig.
 	var keyUsages []x509.ExtKeyUsage
 	if len(cfg.ExtKeyUsages) > 0 {
 		for _, kuStr := range cfg.ExtKeyUsages {
@@ -148,6 +149,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		keyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 	}
 
+	// TODO(pavelkalinnikov): Get these from ValidateLogConfig.
 	var naStart, naLimit *time.Time
 
 	if cfg.NotAfterStart != nil {
