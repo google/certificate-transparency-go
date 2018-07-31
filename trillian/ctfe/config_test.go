@@ -386,6 +386,10 @@ func TestValidateLogMultiConfig(t *testing.T) {
 }
 
 func TestToMultiLogConfig(t *testing.T) {
+	// TODO(pavelkalinnikov): Log configs in this test are not valid (they don't
+	// have keys etc). In addition, we should have tests to ensure that valid log
+	// configs result in valid MultiLogConfig.
+
 	for _, tc := range []struct {
 		desc string
 		cfg  []*configpb.LogConfig
@@ -431,7 +435,7 @@ func TestToMultiLogConfig(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			got := ToMultiLogConfig(tc.cfg, "spec")
 			if !proto.Equal(got, tc.want) {
-        t.Errorf("TestToMultiLogConfig()=%v, want %v", got, test.want)
+				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, test.want)
 			}
 		})
 	}
