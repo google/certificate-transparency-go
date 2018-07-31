@@ -386,13 +386,17 @@ func TestValidateLogMultiConfig(t *testing.T) {
 }
 
 func TestToMultiLogConfig(t *testing.T) {
-	var tests = []struct {
+	// TODO(pavelkalinnikov): Log configs in this test are not valid (they don't
+	// have keys etc). In addition, we should have tests to ensure that valid log
+	// configs result in valid MultiLogConfig.
+
+	for _, tc := range []struct {
 		desc string
 		cfg  []*configpb.LogConfig
 		want *configpb.LogMultiConfig
 	}{
 		{
-			desc: "one valid log config",
+			desc: "ok-one-config",
 			cfg: []*configpb.LogConfig{
 				{LogId: 1, Prefix: "test"},
 			},
@@ -401,12 +405,14 @@ func TestToMultiLogConfig(t *testing.T) {
 					Backend: []*configpb.LogBackend{{Name: "default", BackendSpec: "spec"}},
 				},
 				LogConfigs: &configpb.LogConfigSet{
-					Config: []*configpb.LogConfig{{Prefix: "test", LogId: 1, LogBackendName: "default"}},
+					Config: []*configpb.LogConfig{
+						{LogId: 1, Prefix: "test", LogBackendName: "default"},
+					},
 				},
 			},
 		},
 		{
-			desc: "three valid log configs",
+			desc: "ok-three-configs",
 			cfg: []*configpb.LogConfig{
 				{LogId: 1, Prefix: "test1"},
 				{LogId: 2, Prefix: "test2"},
@@ -418,20 +424,18 @@ func TestToMultiLogConfig(t *testing.T) {
 				},
 				LogConfigs: &configpb.LogConfigSet{
 					Config: []*configpb.LogConfig{
-						{Prefix: "test1", LogId: 1, LogBackendName: "default"},
-						{Prefix: "test2", LogId: 2, LogBackendName: "default"},
-						{Prefix: "test3", LogId: 3, LogBackendName: "default"},
+						{LogId: 1, Prefix: "test1", LogBackendName: "default"},
+						{LogId: 2, Prefix: "test2", LogBackendName: "default"},
+						{LogId: 3, Prefix: "test3", LogBackendName: "default"},
 					},
 				},
 			},
 		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			got := ToMultiLogConfig(test.cfg, "spec")
-			if !proto.Equal(got, test.want) {
-				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, test.want)
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			got := ToMultiLogConfig(tc.cfg, "spec")
+			if !proto.Equal(got, tc.want) {
+				t.Errorf("TestToMultiLogConfig()=%v, want %v", got, tc.want)
 			}
 		})
 	}
