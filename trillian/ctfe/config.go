@@ -15,6 +15,7 @@
 package ctfe
 
 import (
+	"crypto"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -23,8 +24,20 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/crypto/keys/der"
 )
+
+// ValidatedLogConfig represents the LogConfig with the information that has
+// been successfully parsed as a result of validating it.
+type ValidatedLogConfig struct {
+	Config        *configpb.LogConfig
+	PubKey        crypto.PublicKey
+	PrivKey       ptypes.DynamicAny
+	KeyUsages     []x509.ExtKeyUsage
+	NotAfterStart *time.Time
+	NotAfterLimit *time.Time
+}
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
 // filename, which should contain text-protobuf encoded configuration data.
@@ -84,55 +97,68 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 //  - A non-mirror log has a private, and optionally a public key (both valid).
 //  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
 //    proto. If both are set then NotBeforeStart <= NotBeforeLimit.
-//
-// TODO(pavelkalinnikov): Return the parsed values so that we don't have to
-// parse them again after validation.
-func ValidateLogConfig(cfg *configpb.LogConfig) error {
+// Returns the validated structures (useful to avoid double validation).
+func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	if cfg.LogId == 0 {
-		return errors.New("empty log ID")
+		return nil, errors.New("empty log ID")
 	}
+
+	var err error
+	vCfg := ValidatedLogConfig{Config: cfg}
 
 	// Validate the public key.
 	if pubKey := cfg.PublicKey; pubKey != nil {
-		if _, err := der.UnmarshalPublicKey(pubKey.Der); err != nil {
-			return fmt.Errorf("invalid public key: %v", err)
+		if vCfg.PubKey, err = der.UnmarshalPublicKey(pubKey.Der); err != nil {
+			return nil, fmt.Errorf("invalid public key: %v", err)
 		}
 	} else if cfg.IsMirror {
-		return errors.New("empty public key for mirror")
+		return nil, errors.New("empty public key for mirror")
 	}
 
 	// Validate the private key.
 	if !cfg.IsMirror {
 		if cfg.PrivateKey == nil {
-			return errors.New("empty private key")
+			return nil, errors.New("empty private key")
 		}
-		var keyProto ptypes.DynamicAny
-		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-			return fmt.Errorf("invalid private key: %v", err)
+		if err = ptypes.UnmarshalAny(cfg.PrivateKey, &vCfg.PrivKey); err != nil {
+			return nil, fmt.Errorf("invalid private key: %v", err)
 		}
 	} else if cfg.PrivateKey != nil {
-		return errors.New("unnecessary private key for mirror")
+		return nil, errors.New("unnecessary private key for mirror")
 	}
 
-	// Validate time interval.
+	// Validate the extended key usages list.
+	if len(cfg.ExtKeyUsages) > 0 {
+		for _, kuStr := range cfg.ExtKeyUsages {
+			if ku, ok := stringToKeyUsage[kuStr]; ok {
+				vCfg.KeyUsages = append(vCfg.KeyUsages, ku)
+			} else {
+				return nil, fmt.Errorf("unknown extended key usage: %s", kuStr)
+			}
+		}
+	} else {
+		vCfg.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+	}
+
+	// Validate the time interval.
 	start, limit := cfg.NotAfterStart, cfg.NotAfterLimit
-	var tStart, tLimit time.Time
-	var err error
 	if start != nil {
-		if tStart, err = ptypes.Timestamp(start); err != nil {
-			return fmt.Errorf("invalid start timestamp %v: %v", start, err)
+		vCfg.NotAfterStart = &time.Time{}
+		if *vCfg.NotAfterStart, err = ptypes.Timestamp(start); err != nil {
+			return nil, fmt.Errorf("invalid start timestamp: %v", err)
 		}
 	}
 	if limit != nil {
-		if tLimit, err = ptypes.Timestamp(limit); err != nil {
-			return fmt.Errorf("invalid limit timestamp %v: %v", limit, err)
+		vCfg.NotAfterLimit = &time.Time{}
+		if *vCfg.NotAfterLimit, err = ptypes.Timestamp(limit); err != nil {
+			return nil, fmt.Errorf("invalid limit timestamp: %v", err)
 		}
 	}
-	if start != nil && limit != nil && tLimit.Before(tStart) {
-		return errors.New("limit before start")
+	if start != nil && limit != nil && (*vCfg.NotAfterLimit).Before(*vCfg.NotAfterStart) {
+		return nil, errors.New("limit before start")
 	}
 
-	return nil
+	return &vCfg, nil
 }
 
 // ValidateLogMultiConfig checks that a config is valid for use with multiple
@@ -147,6 +173,9 @@ func ValidateLogConfig(cfg *configpb.LogConfig) error {
 // empty.
 // 5. The set of tree ids for each configured backend must be distinct.
 // 6. All log configs must be valid (see ValidateLogConfig).
+//
+// TODO(pavelkalinnikov): Replace the returned map with a fully fledged
+// ValidatedLogMultiConfig that contains a ValidatedLogConfig for each log.
 func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
 	// Check the backends have unique non empty names and build the map.
 	backendMap := make(map[string]*configpb.LogBackend)
@@ -173,7 +202,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 	logNameMap := make(map[string]bool)
 	logIDMap := make(map[string]bool)
 	for _, logCfg := range cfg.LogConfigs.Config {
-		if err := ValidateLogConfig(logCfg); err != nil {
+		if _, err := ValidateLogConfig(logCfg); err != nil {
 			return nil, fmt.Errorf("log config: %v: %v", err, logCfg)
 		}
 		if len(logCfg.Prefix) == 0 {
@@ -194,4 +223,19 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.
 	}
 
 	return backendMap, nil
+}
+
+var stringToKeyUsage = map[string]x509.ExtKeyUsage{
+	"Any":                        x509.ExtKeyUsageAny,
+	"ServerAuth":                 x509.ExtKeyUsageServerAuth,
+	"ClientAuth":                 x509.ExtKeyUsageClientAuth,
+	"CodeSigning":                x509.ExtKeyUsageCodeSigning,
+	"EmailProtection":            x509.ExtKeyUsageEmailProtection,
+	"IPSECEndSystem":             x509.ExtKeyUsageIPSECEndSystem,
+	"IPSECTunnel":                x509.ExtKeyUsageIPSECTunnel,
+	"IPSECUser":                  x509.ExtKeyUsageIPSECUser,
+	"TimeStamping":               x509.ExtKeyUsageTimeStamping,
+	"OCSPSigning":                x509.ExtKeyUsageOCSPSigning,
+	"MicrosoftServerGatedCrypto": x509.ExtKeyUsageMicrosoftServerGatedCrypto,
+	"NetscapeServerGatedCrypto":  x509.ExtKeyUsageNetscapeServerGatedCrypto,
 }

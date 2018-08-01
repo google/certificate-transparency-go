@@ -20,36 +20,38 @@ import (
 	"testing"
 	"time"
 
-	// Register PEMKeyFile ProtoHandler
-	ct "github.com/google/certificate-transparency-go"
-	_ "github.com/google/trillian/crypto/keys/pem/proto"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
+	_ "github.com/google/trillian/crypto/keys/pem/proto" // Register PEMKeyFile ProtoHandler.
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
 )
 
+func mustReadPublicKey(t *testing.T) *keyspb.PublicKey {
+	t.Helper()
+	pubKey, err := pem.ReadPublicKeyFile("../testdata/ct-http-server.pubkey.pem")
+	if err != nil {
+		t.Fatalf("ReadPublicKeyFile(): %v", err)
+	}
+	ret, err := der.ToPublicProto(pubKey)
+	if err != nil {
+		t.Fatalf("ToPublicProto(): %v", err)
+	}
+	return ret
+}
+
 func TestSetUpInstance(t *testing.T) {
 	ctx := context.Background()
 
-	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
-	if err != nil {
-		t.Fatalf("Could not marshal private key proto: %v", err)
-	}
-	// TODO(pavelkalinnikov): Load from "../testdata/ct-http-server.pubkey.pem".
-	pubKey := keyspb.PublicKey{Der: []byte{}}
-
-	missingPrivKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/bogus.privkey.pem", Password: "dirk"})
-	if err != nil {
-		t.Fatalf("Could not marshal private key proto: %v", err)
-	}
-
-	wrongPassPrivKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirkly"})
-	if err != nil {
-		t.Fatalf("Could not marshal private key proto: %v", err)
-	}
+	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
+	missingPrivKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/bogus.privkey.pem", Password: "dirk"})
+	wrongPassPrivKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirkly"})
+	pubKey := mustReadPublicKey(t)
 
 	var tests = []struct {
 		desc    string
@@ -71,7 +73,7 @@ func TestSetUpInstance(t *testing.T) {
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
-				PublicKey:    &pubKey,
+				PublicKey:    pubKey,
 				IsMirror:     true,
 			},
 		},
@@ -89,7 +91,7 @@ func TestSetUpInstance(t *testing.T) {
 			cfg: configpb.LogConfig{
 				LogId:     1,
 				Prefix:    "log",
-				PublicKey: &pubKey,
+				PublicKey: pubKey,
 				IsMirror:  true,
 			},
 		},
@@ -100,7 +102,7 @@ func TestSetUpInstance(t *testing.T) {
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
 			},
-			wantErr: "specify PrivateKey",
+			wantErr: "empty private key",
 		},
 		{
 			desc: "priv-key-mirror",
@@ -108,10 +110,10 @@ func TestSetUpInstance(t *testing.T) {
 				LogId:      1,
 				Prefix:     "log",
 				PrivateKey: privKey,
-				PublicKey:  &pubKey,
+				PublicKey:  pubKey,
 				IsMirror:   true,
 			},
-			wantErr: "needs no PrivateKey",
+			wantErr: "unnecessary private key",
 		},
 		{
 			desc: "no-pub-key-mirror",
@@ -120,7 +122,7 @@ func TestSetUpInstance(t *testing.T) {
 				Prefix:   "log",
 				IsMirror: true,
 			},
-			wantErr: "specify PublicKey",
+			wantErr: "empty public key",
 		},
 		{
 			desc: "missing-root-cert",
