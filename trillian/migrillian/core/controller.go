@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/golang/glog"
@@ -30,8 +31,31 @@ import (
 
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
+	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 )
+
+type metrics struct {
+	masterships    monitoring.Counter
+	masterCancels  monitoring.Counter
+	isMaster       monitoring.Gauge
+	entriesFetched monitoring.Counter
+	entriesSeen    monitoring.Counter
+	entriesStored  monitoring.Counter
+	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
+}
+
+func newMetrics(mf monitoring.MetricFactory) metrics {
+	const treeID = "treeID"
+	return metrics{
+		masterships:    mf.NewCounter("masterships", "Number of mastership runs.", treeID),
+		masterCancels:  mf.NewCounter("masterships_canceled", "Number of unexpected mastership cancelations.", treeID),
+		isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
+		entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
+		entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
+		entriesStored:  mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+	}
+}
 
 // Options holds configuration for a Controller.
 type Options struct {
@@ -53,14 +77,23 @@ type Controller struct {
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
 	ef       election.Factory
+
+	mon   metrics
+	label string
 }
 
 // NewController creates a Controller configured by the passed in options, CT
 // and Trillian clients, and a master election factory.
-func NewController(opts Options, ctClient *client.LogClient,
-	plClient *PreorderedLogClient, ef election.Factory,
+func NewController(
+	opts Options,
+	ctClient *client.LogClient,
+	plClient *PreorderedLogClient,
+	ef election.Factory,
+	mf monitoring.MetricFactory,
 ) *Controller {
-	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef}
+	m := newMetrics(mf)
+	label := strconv.FormatInt(plClient.tree.TreeId, 10)
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, mon: m, label: label}
 }
 
 // RunWhenMaster is a master-elected version of Run method. It executes Run
@@ -69,15 +102,15 @@ func NewController(opts Options, ctClient *client.LogClient,
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
-	logID := c.plClient.tree.TreeId
+	treeID := c.plClient.tree.TreeId
 
-	el, err := c.ef.NewElection(ctx, logID)
+	el, err := c.ef.NewElection(ctx, treeID)
 	if err != nil {
 		return err
 	}
 	defer func(ctx context.Context) {
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%d: Election.Close(): %v", logID, err)
+			glog.Warningf("%d: Election.Close(): %v", treeID, err)
 		}
 	}(ctx)
 
@@ -92,7 +125,8 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("Running as master for log %d", logID)
+		glog.Infof("Running as master for log %d", treeID)
+		c.mon.masterships.Inc(c.label)
 
 		// Run while still master (or until an error).
 		err = c.Run(mctx)
@@ -104,7 +138,9 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			// We are still the master, so emit the real error.
 			return err
 		}
+
 		// Otherwise the mastership has been canceled, retry.
+		c.mon.masterCancels.Inc(c.label)
 	}
 }
 
@@ -114,7 +150,9 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	logID := c.plClient.tree.TreeId
+	c.mon.isMaster.Set(1, c.label)
+	defer c.mon.isMaster.Set(0, c.label)
+	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
@@ -124,7 +162,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("%d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
+		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -154,6 +192,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	handler := func(b scanner.EntryBatch) {
+		c.mon.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
 	return fetcher.Run(ctx, handler)
@@ -196,12 +235,16 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // submits them through Trillian client. Returns when the channel is closed.
 func (c *Controller) runSubmitter(ctx context.Context) {
 	for b := range c.batches {
+		entries := float64(len(b.Entries))
+		c.mon.entriesSeen.Add(entries, c.label)
+
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
 			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
 			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
+			c.mon.entriesStored.Add(entries, c.label)
 		}
 	}
 }
