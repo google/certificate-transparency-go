@@ -36,7 +36,7 @@ import (
 )
 
 type metrics struct {
-	masterships    monitoring.Counter
+	masterRuns     monitoring.Counter
 	masterCancels  monitoring.Counter
 	isMaster       monitoring.Gauge
 	entriesFetched monitoring.Counter
@@ -48,8 +48,8 @@ type metrics struct {
 func newMetrics(mf monitoring.MetricFactory) metrics {
 	const treeID = "treeID"
 	return metrics{
-		masterships:    mf.NewCounter("masterships", "Number of mastership runs.", treeID),
-		masterCancels:  mf.NewCounter("masterships_canceled", "Number of unexpected mastership cancelations.", treeID),
+		masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
+		masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
 		isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
 		entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
 		entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
@@ -78,8 +78,8 @@ type Controller struct {
 	plClient *PreorderedLogClient
 	ef       election.Factory
 
-	mon   metrics
-	label string
+	metrics metrics
+	label   string
 }
 
 // NewController creates a Controller configured by the passed in options, CT
@@ -92,8 +92,8 @@ func NewController(
 	mf monitoring.MetricFactory,
 ) *Controller {
 	m := newMetrics(mf)
-	label := strconv.FormatInt(plClient.tree.TreeId, 10)
-	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, mon: m, label: label}
+	l := strconv.FormatInt(plClient.tree.TreeId, 10)
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, metrics: m, label: l}
 }
 
 // RunWhenMaster is a master-elected version of Run method. It executes Run
@@ -126,7 +126,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 
 		glog.Infof("Running as master for log %d", treeID)
-		c.mon.masterships.Inc(c.label)
+		c.metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
 		err = c.Run(mctx)
@@ -140,7 +140,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 
 		// Otherwise the mastership has been canceled, retry.
-		c.mon.masterCancels.Inc(c.label)
+		c.metrics.masterCancels.Inc(c.label)
 	}
 }
 
@@ -150,8 +150,8 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	c.mon.isMaster.Set(1, c.label)
-	defer c.mon.isMaster.Set(0, c.label)
+	c.metrics.isMaster.Set(1, c.label)
+	defer c.metrics.isMaster.Set(0, c.label)
 	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
@@ -192,7 +192,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	handler := func(b scanner.EntryBatch) {
-		c.mon.entriesFetched.Add(float64(len(b.Entries)), c.label)
+		c.metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
 	return fetcher.Run(ctx, handler)
@@ -236,7 +236,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 func (c *Controller) runSubmitter(ctx context.Context) {
 	for b := range c.batches {
 		entries := float64(len(b.Entries))
-		c.mon.entriesSeen.Add(entries, c.label)
+		c.metrics.entriesSeen.Add(entries, c.label)
 
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
@@ -244,7 +244,7 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
 		} else {
 			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
-			c.mon.entriesStored.Add(entries, c.label)
+			c.metrics.entriesStored.Add(entries, c.label)
 		}
 	}
 }
