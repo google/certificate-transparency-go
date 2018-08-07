@@ -144,6 +144,15 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "invalid-metadata",
+			wantErr: "invalid metadata",
+			cfg: configpb.LogConfig{
+				LogId:      123,
+				PrivateKey: privKey,
+				Metadata:   &any.Any{},
+			},
+		},
+		{
 			desc: "ok",
 			cfg: configpb.LogConfig{
 				LogId:      123,
@@ -200,6 +209,14 @@ func TestValidateLogConfig(t *testing.T) {
 				PrivateKey:    privKey,
 				NotAfterStart: &timestamp.Timestamp{Seconds: 300},
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 400},
+			},
+		},
+		{
+			desc: "ok-metadata",
+			cfg: configpb.LogConfig{
+				LogId:      123,
+				PrivateKey: privKey,
+				Metadata:   privKey, // Note: Any Any will do.
 			},
 		},
 	} {

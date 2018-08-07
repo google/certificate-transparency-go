@@ -101,6 +101,8 @@ message LogConfig {
   // log's key and can't sign STHs. Consequently, the log operator must ensure
   // to channel source log's STHs into CTFE.
   bool is_mirror = 12;
+  // Arbitrary environment-specific data. Optional.
+  google.protobuf.Any metadata = 14;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so

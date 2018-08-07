@@ -37,6 +37,7 @@ type ValidatedLogConfig struct {
 	KeyUsages     []x509.ExtKeyUsage
 	NotAfterStart *time.Time
 	NotAfterLimit *time.Time
+	Metadata      ptypes.DynamicAny
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
@@ -97,6 +98,7 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 //  - A non-mirror log has a private, and optionally a public key (both valid).
 //  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
 //    proto. If both are set then NotBeforeStart <= NotBeforeLimit.
+//  - Metadata field (if present) is a valid protobuf Any.
 // Returns the validated structures (useful to avoid double validation).
 func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	if cfg.LogId == 0 {
@@ -156,6 +158,12 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	}
 	if start != nil && limit != nil && (*vCfg.NotAfterLimit).Before(*vCfg.NotAfterStart) {
 		return nil, errors.New("limit before start")
+	}
+
+	if cfg.Metadata != nil {
+		if err := ptypes.UnmarshalAny(cfg.Metadata, &vCfg.Metadata); err != nil {
+			return nil, fmt.Errorf("invalid metadata: %v", err)
+		}
 	}
 
 	return &vCfg, nil
