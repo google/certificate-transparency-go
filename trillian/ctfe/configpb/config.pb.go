@@ -37,7 +37,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e9f4922c104c4f15, []int{0}
+	return fileDescriptor_config_95913d6ae26c7fa5, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -85,7 +85,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e9f4922c104c4f15, []int{1}
+	return fileDescriptor_config_95913d6ae26c7fa5, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -124,7 +124,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e9f4922c104c4f15, []int{2}
+	return fileDescriptor_config_95913d6ae26c7fa5, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -161,7 +161,7 @@ type LogConfig struct {
 	// which is common for both types.
 	LogId int64 `protobuf:"varint,1,opt,name=log_id,json=logId,proto3" json:"log_id,omitempty"`
 	// prefix is the name of the log. It will come after the global or
-	// custom handler prefix. For example if the handler prefix is "/logs"
+	// override handler prefix. For example if the handler prefix is "/logs"
 	// and prefix is "vogon" the get-sth handler for this log will be
 	// available at "/logs/vogon/ct/v1/get-sth". The prefix cannot be empty
 	// and must not include "/" path separator characters.
@@ -220,7 +220,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e9f4922c104c4f15, []int{3}
+	return fileDescriptor_config_95913d6ae26c7fa5, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -349,7 +349,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_e9f4922c104c4f15, []int{4}
+	return fileDescriptor_config_95913d6ae26c7fa5, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -391,9 +391,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_e9f4922c104c4f15) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_95913d6ae26c7fa5) }
 
-var fileDescriptor_config_e9f4922c104c4f15 = []byte{
+var fileDescriptor_config_95913d6ae26c7fa5 = []byte{
 	// 585 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x41, 0x6f, 0xd3, 0x4c,
 	0x10, 0x55, 0xbe, 0xb4, 0x69, 0x32, 0x4e, 0xf2, 0xc1, 0x42, 0x5b, 0x53, 0x0e, 0x84, 0x08, 0xa4,

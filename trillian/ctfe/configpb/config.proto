@@ -51,7 +51,7 @@ message LogConfig {
   // which is common for both types.
   int64 log_id = 1;
   // prefix is the name of the log. It will come after the global or
-  // custom handler prefix. For example if the handler prefix is "/logs"
+  // override handler prefix. For example if the handler prefix is "/logs"
   // and prefix is "vogon" the get-sth handler for this log will be
   // available at "/logs/vogon/ct/v1/get-sth". The prefix cannot be empty
   // and must not include "/" path separator characters.
