@@ -35,7 +35,8 @@ import (
 	"github.com/google/trillian/types"
 )
 
-type metrics struct {
+// Metrics holds Controller metrics keyed by Tree ID.
+type Metrics struct {
 	masterRuns     monitoring.Counter
 	masterCancels  monitoring.Counter
 	isMaster       monitoring.Gauge
@@ -45,9 +46,12 @@ type metrics struct {
 	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
 }
 
-func newMetrics(mf monitoring.MetricFactory) metrics {
+// NewMetrics creates Metrics using the factory. It must not be called twice
+// for the same factory.
+// TODO(pavelkalinnikov): Bake the "once" property into the factory design.
+func NewMetrics(mf monitoring.MetricFactory) Metrics {
 	const treeID = "treeID"
-	return metrics{
+	return Metrics{
 		masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
 		masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
 		isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
@@ -78,7 +82,7 @@ type Controller struct {
 	plClient *PreorderedLogClient
 	ef       election.Factory
 
-	metrics metrics
+	metrics Metrics
 	label   string
 }
 
@@ -89,9 +93,8 @@ func NewController(
 	ctClient *client.LogClient,
 	plClient *PreorderedLogClient,
 	ef election.Factory,
-	mf monitoring.MetricFactory,
+	m Metrics,
 ) *Controller {
-	m := newMetrics(mf)
 	l := strconv.FormatInt(plClient.tree.TreeId, 10)
 	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, metrics: m, label: l}
 }

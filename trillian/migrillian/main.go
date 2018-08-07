@@ -121,10 +121,12 @@ func main() {
 		glog.Fatalf("http.ListenAndServe(): %v", err)
 	}()
 
-	metrics := prometheus.MetricFactory{}
-	election, closeFn := getElectionFactory()
+	mf := prometheus.MetricFactory{}
+	metrics := core.NewMetrics(mf)
+
+	ef, closeFn := getElectionFactory()
 	defer closeFn()
-	ctrl := core.NewController(opts, ctClient, plClient, election, metrics)
+	ctrl := core.NewController(opts, ctClient, plClient, ef, metrics)
 
 	cctx, cancel = context.WithCancel(ctx)
 	defer cancel()
