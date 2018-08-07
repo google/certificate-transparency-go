@@ -99,7 +99,16 @@ func ParsePKIXPublicKey(derBytes []byte) (pub interface{}, err error) {
 	if algo == UnknownPublicKeyAlgorithm {
 		return nil, errors.New("x509: unknown public key algorithm")
 	}
-	return parsePublicKey(algo, &pki)
+	var nfe NonFatalErrors
+	pub, err = parsePublicKey(algo, &pki, &nfe)
+	if err != nil {
+		return pub, err
+	}
+	// Treat non-fatal errors as fatal for this entrypoint.
+	if len(nfe.Errors) > 0 {
+		return nil, nfe.Errors[0]
+	}
+	return pub, nil
 }
 
 func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorithm pkix.AlgorithmIdentifier, err error) {
@@ -1229,14 +1238,14 @@ type distributionPointName struct {
 	RelativeName pkix.RDNSequence `asn1:"optional,tag:1"`
 }
 
-func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo) (interface{}, error) {
+func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFatalErrors) (interface{}, error) {
 	asn1Data := keyData.PublicKey.RightAlign()
 	switch algo {
 	case RSA:
 		// RSA public keys must have a NULL in the parameters
 		// (https://tools.ietf.org/html/rfc3279#section-2.3.1).
 		if !bytes.Equal(keyData.Algorithm.Parameters.FullBytes, asn1.NullBytes) {
-			return nil, errors.New("x509: RSA key missing NULL parameters")
+			nfe.AddError(errors.New("x509: RSA key missing NULL parameters"))
 		}
 
 		p := new(pkcs1PublicKey)
@@ -1673,7 +1682,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 	out.PublicKeyAlgorithm =
 		getPublicKeyAlgorithmFromOID(in.TBSCertificate.PublicKey.Algorithm.Algorithm)
 	var err error
-	out.PublicKey, err = parsePublicKey(out.PublicKeyAlgorithm, &in.TBSCertificate.PublicKey)
+	out.PublicKey, err = parsePublicKey(out.PublicKeyAlgorithm, &in.TBSCertificate.PublicKey, &nfe)
 	if err != nil {
 		return nil, err
 	}
@@ -2989,9 +2998,14 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 	}
 
 	var err error
-	out.PublicKey, err = parsePublicKey(out.PublicKeyAlgorithm, &in.TBSCSR.PublicKey)
+	var nfe NonFatalErrors
+	out.PublicKey, err = parsePublicKey(out.PublicKeyAlgorithm, &in.TBSCSR.PublicKey, &nfe)
 	if err != nil {
 		return nil, err
+	}
+	// Treat non-fatal errors as fatal here.
+	if len(nfe.Errors) > 0 {
+		return nil, nfe.Errors[0]
 	}
 
 	var subject pkix.RDNSequence
@@ -3007,7 +3021,6 @@ func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error
 		return nil, err
 	}
 
-	var nfe NonFatalErrors
 	for _, extension := range out.Extensions {
 		if extension.Id.Equal(OIDExtensionSubjectAltName) {
 			out.DNSNames, out.EmailAddresses, out.IPAddresses, out.URIs, err = parseSANExtension(extension.Value, &nfe)
