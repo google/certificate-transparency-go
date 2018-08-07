@@ -64,7 +64,7 @@ Published 2018-06-01 14:20:32 +0000 UTC
 
 Facilities were added to the `x509` package to control whether verification checks are applied.
 
-Log server requests are now balanced using `gRPClb`. 
+Log server requests are now balanced using `gRPClb`.
 
 For Kubernetes, metrics can be published to Stackdriver monitoring.
 
