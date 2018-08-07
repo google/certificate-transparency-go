@@ -200,9 +200,9 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
-			glog.Errorf("%d: failed to add batch [%d, %d): %v\n", treeID, b.Start, end, err)
+			glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
 		} else {
-			glog.Infof("%d: added batch [%d, %d)\n", treeID, b.Start, end)
+			glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
 		}
 	}
 }
