@@ -298,9 +298,9 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	// if all new logs are served on "/logs/log/..." and a previously existing
 	// log is at "/log/..." this is now supported.
 	lhp := *handlerPrefix
-	if len(opts.Config.CustomHandlerPrefix) > 0 {
-		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", opts.Config.Prefix, opts.Config.CustomHandlerPrefix)
-		lhp = "/" + strings.Trim(opts.Config.CustomHandlerPrefix, "/")
+	if len(opts.Config.OverrideHandlerPrefix) > 0 {
+		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", opts.Config.Prefix, opts.Config.OverrideHandlerPrefix)
+		lhp = "/" + strings.Trim(opts.Config.OverrideHandlerPrefix, "/")
 	}
 	handlers, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {

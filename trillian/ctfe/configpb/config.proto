@@ -42,6 +42,8 @@ message LogConfigSet {
 }
 
 // LogConfig describes the configuration options for a log instance.
+//
+// NEXT_ID: 14
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -54,6 +56,13 @@ message LogConfig {
   // available at "/logs/vogon/ct/v1/get-sth". The prefix cannot be empty
   // and must not include "/" path separator characters.
   string prefix = 2;
+  // override_handler_prefix if set to a non empty value overrides the global
+  // handler prefix for an individual log. For example this field is set to
+  // "/otherlogs" then a log with prefix "vogon" will make it's get-sth handler
+  // available at "/otherlogs/vogon/ct/v1/get-sth" regardless of what the
+  // global prefix is. Can be set to '/' to make the get-sth handler register
+  // at "/vogon/ct/v1/get-sth".
+  string override_handler_prefix = 13;
   // Paths to the files containing root certificates that are acceptable to the
   // log. The certs are served through get-roots endpoint. Optional in mirrors.
   repeated string roots_pem_file = 3;
@@ -92,13 +101,6 @@ message LogConfig {
   // log's key and can't sign STHs. Consequently, the log operator must ensure
   // to channel source log's STHs into CTFE.
   bool is_mirror = 12;
-  // custom_handler_prefix if set to a non empty value overrides the global
-  // handler prefix for an individual log. For example this field is set to
-  // "/otherlogs" then a log with prefix "vogon" will make it's get-sth handler
-  // available at "/otherlogs/vogon/ct/v1/get-sth" regardless of what the
-  // global prefix is. Can be set to '/' to make the get-sth handler register
-  // at "/vogon/ct/v1/get-sth".
-  string custom_handler_prefix = 13;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
