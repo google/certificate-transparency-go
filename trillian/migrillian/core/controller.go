@@ -69,15 +69,15 @@ func NewController(opts Options, ctClient *client.LogClient,
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
-	logID := c.plClient.tree.TreeId
+	treeID := c.plClient.tree.TreeId
 
-	el, err := c.ef.NewElection(ctx, logID)
+	el, err := c.ef.NewElection(ctx, treeID)
 	if err != nil {
 		return err
 	}
 	defer func(ctx context.Context) {
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%d: Election.Close(): %v", logID, err)
+			glog.Warningf("%d: Election.Close(): %v", treeID, err)
 		}
 	}(ctx)
 
@@ -92,7 +92,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("Running as master for log %d", logID)
+		glog.Infof("%d: running as master", treeID)
 
 		// Run while still master (or until an error).
 		err = c.Run(mctx)
@@ -114,7 +114,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	logID := c.plClient.tree.TreeId
+	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
@@ -124,7 +124,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("%d: updated entry range to [%d, INF)", logID, c.opts.StartIndex)
+		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -195,13 +195,14 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // runSubmitter obtaines CT log entry batches from the controller's channel and
 // submits them through Trillian client. Returns when the channel is closed.
 func (c *Controller) runSubmitter(ctx context.Context) {
+	treeID := c.plClient.tree.TreeId
 	for b := range c.batches {
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
-			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
+			glog.Errorf("%d: failed to add batch [%d, %d): %v\n", treeID, b.Start, end, err)
 		} else {
-			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
+			glog.Infof("%d: added batch [%d, %d)\n", treeID, b.Start, end)
 		}
 	}
 }
