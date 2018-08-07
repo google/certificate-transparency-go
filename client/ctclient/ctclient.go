@@ -279,6 +279,8 @@ func showRawCert(cert ct.ASN1Cert) {
 		c, err := x509.ParseCertificate(cert.Data)
 		if err != nil {
 			log.Printf("Error parsing certificate: %q", err.Error())
+		}
+		if c == nil {
 			return
 		}
 		showParsedCert(c)
