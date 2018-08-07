@@ -66,6 +66,7 @@ var (
 	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
 	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
+	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
 )
 
 func main() {
@@ -289,12 +290,24 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		glog.Info("Enabling quota for intermediate certificates")
 		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
 	}
+	// Full handler pattern will be of the form "/logs/yyz/ct/v1/add-chain", where "/logs" is the
+	// HandlerPrefix and "yyz" is the c.Prefix for this particular log. Use the default
+	// HandlerPrefix unless the log config overrides it. The custom prefix in
+	// the log configuration intended for use in migration scenarios where logs
+	// have an existing URL path that differs from the global one. For example
+	// if all new logs are served on "/logs/log/..." and a previously existing
+	// log is at "/log/..." this is now supported.
+	lhp := *handlerPrefix
+	if len(opts.Config.OverrideHandlerPrefix) > 0 {
+		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", opts.Config.Prefix, opts.Config.OverrideHandlerPrefix)
+		lhp = "/" + strings.Trim(opts.Config.OverrideHandlerPrefix, "/")
+	}
 	handlers, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {
 		return err
 	}
 	for path, handler := range *handlers {
-		mux.Handle(path, handler)
+		mux.Handle(lhp+path, handler)
 	}
 	return nil
 }
