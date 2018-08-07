@@ -146,8 +146,11 @@ func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	var chain []*x509.Certificate
 	for _, data := range dataList {
 		certs, err := x509.ParseCertificates(data)
-		if err != nil {
+		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
+		}
+		if err != nil {
+			glog.Warningf("%s: non-fatal error parsing: %v", filename, err)
 		}
 		chain = append(chain, certs...)
 	}
@@ -202,9 +205,12 @@ func checkRevocation(cert *x509.Certificate, verbose bool) error {
 		}
 		for _, crlData := range crlDataList {
 			crl, err := x509.ParseCertificateList(crlData)
-			if err != nil {
+			if x509.IsFatal(err) {
 				glog.Errorf("failed to parse CRL from %q: %v", crldp, err)
 				continue
+			}
+			if err != nil {
+				glog.Warningf("non-fatal error parsing CRL from %q: %v", crldp, err)
 			}
 			if verbose {
 				fmt.Printf("\nRevocation data from %s:\n", crldp)
