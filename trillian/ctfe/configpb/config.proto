@@ -48,7 +48,6 @@ message LogConfig {
   // or LOG, and can change at runtime. CTFE in mirror mode uses only read API
   // which is common for both types.
   int64 log_id = 1;
-  // TODO(pavelkalinnikov): Comment this.
   // prefix is the name of the log. It will come after the global or
   // custom handler prefix. For example if the handler prefix is "/logs"
   // and prefix is "vogon" the get-sth handler for this log will be
