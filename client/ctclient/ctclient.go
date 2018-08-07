@@ -156,7 +156,7 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 		log.Fatal("No -first option supplied")
 	}
 	if *getLast == -1 {
-		log.Fatal("No -last option supplied")
+		*getLast = *getFirst
 	}
 	entries, err := logClient.GetEntries(ctx, *getFirst, *getLast)
 	if err != nil {
