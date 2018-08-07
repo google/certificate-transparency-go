@@ -20,6 +20,7 @@
 //     - Add options to disable various validation checks (times, EKUs etc).
 //     - Use NonFatalErrors type for some errors and continue parsing; this
 //       can be checked with IsFatal(err).
+//     - Support for short bitlength ECDSA curves (in curves.go).
 //  - Certificate Transparency specific function:
 //     - Parsing and marshaling of SCTList extension.
 //     - RemoveSCTList() function for rebuilding CT leaf entry.
@@ -539,15 +540,21 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 // secp521r1 OBJECT IDENTIFIER ::= {
 //   iso(1) identified-organization(3) certicom(132) curve(0) 35 }
 //
-// NB: secp256r1 is equivalent to prime256v1
+// secp192r1 OBJECT IDENTIFIER ::= {
+//     iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+//     prime(1) 1 }
+//
+// NB: secp256r1 is equivalent to prime256v1,
+// secp192r1 is equivalent to ansix9p192r and prime192v1
 var (
 	OIDNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
 	OIDNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
 	OIDNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
 	OIDNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+	OIDNamedCurveP192 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 1}
 )
 
-func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
+func namedCurveFromOID(oid asn1.ObjectIdentifier, nfe *NonFatalErrors) elliptic.Curve {
 	switch {
 	case oid.Equal(OIDNamedCurveP224):
 		return elliptic.P224()
@@ -557,6 +564,9 @@ func namedCurveFromOID(oid asn1.ObjectIdentifier) elliptic.Curve {
 		return elliptic.P384()
 	case oid.Equal(OIDNamedCurveP521):
 		return elliptic.P521()
+	case oid.Equal(OIDNamedCurveP192):
+		nfe.AddError(errors.New("insecure curve (secp192r1) specified"))
+		return secp192r1()
 	}
 	return nil
 }
@@ -573,6 +583,8 @@ func OIDFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 		return OIDNamedCurveP384, true
 	case elliptic.P521():
 		return OIDNamedCurveP521, true
+	case secp192r1():
+		return OIDNamedCurveP192, true
 	}
 
 	return nil, false
@@ -1309,7 +1321,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		if len(rest) != 0 {
 			return nil, errors.New("x509: trailing data after ECDSA parameters")
 		}
-		namedCurve := namedCurveFromOID(*namedCurveOID)
+		namedCurve := namedCurveFromOID(*namedCurveOID, nfe)
 		if namedCurve == nil {
 			return nil, fmt.Errorf("x509: unsupported elliptic curve %v", namedCurveOID)
 		}
