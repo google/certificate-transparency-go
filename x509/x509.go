@@ -1311,7 +1311,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		}
 		namedCurve := namedCurveFromOID(*namedCurveOID)
 		if namedCurve == nil {
-			return nil, errors.New("x509: unsupported elliptic curve")
+			return nil, fmt.Errorf("x509: unsupported elliptic curve %v", namedCurveOID)
 		}
 		x, y := elliptic.Unmarshal(namedCurve, asn1Data)
 		if x == nil {
