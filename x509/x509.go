@@ -1789,10 +1789,14 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				// KeyPurposeId ::= OBJECT IDENTIFIER
 
 				var keyUsage []asn1.ObjectIdentifier
-				if rest, err := asn1.Unmarshal(e.Value, &keyUsage); err != nil {
-					return nil, err
-				} else if len(rest) != 0 {
-					return nil, errors.New("x509: trailing data after X.509 ExtendedKeyUsage")
+				if len(e.Value) == 0 {
+					nfe.AddError(errors.New("x509: empty ExtendedKeyUsage"))
+				} else {
+					if rest, err := asn1.Unmarshal(e.Value, &keyUsage); err != nil {
+						return nil, err
+					} else if len(rest) != 0 {
+						return nil, errors.New("x509: trailing data after X.509 ExtendedKeyUsage")
+					}
 				}
 
 				for _, u := range keyUsage {
