@@ -122,11 +122,9 @@ func main() {
 	}()
 
 	mf := prometheus.MetricFactory{}
-	metrics := core.NewMetrics(mf)
-
 	ef, closeFn := getElectionFactory()
 	defer closeFn()
-	ctrl := core.NewController(opts, ctClient, plClient, ef, metrics)
+	ctrl := core.NewController(opts, ctClient, plClient, ef, mf)
 
 	cctx, cancel = context.WithCancel(ctx)
 	defer cancel()

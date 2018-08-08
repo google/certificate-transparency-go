@@ -35,8 +35,13 @@ import (
 	"github.com/google/trillian/types"
 )
 
-// Metrics holds Controller metrics keyed by Tree ID.
-type Metrics struct {
+var (
+	metrics     treeMetrics
+	metricsOnce sync.Once
+)
+
+// treeMetrics holds metrics keyed by Tree ID.
+type treeMetrics struct {
 	masterRuns     monitoring.Counter
 	masterCancels  monitoring.Counter
 	isMaster       monitoring.Gauge
@@ -46,18 +51,19 @@ type Metrics struct {
 	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
 }
 
-// NewMetrics creates Metrics using the factory. It must not be called twice
-// for the same factory. The object can be shared between multiple Controllers.
-func NewMetrics(mf monitoring.MetricFactory) Metrics {
+// initMetrics creates metrics using the factory, if not yet created.
+func initMetrics(mf monitoring.MetricFactory) {
 	const treeID = "treeID"
-	return Metrics{
-		masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
-		masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
-		isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
-		entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
-		entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
-		entriesStored:  mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
-	}
+	metricsOnce.Do(func() {
+		metrics = treeMetrics{
+			masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
+			masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
+			isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
+			entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
+			entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
+			entriesStored:  mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+		}
+	})
 }
 
 // Options holds configuration for a Controller.
@@ -80,22 +86,24 @@ type Controller struct {
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
 	ef       election.Factory
-
-	metrics Metrics
-	label   string
+	label    string
 }
 
 // NewController creates a Controller configured by the passed in options, CT
 // and Trillian clients, and a master election factory.
+//
+// The passed in MetricFactory is used to create per-tree metrics, and it
+// should be the same for all instances. However, it is used only once.
 func NewController(
 	opts Options,
 	ctClient *client.LogClient,
 	plClient *PreorderedLogClient,
 	ef election.Factory,
-	m Metrics,
+	mf monitoring.MetricFactory,
 ) *Controller {
+	initMetrics(mf)
 	l := strconv.FormatInt(plClient.tree.TreeId, 10)
-	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, metrics: m, label: l}
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l}
 }
 
 // RunWhenMaster is a master-elected version of Run method. It executes Run
@@ -128,7 +136,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 
 		glog.Infof("%d: running as master", treeID)
-		c.metrics.masterRuns.Inc(c.label)
+		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
 		err = c.Run(mctx)
@@ -142,7 +150,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 
 		// Otherwise the mastership has been canceled, retry.
-		c.metrics.masterCancels.Inc(c.label)
+		metrics.masterCancels.Inc(c.label)
 	}
 }
 
@@ -152,8 +160,8 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	c.metrics.isMaster.Set(1, c.label)
-	defer c.metrics.isMaster.Set(0, c.label)
+	metrics.isMaster.Set(1, c.label)
+	defer metrics.isMaster.Set(0, c.label)
 	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
@@ -194,7 +202,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	handler := func(b scanner.EntryBatch) {
-		c.metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
+		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
 	return fetcher.Run(ctx, handler)
@@ -239,7 +247,7 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 	treeID := c.plClient.tree.TreeId
 	for b := range c.batches {
 		entries := float64(len(b.Entries))
-		c.metrics.entriesSeen.Add(entries, c.label)
+		metrics.entriesSeen.Add(entries, c.label)
 
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
@@ -247,7 +255,7 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 			glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
 		} else {
 			glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
-			c.metrics.entriesStored.Add(entries, c.label)
+			metrics.entriesStored.Add(entries, c.label)
 		}
 	}
 }
