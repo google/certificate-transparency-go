@@ -133,6 +133,8 @@ func curveOIDToString(oid asn1.ObjectIdentifier) (t string, bitlen int) {
 		return "secp384r1", 384
 	case oid.Equal(x509.OIDNamedCurveP521):
 		return "secp521r1", 521
+	case oid.Equal(x509.OIDNamedCurveP192):
+		return "secp192r1", 192
 	}
 	return fmt.Sprintf("%v", oid), -1
 }
