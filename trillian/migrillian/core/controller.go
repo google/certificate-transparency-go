@@ -47,8 +47,7 @@ type Metrics struct {
 }
 
 // NewMetrics creates Metrics using the factory. It must not be called twice
-// for the same factory.
-// TODO(pavelkalinnikov): Bake the "once" property into the factory design.
+// for the same factory. The object can be shared between multiple Controllers.
 func NewMetrics(mf monitoring.MetricFactory) Metrics {
 	const treeID = "treeID"
 	return Metrics{
