@@ -38,7 +38,9 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
 	"github.com/google/trillian"
+	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -47,6 +49,8 @@ var (
 	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
 	etcdServers = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
 	lockDir     = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
+
+	metricsEndpoint = flag.String("metrics_endpoint", "localhost:8099", "Endpoint for serving metrics")
 
 	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 10, "Max idle HTTP connections per host (0 = DefaultMaxIdleConnsPerHost)")
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
@@ -110,9 +114,17 @@ func main() {
 		BatchesPerSubmitter: *submitterBatches,
 	}
 
-	factory, closeFn := getElectionFactory()
+	// Handle metrics on the DefaultServeMux.
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(*metricsEndpoint, nil)
+		glog.Fatalf("http.ListenAndServe(): %v", err)
+	}()
+
+	mf := prometheus.MetricFactory{}
+	ef, closeFn := getElectionFactory()
 	defer closeFn()
-	ctrl := core.NewController(opts, ctClient, plClient, factory)
+	ctrl := core.NewController(opts, ctClient, plClient, ef, mf)
 
 	cctx, cancel = context.WithCancel(ctx)
 	defer cancel()
