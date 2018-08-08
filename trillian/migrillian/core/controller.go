@@ -53,7 +53,7 @@ type treeMetrics struct {
 
 // initMetrics creates metrics using the factory, if not yet created.
 func initMetrics(mf monitoring.MetricFactory) {
-	const treeID = "treeID"
+	const treeID = "tree_id"
 	metricsOnce.Do(func() {
 		metrics = treeMetrics{
 			masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
