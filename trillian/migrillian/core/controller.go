@@ -119,6 +119,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		return err
 	}
 	defer func(ctx context.Context) {
+		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
 			glog.Warningf("%d: Election.Close(): %v", treeID, err)
 		}
@@ -128,6 +129,8 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		if err := el.Await(ctx); err != nil {
 			return err
 		}
+		metrics.isMaster.Set(1, c.label)
+
 		mctx, err := el.Observe(ctx)
 		if err != nil {
 			return err
@@ -150,6 +153,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 
 		// Otherwise the mastership has been canceled, retry.
+		metrics.isMaster.Set(0, c.label)
 		metrics.masterCancels.Inc(c.label)
 	}
 }
@@ -160,8 +164,6 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	metrics.isMaster.Set(1, c.label)
-	defer metrics.isMaster.Set(0, c.label)
 	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
