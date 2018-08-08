@@ -25,7 +25,7 @@ import (
 func mustDePEM(t *testing.T, pem string) *x509.Certificate {
 	t.Helper()
 	c, err := x509util.CertificateFromPEM([]byte(pem))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse PEM: %v", err)
 	}
 	return c

@@ -75,7 +75,7 @@ func (rt testRoundTripper) RoundTrip(request *http.Request) (*http.Response, err
 		var chain []*x509.Certificate
 		for _, certBytes := range chainBytes.Chain {
 			cert, err := x509.ParseCertificate(certBytes)
-			if err != nil {
+			if x509.IsFatal(err) {
 				errStr := fmt.Sprintf("#%d: Could not parse certificate: %s", rt.testIndex, err.Error())
 				rt.t.Error(errStr)
 				return nil, errors.New(errStr)

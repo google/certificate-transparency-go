@@ -32,7 +32,7 @@ import (
 
 func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
 	cert, err := x509util.CertificateFromPEM([]byte(testonly.LeafSignedByFakeIntermediateCertPEM))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("failed to set up test cert: %v", err)
 	}
 
@@ -87,9 +87,7 @@ func TestBuildV1MerkleTreeLeafForCert(t *testing.T) {
 
 func TestSignV1SCTForPrecertificate(t *testing.T) {
 	cert, err := x509util.CertificateFromPEM([]byte(testonly.PrecertPEMValid))
-	_, ok := err.(x509.NonFatalErrors)
-
-	if err != nil && !ok {
+	if x509.IsFatal(err) {
 		t.Fatalf("failed to set up test precert: %v", err)
 	}
 

@@ -127,7 +127,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("Running as master for log %d", treeID)
+		glog.Infof("%d: running as master", treeID)
 		c.metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
@@ -236,6 +236,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // runSubmitter obtaines CT log entry batches from the controller's channel and
 // submits them through Trillian client. Returns when the channel is closed.
 func (c *Controller) runSubmitter(ctx context.Context) {
+	treeID := c.plClient.tree.TreeId
 	for b := range c.batches {
 		entries := float64(len(b.Entries))
 		c.metrics.entriesSeen.Add(entries, c.label)
@@ -243,9 +244,9 @@ func (c *Controller) runSubmitter(ctx context.Context) {
 		end := b.Start + int64(len(b.Entries))
 		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
-			glog.Errorf("Failed to add batch [%d, %d): %v\n", b.Start, end, err)
+			glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
 		} else {
-			glog.Infof("Added batch [%d, %d)\n", b.Start, end)
+			glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
 			c.metrics.entriesStored.Add(entries, c.label)
 		}
 	}

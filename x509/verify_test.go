@@ -543,7 +543,7 @@ func testVerify(t *testing.T, useSystemRoots bool) {
 		}
 
 		leaf, err := certificateFromPEM(test.leaf)
-		if err != nil {
+		if IsFatal(err) {
 			t.Errorf("#%d: failed to parse leaf: %s", i, err)
 			return
 		}

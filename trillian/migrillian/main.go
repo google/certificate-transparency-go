@@ -73,7 +73,7 @@ func main() {
 
 	var ctOpts jsonclient.Options
 	if key := cfg.PublicKey; key != nil {
-		ctOpts.PublicKey = string(key.Der)
+		ctOpts.PublicKeyDER = key.Der
 	} else {
 		glog.Warningf("No public key for CT log %q", cfg.SourceUri)
 	}
