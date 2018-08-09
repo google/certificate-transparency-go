@@ -209,7 +209,7 @@ type RawLogEntry struct {
 	// - A certificate if Leaf.TimestampedEntry.EntryType is X509LogEntryType.
 	// - A precertificate if Leaf.TimestampedEntry.EntryType is
 	//   PrecertLogEntryType, in the form of a DER-encoded Certificate as
-	//   originally added, which includes the poison extension and a signature
+	//   originally added (which includes the poison extension and a signature
 	//   generated over the pre-cert by the pre-cert issuer).
 	// - Empty otherwise.
 	Cert ASN1Cert

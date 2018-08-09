@@ -248,7 +248,8 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 	return false
 }
 
-// RawLogEntryFromLeaf TLS-unmarshals the passed in LeafEntry to a RawLogEntry.
+// LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data
+// after JSON parsing) into a RawLogEntry object (i.e. a TLS-parsed structure).
 func RawLogEntryFromLeaf(entry *LeafEntry, index int64) (*RawLogEntry, error) {
 	ret := RawLogEntry{Index: index}
 	if rest, err := tls.Unmarshal(entry.LeafInput, &ret.Leaf); err != nil {
@@ -279,8 +280,8 @@ func RawLogEntryFromLeaf(entry *LeafEntry, index int64) (*RawLogEntry, error) {
 		ret.Chain = precertChain.CertificateChain
 
 	default:
-		// TODO(pavelkalinnikov): Section 4.6 of RFC-6962 implies that unknown
-		// types are not errors. We should revisit how we process this case.
+		// TODO(pavelkalinnikov): Section 4.6 of RFC6962 implies that unknown types
+		// are not errors. We should revisit how we process this case.
 		return nil, fmt.Errorf("unknown entry type: %v", eType)
 	}
 
