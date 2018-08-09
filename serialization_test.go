@@ -424,7 +424,7 @@ func TestLogEntryFromLeaf(t *testing.T) {
 	}{
 		{
 			leaf:    LeafEntry{},
-			wantErr: "failed to unmarshal",
+			wantErr: "failed to unmarshal MerkleTreeLeaf",
 		},
 		{
 			leaf: LeafEntry{
@@ -439,20 +439,20 @@ func TestLogEntryFromLeaf(t *testing.T) {
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts + "ff"),
 				ExtraData: dh("000ba3" + "0005cc" + leafCA + "0005d1" + rootCA),
 			},
-			wantErr: "trailing data",
+			wantErr: "MerkleTreeLeaf: trailing data",
 		},
 		{
 			leaf: LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts),
 				ExtraData: dh("000ba3" + "0005cc" + leafCA + "0005d1" + rootCA + "00"),
 			},
-			wantErr: "trailing data",
+			wantErr: "CertificateChain: trailing data",
 		},
 		{
 			leaf: LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc2b99c8" + "0000" + "0004f3" + leafDER + noExts),
 			},
-			wantErr: "failed to unmarshal",
+			wantErr: "failed to unmarshal CertificateChain",
 		},
 		{
 			leaf: LeafEntry{
@@ -475,7 +475,7 @@ func TestLogEntryFromLeaf(t *testing.T) {
 				ExtraData: dh("000508" + precertDER +
 					("000ba3" + "0005cc" + precertCA + "0005d1" + precertRoot) + "ff"),
 			},
-			wantErr: "trailing data",
+			wantErr: "PrecertChainEntry: trailing data",
 		},
 		{
 			leaf: LeafEntry{
@@ -483,13 +483,13 @@ func TestLogEntryFromLeaf(t *testing.T) {
 				ExtraData: dh("000508" + precertDER +
 					("000ba3" + "0005cc" + precertCA + "0005d1" + precertRoot)),
 			},
-			wantErr: "trailing data",
+			wantErr: "MerkleTreeLeaf: trailing data",
 		},
 		{
 			leaf: LeafEntry{
 				LeafInput: dh("00" + "00" + "0000015dcc997890" + "0001" + issuerKeyHash + precertTBS + noExts),
 			},
-			wantErr: "failed to unmarshal",
+			wantErr: "failed to unmarshal PrecertChainEntry",
 		},
 	}
 	for i, test := range tests {

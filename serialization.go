@@ -248,58 +248,102 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 	return false
 }
 
-// LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data after JSON parsing)
-// into a LogEntry object (which includes x509.Certificate objects, after TLS and ASN.1 parsing).
-// Note that this function may return a valid LogEntry object and a non-nil error value, when
-// the error indicates a non-fatal parsing error.
-func LogEntryFromLeaf(index int64, leafEntry *LeafEntry) (*LogEntry, error) {
-	var leaf MerkleTreeLeaf
-	if rest, err := tls.Unmarshal(leafEntry.LeafInput, &leaf); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf for index %d: %v", index, err)
+// UnmarshaledLeafEntry represents LeafEntry after TLS unmarshaling, or before
+// TLS marshaling.
+type UnmarshaledLeafEntry struct {
+	// Leaf is a MerkleTreeLeaf corresponding to LeafEntry.LeafInput.
+	Leaf MerkleTreeLeaf
+	// Cert is either certificate or pre-certificate.
+	Cert ASN1Cert
+	// Chain is the issuing certificate chain, starting with the issuer of Cert.
+	Chain []ASN1Cert
+	// IsPrecert determines what the Cert field contains. It corresponds to
+	// Leaf.TimestampedEntry.EntryType.
+	IsPrecert bool
+}
+
+// UnmarshalLeafEntry TLS-unmarshals the passed in LeafEntry, and stores the
+// result in the passed in UnmarshaledLeafEntry.
+func UnmarshalLeafEntry(entry *LeafEntry, ret *UnmarshaledLeafEntry) error {
+	if rest, err := tls.Unmarshal(entry.LeafInput, &ret.Leaf); err != nil {
+		return fmt.Errorf("failed to unmarshal MerkleTreeLeaf: %v", err)
 	} else if len(rest) > 0 {
-		return nil, fmt.Errorf("trailing data (%d bytes) after MerkleTreeLeaf for index %d", len(rest), index)
+		return fmt.Errorf("MerkleTreeLeaf: trailing data %d bytes", len(rest))
 	}
 
-	var err error
-	entry := LogEntry{Index: index, Leaf: leaf}
-	switch leaf.TimestampedEntry.EntryType {
+	switch eType := ret.Leaf.TimestampedEntry.EntryType; eType {
 	case X509LogEntryType:
+		ret.IsPrecert = false
 		var certChain CertificateChain
-		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &certChain); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal ExtraData for index %d: %v", index, err)
+		if rest, err := tls.Unmarshal(entry.ExtraData, &certChain); err != nil {
+			return fmt.Errorf("failed to unmarshal CertificateChain: %v", err)
 		} else if len(rest) > 0 {
-			return nil, fmt.Errorf("trailing data (%d bytes) after CertificateChain for index %d", len(rest), index)
+			return fmt.Errorf("CertificateChain: trailing data %d bytes", len(rest))
 		}
-		entry.Chain = certChain.Entries
-		entry.X509Cert, err = leaf.X509Certificate()
-		if x509.IsFatal(err) {
-			return nil, fmt.Errorf("failed to parse certificate in MerkleTreeLeaf for index %d: %v", index, err)
-		}
+		ret.Cert = *ret.Leaf.TimestampedEntry.X509Entry
+		ret.Chain = certChain.Entries
 
 	case PrecertLogEntryType:
+		ret.IsPrecert = true
 		var precertChain PrecertChainEntry
-		if rest, err := tls.Unmarshal(leafEntry.ExtraData, &precertChain); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal PrecertChainEntry for index %d: %v", index, err)
+		if rest, err := tls.Unmarshal(entry.ExtraData, &precertChain); err != nil {
+			return fmt.Errorf("failed to unmarshal PrecertChainEntry: %v", err)
 		} else if len(rest) > 0 {
-			return nil, fmt.Errorf("trailing data (%d bytes) after PrecertChainEntry for index %d", len(rest), index)
+			return fmt.Errorf("PrecertChainEntry: trailing data %d bytes", len(rest))
 		}
-		entry.Chain = precertChain.CertificateChain
-		var tbsCert *x509.Certificate
-		tbsCert, err = leaf.Precertificate()
-		if x509.IsFatal(err) {
-			return nil, fmt.Errorf("failed to parse precertificate in MerkleTreeLeaf for index %d: %v", index, err)
-		}
-		entry.Precert = &Precertificate{
-			Submitted:      precertChain.PreCertificate,
-			IssuerKeyHash:  leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
-			TBSCertificate: tbsCert,
-		}
+		ret.Cert = precertChain.PreCertificate
+		ret.Chain = precertChain.CertificateChain
 
 	default:
-		return nil, fmt.Errorf("saw unknown entry type at index %d: %v", index, leaf.TimestampedEntry.EntryType)
+		return fmt.Errorf("unknown entry type: %v", eType)
 	}
-	// err may be non-nil for a non-fatal error
+
+	return nil
+}
+
+// ToLogEntry converts UnmarshaledLeafEntry to a LogEntry, which includes an
+// x509-parsed (pre-)certificate.
+//
+// Note that this function may return a valid LogEntry object and a non-nil
+// error value, when the error indicates a non-fatal parsing error.
+func (ule *UnmarshaledLeafEntry) ToLogEntry(index int64) (*LogEntry, error) {
+	var err error
+	entry := LogEntry{Index: index, Leaf: ule.Leaf, Chain: ule.Chain}
+
+	if ule.IsPrecert {
+		var tbsCert *x509.Certificate
+		tbsCert, err = ule.Leaf.Precertificate()
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("index=%d: failed to parse precertificate: %v", index, err)
+		}
+		entry.Precert = &Precertificate{
+			Submitted:      ule.Cert,
+			IssuerKeyHash:  ule.Leaf.TimestampedEntry.PrecertEntry.IssuerKeyHash,
+			TBSCertificate: tbsCert,
+		}
+	} else {
+		entry.X509Cert, err = ule.Leaf.X509Certificate()
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("index=%d: failed to parse certificate: %v", index, err)
+		}
+	}
+
+	// err may be non-nil for a non-fatal error.
 	return &entry, err
+}
+
+// LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data
+// after JSON parsing) into a LogEntry object (which includes x509.Certificate
+// objects, after TLS and ASN.1 parsing).
+//
+// Note that this function may return a valid LogEntry object and a non-nil
+// error value, when the error indicates a non-fatal parsing error.
+func LogEntryFromLeaf(index int64, leaf *LeafEntry) (*LogEntry, error) {
+	var ule UnmarshaledLeafEntry
+	if err := UnmarshalLeafEntry(leaf, &ule); err != nil {
+		return nil, fmt.Errorf("index=%d: %v", index, err)
+	}
+	return ule.ToLogEntry(index)
 }
 
 // TimestampToTime converts a timestamp in the style of RFC 6962 (milliseconds
