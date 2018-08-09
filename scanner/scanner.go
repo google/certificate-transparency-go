@@ -120,7 +120,7 @@ func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.LogEntry), fou
 func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
 	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
 	if s.isCertErrorFatal(err, logEntry, info.index) {
-		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf: %v", err)
+		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf[%d]: %v", info.index, err)
 	}
 
 	switch {
@@ -152,7 +152,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 
 	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
 	if logEntry == nil {
-		return fmt.Errorf("failed to build log entry: %v", err)
+		return fmt.Errorf("failed to build log entry %d: %v", info.index, err)
 	}
 	switch {
 	case logEntry.X509Cert != nil:
