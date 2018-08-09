@@ -248,7 +248,7 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 	return false
 }
 
-// LogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data
+// RawLogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data
 // after JSON parsing) into a RawLogEntry object (i.e. a TLS-parsed structure).
 func RawLogEntryFromLeaf(entry *LeafEntry, index int64) (*RawLogEntry, error) {
 	ret := RawLogEntry{Index: index}
