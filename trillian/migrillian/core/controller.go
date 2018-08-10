@@ -28,6 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
+	"github.com/google/certificate-transparency-go/util/stop"
 
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
@@ -111,7 +112,7 @@ func NewController(
 // instance stops being the master, Run is canceled. The method returns if a
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
-func (c *Controller) RunWhenMaster(ctx context.Context) error {
+func (c *Controller) RunWhenMaster(ctx context.Context, s stop.Stoppable) error {
 	treeID := c.plClient.tree.TreeId
 
 	el, err := c.ef.NewElection(ctx, treeID)
@@ -142,7 +143,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
-		err = c.Run(mctx)
+		err = c.Run(mctx, s)
 		if ctx.Err() != nil {
 			// We have been externally canceled, so return the current error (which
 			// could be nil or a cancelation-related error).
@@ -163,7 +164,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // migration process runs continuously trying to keep up with the target CT
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, s stop.Stoppable) error {
 	treeID := c.plClient.tree.TreeId
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
@@ -207,7 +208,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
-	return fetcher.Run(ctx, handler)
+	return fetcher.Run(ctx, s, handler)
 }
 
 // verifyConsistency checks that the provided verified Trillian root is

@@ -25,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/util/stop"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -202,7 +203,7 @@ func humanTime(dur time.Duration) string {
 	return s
 }
 
-func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
+func (s *Scanner) logThroughput(st stop.Stoppable, treeSize int64) {
 	const wndSize = 15
 	wnd := make([]int64, wndSize)
 	wndTotal := int64(0)
@@ -212,7 +213,7 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 
 	for slot, filled, prevCnt := 0, 0, int64(0); ; slot = (slot + 1) % wndSize {
 		select {
-		case <-stop:
+		case <-st.Done():
 			return
 		case <-ticker.C:
 			certsCnt := atomic.LoadInt64(&s.certsProcessed)
@@ -264,12 +265,10 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), fou
 	}
 
 	startTime := time.Now()
-	stop := make(chan bool)
-	go s.logThroughput(int64(sth.TreeSize), stop)
-	defer func() {
-		stop <- true
-		close(stop)
-	}()
+
+	st := stop.NewStopper()
+	defer st.Stop()
+	go s.logThroughput(st.NewStoppable(), int64(sth.TreeSize))
 
 	// Start matcher workers.
 	var wg sync.WaitGroup
@@ -288,7 +287,7 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), fou
 			entries <- entryInfo{index: b.Start + int64(i), entry: e}
 		}
 	}
-	err = s.fetcher.Run(ctx, flatten)
+	err = s.fetcher.Run(ctx, stop.NonStop(), flatten)
 	close(entries) // Causes matcher workers to terminate.
 	wg.Wait()      // Wait until they terminate.
 	if err != nil {
