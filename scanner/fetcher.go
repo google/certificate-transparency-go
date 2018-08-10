@@ -66,6 +66,9 @@ type Fetcher struct {
 	sth *ct.SignedTreeHead
 	// The STH retrieval backoff state. Used only in Continuous fetch mode.
 	sthBackoff *backoff.Backoff
+
+	// stop is closed when the Fetcher is about to finish work.
+	stop chan struct{}
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -83,7 +86,8 @@ type fetchRange struct {
 // NewFetcher creates a Fetcher instance using client to talk to the log,
 // taking configuration options from opts.
 func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
-	return &Fetcher{client: client, opts: opts}
+	stop := make(chan struct{})
+	return &Fetcher{client: client, opts: opts, stop: stop}
 }
 
 // Prepare caches the latest Log's STH if not present and returns it. It also
@@ -108,9 +112,9 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	return sth, nil
 }
 
-// Run performs fetching of the Log. Blocks until scanning is complete or
-// context is cancelled. For each successfully fetched batch, runs the fn
-// callback.
+// Run performs fetching of the Log. It blocks until scanning is complete, Stop
+// is invoked, or the passed in context is cancelled. For each successfully
+// fetched batch, runs the fn callback. Must not be called more than once.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
 	if _, err := f.Prepare(ctx); err != nil {
@@ -136,15 +140,21 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	return nil
 }
 
+// Stop initiates graceful stop of fetching.
+func (f *Fetcher) Stop() {
+	close(f.stop)
+}
+
 // genRanges returns a channel of ranges to fetch, and starts a goroutine that
-// sends things down this channel. The goroutine terminates when all ranges
-// have been generated, or if context is cancelled.
+// sends things down this channel. The goroutine terminates if all ranges have
+// been generated, Stop is invoked, or context is cancelled.
 func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 	batch := int64(f.opts.BatchSize)
 	ranges := make(chan fetchRange)
 
 	go func() {
 		defer close(ranges)
+		defer close(f.stop)
 		start, end := f.opts.StartIndex, f.opts.EndIndex
 
 		for start < end {
@@ -153,6 +163,9 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			select {
 			case <-ctx.Done():
 				glog.Warningf("Cancelling genRanges: %v", ctx.Err())
+				return
+			case <-f.stop:
+				glog.Warning("Stopping genRanges")
 				return
 			case ranges <- next:
 			}
