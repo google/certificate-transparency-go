@@ -118,7 +118,7 @@ func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.RawLogEntry), 
 }
 
 func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) error {
-	rawLogEntry, err := ct.RawLogEntryFromLeaf(&info.entry, info.index)
+	rawLogEntry, err := ct.RawLogEntryFromLeaf(info.index, &info.entry)
 	if err != nil {
 		return fmt.Errorf("failed to build raw log entry %d: %v", info.index, err)
 	}
@@ -155,7 +155,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 		return nil
 	}
 
-	rawLogEntry, err := ct.RawLogEntryFromLeaf(&info.entry, info.index)
+	rawLogEntry, err := ct.RawLogEntryFromLeaf(info.index, &info.entry)
 	if rawLogEntry == nil {
 		return fmt.Errorf("failed to build raw log entry %d: %v", info.index, err)
 	}
