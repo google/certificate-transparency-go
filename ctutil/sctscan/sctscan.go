@@ -99,10 +99,10 @@ func main() {
 	s := scanner.NewScanner(logClient, scanOpts)
 
 	s.Scan(ctx,
-		func(entry *ct.LogEntry) {
+		func(entry *ct.RawLogEntry) {
 			checkCertWithEmbeddedSCT(ctx, logsByHash, *inclusion, entry)
 		},
-		func(entry *ct.LogEntry) {
+		func(entry *ct.RawLogEntry) {
 			glog.Errorf("Internal error: found pre-cert! %+v", entry)
 		})
 
@@ -125,7 +125,13 @@ func (e EmbeddedSCTMatcher) PrecertificateMatches(*ct.Precertificate) bool {
 
 // checkCertWithEmbeddedSCT is the callback that the scanner invokes for each cert found by the matcher.
 // Here, we only expect to get certificates that have embedded SCT lists.
-func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]byte]*ctutil.LogInfo, checkInclusion bool, entry *ct.LogEntry) {
+func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]byte]*ctutil.LogInfo, checkInclusion bool, rawEntry *ct.RawLogEntry) {
+	entry, err := rawEntry.ToLogEntry()
+	if err != nil {
+		glog.Errorf("[%d] Internal error: failed to parse cert in entry: %v", entry.Index, err)
+		return
+	}
+
 	leaf := entry.X509Cert
 	if leaf == nil {
 		glog.Errorf("[%d] Internal error: no cert in entry", entry.Index)

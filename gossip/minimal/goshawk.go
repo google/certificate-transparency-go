@@ -182,7 +182,13 @@ func (hawk *Goshawk) Scanner(ctx context.Context) {
 	}
 }
 
-func (hawk *Goshawk) foundCert(entry *ct.LogEntry) {
+func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
+	entry, err := rawEntry.ToLogEntry()
+	if err != nil {
+		glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", hawk.dest.Name, entry.Index, err)
+		return
+	}
+
 	if entry.X509Cert == nil {
 		glog.Errorf("Internal error: no X509Cert entry in %+v", entry)
 		return
@@ -203,7 +209,7 @@ func (hawk *Goshawk) foundCert(entry *ct.LogEntry) {
 	origin.sths <- sthInfo
 }
 
-func foundPrecert(entry *ct.LogEntry) {
+func foundPrecert(entry *ct.RawLogEntry) {
 	glog.Errorf("Internal error: found pre-cert! %+v", entry)
 }
 
