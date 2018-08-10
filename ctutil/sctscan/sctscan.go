@@ -127,7 +127,7 @@ func (e EmbeddedSCTMatcher) PrecertificateMatches(*ct.Precertificate) bool {
 // Here, we only expect to get certificates that have embedded SCT lists.
 func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]byte]*ctutil.LogInfo, checkInclusion bool, rawEntry *ct.RawLogEntry) {
 	entry, err := rawEntry.ToLogEntry()
-	if err != nil {
+	if x509.IsFatal(err) {
 		glog.Errorf("[%d] Internal error: failed to parse cert in entry: %v", entry.Index, err)
 		return
 	}

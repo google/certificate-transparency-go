@@ -31,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (
@@ -67,7 +68,7 @@ func dumpData(entry *ct.RawLogEntry) {
 	}
 	chainFrom := 0
 	prefix := "unknown"
-	switch entry.Leaf.TimestampedEntry.EntryType {
+	switch eType := entry.Leaf.TimestampedEntry.EntryType; eType {
 	case ct.X509LogEntryType:
 		prefix = "cert"
 		name := fmt.Sprintf("%s-%014d-leaf.der", prefix, entry.Index)
@@ -91,7 +92,7 @@ func dumpData(entry *ct.RawLogEntry) {
 		}
 		chainFrom = 1
 	default:
-		log.Printf("Unknown log entry type %d", entry.Leaf.TimestampedEntry.EntryType)
+		log.Printf("Unknown log entry type %d", eType)
 	}
 	for ii := chainFrom; ii < len(entry.Chain); ii++ {
 		name := fmt.Sprintf("%s-%014d-%02d.der", prefix, entry.Index, ii)
@@ -107,7 +108,7 @@ func dumpData(entry *ct.RawLogEntry) {
 // specified log
 func logCertInfo(entry *ct.RawLogEntry) {
 	parsedEntry, err := entry.ToLogEntry()
-	if err != nil || parsedEntry.X509Cert == nil {
+	if x509.IsFatal(err) || parsedEntry.X509Cert == nil {
 		log.Printf("Process cert at index %d: <unparsed: %v>", entry.Index, err)
 	} else {
 		log.Printf("Process cert at index %d: CN: '%s'", entry.Index, parsedEntry.X509Cert.Subject.CommonName)
@@ -119,7 +120,7 @@ func logCertInfo(entry *ct.RawLogEntry) {
 // specified log
 func logPrecertInfo(entry *ct.RawLogEntry) {
 	parsedEntry, err := entry.ToLogEntry()
-	if err != nil || parsedEntry.Precert == nil {
+	if x509.IsFatal(err) || parsedEntry.Precert == nil {
 		log.Printf("Process precert at index %d: <unparsed: %v>", entry.Index, err)
 	} else {
 		log.Printf("Process precert at index %d: CN: '%s' Issuer: %s", entry.Index, parsedEntry.Precert.TBSCertificate.Subject.CommonName, parsedEntry.Precert.TBSCertificate.Issuer.CommonName)

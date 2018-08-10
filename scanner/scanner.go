@@ -159,7 +159,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 	if rawLogEntry == nil {
 		return fmt.Errorf("failed to build raw log entry %d: %v", info.index, err)
 	}
-	switch rawLogEntry.Leaf.TimestampedEntry.EntryType {
+	switch eType := rawLogEntry.Leaf.TimestampedEntry.EntryType; eType {
 	case ct.X509LogEntryType:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
@@ -170,7 +170,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 		foundPrecert(rawLogEntry)
 		atomic.AddInt64(&s.precertsSeen, 1)
 	default:
-		return fmt.Errorf("saw unknown entry type: %v", rawLogEntry.Leaf.TimestampedEntry.EntryType)
+		return fmt.Errorf("saw unknown entry type: %v", eType)
 	}
 	return nil
 }
