@@ -60,7 +60,7 @@ func ValidateConfig(cfg *configpb.MigrationConfig) error {
 }
 
 func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
-	rle, err := ct.RawLogEntryFromLeaf(entry, index)
+	rle, err := ct.RawLogEntryFromLeaf(index, entry)
 	if err != nil {
 		return nil, err
 	}
