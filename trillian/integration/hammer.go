@@ -328,6 +328,12 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 		cfg.MaxRetryDuration = 60 * time.Second
 	}
 
+	if cfg.LogCfg.IsMirror {
+		glog.Warningf("%v: disabling add-[pre-]chain for mirror log", cfg.LogCfg.Prefix)
+		cfg.EPBias.Bias[ctfe.AddChainName] = 0
+		cfg.EPBias.Bias[ctfe.AddPreChainName] = 0
+	}
+
 	notAfter, err := getNotAfter(cfg)
 	if err != nil {
 		return nil, err
