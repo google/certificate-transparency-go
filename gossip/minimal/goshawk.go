@@ -185,7 +185,7 @@ func (hawk *Goshawk) Scanner(ctx context.Context) {
 func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
 	entry, err := rawEntry.ToLogEntry()
 	if x509.IsFatal(err) {
-		glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", hawk.dest.Name, entry.Index, err)
+		glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", hawk.dest.Name, rawEntry.Index, err)
 		return
 	}
 
