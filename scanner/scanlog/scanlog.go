@@ -31,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (
@@ -61,13 +62,14 @@ var (
 	dumpDir     = flag.String("dump_dir", "", "Directory to store matched certificates in")
 )
 
-func dumpData(entry *ct.LogEntry) {
+func dumpData(entry *ct.RawLogEntry) {
 	if *dumpDir == "" {
 		return
 	}
 	chainFrom := 0
 	prefix := "unknown"
-	if entry.Leaf.TimestampedEntry.EntryType == ct.X509LogEntryType {
+	switch eType := entry.Leaf.TimestampedEntry.EntryType; eType {
+	case ct.X509LogEntryType:
 		prefix = "cert"
 		name := fmt.Sprintf("%s-%014d-leaf.der", prefix, entry.Index)
 		filename := path.Join(*dumpDir, name)
@@ -75,7 +77,7 @@ func dumpData(entry *ct.LogEntry) {
 		if err != nil {
 			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
 		}
-	} else if entry.Leaf.TimestampedEntry.EntryType == ct.PrecertLogEntryType {
+	case ct.PrecertLogEntryType:
 		prefix = "precert"
 		// For a pre-certificate the TimestampedEntry only holds the TBSCertificate, but
 		// the Chain data has the full pre-certificate as the first entry.
@@ -89,8 +91,8 @@ func dumpData(entry *ct.LogEntry) {
 			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
 		}
 		chainFrom = 1
-	} else {
-		log.Printf("Unknown log entry type %d", entry.Leaf.TimestampedEntry.EntryType)
+	default:
+		log.Printf("Unknown log entry type %d", eType)
 	}
 	for ii := chainFrom; ii < len(entry.Chain); ii++ {
 		name := fmt.Sprintf("%s-%014d-%02d.der", prefix, entry.Index, ii)
@@ -104,25 +106,26 @@ func dumpData(entry *ct.LogEntry) {
 
 // Prints out a short bit of info about |cert|, found at |index| in the
 // specified log
-func logCertInfo(entry *ct.LogEntry) {
-	if entry.X509Cert != nil {
-		log.Printf("Process cert at index %d: CN: '%s'", entry.Index, entry.X509Cert.Subject.CommonName)
-		dumpData(entry)
+func logCertInfo(entry *ct.RawLogEntry) {
+	parsedEntry, err := entry.ToLogEntry()
+	if x509.IsFatal(err) || parsedEntry.X509Cert == nil {
+		log.Printf("Process cert at index %d: <unparsed: %v>", entry.Index, err)
 	} else {
-		log.Printf("Process cert at index %d: <unparsed>", entry.Index)
+		log.Printf("Process cert at index %d: CN: '%s'", entry.Index, parsedEntry.X509Cert.Subject.CommonName)
 	}
+	dumpData(entry)
 }
 
 // Prints out a short bit of info about |precert|, found at |index| in the
 // specified log
-func logPrecertInfo(entry *ct.LogEntry) {
-	if entry.Precert != nil {
-		log.Printf("Process precert at index %d: CN: '%s' Issuer: %s", entry.Index,
-			entry.Precert.TBSCertificate.Subject.CommonName, entry.Precert.TBSCertificate.Issuer.CommonName)
-		dumpData(entry)
+func logPrecertInfo(entry *ct.RawLogEntry) {
+	parsedEntry, err := entry.ToLogEntry()
+	if x509.IsFatal(err) || parsedEntry.Precert == nil {
+		log.Printf("Process precert at index %d: <unparsed: %v>", entry.Index, err)
 	} else {
-		log.Printf("Process precert at index %d: <unparsed>", entry.Index)
+		log.Printf("Process precert at index %d: CN: '%s' Issuer: %s", entry.Index, parsedEntry.Precert.TBSCertificate.Subject.CommonName, parsedEntry.Precert.TBSCertificate.Issuer.CommonName)
 	}
+	dumpData(entry)
 }
 
 func chainToString(certs []ct.ASN1Cert) string {
@@ -135,7 +138,7 @@ func chainToString(certs []ct.ASN1Cert) string {
 	return base64.StdEncoding.EncodeToString(output)
 }
 
-func logFullChain(entry *ct.LogEntry) {
+func logFullChain(entry *ct.RawLogEntry) {
 	log.Printf("Index %d: Chain: %s", entry.Index, chainToString(entry.Chain))
 }
 

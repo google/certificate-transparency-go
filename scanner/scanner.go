@@ -104,7 +104,7 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 }
 
 // Processes the given entry in the specified log.
-func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) error {
 	atomic.AddInt64(&s.certsProcessed, 1)
 
 	switch matcher := s.opts.Matcher.(type) {
@@ -117,8 +117,13 @@ func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.LogEntry), fou
 	}
 }
 
-func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
-	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
+func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) error {
+	rawLogEntry, err := ct.RawLogEntryFromLeaf(info.index, &info.entry)
+	if err != nil {
+		return fmt.Errorf("failed to build raw log entry %d: %v", info.index, err)
+	}
+	// Matcher instances need the parsed [pre-]certificate.
+	logEntry, err := rawLogEntry.ToLogEntry()
 	if s.isCertErrorFatal(err, logEntry, info.index) {
 		return fmt.Errorf("failed to parse [pre-]certificate in MerkleTreeLeaf[%d]: %v", info.index, err)
 	}
@@ -131,12 +136,12 @@ func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert
 		}
 		if matcher.CertificateMatches(logEntry.X509Cert) {
 			atomic.AddInt64(&s.certsMatched, 1)
-			foundCert(logEntry)
+			foundCert(rawLogEntry)
 		}
 	case logEntry.Precert != nil:
 		if matcher.PrecertificateMatches(logEntry.Precert) {
 			atomic.AddInt64(&s.certsMatched, 1)
-			foundPrecert(logEntry)
+			foundPrecert(rawLogEntry)
 		}
 		atomic.AddInt64(&s.precertsSeen, 1)
 	default:
@@ -145,27 +150,27 @@ func (s *Scanner) processMatcherEntry(matcher Matcher, info entryInfo, foundCert
 	return nil
 }
 
-func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) error {
 	if !matcher.Matches(&info.entry) {
 		return nil
 	}
 
-	logEntry, err := ct.LogEntryFromLeaf(info.index, &info.entry)
-	if logEntry == nil {
-		return fmt.Errorf("failed to build log entry %d: %v", info.index, err)
+	rawLogEntry, err := ct.RawLogEntryFromLeaf(info.index, &info.entry)
+	if rawLogEntry == nil {
+		return fmt.Errorf("failed to build raw log entry %d: %v", info.index, err)
 	}
-	switch {
-	case logEntry.X509Cert != nil:
+	switch eType := rawLogEntry.Leaf.TimestampedEntry.EntryType; eType {
+	case ct.X509LogEntryType:
 		if s.opts.PrecertOnly {
 			// Only interested in precerts and this is an X.509 cert, early-out.
 			return nil
 		}
-		foundCert(logEntry)
-	case logEntry.Precert != nil:
-		foundPrecert(logEntry)
+		foundCert(rawLogEntry)
+	case ct.PrecertLogEntryType:
+		foundPrecert(rawLogEntry)
 		atomic.AddInt64(&s.precertsSeen, 1)
 	default:
-		return fmt.Errorf("saw unknown entry type: %v", logEntry.Leaf.TimestampedEntry.EntryType)
+		return fmt.Errorf("saw unknown entry type: %v", eType)
 	}
 	return nil
 }
@@ -173,7 +178,7 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 // Worker function to match certs.
 // Accepts MatcherJobs over the entries channel, and processes them.
 // Returns true over the done channel when the entries channel is closed.
-func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
+func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) {
 	for e := range entries {
 		if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
 			atomic.AddInt64(&s.unparsableEntries, 1)
@@ -244,13 +249,13 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 // LogEntry, which includes the index of the entry and the certificate.
 // For each precert found, calls foundPrecert with the corresponding LogEntry,
 // which includes the index of the entry and the precert.
-func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) error {
+func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) error {
 	_, err := s.ScanLog(ctx, foundCert, foundPrecert)
 	return err
 }
 
 // ScanLog performs a scan against the Log, returning the count of scanned entries.
-func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) (int64, error) {
+func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) (int64, error) {
 	glog.V(1).Infof("Starting up Scanner...")
 	s.certsProcessed = 0
 	s.certsMatched = 0
