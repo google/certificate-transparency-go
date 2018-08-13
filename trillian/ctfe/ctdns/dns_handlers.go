@@ -128,7 +128,8 @@ func (c *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			// whole string matched to avoid any false positives. We don't just
 			// force everything to lower case because the base32 encoding is
 			// defined using upper case.
-			if strings.ToLower(params[0]) == strings.ToLower(q) && params[len(params)-1] == strings.ToLower(c.cfg.DnsZone) {
+			if strings.ToLower(params[0]) == strings.ToLower(q) &&
+				strings.ToLower(params[len(params)-1]) == strings.ToLower(c.cfg.DnsZone) {
 				// This handler accepted the match and provides the result.
 				h.handleFn(ctx, c.client, params, w, r)
 				return
@@ -141,7 +142,7 @@ func (c *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		failWithRcode(w, r, dns.RcodeSuccess, nil)
 		return
 	}
-	// No handler matched. Reject the request.
+	// No handler matched and not our zone. Reject the request.
 	failWithRcode(w, r, dns.RcodeNotZone, nil)
 }
 

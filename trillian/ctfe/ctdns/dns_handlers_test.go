@@ -324,15 +324,16 @@ func TestDNSHandler(t *testing.T) {
 			name:      "HashBase32BadLength",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "NBSWY3DPGFUGK3DMN4ZGQZ.hash.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
-			wantRcode: dns.RcodeNameError,
+			wantRcode: dns.RcodeServerFailure,
 		},
 		{
 			// For this test the input matches the base32 regex but does not decode
-			// because it's an incomplete group.
+			// because it's an incomplete group. This doesn't match the regex so
+			// results in a success code with no RRs.
 			name:      "HashNotBase32",
 			zone:      "good.ct.googleapis.com",
 			msg:       &dns.Msg{Question: []dns.Question{{Name: "/$!%/.hash.good.ct.googleapis.com", Qtype: dns.TypeTXT, Qclass: dns.ClassINET}}},
-			wantRcode: dns.RcodeNameError,
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name:      "HashOnly",
