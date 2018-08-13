@@ -14,12 +14,15 @@ import (
 	"github.com/google/certificate-transparency-go/x509/pkix"
 )
 
+// OID values for CRL extensions (TBSCertList.Extensions), RFC 5280 s5.2.
 var (
-	// OID values for CRL extensions (TBSCertList.Extensions), RFC 5280 s5.2.
 	OIDExtensionCRLNumber                = asn1.ObjectIdentifier{2, 5, 29, 20}
 	OIDExtensionDeltaCRLIndicator        = asn1.ObjectIdentifier{2, 5, 29, 27}
 	OIDExtensionIssuingDistributionPoint = asn1.ObjectIdentifier{2, 5, 29, 28}
-	// OID values for CRL entry extensions (RevokedCertificate.Extensions), RFC 5280 s5.3
+)
+
+// OID values for CRL entry extensions (RevokedCertificate.Extensions), RFC 5280 s5.3
+var (
 	OIDExtensionCRLReasons        = asn1.ObjectIdentifier{2, 5, 29, 21}
 	OIDExtensionInvalidityDate    = asn1.ObjectIdentifier{2, 5, 29, 24}
 	OIDExtensionCertificateIssuer = asn1.ObjectIdentifier{2, 5, 29, 29}
