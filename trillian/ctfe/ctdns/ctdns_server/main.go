@@ -48,6 +48,7 @@ import (
 var (
 	metricsEndpoint    = flag.String("metrics_endpoint", "localhost:8053", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
 	baseURI            = flag.String("base_uri", "", "The CTFE URI under which all the logs are served")
+	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
 	httpTimeout        = flag.Duration("http_timeout", time.Second*10, "Deadline for backend HTTP requests")
 	logConfig          = flag.String("log_config", "", "File holding log config in text proto format")
 	multiBackendConfig = flag.Bool("multi_backend_config", false, "If true the logConfig file is in multi backend format")
@@ -126,7 +127,7 @@ func main() {
 	for _, c := range cfg.LogConfigs.Config {
 		if len(c.DnsZone) > 0 {
 			zones++
-			if err := setupDNSHandler(httpClient, *baseURI, c); err != nil {
+			if err := setupDNSHandler(httpClient, *baseURI, *handlerPrefix, c); err != nil {
 				glog.Exitf("Failed to set up DNS log instance for %+v: %v", cfg, err)
 			}
 		}
@@ -194,8 +195,14 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupDNSHandler(hc *http.Client, baseURI string, cfg *configpb.LogConfig) error {
-	uri := fmt.Sprintf("%s/%s", baseURI, cfg.Prefix)
+func setupDNSHandler(hc *http.Client, baseURI string, handlerPrefix string, cfg *configpb.LogConfig) error {
+	// It's possible that the Prefix has an override for this log.
+	lhp := handlerPrefix
+	if len(cfg.OverrideHandlerPrefix) > 0 {
+		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", cfg.Prefix, cfg.OverrideHandlerPrefix)
+		lhp = "/" + strings.Trim(cfg.OverrideHandlerPrefix, "/")
+	}
+	uri := fmt.Sprintf("%s%s/%s", baseURI, lhp, cfg.Prefix)
 	var opts jsonclient.Options
 	dc, err := client.New(uri, hc, opts)
 	if err != nil {
