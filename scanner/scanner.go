@@ -18,13 +18,13 @@ package scanner
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/util/exepool"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -59,10 +59,13 @@ func DefaultScannerOptions() *ScannerOptions {
 
 // Scanner is a tool to scan all the entries in a CT Log.
 type Scanner struct {
-	fetcher *Fetcher
-
+	// Client used to talk to the CT log instance.
+	client *client.LogClient
 	// Configuration options for this Scanner instance.
 	opts ScannerOptions
+
+	// Execution Pools for fetching and matching Jobs.
+	fp, mp *exepool.Pool
 
 	// Counters of the number of certificates scanned and matched.
 	certsProcessed int64
@@ -170,15 +173,11 @@ func (s *Scanner) processMatcherLeafEntry(matcher LeafMatcher, info entryInfo, f
 	return nil
 }
 
-// Worker function to match certs.
-// Accepts MatcherJobs over the entries channel, and processes them.
-// Returns true over the done channel when the entries channel is closed.
-func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
-	for e := range entries {
-		if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
-			atomic.AddInt64(&s.unparsableEntries, 1)
-			glog.Errorf("Failed to parse entry at index %d: %s", e.index, err.Error())
-		}
+// runJob processes a single matching Job over the specified entry.
+func (s *Scanner) runJob(e entryInfo, foundCert func(*ct.LogEntry), foundPrecert func(*ct.LogEntry)) {
+	if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
+		atomic.AddInt64(&s.unparsableEntries, 1)
+		glog.Errorf("Failed to parse entry at index %d: %s", e.index, err.Error())
 	}
 }
 
@@ -258,10 +257,27 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), fou
 	s.unparsableEntries = 0
 	s.entriesWithNonFatalErrors = 0
 
-	sth, err := s.fetcher.Prepare(ctx)
+	fetcher := NewFetcher(s.client, &s.opts.FetcherOptions)
+	sth, err := fetcher.Prepare(ctx)
 	if err != nil {
 		return -1, err
 	}
+
+	// Run the Pools.
+	s.fp.Start()
+	s.mp.Start()
+	defer func() {
+		s.fp.Stop()
+		s.mp.Stop()
+		// TODO(pavelkalinnikov): Check errors?
+	}()
+
+	mClient, err := s.mp.NewClient()
+	if err != nil {
+		return -1, err
+	}
+	syncClient := exepool.NewSyncClient(mClient, 0 /* no in-flight limit */)
+	defer syncClient.Close() // Close the client before stopping the Pool.
 
 	startTime := time.Now()
 	stop := make(chan bool)
@@ -271,48 +287,45 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.LogEntry), fou
 		close(stop)
 	}()
 
-	// Start matcher workers.
-	var wg sync.WaitGroup
-	entries := make(chan entryInfo, s.opts.BufferSize)
-	for w, cnt := 0, s.opts.NumWorkers; w < cnt; w++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			s.matcherJob(entries, foundCert, foundPrecert)
-			glog.V(1).Infof("Matcher %d finished", idx)
-		}(w)
-	}
-
 	flatten := func(b EntryBatch) {
 		for i, e := range b.Entries {
-			entries <- entryInfo{index: b.Start + int64(i), entry: e}
+			entry := entryInfo{index: b.Start + int64(i), entry: e}
+			job := exepool.Job(func() { s.runJob(entry, foundCert, foundPrecert) })
+			if err := mClient.Add(ctx, job); err != nil {
+				glog.Errorf("Failed to add a matcher Job %+v: %v", entry, err)
+			}
 		}
 	}
-	err = s.fetcher.Run(ctx, flatten)
-	close(entries) // Causes matcher workers to terminate.
-	wg.Wait()      // Wait until they terminate.
-	if err != nil {
+	if err := fetcher.Run(ctx, s.fp, flatten); err != nil {
 		return -1, err
 	}
+	syncClient.Wait()
 
 	glog.V(1).Infof("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
 	glog.V(1).Infof("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen))
 	glog.V(1).Infof("Saw %d unparsable entries", atomic.LoadInt64(&s.unparsableEntries))
 	glog.V(1).Infof("Saw %d non-fatal errors", atomic.LoadInt64(&s.entriesWithNonFatalErrors))
 
-	return int64(s.fetcher.opts.EndIndex), nil
+	return int64(fetcher.opts.EndIndex), nil
 }
 
 // NewScanner creates a Scanner instance using client to talk to the log,
 // taking configuration options from opts.
 func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
-	var scanner Scanner
-	scanner.opts = opts
-	scanner.fetcher = NewFetcher(client, &scanner.opts.FetcherOptions)
-
 	// Set a default match-everything regex if none was provided.
 	if opts.Matcher == nil {
 		opts.Matcher = &MatchAll{}
 	}
-	return &scanner
+
+	// Create execution Pools for fetching and matching Jobs.
+	fp, err := exepool.New(opts.ParallelFetch, 0)
+	if err != nil {
+		panic(err) // TODO(pavelkalinnikov): Return err here and below.
+	}
+	mp, err := exepool.New(opts.NumWorkers, opts.BufferSize)
+	if err != nil {
+		panic(err)
+	}
+
+	return &Scanner{opts: opts, client: client, fp: fp, mp: mp}
 }
