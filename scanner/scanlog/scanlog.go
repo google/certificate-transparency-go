@@ -66,39 +66,31 @@ func dumpData(entry *ct.RawLogEntry) {
 	if *dumpDir == "" {
 		return
 	}
-	chainFrom := 0
 	prefix := "unknown"
+	suffix := "unknown"
 	switch eType := entry.Leaf.TimestampedEntry.EntryType; eType {
 	case ct.X509LogEntryType:
 		prefix = "cert"
-		name := fmt.Sprintf("%s-%014d-leaf.der", prefix, entry.Index)
-		filename := path.Join(*dumpDir, name)
-		err := ioutil.WriteFile(filename, entry.Leaf.TimestampedEntry.X509Entry.Data, 0644)
-		if err != nil {
-			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
-		}
+		suffix = "leaf"
 	case ct.PrecertLogEntryType:
 		prefix = "precert"
-		// For a pre-certificate the TimestampedEntry only holds the TBSCertificate, but
-		// the Chain data has the full pre-certificate as the first entry.
-		name := fmt.Sprintf("%s-%014d-precert.der", prefix, entry.Index)
-		filename := path.Join(*dumpDir, name)
-		if len(entry.Chain) == 0 {
-			log.Printf("Precert entry missing chain[0] at index %d", entry.Index)
-			return
-		}
-		if err := ioutil.WriteFile(filename, entry.Chain[0].Data, 0644); err != nil {
-			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
-		}
-		chainFrom = 1
+		suffix = "precert"
 	default:
 		log.Printf("Unknown log entry type %d", eType)
 	}
-	for ii := chainFrom; ii < len(entry.Chain); ii++ {
+
+	if len(entry.Cert.Data) > 0 {
+		name := fmt.Sprintf("%s-%014d-%s.der", prefix, entry.Index, suffix)
+		filename := path.Join(*dumpDir, name)
+		if err := ioutil.WriteFile(filename, entry.Cert.Data, 0644); err != nil {
+			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
+		}
+	}
+
+	for ii := 0; ii < len(entry.Chain); ii++ {
 		name := fmt.Sprintf("%s-%014d-%02d.der", prefix, entry.Index, ii)
 		filename := path.Join(*dumpDir, name)
-		err := ioutil.WriteFile(filename, entry.Chain[ii].Data, 0644)
-		if err != nil {
+		if err := ioutil.WriteFile(filename, entry.Chain[ii].Data, 0644); err != nil {
 			log.Printf("Failed to dump data for CA at index %d: %v", entry.Index, err)
 		}
 	}
