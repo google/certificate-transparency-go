@@ -103,12 +103,13 @@ message LogConfig {
   bool is_mirror = 12;
 
   // The Maximum Merge Delay (MMD) of this log in seconds. See RFC6962 section 3
-  // for definition of MMD. If zero, the log does not provide an MMD guarantee.
+  // for definition of MMD. If zero, the log does not provide an MMD guarantee
+  // (for example, it is a frozen log).
   int32 max_merge_delay_sec = 14;
   // The merge delay that the underlying log implementation is able/targeting to
   // provide. This option is exposed in CTFE metrics, and can be particularly
-  // useful to catch when the log is behind but still has not violated the
-  // strict MMD limit.
+  // useful to catch when the log is behind but has not yet violated the strict
+  // MMD limit.
   int32 expected_merge_delay_sec = 15;
 }
 

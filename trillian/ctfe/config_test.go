@@ -162,6 +162,16 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "expected-exceeds-max",
+			wantErr: "expected merge delay exceeds MMD",
+			cfg: configpb.LogConfig{
+				LogId:                 123,
+				PrivateKey:            privKey,
+				MaxMergeDelaySec:      50,
+				ExpectedMergeDelaySec: 100,
+			},
+		},
+		{
 			desc: "ok",
 			cfg: configpb.LogConfig{
 				LogId:      123,
