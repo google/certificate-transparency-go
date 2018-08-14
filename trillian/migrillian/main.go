@@ -37,6 +37,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
+	"github.com/google/certificate-transparency-go/util/stop"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
@@ -59,6 +60,8 @@ var (
 	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
 	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
 	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
+
+	graceShutDur = flag.Duration("graceful_shutdown_timeout", 5*time.Second, "Graceful shutdown timeout")
 )
 
 func main() {
@@ -126,13 +129,21 @@ func main() {
 	defer closeFn()
 	ctrl := core.NewController(opts, ctClient, plClient, ef, mf)
 
+	st := stop.NewStopper()
 	cctx, cancel = context.WithCancel(ctx)
 	defer cancel()
-	go util.AwaitSignal(cctx, cancel)
+	go util.AwaitSignal(cctx, func() {
+		st.Stop()
+		glog.Warningf("Entering graceful shutdown. Will terminate in %v", *graceShutDur)
+		time.Sleep(*graceShutDur)
+		glog.Warning("Shutting down forcefully")
+		cancel()
+	})
 
-	if err := ctrl.RunWhenMaster(cctx); err != nil {
+	if err := ctrl.RunWhenMaster(cctx, st.NewStoppable()); err != nil {
 		glog.Exitf("Controller.RunWhenMaster() returned: %v", err)
 	}
+	glog.Info("Exiting")
 }
 
 // getConfig returns a verified config loaded from the file specified in flags.

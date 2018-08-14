@@ -23,6 +23,7 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/util/stop"
 	"github.com/google/trillian/client/backoff"
 )
 
@@ -108,16 +109,16 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	return sth, nil
 }
 
-// Run performs fetching of the Log. Blocks until scanning is complete or
-// context is cancelled. For each successfully fetched batch, runs the fn
-// callback.
-func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
+// Run performs fetching of the Log. It blocks until scanning is complete,
+// Stoppable is Done, or context is cancelled. For each successfully fetched
+// batch, runs the fn callback.
+func (f *Fetcher) Run(ctx context.Context, s stop.Stoppable, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
 	if _, err := f.Prepare(ctx); err != nil {
 		return err
 	}
 
-	ranges := f.genRanges(ctx)
+	ranges := f.genRanges(ctx, s)
 
 	// Run fetcher workers.
 	var wg sync.WaitGroup
@@ -137,9 +138,9 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 }
 
 // genRanges returns a channel of ranges to fetch, and starts a goroutine that
-// sends things down this channel. The goroutine terminates when all ranges
-// have been generated, or if context is cancelled.
-func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
+// sends things down this channel. The goroutine terminates if all ranges have
+// been generated, Stopper is Done, or context is cancelled.
+func (f *Fetcher) genRanges(ctx context.Context, s stop.Stoppable) <-chan fetchRange {
 	batch := int64(f.opts.BatchSize)
 	ranges := make(chan fetchRange)
 
@@ -153,6 +154,9 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			select {
 			case <-ctx.Done():
 				glog.Warningf("Cancelling genRanges: %v", ctx.Err())
+				return
+			case <-s.Done():
+				glog.Warning("Stopping genRanges")
 				return
 			case ranges <- next:
 			}
