@@ -1262,7 +1262,12 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		p := new(pkcs1PublicKey)
 		rest, err := asn1.Unmarshal(asn1Data, p)
 		if err != nil {
-			return nil, err
+			var laxErr error
+			rest, laxErr = asn1.UnmarshalWithParams(asn1Data, p, "lax")
+			if laxErr != nil {
+				return nil, laxErr
+			}
+			nfe.AddError(err)
 		}
 		if len(rest) != 0 {
 			return nil, errors.New("x509: trailing data after RSA public key")
@@ -1284,7 +1289,12 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		var p *big.Int
 		rest, err := asn1.Unmarshal(asn1Data, &p)
 		if err != nil {
-			return nil, err
+			var laxErr error
+			rest, laxErr = asn1.UnmarshalWithParams(asn1Data, &p, "lax")
+			if laxErr != nil {
+				return nil, laxErr
+			}
+			nfe.AddError(err)
 		}
 		if len(rest) != 0 {
 			return nil, errors.New("x509: trailing data after DSA public key")
@@ -1703,12 +1713,22 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 
 	var issuer, subject pkix.RDNSequence
 	if rest, err := asn1.Unmarshal(in.TBSCertificate.Subject.FullBytes, &subject); err != nil {
-		return nil, err
+		var laxErr error
+		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Subject.FullBytes, &subject, "lax")
+		if laxErr != nil {
+			return nil, laxErr
+		}
+		nfe.AddError(err)
 	} else if len(rest) != 0 {
 		return nil, errors.New("x509: trailing data after X.509 subject")
 	}
 	if rest, err := asn1.Unmarshal(in.TBSCertificate.Issuer.FullBytes, &issuer); err != nil {
-		return nil, err
+		var laxErr error
+		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Issuer.FullBytes, &issuer, "lax")
+		if laxErr != nil {
+			return nil, laxErr
+		}
+		nfe.AddError(err)
 	} else if len(rest) != 0 {
 		return nil, errors.New("x509: trailing data after X.509 subject")
 	}

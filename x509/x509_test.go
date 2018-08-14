@@ -2451,14 +2451,18 @@ func TestMultipleURLsInCRLDP(t *testing.T) {
 
 func TestParseCertificateFail(t *testing.T) {
 	var tests = []struct {
-		desc    string
-		in      string
-		wantErr string
+		desc      string
+		in        string
+		wantErr   string
+		wantFatal bool
 	}{
 		{desc: "SubjectInfoEmpty", in: "testdata/invalid/xf-ext-subject-info-empty.pem", wantErr: "empty SubjectInfoAccess"},
 		{desc: "RSAParamsNonNULL", in: "testdata/invalid/xf-pubkey-rsa-param-nonnull.pem", wantErr: "RSA key missing NULL parameters"},
 		{desc: "EmptyEKU", in: "testdata/invalid/xf-ext-extended-key-usage-empty.pem", wantErr: "empty ExtendedKeyUsage"},
 		{desc: "SECp192r1TooShort", in: "testdata/invalid/xf-pubkey-ecdsa-secp192r1.pem", wantErr: "insecure curve (secp192r1)"},
+		{desc: "SerialNoIntegerNotMinimal", in: "testdata/invalid/xf-der-invalid-nonminimal-int.pem", wantErr: "integer not minimally-encoded", wantFatal: true},
+		{desc: "RSAIntegerNotMinimal", in: "testdata/invalid/xf-der-pubkey-rsa-nonminimal-int.pem", wantErr: "integer not minimally-encoded"},
+		{desc: "SubjectNonPrintable", in: "testdata/invalid/xf-subject-nonprintable.pem", wantErr: "PrintableString contains invalid character"},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -2472,7 +2476,11 @@ func TestParseCertificateFail(t *testing.T) {
 				t.Fatalf("ParseCertificate()=%+v,nil; want nil, err containing %q", got, test.wantErr)
 			}
 			if !strings.Contains(err.Error(), test.wantErr) {
-				t.Fatalf("ParseCertificate()=_,%v; want nil, err containing %q", err, test.wantErr)
+				t.Errorf("ParseCertificate()=_,%v; want nil, err containing %q", err, test.wantErr)
+			}
+			gotFatal := IsFatal(err)
+			if gotFatal != test.wantFatal {
+				t.Errorf("ParseCertificate()=_,%v with fatal=%t; want nil, err containing %q with fatal=%t", err, gotFatal, test.wantErr, test.wantFatal)
 			}
 		})
 	}
