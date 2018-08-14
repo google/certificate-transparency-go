@@ -1274,7 +1274,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		}
 
 		if p.N.Sign() <= 0 {
-			return nil, errors.New("x509: RSA modulus is not a positive number")
+			nfe.AddError(errors.New("x509: RSA modulus is not a positive number"))
 		}
 		if p.E <= 0 {
 			return nil, errors.New("x509: RSA public exponent is not a positive number")
