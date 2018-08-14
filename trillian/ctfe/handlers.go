@@ -264,18 +264,8 @@ func newLogInfo(
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
 	label := strconv.FormatInt(logID, 10)
 	knownLogs.Set(1.0, label)
-
-	delay := instanceOpts.Config.MaxMergeDelaySec
-	if delay == 0 {
-		delay = 24 * 60 * 60 // 24 hours.
-	}
-	maxMergeDelay.Set(float64(delay), label)
-
-	delay = instanceOpts.Config.ExpectedMergeDelaySec
-	if delay == 0 {
-		delay = 2 * 60 * 60 // 2 hours.
-	}
-	expMergeDelay.Set(float64(delay), label)
+	maxMergeDelay.Set(float64(instanceOpts.Config.MaxMergeDelaySec), label)
+	expMergeDelay.Set(float64(instanceOpts.Config.ExpectedMergeDelaySec), label)
 
 	return li
 }

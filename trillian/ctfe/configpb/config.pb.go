@@ -37,7 +37,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7817f49c883dd3ec, []int{0}
+	return fileDescriptor_config_fd5b2d500b80de4c, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -85,7 +85,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7817f49c883dd3ec, []int{1}
+	return fileDescriptor_config_fd5b2d500b80de4c, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -124,7 +124,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7817f49c883dd3ec, []int{2}
+	return fileDescriptor_config_fd5b2d500b80de4c, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -212,13 +212,12 @@ type LogConfig struct {
 	// to channel source log's STHs into CTFE.
 	IsMirror bool `protobuf:"varint,12,opt,name=is_mirror,json=isMirror,proto3" json:"is_mirror,omitempty"`
 	// The Maximum Merge Delay (MMD) of this log in seconds. See RFC6962 section 3
-	// for definition of MMD. If zero, a default MMD of 24 hours is used.
+	// for definition of MMD. If zero, the log does not provide an MMD guarantee.
 	MaxMergeDelaySec int32 `protobuf:"varint,14,opt,name=max_merge_delay_sec,json=maxMergeDelaySec,proto3" json:"max_merge_delay_sec,omitempty"`
 	// The merge delay that the underlying log implementation is able/targeting to
 	// provide. This option is exposed in CTFE metrics, and can be particularly
-	// useful to catch when the log is behind but still not blown up the strict
-	// MMD limit.
-	// If zero, a default of 2 hours is used.
+	// useful to catch when the log is behind but still has not violated the
+	// strict MMD limit.
 	ExpectedMergeDelaySec int32    `protobuf:"varint,15,opt,name=expected_merge_delay_sec,json=expectedMergeDelaySec,proto3" json:"expected_merge_delay_sec,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
 	XXX_unrecognized      []byte   `json:"-"`
@@ -229,7 +228,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7817f49c883dd3ec, []int{3}
+	return fileDescriptor_config_fd5b2d500b80de4c, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -372,7 +371,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_7817f49c883dd3ec, []int{4}
+	return fileDescriptor_config_fd5b2d500b80de4c, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -414,9 +413,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_7817f49c883dd3ec) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_fd5b2d500b80de4c) }
 
-var fileDescriptor_config_7817f49c883dd3ec = []byte{
+var fileDescriptor_config_fd5b2d500b80de4c = []byte{
 	// 635 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0x4d, 0x6f, 0xd3, 0x40,
 	0x10, 0x55, 0x48, 0x93, 0x26, 0x93, 0x8f, 0x96, 0x2d, 0x6d, 0x4d, 0x39, 0x10, 0x22, 0x90, 0x22,
