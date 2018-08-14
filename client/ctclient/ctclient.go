@@ -158,23 +158,32 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 	if *getLast == -1 {
 		*getLast = *getFirst
 	}
-	entries, err := logClient.GetEntries(ctx, *getFirst, *getLast)
+	rsp, err := logClient.GetRawEntries(ctx, *getFirst, *getLast)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, entry := range entries {
-		ts := entry.Leaf.TimestampedEntry
+
+	for i, rawEntry := range rsp.Entries {
+		index := *getFirst + int64(i)
+		rle, err := ct.RawLogEntryFromLeaf(index, &rawEntry)
+		if err != nil {
+			fmt.Printf("Index=%d Failed to unmarshal leaf entry: %v", index, err)
+			continue
+		}
+
+		ts := rle.Leaf.TimestampedEntry
 		when := ct.TimestampToTime(ts.Timestamp)
-		fmt.Printf("Index=%d Timestamp=%v ", entry.Index, when)
+		fmt.Printf("Index=%d Timestamp=%d (%v) ", rle.Index, ts.Timestamp, when)
+
 		switch ts.EntryType {
 		case ct.X509LogEntryType:
 			fmt.Printf("X.509 certificate:\n")
-			showParsedCert(entry.X509Cert)
+			showRawCert(*ts.X509Entry)
 		case ct.PrecertLogEntryType:
-			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", entry.Precert.IssuerKeyHash)
-			showRawCert(entry.Precert.Submitted)
+			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
+			showRawCert(rle.Cert) // As-submitted: with signature and poison.
 		default:
-			log.Fatalf("Unhandled log entry type %d", entry.Leaf.TimestampedEntry.EntryType)
+			fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
 		}
 	}
 }

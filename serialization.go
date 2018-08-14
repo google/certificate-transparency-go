@@ -250,7 +250,7 @@ func IsPreIssuer(issuer *x509.Certificate) bool {
 
 // RawLogEntryFromLeaf converts a LeafEntry object (which has the raw leaf data
 // after JSON parsing) into a RawLogEntry object (i.e. a TLS-parsed structure).
-func RawLogEntryFromLeaf(entry *LeafEntry, index int64) (*RawLogEntry, error) {
+func RawLogEntryFromLeaf(index int64, entry *LeafEntry) (*RawLogEntry, error) {
 	ret := RawLogEntry{Index: index}
 	if rest, err := tls.Unmarshal(entry.LeafInput, &ret.Leaf); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal MerkleTreeLeaf: %v", err)
@@ -331,7 +331,7 @@ func (rle *RawLogEntry) ToLogEntry() (*LogEntry, error) {
 // Note that this function may return a valid LogEntry object and a non-nil
 // error value, when the error indicates a non-fatal parsing error.
 func LogEntryFromLeaf(index int64, leaf *LeafEntry) (*LogEntry, error) {
-	rle, err := RawLogEntryFromLeaf(leaf, index)
+	rle, err := RawLogEntryFromLeaf(index, leaf)
 	if err != nil {
 		return nil, err
 	}

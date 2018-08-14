@@ -210,11 +210,19 @@ func TestScannerEndToEnd(t *testing.T) {
 	var matchedPrecerts list.List
 
 	ctx := context.Background()
-	err = scanner.Scan(ctx, func(e *ct.LogEntry) {
+	err = scanner.Scan(ctx, func(re *ct.RawLogEntry) {
 		// Annoyingly we can't t.Fatal() in here, as this is run in another go
 		// routine
+		e, _ := re.ToLogEntry()
+		if e.X509Cert == nil {
+			return
+		}
 		matchedCerts.PushBack(*e.X509Cert)
-	}, func(e *ct.LogEntry) {
+	}, func(re *ct.RawLogEntry) {
+		e, _ := re.ToLogEntry()
+		if e.X509Cert == nil {
+			return
+		}
 		matchedPrecerts.PushBack(*e.Precert)
 	})
 

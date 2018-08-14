@@ -32,6 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/preload"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 var (
@@ -224,10 +225,20 @@ func main() {
 		}()
 	}
 
-	addChainFunc := func(entry *ct.LogEntry) {
+	addChainFunc := func(rawEntry *ct.RawLogEntry) {
+		entry, err := rawEntry.ToLogEntry()
+		if x509.IsFatal(err) {
+			glog.Errorf("Failed to parse cert at %d: %v", rawEntry.Index, err)
+			return
+		}
 		certs <- entry
 	}
-	addPreChainFunc := func(entry *ct.LogEntry) {
+	addPreChainFunc := func(rawEntry *ct.RawLogEntry) {
+		entry, err := rawEntry.ToLogEntry()
+		if x509.IsFatal(err) {
+			glog.Errorf("Failed to parse precert at %d: %v", rawEntry.Index, err)
+			return
+		}
 		precerts <- entry
 	}
 	scanner.Scan(ctx, addChainFunc, addPreChainFunc)

@@ -41,7 +41,6 @@
 //     - Export SignatureAlgorithmFromAI().
 //     - Add OID value to UnhandledCriticalExtension error.
 //     - Minor typo/lint fixes.
-
 package x509
 
 import (
