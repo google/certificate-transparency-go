@@ -15,17 +15,12 @@
 package core
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
-	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian"
 )
 
 // LoadConfigFromFile reads MigrationConfig from the given filename, which
@@ -57,28 +52,4 @@ func ValidateConfig(cfg *configpb.MigrationConfig) error {
 		return errors.New("batch size must be positive")
 	}
 	return nil
-}
-
-func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
-	rle, err := ct.RawLogEntryFromLeaf(index, entry)
-	if err != nil {
-		return nil, err
-	}
-
-	// Don't return on x509 parsing errors because we want to migrate this log
-	// entry as is. But log the error so that it can be flagged by monitoring.
-	if _, err = rle.ToLogEntry(); x509.IsFatal(err) {
-		glog.Errorf("%s: index=%d: x509 fatal error: %v", logPrefix, index, err)
-	} else if err != nil {
-		glog.Infof("%s: index=%d: x509 non-fatal error: %v", logPrefix, index, err)
-	}
-	// TODO(pavelkalinnikov): Verify cert chain if error is nil or non-fatal.
-
-	leafIDHash := sha256.Sum256(rle.Cert.Data)
-	return &trillian.LogLeaf{
-		LeafValue:        entry.LeafInput,
-		ExtraData:        entry.ExtraData,
-		LeafIndex:        index,
-		LeafIdentityHash: leafIDHash[:],
-	}, nil
 }
