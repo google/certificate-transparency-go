@@ -44,8 +44,8 @@ func ValidateConfig(cfg *configpb.MigrationConfig) error {
 		return errors.New("missing CT log URI")
 	case cfg.PublicKey == nil:
 		return errors.New("missing public key")
-	case len(cfg.TrillianUri) == 0:
-		return errors.New("missing Trillian URI")
+	case len(cfg.LogBackendName) == 0:
+		return errors.New("missing log backend name")
 	case cfg.LogId <= 0:
 		return errors.New("log ID must be positive")
 	case cfg.BatchSize <= 0:

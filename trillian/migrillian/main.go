@@ -88,11 +88,13 @@ func main() {
 
 	ctx := context.Background()
 	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
-	conn, err := grpc.DialContext(cctx, cfg.TrillianUri,
+	// TODO(pavelkalinnikov): Replace LogBackendName by the BackendSpec extracted
+	// from MigrillianConfig.
+	conn, err := grpc.DialContext(cctx, cfg.LogBackendName,
 		grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
 	cancel()
 	if err != nil {
-		glog.Exitf("Could not dial Trillian server %q: %v", cfg.TrillianUri, err)
+		glog.Exitf("Could not dial Trillian server %q: %v", cfg.LogBackendName, err)
 	}
 	defer conn.Close()
 	glog.Info("Connected to Trillian")

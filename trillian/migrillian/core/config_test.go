@@ -29,7 +29,7 @@ const (
 	badFilename = "../testdata/not-config.pb.txt"
 
 	ctURI = "https://ct.googleapis.com/testtube"
-	back  = "localhost:8090"
+	back  = "example_backend_name"
 )
 
 func TestLoadConfigFromFileValid(t *testing.T) {
@@ -92,23 +92,23 @@ func TestValidateConfig(t *testing.T) {
 		{
 			desc:    "missing-backend",
 			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
-			wantErr: "missing Trillian URI",
+			wantErr: "missing log backend name",
 		},
 		{
 			desc:    "wrong-log-ID",
-			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, TrillianUri: back},
+			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
 			wantErr: "log ID must be positive",
 		},
 		{
 			desc: "wrong-batch-size",
 			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				TrillianUri: back, LogId: 10},
+				LogBackendName: back, LogId: 10},
 			wantErr: "batch size must be positive",
 		},
 		{
 			desc: "ok",
 			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				TrillianUri: back, LogId: 10, BatchSize: 100},
+				LogBackendName: back, LogId: 10, BatchSize: 100},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
