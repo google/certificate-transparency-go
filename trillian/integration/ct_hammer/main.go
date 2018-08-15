@@ -196,8 +196,10 @@ func main() {
 		}
 
 		mmd := *mmd
-		if c.MaxMergeDelaySec != 0 {
-			mmd = time.Second * time.Duration(c.MaxMergeDelaySec)
+		// Note: Although the (usually lower than MMD) expected merge delay is not
+		// a guarantee, it should be OK for testing.
+		if emd := c.ExpectedMergeDelaySec; emd != 0 {
+			mmd = time.Second * time.Duration(emd)
 		}
 
 		cfg := integration.HammerConfig{
