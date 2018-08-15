@@ -144,6 +144,34 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "negative-maximum-merge",
+			wantErr: "negative maximum merge",
+			cfg: configpb.LogConfig{
+				LogId:            123,
+				PrivateKey:       privKey,
+				MaxMergeDelaySec: -100,
+			},
+		},
+		{
+			desc:    "negative-expected-merge",
+			wantErr: "negative expected merge",
+			cfg: configpb.LogConfig{
+				LogId:                 123,
+				PrivateKey:            privKey,
+				ExpectedMergeDelaySec: -100,
+			},
+		},
+		{
+			desc:    "expected-exceeds-max",
+			wantErr: "expected merge delay exceeds MMD",
+			cfg: configpb.LogConfig{
+				LogId:                 123,
+				PrivateKey:            privKey,
+				MaxMergeDelaySec:      50,
+				ExpectedMergeDelaySec: 100,
+			},
+		},
+		{
 			desc: "ok",
 			cfg: configpb.LogConfig{
 				LogId:      123,
@@ -200,6 +228,15 @@ func TestValidateLogConfig(t *testing.T) {
 				PrivateKey:    privKey,
 				NotAfterStart: &timestamp.Timestamp{Seconds: 300},
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 400},
+			},
+		},
+		{
+			desc: "ok-merge-delay",
+			cfg: configpb.LogConfig{
+				LogId:                 123,
+				PrivateKey:            privKey,
+				MaxMergeDelaySec:      86400,
+				ExpectedMergeDelaySec: 7200,
 			},
 		},
 	} {

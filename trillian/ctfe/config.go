@@ -158,6 +158,15 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		return nil, errors.New("limit before start")
 	}
 
+	switch {
+	case cfg.MaxMergeDelaySec < 0:
+		return nil, errors.New("negative maximum merge delay")
+	case cfg.ExpectedMergeDelaySec < 0:
+		return nil, errors.New("negative expected merge delay")
+	case cfg.ExpectedMergeDelaySec > cfg.MaxMergeDelaySec:
+		return nil, errors.New("expected merge delay exceeds MMD")
+	}
+
 	return &vCfg, nil
 }
 

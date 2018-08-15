@@ -43,7 +43,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 14
+// NEXT_ID: 16
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -101,6 +101,16 @@ message LogConfig {
   // log's key and can't sign STHs. Consequently, the log operator must ensure
   // to channel source log's STHs into CTFE.
   bool is_mirror = 12;
+
+  // The Maximum Merge Delay (MMD) of this log in seconds. See RFC6962 section 3
+  // for definition of MMD. If zero, the log does not provide an MMD guarantee
+  // (for example, it is a frozen log).
+  int32 max_merge_delay_sec = 14;
+  // The merge delay that the underlying log implementation is able/targeting to
+  // provide. This option is exposed in CTFE metrics, and can be particularly
+  // useful to catch when the log is behind but has not yet violated the strict
+  // MMD limit.
+  int32 expected_merge_delay_sec = 15;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
