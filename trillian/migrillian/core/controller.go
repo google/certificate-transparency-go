@@ -28,6 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
+	"github.com/google/certificate-transparency-go/util/exepool"
 
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
@@ -87,6 +88,10 @@ type Controller struct {
 	plClient *PreorderedLogClient
 	ef       election.Factory
 	label    string
+
+	fxp *exepool.Pool // Fetchers execution Pool.
+	sxp *exepool.Pool // Submitters execution Pool.
+	// TODO(pavelkalinnikov): Share the pools between multiple trees.
 }
 
 // NewController creates a Controller configured by the passed in options, CT
@@ -103,7 +108,19 @@ func NewController(
 ) *Controller {
 	initMetrics(mf)
 	l := strconv.FormatInt(plClient.tree.TreeId, 10)
-	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l}
+
+	// TODO(pavelkalinnikov): Pass the Pools through parameters.
+	// TODO(pavelkalinnikov): Don't panic.
+	fxp, err := exepool.New(opts.FetcherOptions.ParallelFetch, 0)
+	if err != nil {
+		panic(err)
+	}
+	sxp, err := exepool.New(opts.Submitters, opts.Submitters*opts.BatchesPerSubmitter)
+	if err != nil {
+		panic(err)
+	}
+
+	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l, fxp: fxp, sxp: sxp}
 }
 
 // RunWhenMaster is a master-elected version of Run method. It executes Run
@@ -124,6 +141,13 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			glog.Warningf("%d: Election.Close(): %v", treeID, err)
 		}
 	}(ctx)
+
+	c.fxp.Start()
+	c.sxp.Start()
+	defer func() {
+		c.fxp.Stop()
+		c.sxp.Stop()
+	}()
 
 	for {
 		if err := el.Await(ctx); err != nil {
@@ -186,28 +210,24 @@ func (c *Controller) Run(ctx context.Context) error {
 		return err
 	}
 
-	var wg sync.WaitGroup
-	bufferSize := c.opts.Submitters * c.opts.BatchesPerSubmitter
-	c.batches = make(chan scanner.EntryBatch, bufferSize)
-	defer func() {
-		close(c.batches)
-		wg.Wait()
-	}()
-
-	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
-	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
-		wg.Add(1)
-		go func() {
-			c.runSubmitter(ctx)
-			wg.Done()
-		}()
+	sxpc, err := c.sxp.NewClient()
+	if err != nil {
+		return err
 	}
+	sxpsc := exepool.NewSyncClient(sxpc, 0 /* no in-flight limit */)
+	defer sxpsc.Close()
 
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
-		c.batches <- b
+		// TODO(pavelkalinnikov): Verify range inclusion here first.
+
+		job := exepool.Job(func() { c.runSubmitterJob(ctx, b) })
+		if err := sxpc.Add(ctx, job); err != nil {
+			end := b.Start + int64(len(b.Entries))
+			glog.Errorf("%d: failed to add submitter Job [%d, %d): %v", treeID, b.Start, end, err)
+		}
 	}
-	return fetcher.Run(ctx, handler)
+	return fetcher.Run(ctx, c.fxp, handler)
 }
 
 // verifyConsistency checks that the provided verified Trillian root is
@@ -243,21 +263,19 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 	return nil
 }
 
-// runSubmitter obtaines CT log entry batches from the controller's channel and
-// submits them through Trillian client. Returns when the channel is closed.
-func (c *Controller) runSubmitter(ctx context.Context) {
+// runSubmitterJob submits a log entry batch through Trillian client.
+func (c *Controller) runSubmitterJob(ctx context.Context, b scanner.EntryBatch) {
 	treeID := c.plClient.tree.TreeId
-	for b := range c.batches {
-		entries := float64(len(b.Entries))
-		metrics.entriesSeen.Add(entries, c.label)
+	entries := float64(len(b.Entries))
+	metrics.entriesSeen.Add(entries, c.label)
 
-		end := b.Start + int64(len(b.Entries))
-		// TODO(pavelkalinnikov): Retry with backoff on errors.
-		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
-			glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
-		} else {
-			glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
-			metrics.entriesStored.Add(entries, c.label)
-		}
+	end := b.Start + int64(len(b.Entries))
+	// TODO(pavelkalinnikov): Retry with backoff on errors.
+	if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
+		glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
+	} else {
+		// TODO(pavelkalinnikov): Check individual entry errors.
+		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
+		metrics.entriesStored.Add(entries, c.label)
 	}
 }

@@ -17,12 +17,12 @@ package scanner
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/util/exepool"
 	"github.com/google/trillian/client/backoff"
 )
 
@@ -110,65 +110,41 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 
 // Run performs fetching of the Log. Blocks until scanning is complete or
 // context is cancelled. For each successfully fetched batch, runs the fn
-// callback.
-func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
+// callback. All fetching Jobs are run in the passed in execution Pool.
+func (f *Fetcher) Run(ctx context.Context, xp *exepool.Pool, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
 	if _, err := f.Prepare(ctx); err != nil {
 		return err
 	}
 
-	ranges := f.genRanges(ctx)
-
-	// Run fetcher workers.
-	var wg sync.WaitGroup
-	for w, cnt := 0, f.opts.ParallelFetch; w < cnt; w++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			glog.V(1).Infof("Starting up Fetcher worker %d...", idx)
-			f.runWorker(ctx, ranges, fn)
-			glog.V(1).Infof("Fetcher worker %d finished", idx)
-		}(w)
+	xpc, err := xp.NewClient()
+	if err != nil {
+		return err
 	}
-	wg.Wait()
+	xpsc := exepool.NewSyncClient(xpc, f.opts.ParallelFetch)
+	defer xpsc.Close()
 
-	glog.V(1).Info("Fetcher terminated")
-	return nil
-}
-
-// genRanges returns a channel of ranges to fetch, and starts a goroutine that
-// sends things down this channel. The goroutine terminates when all ranges
-// have been generated, or if context is cancelled.
-func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 	batch := int64(f.opts.BatchSize)
-	ranges := make(chan fetchRange)
+	for start, end := f.opts.StartIndex, f.opts.EndIndex; start < end; {
+		batchEnd := start + min(end-start, batch)
+		next := fetchRange{start, batchEnd - 1}
 
-	go func() {
-		defer close(ranges)
-		start, end := f.opts.StartIndex, f.opts.EndIndex
-
-		for start < end {
-			batchEnd := start + min(end-start, batch)
-			next := fetchRange{start, batchEnd - 1}
-			select {
-			case <-ctx.Done():
-				glog.Warningf("Cancelling genRanges: %v", ctx.Err())
-				return
-			case ranges <- next:
-			}
-			start = batchEnd
-
-			if start == end && f.opts.Continuous {
-				if err := f.updateSTH(ctx); err != nil {
-					glog.Warningf("STH update cancelled: %v", err)
-					return
-				}
-				end = f.opts.EndIndex
-			}
+		job := exepool.Job(func() { f.runJob(ctx, next, fn) })
+		if err := xpsc.Add(ctx, job); err != nil {
+			return err
 		}
-	}()
 
-	return ranges
+		start = batchEnd
+		if start == end && f.opts.Continuous {
+			if err := f.updateSTH(ctx); err != nil {
+				return err
+			}
+			end = f.opts.EndIndex
+		}
+	}
+
+	glog.V(1).Info("Stopping Fetcher...")
+	return nil
 }
 
 // updateSTH waits until a bigger STH is discovered, and updates the Fetcher
@@ -214,29 +190,26 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 	})
 }
 
-// runWorker is a worker function for handling fetcher ranges.
-// Accepts cert ranges to fetch over the ranges channel, and if the fetch is
-// successful sends the corresponding EntryBatch through the fn callback. Will
-// retry failed attempts to retrieve ranges until the context is cancelled.
-func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn func(EntryBatch)) {
-	for r := range ranges {
-		// Logs MAY return fewer than the number of leaves requested. Only complete
-		// if we actually got all the leaves we were expecting.
-		for r.start <= r.end {
-			// Fetcher.Run() can be cancelled while we are looping over this job.
-			if err := ctx.Err(); err != nil {
-				glog.Warningf("Worker context closed: %v", err)
-				return
-			}
-			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
-			if err != nil {
-				glog.Errorf("GetRawEntries() failed: %v", err)
-				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
-				continue
-			}
-			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
-			r.start += int64(len(resp.Entries))
+// runJob fetches a cert range, and sends an EntryBatch through the fn callback
+// (possibly multiple times if the source log returns smaller batches). Will
+// retry failed attempts to retrieve ranges until the context is canceled.
+func (f *Fetcher) runJob(ctx context.Context, r fetchRange, fn func(EntryBatch)) {
+	// Logs MAY return fewer than the number of leaves requested. Only complete
+	// if we actually got all the leaves we were expecting.
+	for r.start <= r.end {
+		// Context can be cancelled while we are looping over this job.
+		if err := ctx.Err(); err != nil {
+			glog.Warningf("Job %+v canceled: %v", r, err)
+			return
 		}
+		resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
+		if err != nil {
+			glog.Errorf("GetRawEntries(%+v) failed: %v", r, err)
+			// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
+			continue
+		}
+		fn(EntryBatch{Start: r.start, Entries: resp.Entries})
+		r.start += int64(len(resp.Entries))
 	}
 }
 
