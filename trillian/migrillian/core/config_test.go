@@ -24,9 +24,52 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
+const (
+	filename    = "../testdata/config.pb.txt"
+	badFilename = "../testdata/not-config.pb.txt"
+
+	ctURI = "https://ct.googleapis.com/testtube"
+	back  = "localhost:8090"
+)
+
+func TestLoadConfigFromFileValid(t *testing.T) {
+	cfg, err := LoadConfigFromFile(filename)
+	if err != nil {
+		t.Fatalf("LoadConfigFromFile(): %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("Config is nil")
+	}
+	if got, want := cfg.SourceUri, ctURI; got != want {
+		t.Errorf("Wrong source log URI: %q; want %q", got, want)
+	}
+	if err := ValidateConfig(cfg); err != nil {
+		t.Errorf("Loaded invalid config: %v", err)
+	}
+}
+
+func TestLoadConfigFromFileErrors(t *testing.T) {
+	for _, tc := range []struct {
+		desc     string
+		filename string
+		wantErr  string
+	}{
+		{desc: "no-such-file", filename: "does-not-exist", wantErr: "no such file"},
+		{desc: "wrong-format", filename: badFilename, wantErr: "failed to parse"},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, err := LoadConfigFromFile(tc.filename)
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("Expected error containing %q", tc.wantErr)
+			}
+			if cfg != nil {
+				t.Error("Expected nil config")
+			}
+		})
+	}
+}
+
 func TestValidateConfig(t *testing.T) {
-	const ctURI = "https://example.com/loggymclogface"
-	const back = "trillian.example.com:8090"
 	pubKey := &keyspb.PublicKey{
 		Der: kto.MustMarshalPublicPEMToDER(testonly.CTLogPublicKeyPEM),
 	}
