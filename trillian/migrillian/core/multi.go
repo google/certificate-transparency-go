@@ -27,11 +27,12 @@ import (
 // result of canceling the passed in context).
 //
 // TODO(pavelkalinnikov):
-// - Expose status of each goroutine to metrics.
+// - Surface status of each goroutine in monitoring.
 // - Handle Controller failures, e.g. restart them (depends on error type).
 // - Introduce a MultiController type.
 // - Start Controllers with random delays to prevent one instance (e.g. the one
-//   that has started first) capturing mastership over all logs at once.
+//   that has started first) capturing mastership over all logs at once. This
+//   is particularly important for mirroring.
 // - Add voluntary mastership resignations.
 func RunMigration(ctx context.Context, ctrls []*Controller) {
 	var wg sync.WaitGroup
