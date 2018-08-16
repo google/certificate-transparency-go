@@ -102,6 +102,7 @@ func main() {
 		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
 	}
 
+	// TODO(pavelkalinnikov): Make the config multi-tenant.
 	opts := core.Options{
 		FetcherOptions: scanner.FetcherOptions{
 			BatchSize:     int(cfg.BatchSize),
@@ -130,9 +131,7 @@ func main() {
 	defer cancel()
 	go util.AwaitSignal(cctx, cancel)
 
-	if err := ctrl.RunWhenMaster(cctx); err != nil {
-		glog.Exitf("Controller.RunWhenMaster() returned: %v", err)
-	}
+	core.RunMigration(cctx, []*core.Controller{ctrl})
 }
 
 // getConfig returns a verified config loaded from the file specified in flags.
