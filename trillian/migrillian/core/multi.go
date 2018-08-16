@@ -23,13 +23,16 @@ import (
 
 // RunMigration migrates data from a number of CT logs to Trillian. Each log's
 // migration is coordinated by the corresponding Controller. This function
-// Terminates when all Controllers are done (possibly with an erorr, or as a
+// terminates when all Controllers are done (possibly with an erorr, or as a
 // result of canceling the passed in context).
 //
 // TODO(pavelkalinnikov):
 // - Expose status of each goroutine to metrics.
-// - Deal with Controller failures, e.g. cancel other Controllers and exit.
+// - Handle Controller failures, e.g. restart them (depends on error type).
 // - Introduce a MultiController type.
+// - Start Controllers with random delays to prevent one instance (e.g. the one
+//   that has started first) capturing mastership over all logs at once.
+// - Add voluntary mastership resignations.
 func RunMigration(ctx context.Context, ctrls []*Controller) {
 	var wg sync.WaitGroup
 	for _, ctrl := range ctrls {
