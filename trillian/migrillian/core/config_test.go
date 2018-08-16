@@ -40,11 +40,11 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("Config is nil")
 	}
-	if got, want := cfg.SourceUri, ctURI; got != want {
-		t.Errorf("Wrong source log URI: %q; want %q", got, want)
+	if _, err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("Loaded invalid config: %v", err)
 	}
-	if err := ValidateConfig(cfg); err != nil {
-		t.Errorf("Loaded invalid config: %v", err)
+	if got, want := len(cfg.Backends.Backend), 2; got != want {
+		t.Errorf("Wrong number of backends %d, want %d", got, want)
 	}
 }
 
@@ -69,7 +69,7 @@ func TestLoadConfigFromFileErrors(t *testing.T) {
 	}
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestValidateMigrationConfig(t *testing.T) {
 	pubKey := &keyspb.PublicKey{
 		Der: kto.MustMarshalPublicPEMToDER(testonly.CTLogPublicKeyPEM),
 	}
@@ -112,12 +112,12 @@ func TestValidateConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := ValidateConfig(&tc.cfg)
+			err := ValidateMigrationConfig(&tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
-				t.Errorf("ValidateConfig()=%v, want nil", err)
+				t.Errorf("ValidateMigrationConfig()=%v, want nil", err)
 			}
 			if len(tc.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
-				t.Errorf("ValidateConfig()=%v, want err containing %q", err, tc.wantErr)
+				t.Errorf("ValidateMigrationConfig()=%v, want err containing %q", err, tc.wantErr)
 			}
 		})
 	}

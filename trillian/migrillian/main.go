@@ -66,10 +66,19 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	defer glog.Flush()
 
-	cfg, err := getConfig()
+	mCfg, err := getConfig()
 	if err != nil {
-		glog.Exitf("Failed to load MigrationConfig: %v", err)
+		glog.Exitf("Failed to load MigrillianConfig: %v", err)
 	}
+	if ln := len(mCfg.GetMigrationConfigs().GetConfig()); ln != 1 {
+		glog.Exitf("Expected 1 migration config, got %v", ln)
+	}
+	if ln := len(mCfg.GetBackends().GetBackend()); ln != 1 {
+		glog.Exitf("Expected 1 backend, got %v", ln)
+	}
+	// TODO(pavelkalinnikov): Support running multiple controllers.
+	cfg := mCfg.MigrationConfigs.Config[0]
+	beSpec := mCfg.Backends.Backend[0].BackendSpec
 
 	var ctOpts jsonclient.Options
 	if key := cfg.PublicKey; key != nil {
@@ -88,10 +97,8 @@ func main() {
 
 	ctx := context.Background()
 	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
-	// TODO(pavelkalinnikov): Replace LogBackendName by the BackendSpec extracted
-	// from MigrillianConfig.
-	conn, err := grpc.DialContext(cctx, cfg.LogBackendName,
-		grpc.WithInsecure(), grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
+	conn, err := grpc.DialContext(cctx, beSpec, grpc.WithInsecure(),
+		grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
 	cancel()
 	if err != nil {
 		glog.Exitf("Could not dial Trillian server %q: %v", cfg.LogBackendName, err)
@@ -137,7 +144,7 @@ func main() {
 }
 
 // getConfig returns a verified config loaded from the file specified in flags.
-func getConfig() (*configpb.MigrationConfig, error) {
+func getConfig() (*configpb.MigrillianConfig, error) {
 	if len(*cfgPath) == 0 {
 		return nil, errors.New("config file not specified")
 	}
@@ -145,7 +152,7 @@ func getConfig() (*configpb.MigrationConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := core.ValidateConfig(cfg); err != nil {
+	if _, err := core.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
