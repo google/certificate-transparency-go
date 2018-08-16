@@ -170,6 +170,34 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	return &vCfg, nil
 }
 
+// LogBackendMap is a map from log backend names to LogBackend objects.
+type LogBackendMap = map[string]*configpb.LogBackend
+
+// BuildLogBackendMap returns a map from log backend names to the corresponding
+// LogBackend objects. It returns an error unless all backends have unique
+// non-empty names and specifications.
+func BuildLogBackendMap(lbs *configpb.LogBackendSet) (LogBackendMap, error) {
+	lbm := make(LogBackendMap)
+	specs := make(map[string]bool)
+	for _, be := range lbs.Backend {
+		if len(be.Name) == 0 {
+			return nil, fmt.Errorf("empty backend name: %v", be)
+		}
+		if len(be.BackendSpec) == 0 {
+			return nil, fmt.Errorf("empty backend spec: %v", be)
+		}
+		if _, ok := lbm[be.Name]; ok {
+			return nil, fmt.Errorf("duplicate backend name: %v", be)
+		}
+		if ok := specs[be.BackendSpec]; ok {
+			return nil, fmt.Errorf("duplicate backend spec: %v", be)
+		}
+		lbm[be.Name] = be
+		specs[be.BackendSpec] = true
+	}
+	return lbm, nil
+}
+
 // ValidateLogMultiConfig checks that a config is valid for use with multiple
 // backend log servers. The rules applied are:
 //
@@ -185,25 +213,10 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 //
 // TODO(pavelkalinnikov): Replace the returned map with a fully fledged
 // ValidatedLogMultiConfig that contains a ValidatedLogConfig for each log.
-func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (map[string]*configpb.LogBackend, error) {
-	// Check the backends have unique non empty names and build the map.
-	backendMap := make(map[string]*configpb.LogBackend)
-	bSpecMap := make(map[string]bool)
-	for _, backend := range cfg.Backends.Backend {
-		if len(backend.Name) == 0 {
-			return nil, fmt.Errorf("empty backend name: %v", backend)
-		}
-		if len(backend.BackendSpec) == 0 {
-			return nil, fmt.Errorf("empty backend spec: %v", backend)
-		}
-		if _, ok := backendMap[backend.Name]; ok {
-			return nil, fmt.Errorf("duplicate backend name: %v", backend)
-		}
-		if ok := bSpecMap[backend.BackendSpec]; ok {
-			return nil, fmt.Errorf("duplicate backend spec: %v", backend)
-		}
-		backendMap[backend.Name] = backend
-		bSpecMap[backend.BackendSpec] = true
+func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (LogBackendMap, error) {
+	backendMap, err := BuildLogBackendMap(cfg.Backends)
+	if err != nil {
+		return nil, err
 	}
 
 	// Check that logs all reference a defined backend and there are no duplicate
