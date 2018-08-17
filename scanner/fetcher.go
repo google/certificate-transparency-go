@@ -67,9 +67,9 @@ type Fetcher struct {
 	// The STH retrieval backoff state. Used only in Continuous fetch mode.
 	sthBackoff *backoff.Backoff
 
-	// Stops range generator, which causes the Fetcher terminate gracefully.
-	cancel context.CancelFunc
+	// Stops range generator, which causes the Fetcher to terminate gracefully.
 	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -114,8 +114,8 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 }
 
 // Run performs fetching of the Log. Blocks until scanning is complete, the
-// passed in context is canceled, or Stop is called. For each successfully
-// fetched batch, runs the fn callback.
+// passed in context is canceled, or Stop is called (and pending work is
+// finished). For each successfully fetched batch, runs the fn callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
 	if _, err := f.Prepare(ctx); err != nil {
@@ -129,6 +129,9 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	f.cancel = cancel
 	f.mu.Unlock()
 
+	// Use a separately-cancelable context for the range generator, so we can
+	// close it down (in Stop) but still let the fetchers below run to
+	// completion.
 	ranges := f.genRanges(cctx)
 
 	// Run fetcher workers.
@@ -148,9 +151,9 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	return nil
 }
 
-// Stop causes the Fetcher terminate gracefully. After this call Run will try
-// to finish all the started fetches, and then return. Does nothing if there
-// was no preceding Run invocation.
+// Stop causes the Fetcher to terminate gracefully. After this call Run will
+// try to finish all the started fetches, and then return. Does nothing if
+// there was no preceding Run invocation.
 func (f *Fetcher) Stop() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
