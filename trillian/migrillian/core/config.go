@@ -61,14 +61,14 @@ func ValidateMigrationConfig(cfg *configpb.MigrationConfig) error {
 // - Migration configs are valid (as per ValidateMigrationConfig).
 // - Migration configs specify backend names present in the set of backends.
 // - Each migration config has a unique (backend, tree ID) pair.
-// Returns a map from log backend names to the corresponding LogBackend's.
+// Returns a map from log backend names to the corresponding LogBackend.
 func ValidateConfig(cfg *configpb.MigrillianConfig) (ctfe.LogBackendMap, error) {
 	lbm, err := ctfe.BuildLogBackendMap(cfg.Backends)
 	if err != nil {
 		return nil, err
 	}
 	// Check that logs all reference a defined backend and there are no duplicate
-	// log IDs. Apply other MigrationConfig specific checks.
+	// log IDs per backend. Apply other MigrationConfig specific checks.
 	logIDs := make(map[string]bool)
 	for _, mc := range cfg.MigrationConfigs.Config {
 		if err := ValidateMigrationConfig(mc); err != nil {
