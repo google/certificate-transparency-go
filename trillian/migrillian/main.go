@@ -38,6 +38,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
 	"github.com/google/trillian"
+	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -66,62 +67,47 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	defer glog.Flush()
 
-	mCfg, err := getConfig()
+	cfg, err := getConfig()
 	if err != nil {
 		glog.Exitf("Failed to load MigrillianConfig: %v", err)
 	}
-	if ln := len(mCfg.GetMigrationConfigs().GetConfig()); ln != 1 {
-		glog.Exitf("Expected 1 migration config, got %v", ln)
-	}
-	if ln := len(mCfg.GetBackends().GetBackend()); ln != 1 {
-		glog.Exitf("Expected 1 backend, got %v", ln)
-	}
-	// TODO(pavelkalinnikov): Support running multiple controllers.
-	cfg := mCfg.MigrationConfigs.Config[0]
-	beSpec := mCfg.Backends.Backend[0].BackendSpec
-
-	var ctOpts jsonclient.Options
-	if key := cfg.PublicKey; key != nil {
-		ctOpts.PublicKeyDER = key.Der
-	} else {
-		glog.Warningf("No public key for CT log %q", cfg.SourceUri)
-	}
-	httpClient := getHTTPClient()
-	// TODO(pavelkalinnikov): Share httpClient between multiple CT clients.
-
-	ctClient, err := client.New(cfg.SourceUri, httpClient, ctOpts)
+	backendMap, err := core.ValidateConfig(cfg)
 	if err != nil {
-		glog.Exitf("Failed to create CT client for log %q: %v", cfg.SourceUri, err)
+		glog.Exitf("Failed to validate MigrillianConfig: %v", err)
 	}
-	glog.Info("Created CT client")
+
+	// Dial all log backends.
+	// TODO(pavelkalinnikov): Commonize backend connection code with CTFE.
+	connMap := make(map[string]*grpc.ClientConn)
+	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
+	if len(backendMap) == 1 {
+		// If there's only one backend we can't serve anything until connected.
+		dialOpts = append(dialOpts, grpc.WithBlock())
+	}
+	for _, be := range backendMap {
+		glog.Infof("Dialling Trillian backend: %v", be)
+		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
+		if err != nil {
+			glog.Exitf("Could not dial Trillian server: %v: %v", be, err)
+		}
+		defer conn.Close()
+		connMap[be.Name] = conn
+	}
+
+	httpClient := getHTTPClient()
+	mf := prometheus.MetricFactory{}
+	ef, closeFn := getElectionFactory()
+	defer closeFn()
 
 	ctx := context.Background()
-	cctx, cancel := context.WithTimeout(ctx, *dialTimeout)
-	conn, err := grpc.DialContext(cctx, beSpec, grpc.WithInsecure(),
-		grpc.WithBlock(), grpc.FailOnNonTempDialError(true))
-	cancel()
-	if err != nil {
-		glog.Exitf("Could not dial Trillian server %q: %v", cfg.LogBackendName, err)
-	}
-	defer conn.Close()
-	glog.Info("Connected to Trillian")
-
-	plClient, err := newPreorderedLogClient(ctx, conn, cfg.LogId)
-	if err != nil {
-		glog.Exitf("Failed to create PreorderedLogClient: %v", err)
-	}
-
-	// TODO(pavelkalinnikov): Make the config multi-tenant.
-	opts := core.Options{
-		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     int(cfg.BatchSize),
-			ParallelFetch: *ctFetchers,
-			StartIndex:    cfg.StartIndex,
-			EndIndex:      cfg.EndIndex,
-			Continuous:    cfg.IsContinuous,
-		},
-		Submitters:          *submitters,
-		BatchesPerSubmitter: *submitterBatches,
+	var ctrls []*core.Controller
+	for _, mc := range cfg.MigrationConfigs.Config {
+		conn := connMap[mc.LogBackendName] // Not nil (config is verified).
+		ctrl, err := getController(ctx, mc, httpClient, mf, ef, conn)
+		if err != nil {
+			glog.Exitf("Failed to create Controller for %q: %v", mc.SourceUri, err)
+		}
+		ctrls = append(ctrls, ctrl)
 	}
 
 	// Handle metrics on the DefaultServeMux.
@@ -131,28 +117,55 @@ func main() {
 		glog.Fatalf("http.ListenAndServe(): %v", err)
 	}()
 
-	mf := prometheus.MetricFactory{}
-	ef, closeFn := getElectionFactory()
-	defer closeFn()
-	ctrl := core.NewController(opts, ctClient, plClient, ef, mf)
-
-	cctx, cancel = context.WithCancel(ctx)
+	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go util.AwaitSignal(cctx, cancel)
 
-	core.RunMigration(cctx, []*core.Controller{ctrl})
+	core.RunMigration(cctx, ctrls)
 }
 
-// getConfig returns a verified config loaded from the file specified in flags.
+// getController creates a single log migration Controller.
+func getController(
+	ctx context.Context,
+	cfg *configpb.MigrationConfig,
+	httpClient *http.Client,
+	mf monitoring.MetricFactory,
+	ef election.Factory,
+	conn *grpc.ClientConn,
+) (*core.Controller, error) {
+	ctOpts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.Der}
+	ctClient, err := client.New(cfg.SourceUri, httpClient, ctOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CT client: %v", err)
+	}
+	plClient, err := newPreorderedLogClient(ctx, conn, cfg.LogId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PreorderedLogClient: %v", err)
+	}
+
+	opts := core.Options{
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     int(cfg.BatchSize),
+			ParallelFetch: *ctFetchers,
+			StartIndex:    cfg.StartIndex,
+			EndIndex:      cfg.EndIndex,
+			Continuous:    cfg.IsContinuous,
+		},
+		// TODO(pavelkalinnikov): Put the below options and ctFetchers to config.
+		Submitters:          *submitters,
+		BatchesPerSubmitter: *submitterBatches,
+	}
+
+	return core.NewController(opts, ctClient, plClient, ef, mf), nil
+}
+
+// getConfig returns MigrillianConfig loaded from the file specified in flags.
 func getConfig() (*configpb.MigrillianConfig, error) {
 	if len(*cfgPath) == 0 {
 		return nil, errors.New("config file not specified")
 	}
 	cfg, err := core.LoadConfigFromFile(*cfgPath)
 	if err != nil {
-		return nil, err
-	}
-	if _, err := core.ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -176,6 +189,7 @@ func getHTTPClient() *http.Client {
 	}
 }
 
+// newPreorderedLogClient creates a PreorderedLogClient for the specified tree.
 func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID int64) (*core.PreorderedLogClient, error) {
 	admin := trillian.NewTrillianAdminClient(conn)
 	gt := trillian.GetTreeRequest{TreeId: treeID}
@@ -188,8 +202,8 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 	return core.NewPreorderedLogClient(log, tree, pref)
 }
 
-// getElectionFactory return an election factory based on flags, and a function
-// which releases the resources associated with the factory.
+// getElectionFactory returns an election factory based on flags, and a
+// function which releases the resources associated with the factory.
 func getElectionFactory() (election.Factory, func()) {
 	if *forceMaster {
 		glog.Warning("Acting as master for all logs")

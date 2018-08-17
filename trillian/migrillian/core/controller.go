@@ -76,7 +76,6 @@ type Options struct {
 // Controller coordinates migration from a CT log to a Trillian tree.
 //
 // TODO(pavelkalinnikov):
-// - Coordinate multiple trees.
 // - Schedule a distributed fetch to increase throughput.
 // - Store CT STHs in Trillian or make this tool stateful on its own.
 // - Make fetching stateful to reduce master resigning aftermath.
