@@ -29,7 +29,7 @@ const (
 	badFilename = "../testdata/not-config.pb.txt"
 
 	ctURI = "https://ct.googleapis.com/testtube"
-	back  = "localhost:8090"
+	back  = "example_backend_name"
 )
 
 func TestLoadConfigFromFileValid(t *testing.T) {
@@ -40,11 +40,11 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 	if cfg == nil {
 		t.Fatal("Config is nil")
 	}
-	if got, want := cfg.SourceUri, ctURI; got != want {
-		t.Errorf("Wrong source log URI: %q; want %q", got, want)
+	if _, err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("Loaded invalid config: %v", err)
 	}
-	if err := ValidateConfig(cfg); err != nil {
-		t.Errorf("Loaded invalid config: %v", err)
+	if got, want := len(cfg.Backends.Backend), 2; got != want {
+		t.Errorf("Wrong number of backends %d, want %d", got, want)
 	}
 }
 
@@ -69,7 +69,7 @@ func TestLoadConfigFromFileErrors(t *testing.T) {
 	}
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestValidateMigrationConfig(t *testing.T) {
 	pubKey := &keyspb.PublicKey{
 		Der: kto.MustMarshalPublicPEMToDER(testonly.CTLogPublicKeyPEM),
 	}
@@ -92,32 +92,32 @@ func TestValidateConfig(t *testing.T) {
 		{
 			desc:    "missing-backend",
 			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
-			wantErr: "missing Trillian URI",
+			wantErr: "missing log backend name",
 		},
 		{
 			desc:    "wrong-log-ID",
-			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, TrillianUri: back},
+			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
 			wantErr: "log ID must be positive",
 		},
 		{
 			desc: "wrong-batch-size",
 			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				TrillianUri: back, LogId: 10},
+				LogBackendName: back, LogId: 10},
 			wantErr: "batch size must be positive",
 		},
 		{
 			desc: "ok",
 			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				TrillianUri: back, LogId: 10, BatchSize: 100},
+				LogBackendName: back, LogId: 10, BatchSize: 100},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := ValidateConfig(&tc.cfg)
+			err := ValidateMigrationConfig(&tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
-				t.Errorf("ValidateConfig()=%v, want nil", err)
+				t.Errorf("ValidateMigrationConfig()=%v, want nil", err)
 			}
 			if len(tc.wantErr) > 0 && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
-				t.Errorf("ValidateConfig()=%v, want err containing %q", err, tc.wantErr)
+				t.Errorf("ValidateMigrationConfig()=%v, want err containing %q", err, tc.wantErr)
 			}
 		})
 	}
