@@ -66,6 +66,10 @@ type Fetcher struct {
 	sth *ct.SignedTreeHead
 	// The STH retrieval backoff state. Used only in Continuous fetch mode.
 	sthBackoff *backoff.Backoff
+
+	// Stops range generator, which causes the Fetcher to terminate gracefully.
+	mu     sync.Mutex
+	cancel context.CancelFunc
 }
 
 // EntryBatch represents a contiguous range of entries of the Log.
@@ -83,7 +87,8 @@ type fetchRange struct {
 // NewFetcher creates a Fetcher instance using client to talk to the log,
 // taking configuration options from opts.
 func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
-	return &Fetcher{client: client, opts: opts}
+	cancel := func() {} // Protect against calling Stop before Run.
+	return &Fetcher{client: client, opts: opts, cancel: cancel}
 }
 
 // Prepare caches the latest Log's STH if not present and returns it. It also
@@ -108,16 +113,26 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	return sth, nil
 }
 
-// Run performs fetching of the Log. Blocks until scanning is complete or
-// context is cancelled. For each successfully fetched batch, runs the fn
-// callback.
+// Run performs fetching of the Log. Blocks until scanning is complete, the
+// passed in context is canceled, or Stop is called (and pending work is
+// finished). For each successfully fetched batch, runs the fn callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 	glog.V(1).Info("Starting up Fetcher...")
 	if _, err := f.Prepare(ctx); err != nil {
 		return err
 	}
 
-	ranges := f.genRanges(ctx)
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	f.mu.Lock()
+	f.cancel = cancel
+	f.mu.Unlock()
+
+	// Use a separately-cancelable context for the range generator, so we can
+	// close it down (in Stop) but still let the fetchers below run to
+	// completion.
+	ranges := f.genRanges(cctx)
 
 	// Run fetcher workers.
 	var wg sync.WaitGroup
@@ -134,6 +149,15 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 
 	glog.V(1).Info("Fetcher terminated")
 	return nil
+}
+
+// Stop causes the Fetcher to terminate gracefully. After this call Run will
+// try to finish all the started fetches, and then return. Does nothing if
+// there was no preceding Run invocation.
+func (f *Fetcher) Stop() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.cancel()
 }
 
 // genRanges returns a channel of ranges to fetch, and starts a goroutine that
