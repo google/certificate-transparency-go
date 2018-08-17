@@ -16,10 +16,14 @@ package core
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
+	"github.com/golang/glog"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
 	"github.com/google/trillian/crypto"
@@ -86,4 +90,28 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 	}
 	// TODO(pavelkalinnikov): Check rsp.Results statuses.
 	return nil
+}
+
+func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
+	rle, err := ct.RawLogEntryFromLeaf(index, entry)
+	if err != nil {
+		return nil, err
+	}
+
+	// Don't return on x509 parsing errors because we want to migrate this log
+	// entry as is. But log the error so that it can be flagged by monitoring.
+	if _, err = rle.ToLogEntry(); x509.IsFatal(err) {
+		glog.Errorf("%s: index=%d: x509 fatal error: %v", logPrefix, index, err)
+	} else if err != nil {
+		glog.Infof("%s: index=%d: x509 non-fatal error: %v", logPrefix, index, err)
+	}
+	// TODO(pavelkalinnikov): Verify cert chain if error is nil or non-fatal.
+
+	leafIDHash := sha256.Sum256(rle.Cert.Data)
+	return &trillian.LogLeaf{
+		LeafValue:        entry.LeafInput,
+		ExtraData:        entry.ExtraData,
+		LeafIndex:        index,
+		LeafIdentityHash: leafIDHash[:],
+	}, nil
 }
