@@ -110,6 +110,9 @@ message LogConfig {
   // provide. This option is exposed in CTFE metrics, and can be particularly
   // useful to catch when the log is behind but has not yet violated the strict
   // MMD limit.
+  // Log operator should decide what exactly EMD means for them. For example, it
+  // can be a 99-th percentile of merge delays that they observe, and they can
+  // alert on the actual merge delay going above a certain multiple of this EMD.
   int32 expected_merge_delay_sec = 15;
 }
 

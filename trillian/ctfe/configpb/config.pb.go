@@ -37,7 +37,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3e0890ff46da1baf, []int{0}
+	return fileDescriptor_config_b2f9535db6b85ba7, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -85,7 +85,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3e0890ff46da1baf, []int{1}
+	return fileDescriptor_config_b2f9535db6b85ba7, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -124,7 +124,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3e0890ff46da1baf, []int{2}
+	return fileDescriptor_config_b2f9535db6b85ba7, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -219,6 +219,9 @@ type LogConfig struct {
 	// provide. This option is exposed in CTFE metrics, and can be particularly
 	// useful to catch when the log is behind but has not yet violated the strict
 	// MMD limit.
+	// Log operator should decide what exactly EMD means for them. For example, it
+	// can be a 99-th percentile of merge delays that they observe, and they can
+	// alert on the actual merge delay going above a certain multiple of this EMD.
 	ExpectedMergeDelaySec int32    `protobuf:"varint,15,opt,name=expected_merge_delay_sec,json=expectedMergeDelaySec,proto3" json:"expected_merge_delay_sec,omitempty"`
 	XXX_NoUnkeyedLiteral  struct{} `json:"-"`
 	XXX_unrecognized      []byte   `json:"-"`
@@ -229,7 +232,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3e0890ff46da1baf, []int{3}
+	return fileDescriptor_config_b2f9535db6b85ba7, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -372,7 +375,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3e0890ff46da1baf, []int{4}
+	return fileDescriptor_config_b2f9535db6b85ba7, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -414,9 +417,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_3e0890ff46da1baf) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_config_b2f9535db6b85ba7) }
 
-var fileDescriptor_config_3e0890ff46da1baf = []byte{
+var fileDescriptor_config_b2f9535db6b85ba7 = []byte{
 	// 635 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0x4d, 0x6f, 0xd3, 0x40,
 	0x10, 0x55, 0x48, 0x93, 0x26, 0x93, 0x8f, 0x96, 0x2d, 0x6d, 0x4d, 0x39, 0x10, 0x22, 0x90, 0x22,
