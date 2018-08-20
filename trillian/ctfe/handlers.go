@@ -100,6 +100,7 @@ var (
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
 	once             sync.Once
 	knownLogs        monitoring.Gauge     // logid => value (always 1.0)
+	isMirrorLog      monitoring.Gauge     // logid => value (either 0.0 or 1.0)
 	maxMergeDelay    monitoring.Gauge     // logid => value
 	expMergeDelay    monitoring.Gauge     // logid => value
 	lastSCTTimestamp monitoring.Gauge     // logid => value
@@ -264,8 +265,15 @@ func newLogInfo(
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
 	label := strconv.FormatInt(logID, 10)
 	knownLogs.Set(1.0, label)
-	maxMergeDelay.Set(float64(instanceOpts.Config.MaxMergeDelaySec), label)
-	expMergeDelay.Set(float64(instanceOpts.Config.ExpectedMergeDelaySec), label)
+
+	cfg := instanceOpts.Config
+	if cfg.IsMirror {
+		isMirrorLog.Set(1.0, label)
+	} else {
+		isMirrorLog.Set(0.0, label)
+	}
+	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
+	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
 
 	return li
 }
