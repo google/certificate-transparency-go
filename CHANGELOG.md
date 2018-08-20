@@ -22,7 +22,6 @@ The `certcheck` and `ct_hammer` utilities have received more enhancements.
 
 `scanner` / `fixchain` and some other command line utilities now have better handling of non-fatal errors.
 
-
 Commit [3629d6846518309d22c16fee15d1007262a459d2](https://api.github.com/repos/google/certificate-transparency-go/commits/3629d6846518309d22c16fee15d1007262a459d2) Download [zip](https://api.github.com/repos/google/certificate-transparency-go/zipball/v1.0.21)
 
 ## v1.0.20 - Minimal Gossip / Go 1.11 Fix / Utility Improvements
