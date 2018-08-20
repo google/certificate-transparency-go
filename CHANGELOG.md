@@ -1,5 +1,30 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
+## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
+
+Published 2018-08-20 10:11:04 +0000 UTC
+
+### CTFE
+
+`CTFE` no longer prints certificate chains as long byte strings in messages when handler errors occur. This was obscuring the reason for the failure and wasn't particularly useful.
+
+`CTFE` now has a global log URL path prefix flag and a configuration proto for a log specific path. The latter should help for various migration strategies if existing C++ server logs are going to be converted to run on the new code.
+
+### Mirroring
+
+More progress has been made on log mirroring. We believe that it's now at the point where testing can begin.
+
+### Utilities / Libraries
+
+The `certcheck` and `ct_hammer` utilities have received more enhancements.
+
+`x509` and `x509util` now support Subject Information Access and additional extensions for [RPKI / RFC 3779](https://www.ietf.org/rfc/rfc3779.txt).
+
+`scanner` / `fixchain` and some other command line utilities now have better handling of non-fatal errors.
+
+
+Commit [3629d6846518309d22c16fee15d1007262a459d2](https://api.github.com/repos/google/certificate-transparency-go/commits/3629d6846518309d22c16fee15d1007262a459d2) Download [zip](https://api.github.com/repos/google/certificate-transparency-go/zipball/v1.0.21)
+
 ## v1.0.20 - Minimal Gossip / Go 1.11 Fix / Utility Improvements
 
 Published 2018-07-05 09:21:34 +0000 UTC
