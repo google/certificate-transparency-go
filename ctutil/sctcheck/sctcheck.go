@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	logList  = flag.String("log_list", loglist.LogListURL, "Location of master CT log list (URL or filename)")
+	logList  = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
 	deadline = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
 	useDNS   = flag.Bool("dns", false, "Use DNS access points for inclusion checking")
 )
