@@ -65,9 +65,16 @@ func signatureToString(signed *ct.DigitallySigned) string {
 	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
 }
 
+func logErrDetails(err error) {
+	if err, ok := err.(client.RspError); ok {
+		log.Printf("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
+	}
+}
+
 func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 	sth, err := logClient.GetSTH(ctx)
 	if err != nil {
+		logErrDetails(err)
 		log.Fatal(err)
 	}
 	// Display the STH
@@ -117,9 +124,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 		sct, err = logClient.AddChain(ctx, chain)
 	}
 	if err != nil {
-		if err, ok := err.(client.RspError); ok {
-			log.Fatalf("Upload failed: %q, detail:\n  %s", err, string(err.Body))
-		}
+		logErrDetails(err)
 		log.Fatalf("Upload failed: %q", err)
 	}
 	// Calculate the leaf hash
@@ -146,6 +151,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 func getRoots(ctx context.Context, logClient *client.LogClient) {
 	roots, err := logClient.GetAcceptedRoots(ctx)
 	if err != nil {
+		logErrDetails(err)
 		log.Fatal(err)
 	}
 	for _, root := range roots {
@@ -162,6 +168,7 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 	}
 	rsp, err := logClient.GetRawEntries(ctx, *getFirst, *getLast)
 	if err != nil {
+		logErrDetails(err)
 		log.Fatal(err)
 	}
 
@@ -205,6 +212,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 		var err error
 		sth, err = logClient.GetSTH(ctx)
 		if err != nil {
+			logErrDetails(err)
 			log.Fatalf("Failed to get current STH: %v", err)
 		}
 		size = int64(sth.TreeSize)
@@ -212,6 +220,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	// Display the inclusion proof.
 	rsp, err := logClient.GetProofByHash(ctx, hash, uint64(size))
 	if err != nil {
+		logErrDetails(err)
 		log.Fatalf("Failed to get-proof-by-hash: %v", err)
 	}
 	fmt.Printf("Inclusion proof for index %d in tree of size %d:\n", rsp.LeafIndex, size)
@@ -265,9 +274,7 @@ func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second int64, prevHash, treeHash []byte) {
 	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
 	if err != nil {
-		if err, ok := err.(client.RspError); ok {
-			log.Fatalf("get-sth-consistency failed: %q, detail:\n  %s", err, string(err.Body))
-		}
+		logErrDetails(err)
 		log.Fatalf("Failed to get-sth-consistency: %v", err)
 	}
 	fmt.Printf("Consistency proof from size %d to size %d:\n", first, second)
