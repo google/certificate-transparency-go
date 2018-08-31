@@ -44,7 +44,7 @@ var (
 	dnsBase   = flag.String("dns_base", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
 	useDNS    = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
 	logName   = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
-	logList   = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
+	logList   = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
 	logURI    = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
 	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")

@@ -36,7 +36,7 @@ import (
 
 var (
 	logURI        = flag.String("log_uri", "https://ct.googleapis.com/pilot", "CT log base URI")
-	logList       = flag.String("log_list", loglist.LogListURL, "Location of master CT log list (URL or filename)")
+	logList       = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
 	useDNS        = flag.Bool("dns", true, "Use DNS access points for inclusion checking")
 	inclusion     = flag.Bool("inclusion", false, "Whether to do inclusion checking")
 	deadline      = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
