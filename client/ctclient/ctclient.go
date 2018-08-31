@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/pem"
 	"flag"
@@ -41,22 +42,23 @@ import (
 )
 
 var (
-	dnsBase   = flag.String("dns_base", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
-	useDNS    = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
-	logName   = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
-	logList   = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
-	logURI    = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
-	logMMD    = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
-	pubKey    = flag.String("pub_key", "", "Name of file containing log's public key")
-	certChain = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
-	textOut   = flag.Bool("text", true, "Display certificates as text")
-	getFirst  = flag.Int64("first", -1, "First entry to get")
-	getLast   = flag.Int64("last", -1, "Last entry to get")
-	treeSize  = flag.Int64("size", -1, "Tree size to query at")
-	treeHash  = flag.String("tree_hash", "", "Tree hash to check against (as hex string)")
-	prevSize  = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
-	prevHash  = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string)")
-	leafHash  = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
+	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection")
+	dnsBase         = flag.String("dns_base", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
+	useDNS          = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
+	logName         = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
+	logList         = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
+	logURI          = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
+	logMMD          = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
+	pubKey          = flag.String("pub_key", "", "Name of file containing log's public key")
+	certChain       = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
+	textOut         = flag.Bool("text", true, "Display certificates as text")
+	getFirst        = flag.Int64("first", -1, "First entry to get")
+	getLast         = flag.Int64("last", -1, "Last entry to get")
+	treeSize        = flag.Int64("size", -1, "Tree size to query at")
+	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string)")
+	prevSize        = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
+	prevHash        = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string)")
+	leafHash        = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
 )
 
 func signatureToString(signed *ct.DigitallySigned) string {
@@ -328,6 +330,12 @@ func dieWithUsage(msg string) {
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	var tlsCfg *tls.Config
+	if *skipHTTPSVerify {
+		log.Print("Skipping HTTPS connection verification")
+		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
+	}
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
@@ -338,6 +346,7 @@ func main() {
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig:       tlsCfg,
 		},
 	}
 	var opts jsonclient.Options
