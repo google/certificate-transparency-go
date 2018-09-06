@@ -30,8 +30,8 @@ import (
 	"github.com/google/trillian/client/backoff"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/types"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var errRetry = errors.New("retry")
@@ -106,7 +106,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 	bo.Retry(ctx, func() error {
 		var rsp *trillian.AddSequencedLeavesResponse
 		rsp, err = c.cli.AddSequencedLeaves(ctx, &req)
-		switch grpc.Code(err) {
+		switch status.Code(err) {
 		case codes.ResourceExhausted: // There was (probably) a quota error.
 			end := b.Start + int64(len(b.Entries))
 			glog.Errorf("%d: retrying batch [%d, %d) due to error: %v", treeID, b.Start, end, err)
