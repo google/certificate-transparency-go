@@ -201,6 +201,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			if err := c.runSubmitter(cctx); err != nil {
+				glog.Errorf("%d: Stopping due to submitter error: %v", treeID, err)
 				cancel() // Stop the other submitters and the Fetcher.
 			}
 		}()
