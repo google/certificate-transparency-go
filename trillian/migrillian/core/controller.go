@@ -193,12 +193,17 @@ func (c *Controller) Run(ctx context.Context) error {
 		wg.Wait()
 	}()
 
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
 		wg.Add(1)
 		go func() {
-			c.runSubmitter(ctx)
-			wg.Done()
+			defer wg.Done()
+			if err := c.runSubmitter(cctx); err != nil {
+				glog.Errorf("%d: Stopping due to submitter error: %v", treeID, err)
+				cancel() // Stop the other submitters and the Fetcher.
+			}
 		}()
 	}
 
@@ -206,7 +211,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
-	return fetcher.Run(ctx, handler)
+	return fetcher.Run(cctx, handler)
 }
 
 // verifyConsistency checks that the provided verified Trillian root is
@@ -242,21 +247,27 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 	return nil
 }
 
-// runSubmitter obtaines CT log entry batches from the controller's channel and
-// submits them through Trillian client. Returns when the channel is closed.
-func (c *Controller) runSubmitter(ctx context.Context) {
+// runSubmitter obtains CT log entry batches from the controller's channel and
+// submits them through Trillian client. Returns when the channel is closed, or
+// the client returns a non-recoverable error (an example of a recoverable
+// error is when Trillian write quota is exceeded).
+func (c *Controller) runSubmitter(ctx context.Context) error {
 	treeID := c.plClient.tree.TreeId
 	for b := range c.batches {
 		entries := float64(len(b.Entries))
 		metrics.entriesSeen.Add(entries, c.label)
 
 		end := b.Start + int64(len(b.Entries))
-		// TODO(pavelkalinnikov): Retry with backoff on errors.
 		if err := c.plClient.addSequencedLeaves(ctx, &b); err != nil {
-			glog.Errorf("%d: failed to add batch [%d, %d): %v", treeID, b.Start, end, err)
-		} else {
-			glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
-			metrics.entriesStored.Add(entries, c.label)
+			// addSequencedLeaves failed to submit entries despite retries. At this
+			// point there is not much we can do. Seemingly the best strategy is to
+			// shut down the Controller.
+			// TODO(pavelkalinnikov): Restart Controller and/or expose some metrics
+			// allowing a log operator to set up alerts and react accordingly.
+			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
+		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
+		metrics.entriesStored.Add(entries, c.label)
 	}
+	return nil
 }

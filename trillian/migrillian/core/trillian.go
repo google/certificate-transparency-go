@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
@@ -26,9 +27,14 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
+	"github.com/google/trillian/client/backoff"
 	"github.com/google/trillian/crypto"
 	"github.com/google/trillian/types"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
+
+var errRetry = errors.New("retry")
 
 // PreorderedLogClient is a means of communicating with a single Trillian
 // pre-ordered log tree.
@@ -71,6 +77,11 @@ func (c *PreorderedLogClient) getVerifiedRoot(ctx context.Context) (*types.LogRo
 
 // addSequencedLeaves converts a batch of CT log entries into Trillian log
 // leaves and submits them to Trillian via AddSequencedLeaves API.
+//
+// If and while Trillian returns "quota exceeded" errors, the function will
+// retry the request with a limited exponential back-off.
+//
+// Returns an error if Trillian replies with a severe/unknown error.
 func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner.EntryBatch) error {
 	// TODO(pavelkalinnikov): Verify range inclusion against the remote STH.
 	leaves := make([]*trillian.LogLeaf, len(b.Entries))
@@ -80,16 +91,38 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 			return err
 		}
 	}
+	treeID := c.tree.TreeId
+	req := trillian.AddSequencedLeavesRequest{LogId: treeID, Leaves: leaves}
 
-	req := trillian.AddSequencedLeavesRequest{LogId: c.tree.TreeId, Leaves: leaves}
-	rsp, err := c.cli.AddSequencedLeaves(ctx, &req)
-	if err != nil {
-		return fmt.Errorf("AddSequencedLeaves(): %v", err)
-	} else if rsp == nil {
-		return errors.New("missing AddSequencedLeaves response")
+	// TODO(pavelkalinnikov): Make this strategy configurable.
+	bo := backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    1 * time.Minute,
+		Factor: 3,
+		Jitter: true,
 	}
-	// TODO(pavelkalinnikov): Check rsp.Results statuses.
-	return nil
+
+	var err error
+	bo.Retry(ctx, func() error {
+		var rsp *trillian.AddSequencedLeavesResponse
+		rsp, err = c.cli.AddSequencedLeaves(ctx, &req)
+		switch grpc.Code(err) {
+		case codes.ResourceExhausted: // There was (probably) a quota error.
+			end := b.Start + int64(len(b.Entries))
+			glog.Errorf("%d: retrying batch [%d, %d) due to error: %v", treeID, b.Start, end, err)
+			return errRetry
+		case codes.OK:
+			if rsp == nil {
+				err = errors.New("missing AddSequencedLeaves response")
+			}
+			// TODO(pavelkalinnikov): Check rsp.Results statuses.
+			return nil
+		default: // There was another (probably serious) error.
+			return nil // Stop backing off, and return err as is below.
+		}
+	})
+
+	return err
 }
 
 func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
