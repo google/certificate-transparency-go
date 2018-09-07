@@ -35,8 +35,12 @@ var (
 	useSystemRoots            = flag.Bool("system_roots", false, "Use system roots")
 	verbose                   = flag.Bool("verbose", false, "Verbose output")
 	validate                  = flag.Bool("validate", false, "Validate certificate signatures")
-	timecheck                 = flag.Bool("timecheck", false, "Check current validity of certificate")
-	revokecheck               = flag.Bool("check_revocation", false, "Check revocation status of certificate")
+	timeCheck                 = flag.Bool("time_check", false, "Check current validity of certificate")
+	nameCheck                 = flag.Bool("name_check", true, "Check certificate name validity")
+	ekuCheck                  = flag.Bool("eku_check", true, "Check EKU nesting validity")
+	pathLenCheck              = flag.Bool("path_len_check", true, "Check path len constraint validity")
+	nameConstraintCheck       = flag.Bool("name_constraint_check", true, "Check name constraints")
+	revokeCheck               = flag.Bool("check_revocation", false, "Check revocation status of certificate")
 	ignoreUnknownCriticalExts = flag.Bool("ignore_unknown_critical_exts", false, "Ignore unknown-critical-extension errors")
 )
 
@@ -79,7 +83,7 @@ func main() {
 			if *verbose {
 				fmt.Print(x509util.CertificateToString(cert))
 			}
-			if *revokecheck {
+			if *revokeCheck {
 				if err := checkRevocation(cert, *verbose); err != nil {
 					glog.Errorf("%s: certificate is revoked: %v", target, err)
 					failed = true
@@ -87,14 +91,15 @@ func main() {
 			}
 		}
 		if *validate && len(chain) > 0 {
-			if *ignoreUnknownCriticalExts {
-				// We don't want failures from Verify due to unknown critical extensions,
-				// so clear them out.
-				for _, cert := range chain {
-					cert.UnhandledCriticalExtensions = nil
-				}
+			opts := x509.VerifyOptions{
+				DisableTimeChecks:              !*timeCheck,
+				DisableCriticalExtensionChecks: *ignoreUnknownCriticalExts,
+				DisableNameChecks:              !*nameCheck,
+				DisableEKUChecks:               !*ekuCheck,
+				DisablePathLenChecks:           !*pathLenCheck,
+				DisableNameConstraintChecks:    !*nameConstraintCheck,
 			}
-			if err := validateChain(chain, *timecheck, *root, *intermediate, *useSystemRoots); err != nil {
+			if err := validateChain(chain, opts, *root, *intermediate, *useSystemRoots); err != nil {
 				glog.Errorf("%s: verification error: %v", target, err)
 				failed = true
 			}
@@ -157,7 +162,7 @@ func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	return chain, nil
 }
 
-func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string, useSystemRoots bool) error {
+func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile, intermediatesFile string, useSystemRoots bool) error {
 	roots := x509.NewCertPool()
 	if useSystemRoots {
 		systemRoots, err := x509.SystemCertPool()
@@ -166,12 +171,9 @@ func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, interme
 		}
 		roots = systemRoots
 	}
-	opts := x509.VerifyOptions{
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		Roots:             roots,
-		Intermediates:     x509.NewCertPool(),
-		DisableTimeChecks: !timecheck,
-	}
+	opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+	opts.Roots = roots
+	opts.Intermediates = x509.NewCertPool()
 	addCerts(rootsFile, opts.Roots)
 	addCerts(intermediatesFile, opts.Intermediates)
 
