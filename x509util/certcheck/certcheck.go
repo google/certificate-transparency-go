@@ -30,18 +30,18 @@ import (
 )
 
 var (
-	root                      = flag.String("root", "", "Root CA certificate file")
-	intermediate              = flag.String("intermediate", "", "Intermediate CA certificate file")
-	useSystemRoots            = flag.Bool("system_roots", false, "Use system roots")
-	verbose                   = flag.Bool("verbose", false, "Verbose output")
-	validate                  = flag.Bool("validate", false, "Validate certificate signatures")
-	timeCheck                 = flag.Bool("time_check", false, "Check current validity of certificate")
-	nameCheck                 = flag.Bool("name_check", true, "Check certificate name validity")
-	ekuCheck                  = flag.Bool("eku_check", true, "Check EKU nesting validity")
-	pathLenCheck              = flag.Bool("path_len_check", true, "Check path len constraint validity")
-	nameConstraintCheck       = flag.Bool("name_constraint_check", true, "Check name constraints")
-	revokeCheck               = flag.Bool("check_revocation", false, "Check revocation status of certificate")
-	ignoreUnknownCriticalExts = flag.Bool("ignore_unknown_critical_exts", false, "Ignore unknown-critical-extension errors")
+	root                     = flag.String("root", "", "Root CA certificate file")
+	intermediate             = flag.String("intermediate", "", "Intermediate CA certificate file")
+	useSystemRoots           = flag.Bool("system_roots", false, "Use system roots")
+	verbose                  = flag.Bool("verbose", false, "Verbose output")
+	validate                 = flag.Bool("validate", false, "Validate certificate signatures")
+	checkTime                = flag.Bool("check_time", false, "Check current validity of certificate")
+	checkName                = flag.Bool("check_name", true, "Check certificate name validity")
+	checkEKU                 = flag.Bool("check_eku", true, "Check EKU nesting validity")
+	checkPathLen             = flag.Bool("check_path_len", true, "Check path len constraint validity")
+	checkNameConstraint      = flag.Bool("check_name_constraint", true, "Check name constraints")
+	checkUnknownCriticalExts = flag.Bool("check_unknown_critical_exts", true, "Check for unknown critical extensions")
+	checkRevoked             = flag.Bool("check_revocation", false, "Check revocation status of certificate")
 )
 
 func addCerts(filename string, pool *x509.CertPool) {
@@ -83,7 +83,7 @@ func main() {
 			if *verbose {
 				fmt.Print(x509util.CertificateToString(cert))
 			}
-			if *revokeCheck {
+			if *checkRevoked {
 				if err := checkRevocation(cert, *verbose); err != nil {
 					glog.Errorf("%s: certificate is revoked: %v", target, err)
 					failed = true
@@ -92,12 +92,12 @@ func main() {
 		}
 		if *validate && len(chain) > 0 {
 			opts := x509.VerifyOptions{
-				DisableTimeChecks:              !*timeCheck,
-				DisableCriticalExtensionChecks: *ignoreUnknownCriticalExts,
-				DisableNameChecks:              !*nameCheck,
-				DisableEKUChecks:               !*ekuCheck,
-				DisablePathLenChecks:           !*pathLenCheck,
-				DisableNameConstraintChecks:    !*nameConstraintCheck,
+				DisableTimeChecks:              !*checkTime,
+				DisableCriticalExtensionChecks: !*checkUnknownCriticalExts,
+				DisableNameChecks:              !*checkName,
+				DisableEKUChecks:               !*checkEKU,
+				DisablePathLenChecks:           !*checkPathLen,
+				DisableNameConstraintChecks:    !*checkNameConstraint,
 			}
 			if err := validateChain(chain, opts, *root, *intermediate, *useSystemRoots); err != nil {
 				glog.Errorf("%s: verification error: %v", target, err)
