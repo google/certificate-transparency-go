@@ -47,7 +47,7 @@ const (
 	sctCount = 10
 
 	// How far beyond current tree size to request for invalid requests.
-	invalidStretch = int64(1000000)
+	invalidStretch = int64(1000000000)
 )
 
 var (
