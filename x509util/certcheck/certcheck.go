@@ -30,14 +30,18 @@ import (
 )
 
 var (
-	root                      = flag.String("root", "", "Root CA certificate file")
-	intermediate              = flag.String("intermediate", "", "Intermediate CA certificate file")
-	useSystemRoots            = flag.Bool("system_roots", false, "Use system roots")
-	verbose                   = flag.Bool("verbose", false, "Verbose output")
-	validate                  = flag.Bool("validate", false, "Validate certificate signatures")
-	timecheck                 = flag.Bool("timecheck", false, "Check current validity of certificate")
-	revokecheck               = flag.Bool("check_revocation", false, "Check revocation status of certificate")
-	ignoreUnknownCriticalExts = flag.Bool("ignore_unknown_critical_exts", false, "Ignore unknown-critical-extension errors")
+	root                     = flag.String("root", "", "Root CA certificate file")
+	intermediate             = flag.String("intermediate", "", "Intermediate CA certificate file")
+	useSystemRoots           = flag.Bool("system_roots", false, "Use system roots")
+	verbose                  = flag.Bool("verbose", false, "Verbose output")
+	validate                 = flag.Bool("validate", false, "Validate certificate signatures")
+	checkTime                = flag.Bool("check_time", false, "Check current validity of certificate")
+	checkName                = flag.Bool("check_name", true, "Check certificate name validity")
+	checkEKU                 = flag.Bool("check_eku", true, "Check EKU nesting validity")
+	checkPathLen             = flag.Bool("check_path_len", true, "Check path len constraint validity")
+	checkNameConstraint      = flag.Bool("check_name_constraint", true, "Check name constraints")
+	checkUnknownCriticalExts = flag.Bool("check_unknown_critical_exts", true, "Check for unknown critical extensions")
+	checkRevoked             = flag.Bool("check_revocation", false, "Check revocation status of certificate")
 )
 
 func addCerts(filename string, pool *x509.CertPool) {
@@ -79,7 +83,7 @@ func main() {
 			if *verbose {
 				fmt.Print(x509util.CertificateToString(cert))
 			}
-			if *revokecheck {
+			if *checkRevoked {
 				if err := checkRevocation(cert, *verbose); err != nil {
 					glog.Errorf("%s: certificate is revoked: %v", target, err)
 					failed = true
@@ -87,14 +91,15 @@ func main() {
 			}
 		}
 		if *validate && len(chain) > 0 {
-			if *ignoreUnknownCriticalExts {
-				// We don't want failures from Verify due to unknown critical extensions,
-				// so clear them out.
-				for _, cert := range chain {
-					cert.UnhandledCriticalExtensions = nil
-				}
+			opts := x509.VerifyOptions{
+				DisableTimeChecks:              !*checkTime,
+				DisableCriticalExtensionChecks: !*checkUnknownCriticalExts,
+				DisableNameChecks:              !*checkName,
+				DisableEKUChecks:               !*checkEKU,
+				DisablePathLenChecks:           !*checkPathLen,
+				DisableNameConstraintChecks:    !*checkNameConstraint,
 			}
-			if err := validateChain(chain, *timecheck, *root, *intermediate, *useSystemRoots); err != nil {
+			if err := validateChain(chain, opts, *root, *intermediate, *useSystemRoots); err != nil {
 				glog.Errorf("%s: verification error: %v", target, err)
 				failed = true
 			}
@@ -157,7 +162,7 @@ func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	return chain, nil
 }
 
-func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, intermediatesFile string, useSystemRoots bool) error {
+func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile, intermediatesFile string, useSystemRoots bool) error {
 	roots := x509.NewCertPool()
 	if useSystemRoots {
 		systemRoots, err := x509.SystemCertPool()
@@ -166,12 +171,9 @@ func validateChain(chain []*x509.Certificate, timecheck bool, rootsFile, interme
 		}
 		roots = systemRoots
 	}
-	opts := x509.VerifyOptions{
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		Roots:             roots,
-		Intermediates:     x509.NewCertPool(),
-		DisableTimeChecks: !timecheck,
-	}
+	opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
+	opts.Roots = roots
+	opts.Intermediates = x509.NewCertPool()
 	addCerts(rootsFile, opts.Roots)
 	addCerts(intermediatesFile, opts.Intermediates)
 
