@@ -56,18 +56,8 @@ func New(uri string, hc *http.Client, opts jsonclient.Options) (*LogClient, erro
 	return &LogClient{*logClient}, err
 }
 
-// RspError represents an error that occurred when processing a response from  a server,
-// and also includes key details from the http.Response that triggered the error.
-type RspError struct {
-	Err        error
-	StatusCode int
-	Body       []byte
-}
-
-// Error formats the RspError instance, focusing on the error.
-func (e RspError) Error() string {
-	return e.Err.Error()
-}
+// RspError represents a server error including HTTP information.
+type RspError = jsonclient.RspError
 
 // Attempts to add |chain| to the log, using the api end-point specified by
 // |path|. If provided context expires before submission is complete an
