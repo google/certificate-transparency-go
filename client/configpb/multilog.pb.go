@@ -3,10 +3,12 @@
 
 package configpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -32,7 +34,7 @@ func (m *TemporalLogConfig) Reset()         { *m = TemporalLogConfig{} }
 func (m *TemporalLogConfig) String() string { return proto.CompactTextString(m) }
 func (*TemporalLogConfig) ProtoMessage()    {}
 func (*TemporalLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_multilog_3c9b797b88da6f07, []int{0}
+	return fileDescriptor_33e545c6d900a512, []int{0}
 }
 func (m *TemporalLogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TemporalLogConfig.Unmarshal(m, b)
@@ -40,8 +42,8 @@ func (m *TemporalLogConfig) XXX_Unmarshal(b []byte) error {
 func (m *TemporalLogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_TemporalLogConfig.Marshal(b, m, deterministic)
 }
-func (dst *TemporalLogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TemporalLogConfig.Merge(dst, src)
+func (m *TemporalLogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TemporalLogConfig.Merge(m, src)
 }
 func (m *TemporalLogConfig) XXX_Size() int {
 	return xxx_messageInfo_TemporalLogConfig.Size(m)
@@ -82,7 +84,7 @@ func (m *LogShardConfig) Reset()         { *m = LogShardConfig{} }
 func (m *LogShardConfig) String() string { return proto.CompactTextString(m) }
 func (*LogShardConfig) ProtoMessage()    {}
 func (*LogShardConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_multilog_3c9b797b88da6f07, []int{1}
+	return fileDescriptor_33e545c6d900a512, []int{1}
 }
 func (m *LogShardConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogShardConfig.Unmarshal(m, b)
@@ -90,8 +92,8 @@ func (m *LogShardConfig) XXX_Unmarshal(b []byte) error {
 func (m *LogShardConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogShardConfig.Marshal(b, m, deterministic)
 }
-func (dst *LogShardConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogShardConfig.Merge(dst, src)
+func (m *LogShardConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogShardConfig.Merge(m, src)
 }
 func (m *LogShardConfig) XXX_Size() int {
 	return xxx_messageInfo_LogShardConfig.Size(m)
@@ -135,9 +137,9 @@ func init() {
 	proto.RegisterType((*LogShardConfig)(nil), "configpb.LogShardConfig")
 }
 
-func init() { proto.RegisterFile("multilog.proto", fileDescriptor_multilog_3c9b797b88da6f07) }
+func init() { proto.RegisterFile("multilog.proto", fileDescriptor_33e545c6d900a512) }
 
-var fileDescriptor_multilog_3c9b797b88da6f07 = []byte{
+var fileDescriptor_33e545c6d900a512 = []byte{
 	// 241 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x8f, 0xb1, 0x4e, 0xc3, 0x30,
 	0x14, 0x45, 0x65, 0x02, 0x08, 0xdc, 0x12, 0xc0, 0x93, 0xd5, 0x85, 0xa8, 0x62, 0xc8, 0xe4, 0x4a,

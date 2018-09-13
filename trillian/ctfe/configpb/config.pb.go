@@ -3,12 +3,14 @@
 
 package configpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
-import keyspb "github.com/google/trillian/crypto/keyspb"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	keyspb "github.com/google/trillian/crypto/keyspb"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,7 +39,7 @@ func (m *LogBackend) Reset()         { *m = LogBackend{} }
 func (m *LogBackend) String() string { return proto.CompactTextString(m) }
 func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b2f9535db6b85ba7, []int{0}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
@@ -45,8 +47,8 @@ func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 func (m *LogBackend) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogBackend.Marshal(b, m, deterministic)
 }
-func (dst *LogBackend) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogBackend.Merge(dst, src)
+func (m *LogBackend) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogBackend.Merge(m, src)
 }
 func (m *LogBackend) XXX_Size() int {
 	return xxx_messageInfo_LogBackend.Size(m)
@@ -85,7 +87,7 @@ func (m *LogBackendSet) Reset()         { *m = LogBackendSet{} }
 func (m *LogBackendSet) String() string { return proto.CompactTextString(m) }
 func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b2f9535db6b85ba7, []int{1}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
@@ -93,8 +95,8 @@ func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 func (m *LogBackendSet) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogBackendSet.Marshal(b, m, deterministic)
 }
-func (dst *LogBackendSet) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogBackendSet.Merge(dst, src)
+func (m *LogBackendSet) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogBackendSet.Merge(m, src)
 }
 func (m *LogBackendSet) XXX_Size() int {
 	return xxx_messageInfo_LogBackendSet.Size(m)
@@ -124,7 +126,7 @@ func (m *LogConfigSet) Reset()         { *m = LogConfigSet{} }
 func (m *LogConfigSet) String() string { return proto.CompactTextString(m) }
 func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b2f9535db6b85ba7, []int{2}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
@@ -132,8 +134,8 @@ func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 func (m *LogConfigSet) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogConfigSet.Marshal(b, m, deterministic)
 }
-func (dst *LogConfigSet) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogConfigSet.Merge(dst, src)
+func (m *LogConfigSet) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogConfigSet.Merge(m, src)
 }
 func (m *LogConfigSet) XXX_Size() int {
 	return xxx_messageInfo_LogConfigSet.Size(m)
@@ -232,7 +234,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b2f9535db6b85ba7, []int{3}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{3}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -240,8 +242,8 @@ func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 func (m *LogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogConfig.Marshal(b, m, deterministic)
 }
-func (dst *LogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogConfig.Merge(dst, src)
+func (m *LogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogConfig.Merge(m, src)
 }
 func (m *LogConfig) XXX_Size() int {
 	return xxx_messageInfo_LogConfig.Size(m)
@@ -375,7 +377,7 @@ func (m *LogMultiConfig) Reset()         { *m = LogMultiConfig{} }
 func (m *LogMultiConfig) String() string { return proto.CompactTextString(m) }
 func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_b2f9535db6b85ba7, []int{4}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{4}
 }
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
@@ -383,8 +385,8 @@ func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 func (m *LogMultiConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogMultiConfig.Marshal(b, m, deterministic)
 }
-func (dst *LogMultiConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogMultiConfig.Merge(dst, src)
+func (m *LogMultiConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogMultiConfig.Merge(m, src)
 }
 func (m *LogMultiConfig) XXX_Size() int {
 	return xxx_messageInfo_LogMultiConfig.Size(m)
@@ -417,9 +419,9 @@ func init() {
 	proto.RegisterType((*LogMultiConfig)(nil), "configpb.LogMultiConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_b2f9535db6b85ba7) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_3eaf2c85e69e9ea4) }
 
-var fileDescriptor_config_b2f9535db6b85ba7 = []byte{
+var fileDescriptor_3eaf2c85e69e9ea4 = []byte{
 	// 635 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0x4d, 0x6f, 0xd3, 0x40,
 	0x10, 0x55, 0x48, 0x93, 0x26, 0x93, 0x8f, 0x96, 0x2d, 0x6d, 0x4d, 0x39, 0x10, 0x22, 0x90, 0x22,
