@@ -3,11 +3,13 @@
 
 package configpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import configpb "github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-import keyspb "github.com/google/trillian/crypto/keyspb"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	configpb "github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
+	keyspb "github.com/google/trillian/crypto/keyspb"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -55,7 +57,7 @@ func (m *MigrationConfig) Reset()         { *m = MigrationConfig{} }
 func (m *MigrationConfig) String() string { return proto.CompactTextString(m) }
 func (*MigrationConfig) ProtoMessage()    {}
 func (*MigrationConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_bf213aaca32ca340, []int{0}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
 func (m *MigrationConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrationConfig.Unmarshal(m, b)
@@ -63,8 +65,8 @@ func (m *MigrationConfig) XXX_Unmarshal(b []byte) error {
 func (m *MigrationConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MigrationConfig.Marshal(b, m, deterministic)
 }
-func (dst *MigrationConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MigrationConfig.Merge(dst, src)
+func (m *MigrationConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MigrationConfig.Merge(m, src)
 }
 func (m *MigrationConfig) XXX_Size() int {
 	return xxx_messageInfo_MigrationConfig.Size(m)
@@ -143,7 +145,7 @@ func (m *MigrationConfigSet) Reset()         { *m = MigrationConfigSet{} }
 func (m *MigrationConfigSet) String() string { return proto.CompactTextString(m) }
 func (*MigrationConfigSet) ProtoMessage()    {}
 func (*MigrationConfigSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_bf213aaca32ca340, []int{1}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
 func (m *MigrationConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrationConfigSet.Unmarshal(m, b)
@@ -151,8 +153,8 @@ func (m *MigrationConfigSet) XXX_Unmarshal(b []byte) error {
 func (m *MigrationConfigSet) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MigrationConfigSet.Marshal(b, m, deterministic)
 }
-func (dst *MigrationConfigSet) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MigrationConfigSet.Merge(dst, src)
+func (m *MigrationConfigSet) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MigrationConfigSet.Merge(m, src)
 }
 func (m *MigrationConfigSet) XXX_Size() int {
 	return xxx_messageInfo_MigrationConfigSet.Size(m)
@@ -187,7 +189,7 @@ func (m *MigrillianConfig) Reset()         { *m = MigrillianConfig{} }
 func (m *MigrillianConfig) String() string { return proto.CompactTextString(m) }
 func (*MigrillianConfig) ProtoMessage()    {}
 func (*MigrillianConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_bf213aaca32ca340, []int{2}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
 func (m *MigrillianConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrillianConfig.Unmarshal(m, b)
@@ -195,8 +197,8 @@ func (m *MigrillianConfig) XXX_Unmarshal(b []byte) error {
 func (m *MigrillianConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MigrillianConfig.Marshal(b, m, deterministic)
 }
-func (dst *MigrillianConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MigrillianConfig.Merge(dst, src)
+func (m *MigrillianConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MigrillianConfig.Merge(m, src)
 }
 func (m *MigrillianConfig) XXX_Size() int {
 	return xxx_messageInfo_MigrillianConfig.Size(m)
@@ -227,9 +229,9 @@ func init() {
 	proto.RegisterType((*MigrillianConfig)(nil), "configpb.MigrillianConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_bf213aaca32ca340) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_3eaf2c85e69e9ea4) }
 
-var fileDescriptor_config_bf213aaca32ca340 = []byte{
+var fileDescriptor_3eaf2c85e69e9ea4 = []byte{
 	// 424 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x92, 0xdf, 0x8e, 0x94, 0x30,
 	0x14, 0xc6, 0xc3, 0x8e, 0x33, 0x42, 0x67, 0xd5, 0xd9, 0x26, 0x46, 0x5c, 0x35, 0x92, 0xf1, 0x86,

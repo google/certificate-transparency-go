@@ -3,12 +3,14 @@
 
 package configpb
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import any "github.com/golang/protobuf/ptypes/any"
-import duration "github.com/golang/protobuf/ptypes/duration"
-import keyspb "github.com/google/trillian/crypto/keyspb"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	any "github.com/golang/protobuf/ptypes/any"
+	duration "github.com/golang/protobuf/ptypes/duration"
+	keyspb "github.com/google/trillian/crypto/keyspb"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -41,7 +43,7 @@ func (m *LogConfig) Reset()         { *m = LogConfig{} }
 func (m *LogConfig) String() string { return proto.CompactTextString(m) }
 func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5de92fef3264bcc3, []int{0}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
@@ -49,8 +51,8 @@ func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 func (m *LogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_LogConfig.Marshal(b, m, deterministic)
 }
-func (dst *LogConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LogConfig.Merge(dst, src)
+func (m *LogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogConfig.Merge(m, src)
 }
 func (m *LogConfig) XXX_Size() int {
 	return xxx_messageInfo_LogConfig.Size(m)
@@ -115,7 +117,7 @@ func (m *GossipConfig) Reset()         { *m = GossipConfig{} }
 func (m *GossipConfig) String() string { return proto.CompactTextString(m) }
 func (*GossipConfig) ProtoMessage()    {}
 func (*GossipConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5de92fef3264bcc3, []int{1}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
 func (m *GossipConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GossipConfig.Unmarshal(m, b)
@@ -123,8 +125,8 @@ func (m *GossipConfig) XXX_Unmarshal(b []byte) error {
 func (m *GossipConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GossipConfig.Marshal(b, m, deterministic)
 }
-func (dst *GossipConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GossipConfig.Merge(dst, src)
+func (m *GossipConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GossipConfig.Merge(m, src)
 }
 func (m *GossipConfig) XXX_Size() int {
 	return xxx_messageInfo_GossipConfig.Size(m)
@@ -187,7 +189,7 @@ func (m *GoshawkConfig) Reset()         { *m = GoshawkConfig{} }
 func (m *GoshawkConfig) String() string { return proto.CompactTextString(m) }
 func (*GoshawkConfig) ProtoMessage()    {}
 func (*GoshawkConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_5de92fef3264bcc3, []int{2}
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
 func (m *GoshawkConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GoshawkConfig.Unmarshal(m, b)
@@ -195,8 +197,8 @@ func (m *GoshawkConfig) XXX_Unmarshal(b []byte) error {
 func (m *GoshawkConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GoshawkConfig.Marshal(b, m, deterministic)
 }
-func (dst *GoshawkConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GoshawkConfig.Merge(dst, src)
+func (m *GoshawkConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GoshawkConfig.Merge(m, src)
 }
 func (m *GoshawkConfig) XXX_Size() int {
 	return xxx_messageInfo_GoshawkConfig.Size(m)
@@ -234,9 +236,9 @@ func init() {
 	proto.RegisterType((*GoshawkConfig)(nil), "configpb.GoshawkConfig")
 }
 
-func init() { proto.RegisterFile("config.proto", fileDescriptor_config_5de92fef3264bcc3) }
+func init() { proto.RegisterFile("config.proto", fileDescriptor_3eaf2c85e69e9ea4) }
 
-var fileDescriptor_config_5de92fef3264bcc3 = []byte{
+var fileDescriptor_3eaf2c85e69e9ea4 = []byte{
 	// 384 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x90, 0x41, 0x6e, 0xd4, 0x30,
 	0x14, 0x86, 0xe5, 0x4e, 0x0b, 0x93, 0x97, 0x82, 0x8a, 0x61, 0x91, 0x16, 0x09, 0xa2, 0x59, 0x65,
