@@ -105,6 +105,19 @@ func (bl *basicLogger) Printf(msg string, args ...interface{}) {
 	log.Printf(msg, args...)
 }
 
+// RspError represents an error that occurred when processing a response from a server,
+// and also includes key details from the http.Response that triggered the error.
+type RspError struct {
+	Err        error
+	StatusCode int
+	Body       []byte
+}
+
+// Error formats the RspError instance, focusing on the error.
+func (e RspError) Error() string {
+	return e.Err.Error()
+}
+
 // New constructs a new JSONClient instance, for the given base URI, using the
 // given http.Client object (if provided) and the Options object.
 // If opts does not specify a public key, signatures will not be verified.
