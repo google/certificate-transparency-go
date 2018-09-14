@@ -200,19 +200,17 @@ func TestGetAndParse(t *testing.T) {
 		wantStatus int
 		want       TestStruct
 		wantErr    string
-		wantBody   bool
 	}{
 		{uri: "/short%", wantErr: "invalid URL escape"},
-		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected EOF", wantBody: true},
-		{uri: "/error", params: map[string]string{"rc": "404"}, wantStatus: http.StatusNotFound, wantBody: true},
-		{uri: "/error", params: map[string]string{"rc": "403"}, wantStatus: http.StatusForbidden, wantBody: true},
-		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}, wantBody: true},
+		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected EOF"},
+		{uri: "/error", params: map[string]string{"rc": "404"}, wantErr: "404 Not Found"},
+		{uri: "/error", params: map[string]string{"rc": "403"}, wantErr: "403 Forbidden"},
+		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}},
 		{
 			uri:        "/struct/params",
 			params:     map[string]string{"tree_size": "42", "timestamp": "88", "data": "abcd"},
 			wantStatus: http.StatusOK,
 			want:       TestStruct{42, 88, "abcd"},
-			wantBody:   true,
 		},
 	}
 
@@ -228,24 +226,33 @@ func TestGetAndParse(t *testing.T) {
 	for _, test := range tests {
 		var got TestStruct
 		httpRsp, body, err := logClient.GetAndParse(ctx, test.uri, test.params, &got)
-		if gotBody := (body != nil); gotBody != test.wantBody {
-			t.Errorf("GetAndParse(%q) got body? %v, want? %v", test.uri, gotBody, test.wantBody)
+		var gotStatus int
+		if httpRsp != nil {
+			gotStatus = httpRsp.StatusCode
+		} else if rspErr, ok := err.(RspError); ok {
+			gotStatus = rspErr.StatusCode
 		}
-		if len(test.wantErr) > 0 {
-			if err == nil {
-				t.Errorf("GetAndParse(%q)=%+v,_,nil; want error matching %q", test.uri, got, test.wantErr)
+
+		if err != nil {
+			if len(test.wantErr) == 0 {
+				t.Errorf("GetAndParse(%q)=_,_,%q; want _, _, nil", test.uri, err.Error())
 			} else if !strings.Contains(err.Error(), test.wantErr) {
-				t.Errorf("GetAndParse(%q)=nil,_,%q; want error matching %q", test.uri, err.Error(), test.wantErr)
+				t.Errorf("GetAndParse(%q)=_,_,%q; want _, _, error containing %q", test.uri, err.Error(), test.wantErr)
 			}
 			continue
 		}
-		if httpRsp.StatusCode != test.wantStatus {
-			t.Errorf("GetAndParse('%s') got status %d; want %d", test.uri, httpRsp.StatusCode, test.wantStatus)
+
+		if len(test.wantErr) > 0 {
+			t.Errorf("GetAndParse(%q)=%+v,_,nil; want error matching %q", test.uri, got, test.wantErr)
+		}
+		if gotStatus != test.wantStatus {
+			t.Errorf("GetAndParse('%s') got status %d; want %d", test.uri, gotStatus, test.wantStatus)
+		}
+
+		if body == nil {
+			t.Errorf("GetAndParse(%q)=_,nil,_; want _,non-nil,_", test.uri)
 		}
 		if test.wantStatus == http.StatusOK {
-			if err != nil {
-				t.Errorf("GetAndParse(%q)=nil,_,%q; want %+v", test.uri, err.Error(), got)
-			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("GetAndParse(%q)=%+v,_,nil; want %+v", test.uri, got, test.want)
 			}
@@ -260,20 +267,18 @@ func TestPostAndParse(t *testing.T) {
 		wantStatus int
 		want       TestStruct
 		wantErr    string
-		wantBody   bool
 	}{
 		{uri: "/short%", wantErr: "invalid URL escape"},
 		{uri: "/struct/params", request: json.Number(`invalid`), wantErr: "invalid number literal"},
-		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected end of JSON", wantBody: true},
-		{uri: "/error", request: TestParams{RespCode: 404}, wantStatus: http.StatusNotFound, wantBody: true},
-		{uri: "/error", request: TestParams{RespCode: 403}, wantStatus: http.StatusForbidden, wantBody: true},
-		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}, wantBody: true},
+		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected end of JSON"},
+		{uri: "/error", request: TestParams{RespCode: 404}, wantStatus: http.StatusNotFound},
+		{uri: "/error", request: TestParams{RespCode: 403}, wantStatus: http.StatusForbidden},
+		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}},
 		{
 			uri:        "/struct/params",
 			wantStatus: http.StatusOK,
 			request:    TestStruct{42, 88, "abcd"},
 			want:       TestStruct{42, 88, "abcd"},
-			wantBody:   true,
 		},
 	}
 
@@ -289,24 +294,32 @@ func TestPostAndParse(t *testing.T) {
 	for _, test := range tests {
 		var got TestStruct
 		httpRsp, body, err := logClient.PostAndParse(ctx, test.uri, test.request, &got)
-		if gotBody := (body != nil); gotBody != test.wantBody {
-			t.Errorf("PostAndParse(%q) returned body %v, wanted %v", test.uri, gotBody, test.wantBody)
+		var gotStatus int
+		if httpRsp != nil {
+			gotStatus = httpRsp.StatusCode
+		} else if rspErr, ok := err.(RspError); ok {
+			gotStatus = rspErr.StatusCode
 		}
-		if len(test.wantErr) > 0 {
-			if err == nil {
-				t.Errorf("PostAndParse(%q)=%+v,nil; want error matching %q", test.uri, got, test.wantErr)
+
+		if err != nil {
+			if len(test.wantErr) == 0 {
+				t.Errorf("PostAndParse(%q)=_,_,%q; want _, _, nil", test.uri, err.Error())
 			} else if !strings.Contains(err.Error(), test.wantErr) {
 				t.Errorf("PostAndParse(%q)=nil,%q; want error matching %q", test.uri, err.Error(), test.wantErr)
 			}
 			continue
 		}
-		if httpRsp.StatusCode != test.wantStatus {
-			t.Errorf("PostAndParse(%q) got status %d; want %d", test.uri, httpRsp.StatusCode, test.wantStatus)
+
+		if len(test.wantErr) > 0 {
+			t.Errorf("PostAndParse(%q)=%+v,nil; want error matching %q", test.uri, got, test.wantErr)
+		}
+		if gotStatus != test.wantStatus {
+			t.Errorf("PostAndParse('%s') got status %d; want %d", test.uri, gotStatus, test.wantStatus)
+		}
+		if body == nil {
+			t.Errorf("PostAndParse(%q)=_,nil,_; want _,non-nil,_ ", test.uri)
 		}
 		if test.wantStatus == http.StatusOK {
-			if err != nil {
-				t.Errorf("PostAndParse(%q)=nil,%q; want %+v", test.uri, err.Error(), test.want)
-			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("PostAndParse(%q)=%+v,nil; want %+v", test.uri, got, test.want)
 			}
