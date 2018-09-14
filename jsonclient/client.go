@@ -159,9 +159,8 @@ func (c *JSONClient) BaseURI() string {
 
 // GetAndParse makes a HTTP GET call to the given path, and attempta to parse
 // the response as a JSON representation of the rsp structure.  Returns the
-// http.Response, the body of the response, and an error.  Note that the
-// returned http.Response can be non-nil even when an error is returned,
-// in particular when the HTTP status is not OK or when the JSON parsing fails.
+// http.Response, the body of the response, and an error (which may be of
+// type RspError if the HTTP response was available).
 func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[string]string, rsp interface{}) (*http.Response, []byte, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("context.Context required")
@@ -186,15 +185,15 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	body, err := ioutil.ReadAll(httpRsp.Body)
 	httpRsp.Body.Close()
 	if err != nil {
-		return httpRsp, body, fmt.Errorf("failed to read response body: %v", err)
+		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %v", err), StatusCode: httpRsp.StatusCode, Body: body}
 	}
 
 	if httpRsp.StatusCode != http.StatusOK {
-		return httpRsp, body, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
+		return nil, nil, RspError{Err: fmt.Errorf("got HTTP Status %q", httpRsp.Status), StatusCode: httpRsp.StatusCode, Body: body}
 	}
 
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(rsp); err != nil {
-		return httpRsp, body, err
+		return nil, nil, RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
 	}
 
 	return httpRsp, body, nil
@@ -203,9 +202,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 // PostAndParse makes a HTTP POST call to the given path, including the request
 // parameters, and attempts to parse the response as a JSON representation of
 // the rsp structure. Returns the http.Response, the body of the response, and
-// an error.  Note that the returned http.Response can be non-nil even when an
-// error is returned, in particular when the HTTP status is not OK or when the
-// JSON parsing fails.
+// an error (which may be of type RspError if the HTTP response was available).
 func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp interface{}) (*http.Response, []byte, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("context.Context required")
@@ -231,12 +228,12 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 		httpRsp.Body.Close()
 	}
 	if err != nil {
-		return httpRsp, body, err
+		return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
 	}
 
 	if httpRsp.StatusCode == http.StatusOK {
 		if err = json.Unmarshal(body, &rsp); err != nil {
-			return httpRsp, body, err
+			return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
 		}
 	}
 	return httpRsp, body, nil
