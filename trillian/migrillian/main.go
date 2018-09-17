@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
 
@@ -35,12 +34,12 @@ import (
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
-	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
-	"github.com/google/certificate-transparency-go/trillian/migrillian/election/etcd"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
+	"github.com/google/trillian/util/election2"
+	"github.com/google/trillian/util/election2/etcd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -130,7 +129,7 @@ func getController(
 	cfg *configpb.MigrationConfig,
 	httpClient *http.Client,
 	mf monitoring.MetricFactory,
-	ef election.Factory,
+	ef election2.Factory,
 	conn *grpc.ClientConn,
 ) (*core.Controller, error) {
 	ctOpts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.Der}
@@ -204,19 +203,16 @@ func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID i
 
 // getElectionFactory returns an election factory based on flags, and a
 // function which releases the resources associated with the factory.
-func getElectionFactory() (election.Factory, func()) {
+func getElectionFactory() (election2.Factory, func()) {
 	if *forceMaster {
 		glog.Warning("Acting as master for all logs")
-		return election.NoopFactory{}, func() {}
+		return election2.NoopFactory{}, func() {}
 	}
 	if len(*etcdServers) == 0 {
 		glog.Exit("Either --force_master or --etcd_servers must be supplied")
 	}
 
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   strings.Split(*etcdServers, ","),
-		DialTimeout: 5 * time.Second,
-	})
+	cli, err := etcd.NewClient(strings.Split(*etcdServers, ","), 5*time.Second)
 	if err != nil || cli == nil {
 		glog.Exitf("Failed to create etcd client: %v", err)
 	}
