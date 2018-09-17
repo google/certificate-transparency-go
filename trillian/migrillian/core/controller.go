@@ -27,12 +27,12 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
-	"github.com/google/certificate-transparency-go/trillian/migrillian/election"
 
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
+	"github.com/google/trillian/util/election2"
 )
 
 var (
@@ -84,7 +84,7 @@ type Controller struct {
 	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
-	ef       election.Factory
+	ef       election2.Factory
 	label    string
 }
 
@@ -97,7 +97,7 @@ func NewController(
 	opts Options,
 	ctClient *client.LogClient,
 	plClient *PreorderedLogClient,
-	ef election.Factory,
+	ef election2.Factory,
 	mf monitoring.MetricFactory,
 ) *Controller {
 	initMetrics(mf)
@@ -111,7 +111,7 @@ func NewController(
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
-	treeID := c.plClient.tree.TreeId
+	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
 
 	el, err := c.ef.NewElection(ctx, treeID)
 	if err != nil {
@@ -120,7 +120,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	defer func(ctx context.Context) {
 		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%d: Election.Close(): %v", treeID, err)
+			glog.Warningf("%s: Election.Close(): %v", treeID, err)
 		}
 	}(ctx)
 
@@ -130,14 +130,14 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		}
 		metrics.isMaster.Set(1, c.label)
 
-		mctx, err := el.Observe(ctx)
+		mctx, err := el.WithMastership(ctx)
 		if err != nil {
 			return err
 		} else if err := mctx.Err(); err != nil {
 			return err
 		}
 
-		glog.Infof("%d: running as master", treeID)
+		glog.Infof("%s: running as master", treeID)
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
