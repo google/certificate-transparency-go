@@ -78,8 +78,12 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
 		for _, cfg := range cfgs {
+			vCfg, err := ctfe.ValidateLogConfig(cfg)
+			if err != nil {
+				glog.Fatalf("ValidateLogConfig failed: %+v: %v", cfg, err)
+			}
 			opts := ctfe.InstanceOptions{
-				Config:        cfg,
+				Validated:     vCfg,
 				Client:        client,
 				Deadline:      10 * time.Second,
 				MetricFactory: prometheus.MetricFactory{},
