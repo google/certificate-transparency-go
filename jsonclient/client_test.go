@@ -457,3 +457,28 @@ func TestContextRequired(t *testing.T) {
 		t.Errorf("PostAndParseWithRetry() succeeded with empty Context")
 	}
 }
+
+func TestCancelledContext(t *testing.T) {
+	ts := MockServer(t, -1, 0)
+	defer ts.Close()
+	logClient, err := New(ts.URL, &http.Client{}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var result TestStruct
+	_, _, err = logClient.GetAndParse(ctx, "/struct/path", nil, &result)
+	if err != context.Canceled {
+		t.Errorf("GetAndParse() = (_,_,%v), want %q", err, context.Canceled)
+	}
+	_, _, err = logClient.PostAndParse(ctx, "/struct/path", nil, &result)
+	if err != context.Canceled {
+		t.Errorf("PostAndParse() = (_,_,%v), want %q", err, context.Canceled)
+	}
+	_, _, err = logClient.PostAndParseWithRetry(ctx, "/struct/path", nil, &result)
+	if err != context.Canceled {
+		t.Errorf("PostAndParseWithRetry() = (_,_,%v), want %q", err, context.Canceled)
+	}
+}
