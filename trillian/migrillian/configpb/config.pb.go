@@ -59,6 +59,7 @@ func (*MigrationConfig) ProtoMessage()    {}
 func (*MigrationConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
+
 func (m *MigrationConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrationConfig.Unmarshal(m, b)
 }
@@ -147,6 +148,7 @@ func (*MigrationConfigSet) ProtoMessage()    {}
 func (*MigrationConfigSet) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
+
 func (m *MigrationConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrationConfigSet.Unmarshal(m, b)
 }
@@ -191,6 +193,7 @@ func (*MigrillianConfig) ProtoMessage()    {}
 func (*MigrillianConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
+
 func (m *MigrillianConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MigrillianConfig.Unmarshal(m, b)
 }

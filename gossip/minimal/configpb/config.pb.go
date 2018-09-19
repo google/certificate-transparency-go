@@ -45,6 +45,7 @@ func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
+
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
 }
@@ -119,6 +120,7 @@ func (*GossipConfig) ProtoMessage()    {}
 func (*GossipConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
+
 func (m *GossipConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GossipConfig.Unmarshal(m, b)
 }
@@ -191,6 +193,7 @@ func (*GoshawkConfig) ProtoMessage()    {}
 func (*GoshawkConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
+
 func (m *GoshawkConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GoshawkConfig.Unmarshal(m, b)
 }
