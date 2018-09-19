@@ -228,7 +228,10 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 		httpRsp.Body.Close()
 	}
 	if err != nil {
-		return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
+		if httpRsp != nil {
+			return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
+		}
+		return nil, nil, err
 	}
 
 	if httpRsp.StatusCode == http.StatusOK {
