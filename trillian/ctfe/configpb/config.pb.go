@@ -41,6 +41,7 @@ func (*LogBackend) ProtoMessage()    {}
 func (*LogBackend) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
 }
+
 func (m *LogBackend) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackend.Unmarshal(m, b)
 }
@@ -89,6 +90,7 @@ func (*LogBackendSet) ProtoMessage()    {}
 func (*LogBackendSet) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{1}
 }
+
 func (m *LogBackendSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogBackendSet.Unmarshal(m, b)
 }
@@ -128,6 +130,7 @@ func (*LogConfigSet) ProtoMessage()    {}
 func (*LogConfigSet) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{2}
 }
+
 func (m *LogConfigSet) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfigSet.Unmarshal(m, b)
 }
@@ -236,6 +239,7 @@ func (*LogConfig) ProtoMessage()    {}
 func (*LogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{3}
 }
+
 func (m *LogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogConfig.Unmarshal(m, b)
 }
@@ -379,6 +383,7 @@ func (*LogMultiConfig) ProtoMessage()    {}
 func (*LogMultiConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_3eaf2c85e69e9ea4, []int{4}
 }
+
 func (m *LogMultiConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogMultiConfig.Unmarshal(m, b)
 }

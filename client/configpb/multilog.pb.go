@@ -36,6 +36,7 @@ func (*TemporalLogConfig) ProtoMessage()    {}
 func (*TemporalLogConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_33e545c6d900a512, []int{0}
 }
+
 func (m *TemporalLogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TemporalLogConfig.Unmarshal(m, b)
 }
@@ -86,6 +87,7 @@ func (*LogShardConfig) ProtoMessage()    {}
 func (*LogShardConfig) Descriptor() ([]byte, []int) {
 	return fileDescriptor_33e545c6d900a512, []int{1}
 }
+
 func (m *LogShardConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_LogShardConfig.Unmarshal(m, b)
 }
