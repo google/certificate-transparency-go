@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
@@ -32,8 +31,9 @@ import (
 
 // InstanceOptions describes the options for a log instance.
 type InstanceOptions struct {
-	// Config holds the original configuration options for the log.
-	Config *configpb.LogConfig
+	// Validated holds the original configuration options for the log, and some
+	// of its fields parsed as a result of validating it.
+	Validated *ValidatedLogConfig
 	// Client is a corresponding Trillian log client.
 	Client trillian.TrillianLogClient
 	// Deadline is a timeout for Trillian RPC requests.
@@ -65,7 +65,8 @@ func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, er
 	if err != nil {
 		return nil, err
 	}
-	handlers := logInfo.Handlers(opts.Config.Prefix)
+	// TODO(pavelkalinnikov): Handlers can take the prefix from logInfo's opts.
+	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
 	return &handlers, nil
 }
 
@@ -77,18 +78,12 @@ func SetUpMirrorInstance(ctx context.Context, opts InstanceOptions, stor MirrorS
 		return nil, err
 	}
 	logInfo.sthGetter = &MirrorSTHGetter{li: logInfo, st: stor}
-	handlers := logInfo.Handlers(opts.Config.Prefix)
+	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
 	return &handlers, nil
 }
 
 func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
-	// TODO(pavelkalinnikov): Callers of SetUp[Mirror]Instance usually validate
-	// the config beforehand, so we should pass ValidatedLogConfig in directly to
-	// encourage that.
-	vCfg, err := ValidateLogConfig(opts.Config)
-	if err != nil {
-		return nil, err
-	}
+	vCfg := opts.Validated
 	cfg := vCfg.Config
 
 	// Check config validity.

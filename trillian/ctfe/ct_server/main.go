@@ -275,8 +275,13 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		return errors.New("mirrors are not supported")
 	}
 
+	vCfg, err := ctfe.ValidateLogConfig(cfg)
+	if err != nil {
+		return err
+	}
+
 	opts := ctfe.InstanceOptions{
-		Config:        cfg,
+		Validated:     vCfg,
 		Client:        client,
 		Deadline:      deadline,
 		MetricFactory: prometheus.MetricFactory{},
@@ -298,9 +303,9 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	// if all new logs are served on "/logs/log/..." and a previously existing
 	// log is at "/log/..." this is now supported.
 	lhp := globalHandlerPrefix
-	if len(opts.Config.OverrideHandlerPrefix) > 0 {
-		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", opts.Config.Prefix, opts.Config.OverrideHandlerPrefix)
-		lhp = "/" + strings.Trim(opts.Config.OverrideHandlerPrefix, "/")
+	if ohPrefix := cfg.OverrideHandlerPrefix; len(ohPrefix) > 0 {
+		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", cfg.Prefix, ohPrefix)
+		lhp = "/" + strings.Trim(ohPrefix, "/")
 	}
 	handlers, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {

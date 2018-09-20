@@ -245,7 +245,9 @@ func newLogInfo(
 	signer crypto.Signer,
 	timeSource util.TimeSource,
 ) *logInfo {
-	logID, prefix := instanceOpts.Config.LogId, instanceOpts.Config.Prefix
+	cfg := instanceOpts.Validated.Config
+
+	logID, prefix := cfg.LogId, cfg.Prefix
 	li := &logInfo{
 		logID:          logID,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
@@ -257,7 +259,7 @@ func newLogInfo(
 		RequestLog:     instanceOpts.RequestLog,
 	}
 
-	if instanceOpts.Config.IsMirror {
+	if cfg.IsMirror {
 		li.sthGetter = &MirrorSTHGetter{li: li, st: DefaultMirrorSTHStorage{}}
 	} else {
 		li.sthGetter = &LogSTHGetter{li: li}
@@ -267,7 +269,6 @@ func newLogInfo(
 	label := strconv.FormatInt(logID, 10)
 	knownLogs.Set(1.0, label)
 
-	cfg := instanceOpts.Config
 	if cfg.IsMirror {
 		isMirrorLog.Set(1.0, label)
 	} else {
@@ -299,7 +300,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
 	}
 	// Remove endpoints not provided by mirrors.
-	if li.instanceOpts.Config.IsMirror {
+	if li.instanceOpts.Validated.Config.IsMirror {
 		delete(ph, prefix+ct.AddChainPath)
 		delete(ph, prefix+ct.AddPreChainPath)
 	}

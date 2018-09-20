@@ -107,12 +107,30 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
-			desc:    "unknown-ext-key-usage",
+			desc:    "unknown-ext-key-usage-1",
 			wantErr: "unknown extended key usage",
 			cfg: configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"wrong_usage"},
+			},
+		},
+		{
+			desc:    "unknown-ext-key-usage-2",
+			wantErr: "unknown extended key usage",
+			cfg: configpb.LogConfig{
+				LogId:        123,
+				PrivateKey:   privKey,
+				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStomping"},
+			},
+		},
+		{
+			desc:    "unknown-ext-key-usage-3",
+			wantErr: "unknown extended key usage",
+			cfg: configpb.LogConfig{
+				LogId:        123,
+				PrivateKey:   privKey,
+				ExtKeyUsages: []string{"Any "},
 			},
 		},
 		{

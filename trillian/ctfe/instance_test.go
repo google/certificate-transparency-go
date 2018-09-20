@@ -96,35 +96,6 @@ func TestSetUpInstance(t *testing.T) {
 			},
 		},
 		{
-			desc: "no-priv-key",
-			cfg: configpb.LogConfig{
-				LogId:        1,
-				Prefix:       "log",
-				RootsPemFile: []string{"../testdata/fake-ca.cert"},
-			},
-			wantErr: "empty private key",
-		},
-		{
-			desc: "priv-key-mirror",
-			cfg: configpb.LogConfig{
-				LogId:      1,
-				Prefix:     "log",
-				PrivateKey: privKey,
-				PublicKey:  pubKey,
-				IsMirror:   true,
-			},
-			wantErr: "unnecessary private key",
-		},
-		{
-			desc: "no-pub-key-mirror",
-			cfg: configpb.LogConfig{
-				LogId:    1,
-				Prefix:   "log",
-				IsMirror: true,
-			},
-			wantErr: "empty public key",
-		},
-		{
 			desc: "missing-root-cert",
 			cfg: configpb.LogConfig{
 				LogId:        1,
@@ -174,33 +145,16 @@ func TestSetUpInstance(t *testing.T) {
 				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStamping"},
 			},
 		},
-		{
-			desc: "invalid-ekus-1",
-			cfg: configpb.LogConfig{
-				LogId:        1,
-				Prefix:       "log",
-				RootsPemFile: []string{"../testdata/fake-ca.cert"},
-				PrivateKey:   privKey,
-				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStomping"},
-			},
-			wantErr: "unknown extended key usage",
-		},
-		{
-			desc: "invalid-ekus-2",
-			cfg: configpb.LogConfig{
-				LogId:        1,
-				Prefix:       "log",
-				RootsPemFile: []string{"../testdata/fake-ca.cert"},
-				PrivateKey:   privKey,
-				ExtKeyUsages: []string{"Any "},
-			},
-			wantErr: "unknown extended key usage",
-		},
 	}
 
 	for _, test := range tests {
-		opts := InstanceOptions{Config: &test.cfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 		t.Run(test.desc, func(t *testing.T) {
+			vCfg, err := ValidateLogConfig(&test.cfg)
+			if err != nil {
+				t.Fatalf("ValidateLogConfig(): %v", err)
+			}
+			opts := InstanceOptions{Validated: vCfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
+
 			if _, err := SetUpInstance(ctx, opts); err != nil {
 				if test.wantErr == "" {
 					t.Errorf("SetUpInstance()=_,%v; want _,nil", err)
@@ -285,7 +239,12 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			opts := InstanceOptions{Config: &test.cfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
+			vCfg, err := ValidateLogConfig(&test.cfg)
+			if err != nil {
+				t.Fatalf("ValidateLogConfig(): %v", err)
+			}
+			opts := InstanceOptions{Validated: vCfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
+
 			h, err := SetUpInstance(ctx, opts)
 			if err != nil {
 				t.Fatalf("%v: SetUpInstance() = %v, want no error", test.desc, err)
