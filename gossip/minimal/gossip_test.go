@@ -27,9 +27,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 )
 
-func testGossiper(ctx context.Context, t *testing.T) *Gossiper {
+func testCTGossiper(ctx context.Context, t *testing.T) *Gossiper {
 	t.Helper()
-	g, err := NewGossiperFromFile(ctx, "testdata/test.cfg", nil)
+	g, err := NewGossiperFromFile(ctx, "testdata/ct-test.cfg", nil)
 	if err != nil {
 		t.Fatalf("failed to create Gossiper for test: %v", err)
 	}
@@ -38,7 +38,7 @@ func testGossiper(ctx context.Context, t *testing.T) *Gossiper {
 
 func TestCheckRootIncluded(t *testing.T) {
 	ctx := context.Background()
-	g := testGossiper(ctx, t)
+	g := testCTGossiper(ctx, t)
 
 	var tests = []struct {
 		name    string
@@ -86,15 +86,16 @@ func TestCheckRootIncluded(t *testing.T) {
 			s := httptest.NewServer(test.handler)
 			defer s.Close()
 
-			// Override the default client
-			dest := g.dests["theDestinationOfAllSTHs"]
+			// Override the default CT Log client
+			dest := g.dests["ctLogDestination"]
 			client, err := client.New(s.URL+"/ct/v1/get-roots", nil, jsonclient.Options{})
 			if err != nil {
 				t.Fatalf("failed to create log client for %q: %v", dest.Name, err)
 			}
-			dest.Log = client
+			ctSubmitter, _ := dest.Submitter.(*ctLogSubmitter)
+			ctSubmitter.Log = client
 
-			if err = g.CheckRootIncluded(ctx); err != nil {
+			if err = dest.Submitter.CanSubmit(ctx, g); err != nil {
 				if test.wantErr == "" {
 					t.Errorf("CertRootIncluded()=nil,%v; want _,nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
@@ -111,7 +112,7 @@ func TestCheckRootIncluded(t *testing.T) {
 
 func TestGetSTHAsCert(t *testing.T) {
 	ctx := context.Background()
-	g := testGossiper(ctx, t)
+	g := testCTGossiper(ctx, t)
 
 	var tests = []struct {
 		name    string
@@ -155,7 +156,7 @@ func TestGetSTHAsCert(t *testing.T) {
 			// Override the default client
 			src, ok := g.srcs["theSourceOfAllSTHs"]
 			if !ok {
-				t.Fatalf("failed to find destination log")
+				t.Fatalf("failed to find source log")
 			}
 			client, err := client.New(s.URL+"/ct/v1/get-sth", nil, jsonclient.Options{})
 			if err != nil {

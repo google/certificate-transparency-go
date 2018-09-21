@@ -27,7 +27,8 @@ func TestNewGossiperFromFile(t *testing.T) {
 		filename string
 		wantErr  string
 	}{
-		{name: "OK", filename: "testdata/test.cfg"},
+		{name: "OKCT", filename: "testdata/ct-test.cfg"},
+		{name: "OKHub", filename: "testdata/hub-test.cfg"},
 		{name: "EmptyFilename", filename: "", wantErr: "no such file"},
 		{name: "MissingFile", filename: "testdata/nofile", wantErr: "no such file"},
 		{name: "FailToParse", filename: "testdata/Makefile", wantErr: "failed to parse"},
@@ -37,7 +38,7 @@ func TestNewGossiperFromFile(t *testing.T) {
 		{name: "InvalidSourcePubKey", filename: "testdata/invalid-source-pubkey.cfg", wantErr: "invalid public key"},
 		{name: "InvalidSourceDuration", filename: "testdata/invalid-source-duration.cfg", wantErr: "MinReqInterval"},
 		{name: "DupSourceName", filename: "testdata/dup-source-name.cfg", wantErr: "duplicate source logs"},
-		{name: "NoDestName", filename: "testdata/no-dest-name.cfg", wantErr: "no log name provided"},
+		{name: "NoDestName", filename: "testdata/no-dest-name.cfg", wantErr: "no source log name provided"},
 		{name: "NoPrivateKey", filename: "testdata/no-private-key.cfg", wantErr: "no private key"},
 		{name: "InvalidPrivateKey", filename: "testdata/invalid-private-key.cfg", wantErr: "failed to unmarshal"},
 		{name: "WrongPasswordPrivateKey", filename: "testdata/wrong-password-private-key.cfg", wantErr: "failed to decrypt"},

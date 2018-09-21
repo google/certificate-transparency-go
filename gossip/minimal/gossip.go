@@ -33,49 +33,86 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
+
+	logclient "github.com/google/certificate-transparency-go/client"
+	hubclient "github.com/google/trillian-examples/gossip/client"
 )
 
 type logConfig struct {
 	Name        string
 	URL         string
-	Log         *client.LogClient
+	Log         *logclient.LogClient
 	MinInterval time.Duration
 }
 
-type destLog struct {
-	logConfig
-
-	lastLogSubmission map[string]time.Time
+type hubSubmitter interface {
+	CanSubmit(ctx context.Context, g *Gossiper) error
+	SubmitSTH(ctx context.Context, srcName, srcURL string, sth *ct.SignedTreeHead, g *Gossiper) error
 }
 
-// checkRootIncluded checks whether the given root certificate is included
-// by the destination log.
-func (d *destLog) checkRootIncluded(ctx context.Context, derRoot []byte) error {
-	glog.V(1).Infof("Get accepted roots for destination log %s", d.Name)
-	roots, err := d.Log.GetAcceptedRoots(ctx)
+type destHub struct {
+	Name              string
+	URL               string
+	Submitter         hubSubmitter
+	MinInterval       time.Duration
+	lastHubSubmission map[string]time.Time
+}
+
+// ctLogSubmitter is an implementation of hubSubmitter that submits to CT Logs
+// that accepts STHs embedded in synthetic certificates.
+type ctLogSubmitter struct {
+	Log *logclient.LogClient
+}
+
+// CanSubmit checks whether the destination CT log includes the root certificate
+// that we use for generating synthetic certificates.
+func (c *ctLogSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
+	glog.V(1).Infof("Get accepted roots for destination CT log at %s", c.Log.BaseURI())
+	roots, err := c.Log.GetAcceptedRoots(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get accepted roots: %v", err)
 	}
 	for _, root := range roots {
-		if bytes.Equal(root.Data, derRoot) {
+		if bytes.Equal(root.Data, g.root.Raw) {
 			return nil
 		}
 	}
-	return fmt.Errorf("gossip root not found in log %s", d.Name)
+	return fmt.Errorf("gossip root not found in CT log at %s", c.Log.BaseURI())
 }
 
-// submitSTH submits the given STH for inclusion in the destination log.
-func (d *destLog) submitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
+// SubmitSTH submits the given STH for inclusion in the destination CT Log, in the
+// form of a synthetic certificate.
+func (c *ctLogSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
 	var err error
 	cert, err := g.CertForSTH(name, url, sth)
 	if err != nil {
 		return fmt.Errorf("synthetic cert generation failed: %v", err)
 	}
 	chain := []ct.ASN1Cert{*cert, {Data: g.root.Raw}}
-	if _, err := d.Log.AddChain(ctx, chain); err != nil {
-		return fmt.Errorf("failed to AddChain(%s): %v", d.Name, err)
+	if _, err := c.Log.AddChain(ctx, chain); err != nil {
+		return fmt.Errorf("failed to AddChain(%s): %v", c.Log.BaseURI(), err)
+	}
+	return nil
+}
+
+// pureHubSubmitter is an implementation of hubSubmitter that submits to
+// Gossip Hubs.
+type pureHubSubmitter struct {
+	Hub *hubclient.HubClient
+}
+
+// CanSubmit checks whether the hub accepts the public keys of all of the
+// source Logs.
+func (p *pureHubSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
+	// TODO(daviddrysdale): implement this (using a new hubclient helper function)
+	return nil
+}
+
+// SubmitSTH submits the given STH into the Gossip Hub.
+func (p *pureHubSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
+	if _, err := p.Hub.AddCTSTH(ctx, url, sth); err != nil {
+		return fmt.Errorf("failed to AddCTSTH(%s): %v", p.Hub.BaseURI(), err)
 	}
 	return nil
 }
@@ -93,16 +130,15 @@ type sourceLog struct {
 type Gossiper struct {
 	signer     crypto.Signer
 	root       *x509.Certificate
-	dests      map[string]*destLog
+	dests      map[string]*destHub
 	srcs       map[string]*sourceLog
 	bufferSize int
 }
 
-// CheckRootIncluded checks whether the gossiper's root certificate is included
-// by all destination logs.
-func (g *Gossiper) CheckRootIncluded(ctx context.Context) error {
-	for _, lc := range g.dests {
-		if err := lc.checkRootIncluded(ctx, g.root.Raw); err != nil {
+// CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
+func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
+	for _, d := range g.dests {
+		if err := d.Submitter.CanSubmit(ctx, g); err != nil {
 			return err
 		}
 	}
@@ -151,15 +187,15 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 			}
 
 			for _, dest := range g.dests {
-				if interval := time.Since(dest.lastLogSubmission[fromLog]); interval < dest.MinInterval {
+				if interval := time.Since(dest.lastHubSubmission[fromLog]); interval < dest.MinInterval {
 					glog.Warningf("Submitter: Add-chain(%s=>%s) skipped as only %v passed (< %v) since last submission", fromLog, dest.Name, interval, dest.MinInterval)
 					continue
 				}
-				if err := dest.submitSTH(ctx, src.Name, src.URL, info.sth, g); err != nil {
+				if err := dest.Submitter.SubmitSTH(ctx, src.Name, src.URL, info.sth, g); err != nil {
 					glog.Errorf("Submitter: Add-chain(%s=>%s) failed: %v", fromLog, dest.Name, err)
 				} else {
 					glog.Infof("Submitter: Add-chain(%s=>%s) returned SCT", fromLog, dest.Name)
-					dest.lastLogSubmission[fromLog] = time.Now()
+					dest.lastHubSubmission[fromLog] = time.Now()
 				}
 
 			}

@@ -32,13 +32,15 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
+
+	logclient "github.com/google/certificate-transparency-go/client"
 )
 
-// Goshawk is an agent that retrieves certificates from a destination hub that
-// have STH values embedded in them. Each STH is then checked for consistency
-// against the source log.
+// Goshawk is an agent that retrieves STHs from a Gossip Hub, either in
+// the form of synthetic certificates or more directly as signed blobs. Each
+// STH is then checked for consistency against the source log.
 type Goshawk struct {
-	dest     *logConfig
+	dest     *hubScanner
 	origins  map[string]*originLog // URL => log
 	scanOpts scanner.ScannerOptions
 }
@@ -49,6 +51,14 @@ type originLog struct {
 	sths       chan *x509ext.LogSTHInfo
 	mu         sync.RWMutex
 	currentSTH *ct.SignedTreeHead
+}
+
+type hubScanner struct {
+	Name        string
+	URL         string
+	MinInterval time.Duration
+	// TODO(drysdale): implement Goshawk for a true Gossip Hub.
+	Log *logclient.LogClient
 }
 
 // NewGoshawkFromFile creates a Goshawk from the given filename, which should
@@ -80,7 +90,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		return nil, errors.New("no source log config found")
 	}
 
-	dest, err := logConfigFromProto(cfg.DestHub, hc)
+	dest, err := hubScannerFromProto(cfg.DestHub, hc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
 	}
