@@ -33,16 +33,15 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
-// CertForSTH creates an X.509 certificate with the given STH embedded in
-// it.
-func (src *sourceLog) CertForSTH(sth *ct.SignedTreeHead, g *Gossiper) (*ct.ASN1Cert, error) {
+// CertForSTH creates an X.509 certificate with the given STH embedded in it.
+func (g *Gossiper) CertForSTH(name, url string, sth *ct.SignedTreeHead) (*ct.ASN1Cert, error) {
 	// Randomize the subject key ID.
 	randData := make([]byte, 128)
 	if _, err := rand.Read(randData); err != nil {
 		return nil, fmt.Errorf("failed to read random data: %v", err)
 	}
 	sthInfo := x509ext.LogSTHInfo{
-		LogURL:            []byte(src.URL),
+		LogURL:            []byte(url),
 		Version:           tls.Enum(sth.Version),
 		TreeSize:          sth.TreeSize,
 		Timestamp:         sth.Timestamp,
@@ -63,7 +62,7 @@ func (src *sourceLog) CertForSTH(sth *ct.SignedTreeHead, g *Gossiper) (*ct.ASN1C
 			Country:            g.root.Subject.Country,
 			Organization:       g.root.Subject.Organization,
 			OrganizationalUnit: g.root.Subject.OrganizationalUnit,
-			CommonName:         fmt.Sprintf("STH-for-%s <%s> @%d: size=%d hash=%x", src.Name, src.URL, sth.Timestamp, sth.TreeSize, sth.SHA256RootHash),
+			CommonName:         fmt.Sprintf("STH-for-%s <%s> @%d: size=%d hash=%x", name, url, sth.Timestamp, sth.TreeSize, sth.SHA256RootHash),
 		},
 		ExtraExtensions: []pkix.Extension{
 			{Id: x509ext.OIDExtensionCTSTH, Critical: true, Value: sthData},

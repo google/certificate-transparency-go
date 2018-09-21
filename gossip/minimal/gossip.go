@@ -138,7 +138,7 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 			if !ok {
 				glog.Errorf("Submitter: AddChain(%s) for unknown source log", fromLog)
 			}
-			cert, err := src.CertForSTH(info.sth, g)
+			cert, err := g.CertForSTH(src.Name, src.URL, info.sth)
 			if err != nil {
 				glog.Errorf("Submitter: Add-chain(%s) skipped as synthetic cert generation failed: %v", fromLog, err)
 				break
