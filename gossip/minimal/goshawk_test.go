@@ -44,7 +44,7 @@ func TestNewGoshawkFromFile(t *testing.T) {
 		{name: "NoSourceLog", filename: "testdata/hawk-no-source-log.cfg", wantErr: "no source log"},
 		{name: "NoSourceName", filename: "testdata/hawk-no-source-name.cfg", wantErr: "no log name provided"},
 		{name: "DupSourceName", filename: "testdata/hawk-dup-source-name.cfg", wantErr: "duplicate source logs"},
-		{name: "NoDestName", filename: "testdata/hawk-no-dest-name.cfg", wantErr: "no log name provided"},
+		{name: "NoDestName", filename: "testdata/hawk-no-dest-name.cfg", wantErr: "no hub name provided"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

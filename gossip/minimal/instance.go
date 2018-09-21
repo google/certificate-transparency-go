@@ -16,6 +16,7 @@ package minimal
 
 import (
 	"context"
+	"crypto"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,11 +26,14 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/gossip/minimal/configpb"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/crypto/keys"
+
+	logclient "github.com/google/certificate-transparency-go/client"
+	hubclient "github.com/google/trillian-examples/gossip/client"
 )
 
 // NewGossiperFromFile creates a gossiper from the given filename, which should
@@ -55,40 +59,55 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client) 
 // NewGossiper creates a gossiper from the given configuration protobuf and optional
 // http client.
 func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Client) (*Gossiper, error) {
-	if cfg.DestHub == nil {
+	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no dest hub config found")
 	}
-	if cfg.SourceLog == nil || len(cfg.SourceLog) == 0 {
+	if len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
 	}
-	if cfg.PrivateKey == nil {
-		return nil, errors.New("no private key found")
+
+	needPrivKey := false
+	for _, destHub := range cfg.DestHub {
+		if !destHub.IsHub {
+			// Destinations include at least one CT Log, so need a private key
+			// for cert generation for all such destinations.
+			needPrivKey = true
+			break
+		}
 	}
 
-	var keyProto ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
-	}
-	signer, err := keys.NewSigner(ctx, keyProto.Message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load private key: %v", err)
+	var signer crypto.Signer
+	var root *x509.Certificate
+	if needPrivKey {
+		if cfg.PrivateKey == nil {
+			return nil, errors.New("no private key found")
+		}
+		var keyProto ptypes.DynamicAny
+		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
+		}
+		var err error
+		signer, err = keys.NewSigner(ctx, keyProto.Message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load private key: %v", err)
+		}
+
+		root, err = x509util.CertificateFromPEM([]byte(cfg.RootCert))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse root cert: %v", err)
+		}
 	}
 
-	root, err := x509util.CertificateFromPEM([]byte(cfg.RootCert))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse root cert: %v", err)
-	}
-
-	dests := make(map[string]*destLog)
+	dests := make(map[string]*destHub)
 	for _, lc := range cfg.DestHub {
-		base, err := logConfigFromProto(lc, hc)
+		hub, err := hubFromProto(lc, hc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
 		}
-		if _, ok := dests[base.Name]; ok {
-			return nil, fmt.Errorf("duplicate dest hubs for name %s", base.Name)
+		if _, ok := dests[hub.Name]; ok {
+			return nil, fmt.Errorf("duplicate dest hubs for name %s", hub.Name)
 		}
-		dests[base.Name] = &destLog{logConfig: *base, lastLogSubmission: make(map[string]time.Time)}
+		dests[hub.Name] = hub
 	}
 	srcs := make(map[string]*sourceLog)
 	for _, lc := range cfg.SourceLog {
@@ -111,26 +130,86 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	}, nil
 }
 
-func logConfigFromProto(lc *configpb.LogConfig, hc *http.Client) (*logConfig, error) {
-	if lc.Name == "" {
+func logConfigFromProto(cfg *configpb.LogConfig, hc *http.Client) (*logConfig, error) {
+	if cfg.Name == "" {
 		return nil, errors.New("no log name provided")
 	}
-	interval, err := ptypes.Duration(lc.MinReqInterval)
+	interval, err := ptypes.Duration(cfg.MinReqInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
 	}
-	opts := jsonclient.Options{PublicKeyDER: lc.PublicKey.GetDer()}
-	client, err := client.New(lc.Url, hc, opts)
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	client, err := logclient.New(cfg.Url, hc, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create log client for %q: %v", lc.Name, err)
+		return nil, fmt.Errorf("failed to create log client for %q: %v", cfg.Name, err)
 	}
 	if client.Verifier == nil {
-		glog.Warningf("No public key provided for log %s, signature checks will be skipped", lc.Name)
+		glog.Warningf("No public key provided for log %s, signature checks will be skipped", cfg.Name)
 	}
 	return &logConfig{
-		Name:        lc.Name,
-		URL:         lc.Url,
+		Name:        cfg.Name,
+		URL:         cfg.Url,
 		Log:         client,
 		MinInterval: interval,
 	}, nil
+}
+
+func hubFromProto(cfg *configpb.HubConfig, hc *http.Client) (*destHub, error) {
+	if cfg.Name == "" {
+		return nil, errors.New("no source log name provided")
+	}
+	interval, err := ptypes.Duration(cfg.MinReqInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
+	}
+	var submitter hubSubmitter
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	if cfg.IsHub {
+		cl, err := hubclient.New(cfg.Url, hc, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hub client for %q: %v", cfg.Name, err)
+		}
+		if cl.Verifier == nil {
+			glog.Warningf("No public key provided for hub %s, signature checks will be skipped", cfg.Name)
+		}
+		submitter = &pureHubSubmitter{cl}
+	} else {
+		cl, err := logclient.New(cfg.Url, hc, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create log client for %q: %v", cfg.Name, err)
+		}
+		if cl.Verifier == nil {
+			glog.Warningf("No public key provided for CT log %s, signature checks will be skipped", cfg.Name)
+		}
+		submitter = &ctLogSubmitter{cl}
+	}
+	return &destHub{
+		Name:              cfg.Name,
+		URL:               cfg.Url,
+		Submitter:         submitter,
+		MinInterval:       interval,
+		lastHubSubmission: make(map[string]time.Time),
+	}, nil
+}
+
+func hubScannerFromProto(cfg *configpb.HubConfig, hc *http.Client) (*hubScanner, error) {
+	if cfg.Name == "" {
+		return nil, errors.New("no hub name provided")
+	}
+	interval, err := ptypes.Duration(cfg.MinReqInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
+	}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	if cfg.IsHub {
+		return nil, errors.New("Pure Gossip Hubs not yet supported")
+	}
+	cl, err := logclient.New(cfg.Url, hc, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log client for %q: %v", cfg.Name, err)
+	}
+	if cl.Verifier == nil {
+		glog.Warningf("No public key provided for CT log %s, signature checks will be skipped", cfg.Name)
+	}
+	return &hubScanner{Name: cfg.Name, URL: cfg.Url, MinInterval: interval, Log: cl}, nil
 }

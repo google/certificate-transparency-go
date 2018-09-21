@@ -31,7 +31,7 @@ import (
 
 func TestCertForSTH(t *testing.T) {
 	ctx := context.Background()
-	g := testGossiper(ctx, t)
+	g := testCTGossiper(ctx, t)
 	var tests = []struct {
 		name    string
 		sth     ct.SignedTreeHead
