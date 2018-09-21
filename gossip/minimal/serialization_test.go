@@ -61,8 +61,7 @@ func TestCertForSTH(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			src := g.srcs["theSourceOfAllSTHs"]
-			got, err := src.CertForSTH(&test.sth, g)
+			got, err := g.CertForSTH("theSourceOfAllSTHs", "http://example.com/ct-source", &test.sth)
 			if err != nil {
 				if test.wantErr == "" {
 					t.Errorf("CertForSTH(%+v)=nil,%v; want _,nil", test.sth, err)
