@@ -52,9 +52,9 @@ type destLog struct {
 
 // checkRootIncluded checks whether the given root certificate is included
 // by the destination log.
-func (lc *destLog) checkRootIncluded(ctx context.Context, derRoot []byte) error {
-	glog.V(1).Infof("Get accepted roots for destination log %s", lc.Name)
-	roots, err := lc.Log.GetAcceptedRoots(ctx)
+func (d *destLog) checkRootIncluded(ctx context.Context, derRoot []byte) error {
+	glog.V(1).Infof("Get accepted roots for destination log %s", d.Name)
+	roots, err := d.Log.GetAcceptedRoots(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get accepted roots: %v", err)
 	}
@@ -63,7 +63,21 @@ func (lc *destLog) checkRootIncluded(ctx context.Context, derRoot []byte) error 
 			return nil
 		}
 	}
-	return fmt.Errorf("gossip root not found in log %s", lc.Name)
+	return fmt.Errorf("gossip root not found in log %s", d.Name)
+}
+
+// submitSTH submits the given STH for inclusion in the destination log.
+func (d *destLog) submitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
+	var err error
+	cert, err := g.CertForSTH(name, url, sth)
+	if err != nil {
+		return fmt.Errorf("synthetic cert generation failed: %v", err)
+	}
+	chain := []ct.ASN1Cert{*cert, {Data: g.root.Raw}}
+	if _, err := d.Log.AddChain(ctx, chain); err != nil {
+		return fmt.Errorf("failed to AddChain(%s): %v", d.Name, err)
+	}
+	return nil
 }
 
 type sourceLog struct {
@@ -122,8 +136,6 @@ func (g *Gossiper) Run(ctx context.Context) {
 // Submitter periodically services the provided channel and submits the
 // certificates received on it to the destination logs.
 func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
-	chain := make([]ct.ASN1Cert, 2)
-	chain[1] = ct.ASN1Cert{Data: g.root.Raw}
 
 	for {
 		select {
@@ -133,29 +145,23 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 		case info := <-s:
 			fromLog := info.name
 			glog.V(1).Infof("Submitter: Add-chain(%s)", fromLog)
-			var err error
 			src, ok := g.srcs[fromLog]
 			if !ok {
 				glog.Errorf("Submitter: AddChain(%s) for unknown source log", fromLog)
 			}
-			cert, err := g.CertForSTH(src.Name, src.URL, info.sth)
-			if err != nil {
-				glog.Errorf("Submitter: Add-chain(%s) skipped as synthetic cert generation failed: %v", fromLog, err)
-				break
-			}
-			chain[0] = *cert
 
 			for _, dest := range g.dests {
 				if interval := time.Since(dest.lastLogSubmission[fromLog]); interval < dest.MinInterval {
 					glog.Warningf("Submitter: Add-chain(%s=>%s) skipped as only %v passed (< %v) since last submission", fromLog, dest.Name, interval, dest.MinInterval)
 					continue
 				}
-				if sct, err := dest.Log.AddChain(ctx, chain); err != nil {
+				if err := dest.submitSTH(ctx, src.Name, src.URL, info.sth, g); err != nil {
 					glog.Errorf("Submitter: Add-chain(%s=>%s) failed: %v", fromLog, dest.Name, err)
 				} else {
-					glog.Infof("Submitter: Add-chain(%s=>%s) returned SCT @%d", fromLog, dest.Name, sct.Timestamp)
+					glog.Infof("Submitter: Add-chain(%s=>%s) returned SCT", fromLog, dest.Name)
 					dest.lastLogSubmission[fromLog] = time.Now()
 				}
+
 			}
 
 		}
