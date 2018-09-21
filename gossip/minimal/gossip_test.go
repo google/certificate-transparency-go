@@ -25,8 +25,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/certificate-transparency-go/x509util"
 )
 
 func testGossiper(ctx context.Context, t *testing.T) *Gossiper {
@@ -165,29 +163,24 @@ func TestGetSTHAsCert(t *testing.T) {
 			}
 			src.Log = client
 
-			gotRaw, err := src.GetSTHAsCert(ctx, g)
+			gotSTH, err := src.GetNewerSTH(ctx, g)
 			if err != nil {
 				if test.wantErr == "" {
-					t.Errorf("GetSTHAsCert()=nil,%v; want _,nil", err)
+					t.Errorf("GetNewerSTH()=nil,%v; want _,nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
-					t.Errorf("GetSTHAsCert()=%v; want err containing %q", err, test.wantErr)
+					t.Errorf("GetNewerSTH()=%v; want err containing %q", err, test.wantErr)
 				}
 				return
 			}
 			if test.wantErr != "" {
-				t.Errorf("GetSTHAsCert()=nil; want err containing %q", test.wantErr)
+				t.Errorf("GetNewerSTH()=nil; want err containing %q", test.wantErr)
 			}
-			gotCert, err := x509.ParseCertificate(gotRaw.Data)
-			if err != nil {
-				t.Errorf("GetSTHAsCert() gave unparseable cert: %v", err)
-				return
-			}
-			t.Logf("retrieved:\n%s", x509util.CertificateToString(gotCert))
+			t.Logf("retrieved: %+v", gotSTH)
 
 			// Second retrieval should give nothing as the result is the same
-			gotRaw2, err := src.GetSTHAsCert(ctx, g)
-			if err != nil || gotRaw2 != nil {
-				t.Errorf("GetSTHAsCert(second)=%v,%v; want nil,nil", gotRaw2, err)
+			gotSTH2, err := src.GetNewerSTH(ctx, g)
+			if err != nil || gotSTH2 != nil {
+				t.Errorf("GetNewerSTH(second)=%v,%v; want nil,nil", gotSTH2, err)
 				return
 			}
 		})

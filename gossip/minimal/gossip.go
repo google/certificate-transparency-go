@@ -131,13 +131,23 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 			glog.Info("Submitter: termination requested")
 			return
 		case info := <-s:
-			glog.V(1).Infof("Submitter: Add-chain")
-			chain[0] = info.cert
 			fromLog := info.name
+			glog.V(1).Infof("Submitter: Add-chain(%s)", fromLog)
+			var err error
+			src, ok := g.srcs[fromLog]
+			if !ok {
+				glog.Errorf("Submitter: AddChain(%s) for unknown source log", fromLog)
+			}
+			cert, err := src.CertForSTH(info.sth, g)
+			if err != nil {
+				glog.Errorf("Submitter: Add-chain(%s) skipped as synthetic cert generation failed: %v", fromLog, err)
+				break
+			}
+			chain[0] = *cert
 
 			for _, dest := range g.dests {
 				if interval := time.Since(dest.lastLogSubmission[fromLog]); interval < dest.MinInterval {
-					glog.Errorf("Submitter: Add-chain(%s=>%s) skipped as only %v passed (< %v) since last submission", fromLog, dest.Name, interval, dest.MinInterval)
+					glog.Warningf("Submitter: Add-chain(%s=>%s) skipped as only %v passed (< %v) since last submission", fromLog, dest.Name, interval, dest.MinInterval)
 					continue
 				}
 				if sct, err := dest.Log.AddChain(ctx, chain); err != nil {
@@ -154,7 +164,7 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 
 type sthInfo struct {
 	name string
-	cert ct.ASN1Cert
+	sth  *ct.SignedTreeHead
 }
 
 // Retriever periodically retrieves an STH from the source log, and if a new STH is
@@ -163,12 +173,12 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 	ticker := time.NewTicker(src.MinInterval)
 	for {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
-		cert, err := src.GetSTHAsCert(ctx, g)
+		sth, err := src.GetNewerSTH(ctx, g)
 		if err != nil {
 			glog.Errorf("Retriever(%s): failed to get STH: %v", src.Name, err)
-		} else if cert != nil {
-			glog.V(1).Infof("Retriever(%s): pass on STH as cert", src.Name)
-			s <- sthInfo{name: src.Name, cert: *cert}
+		} else if sth != nil {
+			glog.V(1).Infof("Retriever(%s): pass on STH", src.Name)
+			s <- sthInfo{name: src.Name, sth: sth}
 		}
 
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
@@ -182,10 +192,9 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 	}
 }
 
-// GetSTHAsCert retrieves a current STH from the source log and (if it is new)
-// returns a certificate (with the STH embedded in it). May return nil, nil if
-// no new STH is available.
-func (src *sourceLog) GetSTHAsCert(ctx context.Context, g *Gossiper) (*ct.ASN1Cert, error) {
+// GetNewerSTH retrieves a current STH from the source log and (if it is new)
+// returns it. May return nil, nil if no new STH is available.
+func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedTreeHead, error) {
 	glog.V(1).Infof("Get STH for source log %s", src.Name)
 	sth, err := src.Log.GetSTH(ctx)
 	if err != nil {
@@ -199,9 +208,5 @@ func (src *sourceLog) GetSTHAsCert(ctx context.Context, g *Gossiper) (*ct.ASN1Ce
 	}
 	src.lastSTH = sth
 	glog.Infof("Retriever(%s): got STH size=%d timestamp=%d hash=%x", src.Name, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash)
-	leaf, err := src.CertForSTH(sth, g)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create leaf with embedded STH: %v", err)
-	}
-	return leaf, nil
+	return sth, nil
 }
