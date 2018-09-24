@@ -37,10 +37,10 @@ message LogConfig {
 message GossipConfig {
   // The source logs whose STHs will be logged.
   repeated LogConfig source_log = 1;
-  // The destination logs to which the minimal-gossip certificates will
-  // be submitted.  These destination logs need to be configured to accept
+  // The destination hubs to which the minimal-gossip certificates will
+  // be submitted.  These destination hubs need to be configured to accept
   // root_cert as an acceptable root.
-  repeated LogConfig dest_log = 2;
+  repeated LogConfig dest_hub = 2;
   // The root certificate used for submissions, in PEM format; this should
   // include the public key corresponding to private_key below.
   string root_cert = 3;
@@ -56,8 +56,8 @@ message GossipConfig {
 message GoshawkConfig {
   // The source logs whose STHs will be checked.
   repeated LogConfig source_log = 1;
-  // The destination log which will be scanned for minimal-gossip certificates.
-  LogConfig dest_log = 2;
+  // The destination hub which will be scanned for minimal-gossip certificates.
+  LogConfig dest_hub = 2;
   // Number of STHs pending verification that can be buffered up for each source log.
   int32 buffer_size = 5;
 }

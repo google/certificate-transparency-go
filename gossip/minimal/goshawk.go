@@ -34,7 +34,7 @@ import (
 	"github.com/google/trillian/merkle/rfc6962"
 )
 
-// Goshawk is an agent that retrieves certificates from a destination log that
+// Goshawk is an agent that retrieves certificates from a destination hub that
 // have STH values embedded in them. Each STH is then checked for consistency
 // against the source log.
 type Goshawk struct {
@@ -73,16 +73,16 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, s
 
 // NewGoshawk creates a gossiper from the given configuration protobuf and optional http client.
 func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, scanOpts scanner.ScannerOptions) (*Goshawk, error) {
-	if cfg.DestLog == nil {
-		return nil, errors.New("no source log config found")
+	if cfg.DestHub == nil {
+		return nil, errors.New("no destination hub config found")
 	}
 	if cfg.SourceLog == nil || len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
 	}
 
-	dest, err := logConfigFromProto(cfg.DestLog, hc)
+	dest, err := logConfigFromProto(cfg.DestHub, hc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse dest log config: %v", err)
+		return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
 	}
 	seenNames := make(map[string]bool)
 	origins := make(map[string]*originLog)

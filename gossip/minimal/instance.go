@@ -55,8 +55,8 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client) 
 // NewGossiper creates a gossiper from the given configuration protobuf and optional
 // http client.
 func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Client) (*Gossiper, error) {
-	if cfg.DestLog == nil {
-		return nil, errors.New("no dest log config found")
+	if cfg.DestHub == nil {
+		return nil, errors.New("no dest hub config found")
 	}
 	if cfg.SourceLog == nil || len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
@@ -80,13 +80,13 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	}
 
 	dests := make(map[string]*destLog)
-	for _, lc := range cfg.DestLog {
+	for _, lc := range cfg.DestHub {
 		base, err := logConfigFromProto(lc, hc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse dest log config: %v", err)
+			return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
 		}
 		if _, ok := dests[base.Name]; ok {
-			return nil, fmt.Errorf("duplicate dest logs for name %s", base.Name)
+			return nil, fmt.Errorf("duplicate dest hubs for name %s", base.Name)
 		}
 		dests[base.Name] = &destLog{logConfig: *base, lastLogSubmission: make(map[string]time.Time)}
 	}
