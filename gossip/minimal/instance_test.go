@@ -31,7 +31,7 @@ func TestNewGossiperFromFile(t *testing.T) {
 		{name: "EmptyFilename", filename: "", wantErr: "no such file"},
 		{name: "MissingFile", filename: "testdata/nofile", wantErr: "no such file"},
 		{name: "FailToParse", filename: "testdata/Makefile", wantErr: "failed to parse"},
-		{name: "NoDestLog", filename: "testdata/no-dest-log.cfg", wantErr: "no dest log"},
+		{name: "NoDestLog", filename: "testdata/no-dest-hub.cfg", wantErr: "no dest hub"},
 		{name: "NoSourceLog", filename: "testdata/no-source-log.cfg", wantErr: "no source log"},
 		{name: "NoSourceName", filename: "testdata/no-source-name.cfg", wantErr: "no log name provided"},
 		{name: "InvalidSourcePubKey", filename: "testdata/invalid-source-pubkey.cfg", wantErr: "invalid public key"},
