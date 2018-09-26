@@ -16,71 +16,11 @@ package loglist
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 )
-
-var sampleLogList = LogList{
-	Operators: []Operator{
-		{ID: 0, Name: "Google"},
-		{ID: 1, Name: "Bob's CT Log Shop"},
-	},
-	Logs: []Log{
-		{
-			Description:       "Google 'Aviator' log",
-			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q=="),
-			URL:               "ct.googleapis.com/aviator/",
-			MaximumMergeDelay: 86400,
-			OperatedBy:        []int{0},
-			FinalSTH: &STH{
-				TreeSize:          46466472,
-				Timestamp:         1480512258330,
-				SHA256RootHash:    deb64("LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA="),
-				TreeHeadSignature: deb64("BAMASDBGAiEA/M0Nvt77aNe+9eYbKsv6rRpTzFTKa5CGqb56ea4hnt8CIQCJDE7pL6xgAewMd5i3G1lrBWgFooT2kd3+zliEz5Rw8w=="),
-			},
-			DNSAPIEndpoint: "aviator.ct.googleapis.com",
-		},
-		{
-			Description:       "Google 'Icarus' log",
-			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA=="),
-			URL:               "ct.googleapis.com/icarus/",
-			MaximumMergeDelay: 86400,
-			OperatedBy:        []int{0},
-			DNSAPIEndpoint:    "icarus.ct.googleapis.com",
-		},
-		{
-			Description:       "Google 'Rocketeer' log",
-			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg=="),
-			URL:               "ct.googleapis.com/rocketeer/",
-			MaximumMergeDelay: 86400,
-			OperatedBy:        []int{0},
-			DNSAPIEndpoint:    "rocketeer.ct.googleapis.com",
-		},
-		{
-			Description: "Google 'Racketeer' log",
-			// Key value chosed to have a hash that starts ee4... (specifically ee412fe25948348961e2f3e08c682e813ec0ff770b6d75171763af3014ff9768)
-			Key:               deb64("Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg=="),
-			URL:               "ct.googleapis.com/racketeer/",
-			MaximumMergeDelay: 86400,
-			OperatedBy:        []int{0},
-			DNSAPIEndpoint:    "racketeer.ct.googleapis.com",
-		},
-		{
-			Description:       "Bob's Dubious Log",
-			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA=="),
-			URL:               "log.bob.io",
-			MaximumMergeDelay: 86400,
-			OperatedBy:        []int{1},
-
-			DisqualifiedAt: 1460678400,
-			DNSAPIEndpoint: "dubious-bob.ct.googleapis.com",
-		},
-	},
-}
 
 func TestJSONMarshal(t *testing.T) {
 	var tests = []struct {
@@ -90,7 +30,7 @@ func TestJSONMarshal(t *testing.T) {
 	}{
 		{
 			name: "MultiValid",
-			in:   sampleLogList,
+			in:   SampleLogList,
 			want: `{"logs":[` +
 				`{"description":"Google 'Aviator' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/aviator/","final_sth":{"tree_size":46466472,"timestamp":1480512258330,"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_head_signature":"BAMASDBGAiEA/M0Nvt77aNe+9eYbKsv6rRpTzFTKa5CGqb56ea4hnt8CIQCJDE7pL6xgAewMd5i3G1lrBWgFooT2kd3+zliEz5Rw8w=="},"dns_api_endpoint":"aviator.ct.googleapis.com"},` +
 				`{"description":"Google 'Icarus' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/icarus/","dns_api_endpoint":"icarus.ct.googleapis.com"},` +
@@ -135,7 +75,7 @@ func TestFindLogByName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := sampleLogList.FindLogByName(test.in)
+			got := SampleLogList.FindLogByName(test.in)
 			if len(got) != test.want {
 				t.Errorf("len(FindLogByName(%q)=%d, want %d", test.in, len(got), test.want)
 			}
@@ -156,7 +96,7 @@ func TestFindLogByURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := sampleLogList.FindLogByURL(test.in)
+			log := SampleLogList.FindLogByURL(test.in)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -192,7 +132,7 @@ func TestFindLogByKeyhash(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var hash [sha256.Size]byte
 			copy(hash[:], test.in)
-			log := sampleLogList.FindLogByKeyHash(hash)
+			log := SampleLogList.FindLogByKeyHash(hash)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -233,7 +173,7 @@ func TestFindLogByKeyhashPrefix(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := sampleLogList.FindLogByKeyHashPrefix(test.in)
+			logs := SampleLogList.FindLogByKeyHashPrefix(test.in)
 			got := make([]string, len(logs))
 			for i, log := range logs {
 				got[i] = log.Description
@@ -264,7 +204,7 @@ func TestFindLogByKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := sampleLogList.FindLogByKey(test.in)
+			log := SampleLogList.FindLogByKey(test.in)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -330,7 +270,7 @@ func TestFuzzyFindLog(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := sampleLogList.FuzzyFindLog(test.in)
+			logs := SampleLogList.FuzzyFindLog(test.in)
 			got := make([]string, len(logs))
 			for i, log := range logs {
 				got[i] = log.Description
@@ -362,10 +302,3 @@ func TestStripInternalSpace(t *testing.T) {
 	}
 }
 
-func deb64(b string) []byte {
-	data, err := base64.StdEncoding.DecodeString(b)
-	if err != nil {
-		panic(fmt.Sprintf("hard-coded test data failed to decode: %v", err))
-	}
-	return data
-}
