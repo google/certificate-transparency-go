@@ -51,6 +51,7 @@ var (
 	logMMD          = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	pubKey          = flag.String("pub_key", "", "Name of file containing log's public key")
 	certChain       = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
+	timestamp       = flag.Int64("timestamp", 0, "Timestamp to use for inclusion checking")
 	textOut         = flag.Bool("text", true, "Display certificates as text")
 	getFirst        = flag.Int64("first", -1, "First entry to get")
 	getLast         = flag.Int64("last", -1, "Last entry to get")
@@ -83,11 +84,8 @@ func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 	fmt.Printf("%v\n", signatureToString(&sth.TreeHeadSignature))
 }
 
-func addChain(ctx context.Context, logClient *client.LogClient) {
-	if *certChain == "" {
-		log.Fatalf("No certificate chain file specified with -cert_chain")
-	}
-	rest, err := ioutil.ReadFile(*certChain)
+func chainFromFile(filename string) []ct.ASN1Cert {
+	rest, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Fatalf("Failed to read certificate file: %v", err)
 	}
@@ -105,6 +103,14 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	if len(chain) == 0 {
 		log.Fatalf("No certificates found in %s", *certChain)
 	}
+	return chain
+}
+
+func addChain(ctx context.Context, logClient *client.LogClient) {
+	if *certChain == "" {
+		log.Fatalf("No certificate chain file specified with -cert_chain")
+	}
+	chain := chainFromFile(*certChain)
 
 	// Examine the leaf to see if it looks like a pre-certificate.
 	isPrecert := false
@@ -198,9 +204,25 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 }
 
 func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
-	hash, err := hex.DecodeString(*leafHash)
-	if err != nil || len(hash) != sha256.Size {
-		log.Fatal("No valid --leaf_hash supplied in hex")
+	var hash []byte
+	if len(*leafHash) > 0 {
+		var err error
+		hash, err = hex.DecodeString(*leafHash)
+		if err != nil {
+			log.Fatalf("Invalid --leaf_hash supplied (not hex: %v)", err)
+		}
+	} else if len(*certChain) > 0 && *timestamp != 0 {
+		// Build a leaf hash from the chain and a timestamp
+		chain := chainFromFile(*certChain)
+		leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
+		leafHash, err := ct.LeafHashForLeaf(leafEntry)
+		if err != nil {
+			log.Fatalf("Failed to create hash of leaf: %v", err)
+		}
+		hash = leafHash[:]
+	}
+	if len(hash) != sha256.Size {
+		log.Fatal("No leaf hash available")
 	}
 	getInclusionProofForHash(ctx, logClient, hash)
 }
