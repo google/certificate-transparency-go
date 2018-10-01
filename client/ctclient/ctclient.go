@@ -220,6 +220,13 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 			log.Fatalf("Failed to create hash of leaf: %v", err)
 		}
 		hash = leafHash[:]
+
+		// Print a warning if this timestamp is still within the MMD window
+		now := time.Now()
+		ts := time.Unix(0, *timestamp*1000000)
+		if age := now.Sub(ts); age < *logMMD {
+			log.Printf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", ts, *logMMD)
+		}
 	}
 	if len(hash) != sha256.Size {
 		log.Fatal("No leaf hash available")
