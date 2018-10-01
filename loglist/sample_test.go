@@ -19,7 +19,7 @@ import (
 	"fmt"
 )
 
-var SampleLogList = LogList{
+var sampleLogList = LogList{
 	Operators: []Operator{
 		{ID: 0, Name: "Google"},
 		{ID: 1, Name: "Bob's CT Log Shop"},
@@ -84,4 +84,3 @@ func deb64(b string) []byte {
 	}
 	return data
 }
-

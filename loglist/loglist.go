@@ -110,6 +110,15 @@ func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList
 	return NewFromJSON(llData)
 }
 
+// Helper, creates set of operators for LogList.
+func (logList *LogList) GetOperatorIdSet() map[int]string {
+	var ops = make(map[int]string)
+	for _, op := range logList.Operators {
+		ops[op.ID] = op.Name 
+	}
+	return ops
+}
+
 // FindLogByName returns all logs whose names contain the given string.
 func (ll *LogList) FindLogByName(name string) []*Log {
 	name = strings.ToLower(name)

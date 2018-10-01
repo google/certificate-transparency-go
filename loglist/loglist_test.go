@@ -30,7 +30,7 @@ func TestJSONMarshal(t *testing.T) {
 	}{
 		{
 			name: "MultiValid",
-			in:   SampleLogList,
+			in:   sampleLogList,
 			want: `{"logs":[` +
 				`{"description":"Google 'Aviator' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/aviator/","final_sth":{"tree_size":46466472,"timestamp":1480512258330,"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_head_signature":"BAMASDBGAiEA/M0Nvt77aNe+9eYbKsv6rRpTzFTKa5CGqb56ea4hnt8CIQCJDE7pL6xgAewMd5i3G1lrBWgFooT2kd3+zliEz5Rw8w=="},"dns_api_endpoint":"aviator.ct.googleapis.com"},` +
 				`{"description":"Google 'Icarus' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/icarus/","dns_api_endpoint":"icarus.ct.googleapis.com"},` +
@@ -75,7 +75,7 @@ func TestFindLogByName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := SampleLogList.FindLogByName(test.in)
+			got := sampleLogList.FindLogByName(test.in)
 			if len(got) != test.want {
 				t.Errorf("len(FindLogByName(%q)=%d, want %d", test.in, len(got), test.want)
 			}
@@ -96,7 +96,7 @@ func TestFindLogByURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := SampleLogList.FindLogByURL(test.in)
+			log := sampleLogList.FindLogByURL(test.in)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -132,7 +132,7 @@ func TestFindLogByKeyhash(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var hash [sha256.Size]byte
 			copy(hash[:], test.in)
-			log := SampleLogList.FindLogByKeyHash(hash)
+			log := sampleLogList.FindLogByKeyHash(hash)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -173,7 +173,7 @@ func TestFindLogByKeyhashPrefix(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := SampleLogList.FindLogByKeyHashPrefix(test.in)
+			logs := sampleLogList.FindLogByKeyHashPrefix(test.in)
 			got := make([]string, len(logs))
 			for i, log := range logs {
 				got[i] = log.Description
@@ -204,7 +204,7 @@ func TestFindLogByKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := SampleLogList.FindLogByKey(test.in)
+			log := sampleLogList.FindLogByKey(test.in)
 			got := ""
 			if log != nil {
 				got = log.Description
@@ -270,7 +270,7 @@ func TestFuzzyFindLog(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := SampleLogList.FuzzyFindLog(test.in)
+			logs := sampleLogList.FuzzyFindLog(test.in)
 			got := make([]string, len(logs))
 			for i, log := range logs {
 				got[i] = log.Description
