@@ -21,6 +21,7 @@
 //       ISO8859-1.
 //     - checkInteger() allows integers that are not minimally encoded (and
 //       so are not correct DER).
+//     - parseObjectIdentifier() allows zero-length OIDs.
 //  - Better diagnostics on which particular field causes errors.
 package asn1
 
@@ -282,8 +283,11 @@ func (oi ObjectIdentifier) String() string {
 // parseObjectIdentifier parses an OBJECT IDENTIFIER from the given bytes and
 // returns it. An object identifier is a sequence of variable length integers
 // that are assigned in a hierarchy.
-func parseObjectIdentifier(bytes []byte, fieldName string) (s []int, err error) {
+func parseObjectIdentifier(bytes []byte, lax bool, fieldName string) (s []int, err error) {
 	if len(bytes) == 0 {
+		if lax {
+			return []int{}, nil
+		}
 		err = SyntaxError{"zero length OBJECT IDENTIFIER", fieldName}
 		return
 	}
@@ -776,7 +780,7 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 			case TagBitString:
 				result, err = parseBitString(innerBytes, params.name)
 			case TagOID:
-				result, err = parseObjectIdentifier(innerBytes, params.name)
+				result, err = parseObjectIdentifier(innerBytes, params.lax, params.name)
 			case TagUTCTime:
 				result, err = parseUTCTime(innerBytes)
 			case TagGeneralizedTime:
@@ -911,7 +915,7 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 		v.Set(reflect.ValueOf(result))
 		return
 	case objectIdentifierType:
-		newSlice, err1 := parseObjectIdentifier(innerBytes, params.name)
+		newSlice, err1 := parseObjectIdentifier(innerBytes, params.lax, params.name)
 		v.Set(reflect.MakeSlice(v.Type(), len(newSlice), len(newSlice)))
 		if err1 == nil {
 			reflect.Copy(v, reflect.ValueOf(newSlice))

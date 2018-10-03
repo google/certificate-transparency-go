@@ -255,22 +255,24 @@ func TestBitStringRightAlign(t *testing.T) {
 
 type objectIdentifierTest struct {
 	in  []byte
+	lax bool
 	ok  bool
 	out []int
 }
 
 var objectIdentifierTestData = []objectIdentifierTest{
-	{[]byte{}, false, []int{}},
-	{[]byte{85}, true, []int{2, 5}},
-	{[]byte{85, 0x02}, true, []int{2, 5, 2}},
-	{[]byte{85, 0x02, 0xc0, 0x00}, true, []int{2, 5, 2, 0x2000}},
-	{[]byte{0x81, 0x34, 0x03}, true, []int{2, 100, 3}},
-	{[]byte{85, 0x02, 0xc0, 0x80, 0x80, 0x80, 0x80}, false, []int{}},
+	{in: []byte{}, ok: false},
+	{in: []byte{}, lax: true, ok: true, out: []int{}},
+	{in: []byte{85}, ok: true, out: []int{2, 5}},
+	{in: []byte{85, 0x02}, ok: true, out: []int{2, 5, 2}},
+	{in: []byte{85, 0x02, 0xc0, 0x00}, ok: true, out: []int{2, 5, 2, 0x2000}},
+	{in: []byte{0x81, 0x34, 0x03}, ok: true, out: []int{2, 100, 3}},
+	{in: []byte{85, 0x02, 0xc0, 0x80, 0x80, 0x80, 0x80}, ok: false},
 }
 
 func TestObjectIdentifier(t *testing.T) {
 	for i, test := range objectIdentifierTestData {
-		ret, err := parseObjectIdentifier(test.in, "fieldname")
+		ret, err := parseObjectIdentifier(test.in, test.lax, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
