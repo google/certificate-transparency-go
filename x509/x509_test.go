@@ -663,7 +663,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			UnknownExtKeyUsage: testUnknownExtKeyUsage,
 
 			BasicConstraintsValid: true,
-			IsCA: true,
+			IsCA:                  true,
 
 			OCSPServer:            []string{"http://ocsp.example.com"},
 			IssuingCertificateURL: []string{"http://crt.example.com/ca1.crt"},
@@ -1863,7 +1863,7 @@ func TestMaxPathLen(t *testing.T) {
 		NotAfter:  time.Unix(100000, 0),
 
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 
 	cert1 := serialiseAndParse(t, template)
@@ -1904,8 +1904,8 @@ func TestNoAuthorityKeyIdInSelfSignedCert(t *testing.T) {
 		NotAfter:  time.Unix(100000, 0),
 
 		BasicConstraintsValid: true,
-		IsCA:         true,
-		SubjectKeyId: []byte{1, 2, 3, 4},
+		IsCA:                  true,
+		SubjectKeyId:          []byte{1, 2, 3, 4},
 	}
 
 	if cert := serialiseAndParse(t, template); len(cert.AuthorityKeyId) != 0 {
@@ -2459,6 +2459,7 @@ func TestParseCertificateFail(t *testing.T) {
 		{desc: "SubjectInfoEmpty", in: "testdata/invalid/xf-ext-subject-info-empty.pem", wantErr: "empty SubjectInfoAccess"},
 		{desc: "RSAParamsNonNULL", in: "testdata/invalid/xf-pubkey-rsa-param-nonnull.pem", wantErr: "RSA key missing NULL parameters"},
 		{desc: "EmptyEKU", in: "testdata/invalid/xf-ext-extended-key-usage-empty.pem", wantErr: "empty ExtendedKeyUsage"},
+		{desc: "EKUEmptyOID", in: "testdata/invalid/xf-ext-extended-key-usage-empty-oid.pem", wantErr: "zero length OBJECT IDENTIFIER", wantFatal: true},
 		{desc: "SECp192r1TooShort", in: "testdata/invalid/xf-pubkey-ecdsa-secp192r1.pem", wantErr: "insecure curve (secp192r1)"},
 		{desc: "SerialNoIntegerNotMinimal", in: "testdata/invalid/xf-der-invalid-nonminimal-int.pem", wantErr: "integer not minimally-encoded", wantFatal: true},
 		{desc: "RSAIntegerNotMinimal", in: "testdata/invalid/xf-der-pubkey-rsa-nonminimal-int.pem", wantErr: "integer not minimally-encoded"},
