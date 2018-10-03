@@ -1823,9 +1823,16 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 				if len(e.Value) == 0 {
 					nfe.AddError(errors.New("x509: empty ExtendedKeyUsage"))
 				} else {
-					if rest, err := asn1.Unmarshal(e.Value, &keyUsage); err != nil {
-						return nil, err
-					} else if len(rest) != 0 {
+					rest, err := asn1.Unmarshal(e.Value, &keyUsage)
+					if err != nil {
+						var laxErr error
+						rest, laxErr = asn1.UnmarshalWithParams(e.Value, &keyUsage, "lax")
+						if laxErr != nil {
+							return nil, laxErr
+						}
+						nfe.AddError(err)
+					}
+					if len(rest) != 0 {
 						return nil, errors.New("x509: trailing data after X.509 ExtendedKeyUsage")
 					}
 				}
@@ -3018,7 +3025,7 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
 	out := &CertificateRequest{
-		Raw: in.Raw,
+		Raw:                      in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,
 		RawSubjectPublicKeyInfo:  in.TBSCSR.PublicKey.Raw,
 		RawSubject:               in.TBSCSR.Subject.FullBytes,

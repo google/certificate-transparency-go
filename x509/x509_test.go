@@ -2459,7 +2459,7 @@ func TestParseCertificateFail(t *testing.T) {
 		{desc: "SubjectInfoEmpty", in: "testdata/invalid/xf-ext-subject-info-empty.pem", wantErr: "empty SubjectInfoAccess"},
 		{desc: "RSAParamsNonNULL", in: "testdata/invalid/xf-pubkey-rsa-param-nonnull.pem", wantErr: "RSA key missing NULL parameters"},
 		{desc: "EmptyEKU", in: "testdata/invalid/xf-ext-extended-key-usage-empty.pem", wantErr: "empty ExtendedKeyUsage"},
-		{desc: "EKUEmptyOID", in: "testdata/invalid/xf-ext-extended-key-usage-empty-oid.pem", wantErr: "zero length OBJECT IDENTIFIER", wantFatal: true},
+		{desc: "EKUEmptyOID", in: "testdata/invalid/xf-ext-extended-key-usage-empty-oid.pem", wantErr: "zero length OBJECT IDENTIFIER"},
 		{desc: "SECp192r1TooShort", in: "testdata/invalid/xf-pubkey-ecdsa-secp192r1.pem", wantErr: "insecure curve (secp192r1)"},
 		{desc: "SerialNoIntegerNotMinimal", in: "testdata/invalid/xf-der-invalid-nonminimal-int.pem", wantErr: "integer not minimally-encoded", wantFatal: true},
 		{desc: "RSAIntegerNotMinimal", in: "testdata/invalid/xf-der-pubkey-rsa-nonminimal-int.pem", wantErr: "integer not minimally-encoded"},
