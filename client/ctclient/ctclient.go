@@ -147,7 +147,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	fmt.Printf("LeafHash: %x\n", leafHash)
 	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
 
-	age := time.Now().Sub(when)
+	age := time.Since(when)
 	if age > *logMMD {
 		// SCT's timestamp is old enough that the certificate should be included.
 		getInclusionProofForHash(ctx, logClient, leafHash[:])
@@ -220,6 +220,12 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 			log.Fatalf("Failed to create hash of leaf: %v", err)
 		}
 		hash = leafHash[:]
+
+		// Print a warning if this timestamp is still within the MMD window
+		when := ct.TimestampToTime(uint64(*timestamp))
+		if age := time.Since(when); age < *logMMD {
+			log.Printf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, *logMMD)
+		}
 	}
 	if len(hash) != sha256.Size {
 		log.Fatal("No leaf hash available")
