@@ -16,7 +16,6 @@ package loglist
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -34,24 +33,23 @@ func (wl *warningList) addWarning(w string) {
 	}
 }
 
-// Check: operator IDs set of branch is equal to or wider than master one.
-// No restriction on description mismatches.
+// checkMasterOpsMatchBranch checks operator IDs set of branch is equal to or
+// wider than master one. No restriction on description mismatches.
 func checkMasterOpsMatchBranch(master *LogList, branch *LogList, wl *warningList) {
-	var masterOps = master.GetOperatorIdSet()
-	var branchOps = branch.GetOperatorIdSet()
-	for opId, _ := range masterOps {
-		if branchOps[opId] == "" {
+	masterOps := master.OperatorIDSet()
+	branchOps := branch.OperatorIDSet()
+	for opID := range masterOps {
+		if branchOps[opID] == "" {
 			wl.addWarning(fmt.Sprintf(
 				"Operator %q id=%d present at master log list but missing at branch.",
-				masterOps[opId], opId))
+				masterOps[opID], opID))
 		}
 	}
 }
 
-// Check: 2 logs are functionally identical.
+// checkEquivalence: whether 2 logs are functionally identical.
 func (log1 *Log) checkEquivalence(log2 *Log, wl *warningList) {
 	// Description and STH comparison are omitted.
-
 	if !bytes.Equal(log1.Key, log2.Key) {
 		wl.addWarning(fmt.Sprintf(
 			"Log %q and log %q have different keys.",
@@ -60,13 +58,14 @@ func (log1 *Log) checkEquivalence(log2 *Log, wl *warningList) {
 	if log1.MaximumMergeDelay != log2.MaximumMergeDelay {
 		wl.addWarning(fmt.Sprintf(
 			"Maximum merge delay mismatch for logs %q and %q: %d != %d.",
-			log1.Description, log2.Description, log1.MaximumMergeDelay, log2.MaximumMergeDelay))
+			log1.Description, log2.Description, log1.MaximumMergeDelay,
+			log2.MaximumMergeDelay))
 	}
 	// Strong assumption: operators IDs are semantically same across logs.
-	var log1Ops = log1.OperatedBy
-	var log2Ops = log2.OperatedBy
-	sort.Sort(sort.IntSlice(log1Ops))
-	sort.Sort(sort.IntSlice(log2Ops))
+	log1Ops := log1.OperatedBy
+	log2Ops := log2.OperatedBy
+	sort.IntSlice(log1Ops).Sort()
+	sort.IntSlice(log2Ops).Sort()
 	if !reflect.DeepEqual(log1Ops, log2Ops) {
 		wl.addWarning(fmt.Sprintf(
 			"Operators mismatch for logs %q and %q.",
@@ -87,27 +86,29 @@ func (log1 *Log) checkEquivalence(log2 *Log, wl *warningList) {
 	if log1.DNSAPIEndpoint != log2.DNSAPIEndpoint {
 		wl.addWarning(fmt.Sprintf(
 			"DNS API mismatch for logs %q and %q: %s != %s.",
-			log1.Description, log2.Description, log1.DNSAPIEndpoint, log2.DNSAPIEndpoint))
+			log1.Description, log2.Description, log1.DNSAPIEndpoint,
+			log2.DNSAPIEndpoint))
 	}
 }
 
-// Check: logs present at branched list either have equivalent key matched entry at master
-// list or are absent from master.
+// checkMasterLogsMatchBranch checks whether logs present at branched-list
+// either have equivalent key matched entry at master-list or are absent from
+// master.
 func checkMasterLogsMatchBranch(master *LogList, branch *LogList, wl *warningList) {
 	for _, log := range branch.Logs {
-		if master_entry := master.FindLogByKey(log.Key); master_entry != nil {
-			master_entry.checkEquivalence(&log, wl)
+		if masterEntry := master.FindLogByKey(log.Key); masterEntry != nil {
+			masterEntry.checkEquivalence(&log, wl)
 		}
 	}
 }
 
-// Checks edited version of LogList against a master one for edit restrictions.
-func (master *LogList) CheckBranch(branch *LogList) ([]string, error) {
+// CheckBranch checks edited version of LogList against a master one for edit
+// restrictions: consistency across operators, matching functionality of mutual
+// logs.
+// Returns array of warnings if any.
+func (master *LogList) CheckBranch(branch *LogList) []string {
 	w := &warningList{warnings: []string{}}
 	checkMasterOpsMatchBranch(master, branch, w)
 	checkMasterLogsMatchBranch(master, branch, w)
-	if len(w.warnings) > 0 {
-		return w.warnings, errors.New("Log list branch validation failed")
-	}
-	return w.warnings, nil
+	return w.warnings
 }

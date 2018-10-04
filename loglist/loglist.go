@@ -110,11 +110,11 @@ func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList
 	return NewFromJSON(llData)
 }
 
-// Helper, creates set of operators for LogList.
-func (logList *LogList) GetOperatorIdSet() map[int]string {
-	var ops = make(map[int]string)
-	for _, op := range logList.Operators {
-		ops[op.ID] = op.Name 
+// OperatorIDSet is a helper op, creates set of operators for LogList.
+func (ll *LogList) OperatorIDSet() map[int]string {
+	ops := make(map[int]string)
+	for _, op := range ll.Operators {
+		ops[op.ID] = op.Name
 	}
 	return ops
 }

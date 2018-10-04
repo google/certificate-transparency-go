@@ -301,4 +301,3 @@ func TestStripInternalSpace(t *testing.T) {
 		}
 	}
 }
-

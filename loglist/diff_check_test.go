@@ -17,7 +17,6 @@ package loglist
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -35,14 +34,14 @@ func pprint(stringList []string) string {
 }
 
 func TestCheckOperatorsDiff(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name         string
-		branch_ll    LogList
+		branch       LogList
 		wantWarnings []string
 	}{
 		{
 			name: "Equal",
-			branch_ll: LogList{
+			branch: LogList{
 				Operators: []Operator{
 					{ID: 0, Name: "Google"},
 					{ID: 1, Name: "Bob's CT Log Shop"},
@@ -52,7 +51,7 @@ func TestCheckOperatorsDiff(t *testing.T) {
 		},
 		{
 			name: "ShuffledRenamed",
-			branch_ll: LogList{
+			branch: LogList{
 				Operators: []Operator{
 					{ID: 1, Name: "Bob's CT Log Shop+"},
 					{ID: 0, Name: "Google"},
@@ -62,7 +61,7 @@ func TestCheckOperatorsDiff(t *testing.T) {
 		},
 		{
 			name: "Missing",
-			branch_ll: LogList{
+			branch: LogList{
 				Operators: []Operator{
 					{ID: 1, Name: "Bob's CT Log Shop"},
 				}, Logs: []Log{},
@@ -71,7 +70,7 @@ func TestCheckOperatorsDiff(t *testing.T) {
 		},
 		{
 			name: "Added",
-			branch_ll: LogList{
+			branch: LogList{
 				Operators: []Operator{
 					{ID: 0, Name: "Google"},
 					{ID: 1, Name: "Bob's CT Log Shop"},
@@ -85,11 +84,8 @@ func TestCheckOperatorsDiff(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wl := warningList{warnings: []string{}}
-			checkMasterOpsMatchBranch(&sampleLogList, &test.branch_ll, &wl)
-			if !reflect.DeepEqual(wl.warnings, test.wantWarnings) {
-				t.Errorf("checkOperators: got '%v', want warnings '%v'", wl.warnings,
-					test.wantWarnings)
-			}
+			checkMasterOpsMatchBranch(&sampleLogList, &test.branch, &wl)
+			printMismatchIfAny(t, wl.warnings, test.wantWarnings, "checkOperators:")
 		})
 	}
 }
@@ -203,11 +199,11 @@ func TestCheckBranch(t *testing.T) {
 
 	for testname, test := range tests {
 		t.Run(testname, func(t *testing.T) {
-			wl, err := sampleLogList.CheckBranch(&test.branchList)
-			if test.wantError != (err != nil) {
+			wl := sampleLogList.CheckBranch(&test.branchList)
+			if test.wantError != (len(wl) > 0) {
 				t.Errorf("CheckBranch %s: error status mismatch.", testname)
 			}
-			printMismatchIfAny(t, wl, test.wantWarnings, "CheckBranch " + testname + ":")
+			printMismatchIfAny(t, wl, test.wantWarnings, "CheckBranch "+testname+":")
 		})
 	}
 }
@@ -215,7 +211,7 @@ func TestCheckBranch(t *testing.T) {
 func printMismatchIfAny(t *testing.T, got []string, want []string, lineStart string) {
 	wMismatchIds := make([]int, 0)
 	for i := 0; i < len(got) || i < len(want); i++ {
-		if i >= len(got) || i >= len(want ) || !strings.Contains(got[i], want[i]) {
+		if i >= len(got) || i >= len(want) || !strings.Contains(got[i], want[i]) {
 			wMismatchIds = append(wMismatchIds, i)
 		}
 	}
