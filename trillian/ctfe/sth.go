@@ -45,6 +45,16 @@ type STHGetter interface {
 	GetSTH(ctx context.Context) (*ct.SignedTreeHead, error)
 }
 
+// FrozenSTHGetter is an STHGetter implementation returning a constant STH.
+type FrozenSTHGetter struct {
+	sth *ct.SignedTreeHead
+}
+
+// GetSTH returns the frozen STH.
+func (sg *FrozenSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	return sg.sth, nil
+}
+
 // LogSTHGetter is an STHGetter implementation for regular (non-mirror) logs,
 // i.e. logs that have their own key and actively sign STHs.
 type LogSTHGetter struct {

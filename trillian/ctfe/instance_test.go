@@ -25,25 +25,10 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/trillian/crypto/keys/der"
-	"github.com/google/trillian/crypto/keys/pem"
 	_ "github.com/google/trillian/crypto/keys/pem/proto" // Register PEMKeyFile ProtoHandler.
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
 )
-
-func mustReadPublicKey(t *testing.T) *keyspb.PublicKey {
-	t.Helper()
-	pubKey, err := pem.ReadPublicKeyFile("../testdata/ct-http-server.pubkey.pem")
-	if err != nil {
-		t.Fatalf("ReadPublicKeyFile(): %v", err)
-	}
-	ret, err := der.ToPublicProto(pubKey)
-	if err != nil {
-		t.Fatalf("ToPublicProto(): %v", err)
-	}
-	return ret
-}
 
 func TestSetUpInstance(t *testing.T) {
 	ctx := context.Background()
@@ -51,7 +36,7 @@ func TestSetUpInstance(t *testing.T) {
 	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	missingPrivKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/bogus.privkey.pem", Password: "dirk"})
 	wrongPassPrivKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirkly"})
-	pubKey := mustReadPublicKey(t)
+	pubKey := mustReadPublicKey("../testdata/ct-http-server.pubkey.pem")
 
 	var tests = []struct {
 		desc    string
