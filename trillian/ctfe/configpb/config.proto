@@ -43,7 +43,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 16
+// NEXT_ID: 17
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -114,6 +114,11 @@ message LogConfig {
   // can be a 99-th percentile of merge delays that they observe, and they can
   // alert on the actual merge delay going above a certain multiple of this EMD.
   int32 expected_merge_delay_sec = 15;
+
+  // The STH that this log will serve permanently (if present). Frozen STH must
+  // be signed by this log's private key, and will be verified using the public
+  // key specified in this config.
+  SignedTreeHead frozen_sth = 16;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
@@ -125,4 +130,14 @@ message LogMultiConfig {
   // The set of logs that will use the above backends. All the protos in this
   // LogConfigSet must set a valid log_backend_name for the config to be usable.
   LogConfigSet log_configs = 2;
+}
+
+// SignedTreeHead represents the structure returned by the get-sth CT method.
+// See RFC6962 sections 3.5 and 4.3 for reference.
+// TODO(pavelkalinnikov): Find a better place for this type.
+message SignedTreeHead {
+  int64 tree_size = 1;
+  int64 timestamp = 2;
+  bytes sha256_root_hash = 3;
+  bytes tree_head_signature = 4;
 }

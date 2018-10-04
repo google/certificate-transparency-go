@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/crypto/keys/der"
@@ -37,6 +38,7 @@ type ValidatedLogConfig struct {
 	KeyUsages     []x509.ExtKeyUsage
 	NotAfterStart *time.Time
 	NotAfterLimit *time.Time
+	FrozenSTH     *ct.SignedTreeHead
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
@@ -97,6 +99,8 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 //  - A non-mirror log has a private, and optionally a public key (both valid).
 //  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
 //    proto. If both are set then NotBeforeStart <= NotBeforeLimit.
+//  - Merge delays (if present) are correct.
+//  - Frozen STH (if present) is correct and signed by the provided public key.
 // Returns the validated structures (useful to avoid double validation).
 func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	if cfg.LogId == 0 {
@@ -113,6 +117,8 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		}
 	} else if cfg.IsMirror {
 		return nil, errors.New("empty public key for mirror")
+	} else if cfg.FrozenSth != nil {
+		return nil, errors.New("empty public key for frozen STH")
 	}
 
 	// Validate the private key.
@@ -165,6 +171,24 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		return nil, errors.New("negative expected merge delay")
 	case cfg.ExpectedMergeDelaySec > cfg.MaxMergeDelaySec:
 		return nil, errors.New("expected merge delay exceeds MMD")
+	}
+
+	if sth := cfg.FrozenSth; sth != nil {
+		verifier, err := ct.NewSignatureVerifier(vCfg.PubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
+		}
+		if vCfg.FrozenSTH, err = (&ct.GetSTHResponse{
+			TreeSize:          uint64(sth.TreeSize),
+			Timestamp:         uint64(sth.Timestamp),
+			SHA256RootHash:    sth.Sha256RootHash,
+			TreeHeadSignature: sth.TreeHeadSignature,
+		}).ToSignedTreeHead(); err != nil {
+			return nil, fmt.Errorf("invalid frozen STH: %v", err)
+		}
+		if err := verifier.VerifySTHSignature(*vCfg.FrozenSTH); err != nil {
+			return nil, fmt.Errorf("signature verification failed: %v", err)
+		}
 	}
 
 	return &vCfg, nil

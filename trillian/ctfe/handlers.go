@@ -245,7 +245,8 @@ func newLogInfo(
 	signer crypto.Signer,
 	timeSource util.TimeSource,
 ) *logInfo {
-	cfg := instanceOpts.Validated.Config
+	vCfg := instanceOpts.Validated
+	cfg := vCfg.Config
 
 	logID, prefix := cfg.LogId, cfg.Prefix
 	li := &logInfo{
@@ -259,9 +260,12 @@ func newLogInfo(
 		RequestLog:     instanceOpts.RequestLog,
 	}
 
-	if cfg.IsMirror {
+	switch {
+	case vCfg.FrozenSTH != nil:
+		li.sthGetter = &FrozenSTHGetter{sth: vCfg.FrozenSTH}
+	case cfg.IsMirror:
 		li.sthGetter = &MirrorSTHGetter{li: li, st: DefaultMirrorSTHStorage{}}
-	} else {
+	default:
 		li.sthGetter = &LogSTHGetter{li: li}
 	}
 

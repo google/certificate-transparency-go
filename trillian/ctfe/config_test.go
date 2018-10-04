@@ -15,6 +15,7 @@
 package ctfe
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -24,21 +25,22 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
+	"github.com/google/trillian/crypto/keys/der"
 	_ "github.com/google/trillian/crypto/keys/der/proto" // Register key handler.
-	kto "github.com/google/trillian/crypto/keys/testonly"
+	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
 var (
-	pubKey = &keyspb.PublicKey{
-		Der: kto.MustMarshalPublicPEMToDER(testonly.CTLogPublicKeyPEM),
-	}
-	privKey = mustMarshalAny(&keyspb.PrivateKey{
-		Der: kto.MustMarshalPrivatePEMToDER(
-			testonly.CTLogPrivateKeyPEM, testonly.CTLogKeyPassword),
-	})
 	invalidTimestamp = &timestamp.Timestamp{Nanos: int32(1e9)}
+
+	// validSTH is an STH signed by "../testdata/ct-http-server.privkey.pem".
+	validSTH = configpb.SignedTreeHead{
+		TreeSize:          766,
+		Timestamp:         1538659276115,
+		Sha256RootHash:    mustDecodeBase64("rMWSvrYQ+n6kAmU6sMJuVV5LjoKBGK2OL719X5a+T9Y="),
+		TreeHeadSignature: mustDecodeBase64("BAMASDBGAiEApo+OIdPXIVEwdnS1v5Iu1gQHaiWmCY73h28zfKMmHrYCIQD1U6qj1mKBXYIQVP52YCdaxdHJH4jDsL1JlaA+J/MqCw=="),
+	}
 )
 
 func mustMarshalAny(pb proto.Message) *any.Any {
@@ -49,7 +51,33 @@ func mustMarshalAny(pb proto.Message) *any.Any {
 	return ret
 }
 
+func mustReadPublicKey(path string) *keyspb.PublicKey {
+	pubKey, err := pem.ReadPublicKeyFile(path)
+	if err != nil {
+		panic(fmt.Sprintf("ReadPublicKeyFile(): %v", err))
+	}
+	ret, err := der.ToPublicProto(pubKey)
+	if err != nil {
+		panic(fmt.Sprintf("ToPublicProto(): %v", err))
+	}
+	return ret
+}
+
+func mustDecodeBase64(str string) []byte {
+	data, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		panic(fmt.Sprintf("base64: DecodeString failed: %v", err))
+	}
+	return data
+}
+
 func TestValidateLogConfig(t *testing.T) {
+	pubKey := mustReadPublicKey("../testdata/ct-http-server.pubkey.pem")
+	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
+
+	corruptedSTH := validSTH
+	corruptedSTH.TreeSize = 1234
+
 	for _, tc := range []struct {
 		desc    string
 		cfg     configpb.LogConfig
@@ -61,9 +89,14 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg:     configpb.LogConfig{},
 		},
 		{
-			desc:    "empty-public-key",
-			wantErr: "empty public key",
+			desc:    "empty-public-key-mirror",
+			wantErr: "empty public key for mirror",
 			cfg:     configpb.LogConfig{LogId: 123, IsMirror: true},
+		},
+		{
+			desc:    "empty-public-key-frozen",
+			wantErr: "empty public key for frozen STH",
+			cfg:     configpb.LogConfig{LogId: 123, FrozenSth: &configpb.SignedTreeHead{}},
 		},
 		{
 			desc:    "invalid-public-key-empty",
@@ -190,6 +223,29 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "invalid-frozen-STH",
+			wantErr: "invalid frozen STH",
+			cfg: configpb.LogConfig{
+				LogId:     123,
+				PublicKey: pubKey,
+				IsMirror:  true,
+				FrozenSth: &configpb.SignedTreeHead{
+					TreeSize:  10,
+					Timestamp: 100500,
+				},
+			},
+		},
+		{
+			desc:    "signature-verification-failed",
+			wantErr: "signature verification failed",
+			cfg: configpb.LogConfig{
+				LogId:      123,
+				PublicKey:  pubKey,
+				PrivateKey: privKey,
+				FrozenSth:  &corruptedSTH,
+			},
+		},
+		{
 			desc: "ok",
 			cfg: configpb.LogConfig{
 				LogId:      123,
@@ -257,6 +313,15 @@ func TestValidateLogConfig(t *testing.T) {
 				ExpectedMergeDelaySec: 7200,
 			},
 		},
+		{
+			desc: "ok-frozen-STH",
+			cfg: configpb.LogConfig{
+				LogId:      123,
+				PublicKey:  pubKey,
+				PrivateKey: privKey,
+				FrozenSth:  &validSTH,
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			vc, err := ValidateLogConfig(&tc.cfg)
@@ -275,6 +340,7 @@ func TestValidateLogConfig(t *testing.T) {
 }
 
 func TestValidateLogMultiConfig(t *testing.T) {
+	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	for _, tc := range []struct {
 		desc    string
 		cfg     configpb.LogMultiConfig
