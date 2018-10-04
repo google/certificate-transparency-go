@@ -49,6 +49,15 @@ message MigrationConfig {
   // STH and fetching up to that.
   int64 end_index = 8;
 
+  // The number of parallel get-entries fetchers. Assumed equal to 1 if not
+  // specified.
+  int32 num_fetchers = 9;
+  // The number of parallel workers submitting entries to Trillian. Assumed
+  // equal to 1 if not specified.
+  int32 num_submitters = 10;
+  // Max number of batches in fetchers->submitters channel.
+  int32 channel_size = 11;
+
   // TODO(pavelkalinnikov): Fetch and push quotas, priorities, etc.
 }
 

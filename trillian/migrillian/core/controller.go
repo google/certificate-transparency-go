@@ -27,6 +27,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 
 	"github.com/google/trillian/merkle"
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
@@ -69,8 +70,30 @@ func initMetrics(mf monitoring.MetricFactory) {
 // Options holds configuration for a Controller.
 type Options struct {
 	scanner.FetcherOptions
-	Submitters          int
-	BatchesPerSubmitter int
+	Submitters  int
+	ChannelSize int
+}
+
+// OptionsFromConfig returns Options created from the passed in config.
+func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
+	opts := Options{
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     int(cfg.BatchSize),
+			ParallelFetch: int(cfg.NumFetchers),
+			StartIndex:    cfg.StartIndex,
+			EndIndex:      cfg.EndIndex,
+			Continuous:    cfg.IsContinuous,
+		},
+		Submitters:  int(cfg.NumSubmitters),
+		ChannelSize: int(cfg.ChannelSize),
+	}
+	if cfg.NumFetchers == 0 {
+		opts.ParallelFetch = 1
+	}
+	if cfg.NumSubmitters == 0 {
+		opts.Submitters = 1
+	}
+	return opts
 }
 
 // Controller coordinates migration from a CT log to a Trillian tree.
@@ -186,8 +209,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	bufferSize := c.opts.Submitters * c.opts.BatchesPerSubmitter
-	c.batches = make(chan scanner.EntryBatch, bufferSize)
+	c.batches = make(chan scanner.EntryBatch, c.opts.ChannelSize)
 	defer func() {
 		close(c.batches)
 		wg.Wait()

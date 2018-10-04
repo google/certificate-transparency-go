@@ -31,7 +31,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/core"
 	"github.com/google/trillian"
@@ -55,10 +54,6 @@ var (
 	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 10, "Max idle HTTP connections per host (0 = DefaultMaxIdleConnsPerHost)")
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
 	dialTimeout         = flag.Duration("grpc_dial_timeout", 5*time.Second, "Timeout for dialling Trillian")
-
-	ctFetchers       = flag.Int("ct_fetchers", 2, "Number of concurrent get-entries fetchers")
-	submitters       = flag.Int("submitters", 2, "Number of concurrent workers submitting entries to Trillian")
-	submitterBatches = flag.Int("submitter_batches", 5, "Max number of batches per submitter in fetchers->submitters channel")
 )
 
 func main() {
@@ -142,19 +137,7 @@ func getController(
 		return nil, fmt.Errorf("failed to create PreorderedLogClient: %v", err)
 	}
 
-	opts := core.Options{
-		FetcherOptions: scanner.FetcherOptions{
-			BatchSize:     int(cfg.BatchSize),
-			ParallelFetch: *ctFetchers,
-			StartIndex:    cfg.StartIndex,
-			EndIndex:      cfg.EndIndex,
-			Continuous:    cfg.IsContinuous,
-		},
-		// TODO(pavelkalinnikov): Put the below options and ctFetchers to config.
-		Submitters:          *submitters,
-		BatchesPerSubmitter: *submitterBatches,
-	}
-
+	opts := core.OptionsFromConfig(cfg)
 	return core.NewController(opts, ctClient, plClient, ef, mf), nil
 }
 
