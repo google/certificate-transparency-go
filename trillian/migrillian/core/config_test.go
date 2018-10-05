@@ -106,9 +106,16 @@ func TestValidateMigrationConfig(t *testing.T) {
 			wantErr: "batch size must be positive",
 		},
 		{
-			desc: "ok",
+			desc: "unknown-identity-function",
 			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
 				LogBackendName: back, LogId: 10, BatchSize: 100},
+			wantErr: "unknown identity function",
+		},
+		{
+			desc: "ok",
+			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
+				LogBackendName: back, LogId: 10, BatchSize: 100,
+				IdentityFunction: configpb.IdentityFunction_SHA256_CERT_DATA},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

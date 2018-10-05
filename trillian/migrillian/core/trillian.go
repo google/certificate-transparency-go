@@ -17,6 +17,7 @@ package core
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
@@ -42,12 +44,16 @@ type PreorderedLogClient struct {
 	cli    trillian.TrillianLogClient
 	verif  *client.LogVerifier
 	tree   *trillian.Tree
+	idFunc func(int64, *ct.RawLogEntry) []byte
 	prefix string // TODO(pavelkalinnikov): Get rid of this.
 }
 
 // NewPreorderedLogClient creates and initializes a pre-ordered log client.
 func NewPreorderedLogClient(
-	cli trillian.TrillianLogClient, tree *trillian.Tree, prefix string,
+	cli trillian.TrillianLogClient,
+	tree *trillian.Tree,
+	idFuncType configpb.IdentityFunction,
+	prefix string,
 ) (*PreorderedLogClient, error) {
 	if tree == nil {
 		return nil, errors.New("missing Tree")
@@ -59,7 +65,18 @@ func NewPreorderedLogClient(
 	if err != nil {
 		return nil, err
 	}
-	return &PreorderedLogClient{cli: cli, verif: v, tree: tree, prefix: prefix}, nil
+	ret := PreorderedLogClient{cli: cli, verif: v, tree: tree, prefix: prefix}
+
+	switch idFuncType {
+	case configpb.IdentityFunction_SHA256_CERT_DATA:
+		ret.idFunc = idHashCertData
+	case configpb.IdentityFunction_SHA256_LEAF_INDEX:
+		ret.idFunc = idHashLeafIndex
+	default:
+		return nil, fmt.Errorf("unknown identity function: %v", idFuncType)
+	}
+
+	return &ret, nil
 }
 
 // getVerifiedRoot returns the current root of the Trillian tree. Verifies the
@@ -147,4 +164,16 @@ func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian
 		LeafIndex:        index,
 		LeafIdentityHash: leafIDHash[:],
 	}, nil
+}
+
+func idHashCertData(index int64, entry *ct.RawLogEntry) []byte {
+	hash := sha256.Sum256(entry.Cert.Data)
+	return hash[:]
+}
+
+func idHashLeafIndex(index int64, entry *ct.RawLogEntry) []byte {
+	data := make([]byte, 8)
+	binary.LittleEndian.PutUint64(data, uint64(index))
+	hash := sha256.Sum256(data)
+	return hash[:]
 }

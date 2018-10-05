@@ -53,6 +53,12 @@ func ValidateMigrationConfig(cfg *configpb.MigrationConfig) error {
 	case cfg.BatchSize <= 0:
 		return errors.New("batch size must be positive")
 	}
+	switch idFunc := cfg.IdentityFunction; idFunc {
+	case configpb.IdentityFunction_SHA256_CERT_DATA:
+	case configpb.IdentityFunction_SHA256_LEAF_INDEX:
+	default:
+		return fmt.Errorf("unknown identity function: %v", idFunc)
+	}
 	return nil
 }
 

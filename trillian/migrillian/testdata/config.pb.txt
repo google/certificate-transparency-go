@@ -19,5 +19,6 @@ migration_configs {
     log_id: 100500
     batch_size: 512
     is_continuous: true
+    identity_function: SHA256_CERT_DATA
   }
 }

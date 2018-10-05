@@ -132,7 +132,7 @@ func getController(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CT client: %v", err)
 	}
-	plClient, err := newPreorderedLogClient(ctx, conn, cfg.LogId)
+	plClient, err := newPreorderedLogClient(ctx, conn, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PreorderedLogClient: %v", err)
 	}
@@ -172,16 +172,20 @@ func getHTTPClient() *http.Client {
 }
 
 // newPreorderedLogClient creates a PreorderedLogClient for the specified tree.
-func newPreorderedLogClient(ctx context.Context, conn *grpc.ClientConn, treeID int64) (*core.PreorderedLogClient, error) {
+func newPreorderedLogClient(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	cfg *configpb.MigrationConfig,
+) (*core.PreorderedLogClient, error) {
 	admin := trillian.NewTrillianAdminClient(conn)
-	gt := trillian.GetTreeRequest{TreeId: treeID}
+	gt := trillian.GetTreeRequest{TreeId: cfg.LogId}
 	tree, err := admin.GetTree(ctx, &gt)
 	if err != nil {
 		return nil, err
 	}
 	log := trillian.NewTrillianLogClient(conn)
-	pref := fmt.Sprintf("%d", treeID)
-	return core.NewPreorderedLogClient(log, tree, pref)
+	pref := fmt.Sprintf("%d", cfg.LogId)
+	return core.NewPreorderedLogClient(log, tree, cfg.IdentityFunction, pref)
 }
 
 // getElectionFactory returns an election factory based on flags, and a
