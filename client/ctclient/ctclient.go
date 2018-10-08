@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"flag"
@@ -56,10 +57,10 @@ var (
 	getFirst        = flag.Int64("first", -1, "First entry to get")
 	getLast         = flag.Int64("last", -1, "Last entry to get")
 	treeSize        = flag.Int64("size", -1, "Tree size to query at")
-	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string)")
+	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string or base64)")
 	prevSize        = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
-	prevHash        = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string)")
-	leafHash        = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string)")
+	prevHash        = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
+	leafHash        = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
 )
 
 func signatureToString(signed *ct.DigitallySigned) string {
@@ -70,6 +71,18 @@ func logErrDetails(err error) {
 	if err, ok := err.(client.RspError); ok {
 		log.Printf("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
+}
+
+func hashFromString(input string) ([]byte, error) {
+	hash, err := hex.DecodeString(input)
+	if err == nil && len(hash) == sha256.Size {
+		return hash, nil
+	}
+	hash, err = base64.StdEncoding.DecodeString(input)
+	if err == nil && len(hash) == sha256.Size {
+		return hash, nil
+	}
+	return nil, fmt.Errorf("hash value %q failed to parse as 32-byte hex or base64", input)
 }
 
 func getSTH(ctx context.Context, logClient client.CheckLogClient) {
@@ -207,9 +220,9 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 	var hash []byte
 	if len(*leafHash) > 0 {
 		var err error
-		hash, err = hex.DecodeString(*leafHash)
+		hash, err = hashFromString(*leafHash)
 		if err != nil {
-			log.Fatalf("Invalid --leaf_hash supplied (not hex: %v)", err)
+			log.Fatalf("Invalid --leaf_hash supplied: %v", err)
 		}
 	} else if len(*certChain) > 0 && *timestamp != 0 {
 		// Build a leaf hash from the chain and a timestamp
@@ -275,22 +288,16 @@ func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 	var hash1, hash2 []byte
 	if *prevHash != "" {
 		var err error
-		hash1, err = hex.DecodeString(*prevHash)
+		hash1, err = hashFromString(*prevHash)
 		if err != nil {
 			log.Fatalf("Invalid --prev_hash: %v", err)
-		}
-		if l := len(hash1); l != sha256.Size {
-			log.Fatalf("Invalid --prev_hash length: %d", l)
 		}
 	}
 	if *treeHash != "" {
 		var err error
-		hash2, err = hex.DecodeString(*treeHash)
+		hash2, err = hashFromString(*treeHash)
 		if err != nil {
 			log.Fatalf("Invalid --tree_hash: %v", err)
-		}
-		if l := len(hash2); l != sha256.Size {
-			log.Fatalf("invalid --tree_hash length: %d", l)
 		}
 	}
 	if (hash1 != nil) != (hash2 != nil) {
