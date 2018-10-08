@@ -1626,6 +1626,7 @@ func TestBuildPrecertTBS(t *testing.T) {
 }
 
 func TestImports(t *testing.T) {
+	t.Skip("Import test skipped for forked codebase")
 	//	testenv.MustHaveGoRun(t)
 
 	// Replace testenv.GoToolPath(t) with "go" for use outside of Go repo.
