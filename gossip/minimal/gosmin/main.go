@@ -45,6 +45,7 @@ func main() {
 	glog.Info("**** Gossiper Starting ****")
 
 	go awaitSignal(func() {
+		glog.Warning("Cancelling master context")
 		cancel()
 	})
 
