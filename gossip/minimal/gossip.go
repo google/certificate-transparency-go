@@ -105,7 +105,21 @@ type pureHubSubmitter struct {
 // CanSubmit checks whether the hub accepts the public keys of all of the
 // source Logs.
 func (p *pureHubSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
-	// TODO(daviddrysdale): implement this (using a new hubclient helper function)
+	glog.V(1).Infof("Get accepted public keys for destination Gossip Hub at %s", p.Hub.BaseURI())
+	keys, err := p.Hub.GetSourceKeys(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get source keys: %v", err)
+	}
+
+	for _, src := range g.srcs {
+		verifier := src.Log.Verifier
+		if verifier == nil {
+			return fmt.Errorf("no verifier available for source log %q", src.Log.BaseURI())
+		}
+		if !hubclient.AcceptableSource(verifier.PubKey, keys) {
+			return fmt.Errorf("source log %q is not accepted by the hub", src.Log.BaseURI())
+		}
+	}
 	return nil
 }
 

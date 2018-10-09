@@ -23,8 +23,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian-examples/gossip/api"
+
+	logclient "github.com/google/certificate-transparency-go/client"
+	hubclient "github.com/google/trillian-examples/gossip/client"
 )
 
 func testCTGossiper(ctx context.Context, t *testing.T) *Gossiper {
@@ -36,7 +40,7 @@ func testCTGossiper(ctx context.Context, t *testing.T) *Gossiper {
 	return g
 }
 
-func TestCheckRootIncluded(t *testing.T) {
+func TestCanSubmitCT(t *testing.T) {
 	ctx := context.Background()
 	g := testCTGossiper(ctx, t)
 
@@ -88,7 +92,7 @@ func TestCheckRootIncluded(t *testing.T) {
 
 			// Override the default CT Log client
 			dest := g.dests["ctLogDestination"]
-			client, err := client.New(s.URL+"/ct/v1/get-roots", nil, jsonclient.Options{})
+			client, err := logclient.New(s.URL+"/ct/v1/get-roots", nil, jsonclient.Options{})
 			if err != nil {
 				t.Fatalf("failed to create log client for %q: %v", dest.Name, err)
 			}
@@ -97,14 +101,103 @@ func TestCheckRootIncluded(t *testing.T) {
 
 			if err = dest.Submitter.CanSubmit(ctx, g); err != nil {
 				if test.wantErr == "" {
-					t.Errorf("CertRootIncluded()=nil,%v; want _,nil", err)
+					t.Errorf("CanSubmit()=nil,%v; want _,nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
-					t.Errorf("CertRootIncluded()=%v; want err containing %q", err, test.wantErr)
+					t.Errorf("CanSubmit()=%v; want err containing %q", err, test.wantErr)
 				}
 				return
 			}
 			if test.wantErr != "" {
-				t.Errorf("CertRootIncluded()=nil; want err containing %q", test.wantErr)
+				t.Errorf("CanSubmit()=nil; want err containing %q", test.wantErr)
+			}
+		})
+	}
+}
+
+func testHubGossiper(ctx context.Context, t *testing.T) *Gossiper {
+	t.Helper()
+	g, err := NewGossiperFromFile(ctx, "testdata/hub-test.cfg", nil)
+	if err != nil {
+		t.Fatalf("failed to create Gossiper for test: %v", err)
+	}
+	return g
+}
+
+func TestCanSubmitHub(t *testing.T) {
+	ctx := context.Background()
+	g := testHubGossiper(ctx, t)
+	// Find the (single) source's public key
+	src := g.srcs["theSourceOfAllSTHs"]
+	srcDER, err := x509.MarshalPKIXPublicKey(src.Log.Verifier.PubKey)
+	if err != nil {
+		t.Fatalf("Failed to generate DER for source public key: %v", err)
+	}
+
+	var tests = []struct {
+		name    string
+		handler http.HandlerFunc
+		wantErr string
+	}{
+		{
+			name: "ValidResponse",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintln(w, fmt.Sprintf(`{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}`, src.URL, base64.StdEncoding.EncodeToString(srcDER)))
+			},
+		},
+		{
+			name: "ErrorResponse",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "Or coffee", http.StatusTeapot)
+			},
+			wantErr: "teapot",
+		},
+		{
+			name: "MalformedResponse",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintln(w, "Malformed response")
+			},
+			wantErr: "failed to get source keys",
+		},
+		{
+			name: "ValidEmptyResponse",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintln(w, `{"entries":[]}`)
+			},
+			wantErr: "not accepted by the hub",
+		},
+		{
+			name: "ValidResponseWithoutRoot",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintln(w, fmt.Sprintf(`{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}`, src.URL, base64.StdEncoding.EncodeToString([]byte{0x01, 0x02})))
+			},
+			wantErr: "not accepted by the hub",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := httptest.NewServer(test.handler)
+			defer s.Close()
+
+			// Override the default Gossip Hub client
+			dest := g.dests["hubDestination"]
+			client, err := hubclient.New(s.URL+api.PathPrefix+api.GetSourceKeysPath, nil, jsonclient.Options{})
+			if err != nil {
+				t.Fatalf("failed to create hub client for %q: %v", dest.Name, err)
+			}
+			hubSubmitter, _ := dest.Submitter.(*pureHubSubmitter)
+			hubSubmitter.Hub = client
+
+			if err = dest.Submitter.CanSubmit(ctx, g); err != nil {
+				if test.wantErr == "" {
+					t.Errorf("CanSubmit()=nil,%v; want _,nil", err)
+				} else if !strings.Contains(err.Error(), test.wantErr) {
+					t.Errorf("CanSubmit()=%v; want err containing %q", err, test.wantErr)
+				}
+				return
+			}
+			if test.wantErr != "" {
+				t.Errorf("CanSubmit()=nil; want err containing %q", test.wantErr)
 			}
 		})
 	}
@@ -158,7 +251,7 @@ func TestGetSTHAsCert(t *testing.T) {
 			if !ok {
 				t.Fatalf("failed to find source log")
 			}
-			client, err := client.New(s.URL+"/ct/v1/get-sth", nil, jsonclient.Options{})
+			client, err := logclient.New(s.URL+"/ct/v1/get-sth", nil, jsonclient.Options{})
 			if err != nil {
 				t.Fatalf("failed to create log client for %q: %v", src.Name, err)
 			}
