@@ -197,6 +197,9 @@ func (c *Controller) Run(ctx context.Context) error {
 		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
 		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
+	} else if c.opts.StartIndex < 0 {
+		c.opts.StartIndex = int64(root.TreeSize)
+		glog.Warningf("%d: updated start index to %d", treeID, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)

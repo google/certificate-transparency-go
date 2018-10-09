@@ -82,9 +82,10 @@ type MigrationConfig struct {
 	// follow the updates of the source log's STH. For example, this mode can be
 	// used to support a mirror CT log.
 	IsContinuous bool `protobuf:"varint,6,opt,name=is_continuous,json=isContinuous,proto3" json:"is_continuous,omitempty"`
-	// The log entry index to start fetching at. Ignored in continuous mode which
-	// starts at the point where it stopped (e.g. the current Trillian tree size
-	// in a simple case).
+	// The log entry index to start fetching at. If negative, then it is assumed
+	// equal to the current Trillian tree size.
+	// Ignored in continuous mode which starts at the point where it stopped (e.g.
+	// the current Trillian tree size in a simple case).
 	StartIndex int64 `protobuf:"varint,7,opt,name=start_index,json=startIndex,proto3" json:"start_index,omitempty"`
 	// The log index to end fetching at, non-inclusive. If zero, fetch up to the
 	// source log's current STH. Ignored in continuous mode which keeps updating
