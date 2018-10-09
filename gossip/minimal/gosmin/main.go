@@ -25,6 +25,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/gossip/minimal"
+
+	// Register PEMKeyFile and PrivateKey ProtoHandlers
+	_ "github.com/google/trillian/crypto/keys/der/proto"
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
 var config = flag.String("config", "", "File holding configuration in text proto format")
