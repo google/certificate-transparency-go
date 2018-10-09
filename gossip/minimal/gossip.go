@@ -151,13 +151,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 	sths := make(chan sthInfo, g.bufferSize)
 
 	var wg sync.WaitGroup
-	wg.Add(1 + len(g.srcs))
-	go func() {
-		defer wg.Done()
-		glog.Info("starting Submitter")
-		g.Submitter(ctx, sths)
-		glog.Info("finished Submitter")
-	}()
+	wg.Add(len(g.srcs))
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -166,13 +160,24 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
+	glog.Info("starting Submitter")
+	g.Submitter(ctx, sths)
+	glog.Info("finished Submitter")
+
+	// Drain the sthInfo channel during shutdown.
+	go func() {
+		for info := range sths {
+			glog.V(1).Infof("discard STH from %s", info.name)
+		}
+	}()
+
 	wg.Wait()
+	close(sths)
 }
 
 // Submitter periodically services the provided channel and submits the
 // certificates received on it to the destination logs.
 func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
-
 	for {
 		select {
 		case <-ctx.Done():
