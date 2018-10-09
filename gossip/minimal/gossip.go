@@ -164,7 +164,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 	g.Submitter(ctx, sths)
 	glog.Info("finished Submitter")
 
-	// Drain the sthInfo channel during shutdown.
+	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
 		for info := range sths {
 			glog.V(1).Infof("discard STH from %s", info.name)
