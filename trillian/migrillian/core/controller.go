@@ -211,6 +211,10 @@ func (c *Controller) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Note: An error in one submitter cancels the other submitters.
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	var wg sync.WaitGroup
 	c.batches = make(chan scanner.EntryBatch, c.opts.ChannelSize)
 	defer func() {
@@ -218,8 +222,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		wg.Wait()
 	}()
 
-	cctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
 		wg.Add(1)
