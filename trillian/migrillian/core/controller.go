@@ -213,13 +213,9 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 	c.batches = make(chan scanner.EntryBatch, c.opts.ChannelSize)
-	defer func() {
-		close(c.batches)
-		wg.Wait()
-	}()
-
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
 		wg.Add(1)
@@ -236,7 +232,10 @@ func (c *Controller) Run(ctx context.Context) error {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		c.batches <- b
 	}
-	return fetcher.Run(cctx, handler)
+	result := fetcher.Run(cctx, handler)
+	close(c.batches)
+	wg.Wait()
+	return result
 }
 
 // verifyConsistency checks that the provided verified Trillian root is
