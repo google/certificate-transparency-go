@@ -56,28 +56,20 @@ type InstanceOptions struct {
 	// limited. If unset, no quota will be requested for intermediate
 	// certificates.
 	CertificateQuotaUser func(*x509.Certificate) string
+	// STHStorage provides STHs of a source log for the mirror. Only mirror
+	// instances will use it, i.e. when IsMirror == true in the config. If it is
+	// empty then the DefaultMirrorSTHStorage will be used.
+	STHStorage MirrorSTHStorage
 }
 
-// SetUpInstance sets up a log instance using the provided configuration, and
-// returns a set of handlers for this log.
+// SetUpInstance sets up a log (or log mirror) instance using the provided
+// configuration, and returns a set of handlers for this log.
 func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, error) {
 	logInfo, err := setUpLogInfo(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(pavelkalinnikov): Handlers can take the prefix from logInfo's opts.
-	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
-	return &handlers, nil
-}
-
-// SetUpMirrorInstance sets up a log mirror instance using the provided
-// configuration, and returns a set of handlers for it.
-func SetUpMirrorInstance(ctx context.Context, opts InstanceOptions, stor MirrorSTHStorage) (*PathHandlers, error) {
-	logInfo, err := setUpLogInfo(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	logInfo.sthGetter = &MirrorSTHGetter{li: logInfo, st: stor}
 	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
 	return &handlers, nil
 }
