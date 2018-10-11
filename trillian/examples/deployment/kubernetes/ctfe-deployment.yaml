@@ -77,8 +77,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-      nodeSelector:
-        cloud.google.com/gke-nodepool: ctfe-pool
       volumes:
         - name: ctfe-config-volume
           configMap:
