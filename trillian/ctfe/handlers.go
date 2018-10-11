@@ -264,7 +264,11 @@ func newLogInfo(
 	case vCfg.FrozenSTH != nil:
 		li.sthGetter = &FrozenSTHGetter{sth: vCfg.FrozenSTH}
 	case cfg.IsMirror:
-		li.sthGetter = &MirrorSTHGetter{li: li, st: DefaultMirrorSTHStorage{}}
+		st := instanceOpts.STHStorage
+		if st == nil {
+			st = DefaultMirrorSTHStorage{}
+		}
+		li.sthGetter = &MirrorSTHGetter{li: li, st: st}
 	default:
 		li.sthGetter = &LogSTHGetter{li: li}
 	}

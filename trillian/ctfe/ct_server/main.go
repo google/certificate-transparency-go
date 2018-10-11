@@ -17,7 +17,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -271,10 +270,6 @@ func awaitSignal(doneFn func()) {
 }
 
 func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string) error {
-	if cfg.IsMirror {
-		return errors.New("mirrors are not supported")
-	}
-
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
 		return err
