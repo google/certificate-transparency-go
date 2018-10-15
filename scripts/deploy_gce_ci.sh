@@ -10,4 +10,4 @@ export PROJECT_NAME=trillian-opensource-ci
 export CLUSTER_NAME=trillian-opensource-ci
 export MASTER_ZONE=us-central1-a
 
-${DIR}/../examples/deployment/kubernetes/deploy.sh
+${DIR}/../trillian/examples/deployment/kubernetes/deploy.sh
