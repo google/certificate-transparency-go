@@ -420,9 +420,20 @@ this document, but note that cloud environments often provide this functionality
 A live CT Log deployment needs to be monitored so that availability and
 performance can be tracked, and alerts generated for failure conditions.
 
-All of the binaries in the system export metrics via `/metrics` an HTTP
-server, provided that the `--http_endpoint` option was specified on their
-invocation.
+Monitoring can be broken down into two main styles:
+ - *Black-box* monitoring, which queries the system from the outside, using the
+   same mechanisms that real user traffic uses.
+ - *White-box* monitoring, which queries the internal state of the system,
+   using information that is not available to external users.
+
+Black-box monitoring is beyond the scope of this document, but tools such as
+[Blackbox exporter](https://github.com/prometheus/blackbox_exporter) can be
+used to (say) check the `https://<log>/ct/v1/get-sth` entrypoint and export the
+resulting data to Prometheus.
+
+For white-box monitoring, all of the binaries in the system export metrics via
+`/metrics` an HTTP server, provided that the `--http_endpoint` option was
+specified on their invocation.
 
 This allows a pull-based monitoring system such as
 [Prometheus](https://prometheus.io/) to poll for information/statistics, which
