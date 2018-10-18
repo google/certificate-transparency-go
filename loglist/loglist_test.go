@@ -82,12 +82,98 @@ var sampleLogList = LogList{
 	},
 }
 
+// New schema.
+var sampleLogListV2 = LogList{
+	Operators: []Operator{
+		{ID: 0, Name: "Google"},
+		{ID: 1, Name: "Bob's CT Log Shop"},
+	},
+	Logs: []Log{
+		{
+			Description:       "Google 'Aviator' log",
+			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q=="),
+			URL:               "ct.googleapis.com/aviator/",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{0},
+			State: &LogState{
+				Name:      Frozen,
+				Timestamp: 1480512258330,
+				FinalTreeHead: &TreeHead{
+					TreeSize:       46466472,
+					SHA256RootHash: deb64("LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA="),
+				},
+			},
+			DNSAPIEndpoint: "aviator.ct.googleapis.com",
+		},
+		{
+			Description:       "Google 'Icarus' log",
+			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA=="),
+			URL:               "ct.googleapis.com/icarus/",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{0},
+			DNSAPIEndpoint:    "icarus.ct.googleapis.com",
+			State: &LogState{
+				Name:      Usable,
+				Timestamp: 1477687350000,
+			},
+		},
+		{
+			Description:       "Google 'Rocketeer' log",
+			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg=="),
+			URL:               "ct.googleapis.com/rocketeer/",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{0},
+			DNSAPIEndpoint:    "rocketeer.ct.googleapis.com",
+			State: &LogState{
+				Name:      Usable,
+				Timestamp: 1429633530000,
+			},
+		},
+		{
+			Description: "Google 'Racketeer' log",
+			// Key value chosed to have a hash that starts ee4... (specifically ee412fe25948348961e2f3e08c682e813ec0ff770b6d75171763af3014ff9768)
+			Key:               deb64("Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg=="),
+			URL:               "ct.googleapis.com/racketeer/",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{0},
+			DNSAPIEndpoint:    "racketeer.ct.googleapis.com",
+			State: &LogState{
+				Name:      Usable,
+				Timestamp: 1429633530000,
+			},
+		},
+		{
+			Description:       "Bob's Dubious Log",
+			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA=="),
+			URL:               "log.bob.io",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{1},
+			DNSAPIEndpoint:    "dubious-bob.ct.googleapis.com",
+			State: &LogState{
+				Name:      Retired,
+				Timestamp: 1460678400330,
+			},
+		},
+	},
+}
+
 func TestJSONMarshal(t *testing.T) {
 	var tests = []struct {
 		name          string
 		in            LogList
 		want, wantErr string
 	}{
+		{
+			name: "MultiValidV2",
+			in:   sampleLogListV2,
+			want: `{"logs":[` +
+				`{"description":"Google 'Aviator' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/aviator/","dns_api_endpoint":"aviator.ct.googleapis.com","state":{"title":3,"timestamp":1480512258330,"final_tree_head":{"tree_size":46466472,"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA="}}},` +
+				`{"description":"Google 'Icarus' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/icarus/","dns_api_endpoint":"icarus.ct.googleapis.com","state":{"title":0,"timestamp":1477687350000}},` +
+				`{"description":"Google 'Rocketeer' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/rocketeer/","dns_api_endpoint":"rocketeer.ct.googleapis.com","state":{"title":0,"timestamp":1429633530000}},` +
+				`{"description":"Google 'Racketeer' log","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/racketeer/","dns_api_endpoint":"racketeer.ct.googleapis.com","state":{"title":0,"timestamp":1429633530000}},` +
+				`{"description":"Bob's Dubious Log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","maximum_merge_delay":86400,"operated_by":[1],"url":"log.bob.io","dns_api_endpoint":"dubious-bob.ct.googleapis.com","state":{"title":4,"timestamp":1460678400330}}],` +
+				`"operators":[{"id":0,"name":"Google"},{"id":1,"name":"Bob's CT Log Shop"}]}`,
+		},
 		{
 			name: "MultiValid",
 			in:   sampleLogList,
@@ -135,9 +221,11 @@ func TestFindLogByName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := sampleLogList.FindLogByName(test.in)
-			if len(got) != test.want {
-				t.Errorf("len(FindLogByName(%q)=%d, want %d", test.in, len(got), test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				got := ll.FindLogByName(test.in)
+				if len(got) != test.want {
+					t.Errorf("len(FindLogByName(%q)=%d, want %d", test.in, len(got), test.want)
+				}
 			}
 		})
 	}
@@ -156,13 +244,15 @@ func TestFindLogByURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := sampleLogList.FindLogByURL(test.in)
-			got := ""
-			if log != nil {
-				got = log.Description
-			}
-			if got != test.want {
-				t.Errorf("FindLogByURL(%q)=%q, want %q", test.in, got, test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				log := ll.FindLogByURL(test.in)
+				got := ""
+				if log != nil {
+					got = log.Description
+				}
+				if got != test.want {
+					t.Errorf("FindLogByURL(%q)=%q, want %q", test.in, got, test.want)
+				}
 			}
 		})
 	}
@@ -192,13 +282,15 @@ func TestFindLogByKeyhash(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var hash [sha256.Size]byte
 			copy(hash[:], test.in)
-			log := sampleLogList.FindLogByKeyHash(hash)
-			got := ""
-			if log != nil {
-				got = log.Description
-			}
-			if got != test.want {
-				t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				log := ll.FindLogByKeyHash(hash)
+				got := ""
+				if log != nil {
+					got = log.Description
+				}
+				if got != test.want {
+					t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
+				}
 			}
 		})
 	}
@@ -233,13 +325,15 @@ func TestFindLogByKeyhashPrefix(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := sampleLogList.FindLogByKeyHashPrefix(test.in)
-			got := make([]string, len(logs))
-			for i, log := range logs {
-				got[i] = log.Description
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				logs := ll.FindLogByKeyHashPrefix(test.in)
+				got := make([]string, len(logs))
+				for i, log := range logs {
+					got[i] = log.Description
+				}
+				if !reflect.DeepEqual(got, test.want) {
+					t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
+				}
 			}
 		})
 	}
@@ -264,13 +358,15 @@ func TestFindLogByKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := sampleLogList.FindLogByKey(test.in)
-			got := ""
-			if log != nil {
-				got = log.Description
-			}
-			if got != test.want {
-				t.Errorf("FindLogByKey(%x)=%q, want %q", test.in, got, test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				log := ll.FindLogByKey(test.in)
+				got := ""
+				if log != nil {
+					got = log.Description
+				}
+				if got != test.want {
+					t.Errorf("FindLogByKey(%x)=%q, want %q", test.in, got, test.want)
+				}
 			}
 		})
 	}
@@ -330,13 +426,15 @@ func TestFuzzyFindLog(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logs := sampleLogList.FuzzyFindLog(test.in)
-			got := make([]string, len(logs))
-			for i, log := range logs {
-				got[i] = log.Description
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("FuzzyFindLog(%q)=%v, want %v", test.in, got, test.want)
+			for _, ll := range [2]LogList{sampleLogList, sampleLogListV2} {
+				logs := ll.FuzzyFindLog(test.in)
+				got := make([]string, len(logs))
+				for i, log := range logs {
+					got[i] = log.Description
+				}
+				if !reflect.DeepEqual(got, test.want) {
+					t.Errorf("FuzzyFindLog(%q)=%v, want %v", test.in, got, test.want)
+				}
 			}
 		})
 	}

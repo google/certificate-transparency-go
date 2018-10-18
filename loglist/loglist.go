@@ -42,6 +42,8 @@ const (
 )
 
 // Manually mapped from https://www.gstatic.com/ct/log_list/log_list_schema.json
+// And https://www.gstatic.com/ct/log_list/v2_beta/log_list_schema.json
+// Likely to change if new schema gets changes.
 
 // LogList holds a collection of logs and their operators
 type LogList struct {
@@ -55,16 +57,46 @@ type Operator struct {
 	Name string `json:"name"`
 }
 
+// LogStateName indicates state of a Log.
+type LogStateName int
+
+// LogStateName values.
+// NB: might get updated if v2-schema gets changed.
+const (
+	Usable LogStateName = iota
+	Pending
+	Qualified
+	Frozen
+	Retired
+	Rejected
+)
+
+// LogState describes state of a log.
+type LogState struct {
+	Name          LogStateName `json:"title"`
+	Timestamp     int          `json:"timestamp"`
+	FinalTreeHead *TreeHead    `json:"final_tree_head,omitempty"`
+}
+
+// TreeHead describes a head of a log.
+type TreeHead struct {
+	TreeSize       int    `json:"tree_size"`
+	SHA256RootHash []byte `json:"sha256_root_hash"`
+}
+
 // Log describes a log.
 type Log struct {
-	Description       string `json:"description"`
-	Key               []byte `json:"key"`
-	MaximumMergeDelay int    `json:"maximum_merge_delay"` // seconds
-	OperatedBy        []int  `json:"operated_by"`         // List of log operators
-	URL               string `json:"url"`
-	FinalSTH          *STH   `json:"final_sth,omitempty"`
-	DisqualifiedAt    int    `json:"disqualified_at,omitempty"`
-	DNSAPIEndpoint    string `json:"dns_api_endpoint,omitempty"` // DNS API endpoint for the log
+	Description       string    `json:"description"`
+	Key               []byte    `json:"key"`
+	MaximumMergeDelay int       `json:"maximum_merge_delay"` // seconds
+	OperatedBy        []int     `json:"operated_by"`         // List of log operators
+	URL               string    `json:"url"`
+	FinalSTH          *STH      `json:"final_sth,omitempty"`
+	DisqualifiedAt    int       `json:"disqualified_at,omitempty"`
+	DNSAPIEndpoint    string    `json:"dns_api_endpoint,omitempty"` // DNS API endpoint for the log
+	StartInclusive    int       `json:"temporal_interval/start_inclusive,omitempty"`
+	EndExclusive      int       `json:"temporal_interval/end_exclusive,omitempty"`
+	State             *LogState `json:"state,omitempty"` // New log-schema states.
 }
 
 // STH describes a signed tree head from a log.
