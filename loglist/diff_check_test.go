@@ -45,7 +45,8 @@ func TestCheckOperatorsDiff(t *testing.T) {
 				Operators: []Operator{
 					{ID: 0, Name: "Google"},
 					{ID: 1, Name: "Bob's CT Log Shop"},
-				}, Logs: []Log{},
+				},
+				Logs: []Log{},
 			},
 			wantWarnings: []string{},
 		},
@@ -55,7 +56,8 @@ func TestCheckOperatorsDiff(t *testing.T) {
 				Operators: []Operator{
 					{ID: 1, Name: "Bob's CT Log Shop+"},
 					{ID: 0, Name: "Google"},
-				}, Logs: []Log{},
+				},
+				Logs: []Log{},
 			},
 			wantWarnings: []string{},
 		},
@@ -64,7 +66,8 @@ func TestCheckOperatorsDiff(t *testing.T) {
 			branch: LogList{
 				Operators: []Operator{
 					{ID: 1, Name: "Bob's CT Log Shop"},
-				}, Logs: []Log{},
+				},
+				Logs: []Log{},
 			},
 			wantWarnings: []string{"Operator \"Google\" id=0 present at master log list but missing at branch."},
 		},
@@ -75,7 +78,8 @@ func TestCheckOperatorsDiff(t *testing.T) {
 					{ID: 0, Name: "Google"},
 					{ID: 1, Name: "Bob's CT Log Shop"},
 					{ID: 2, Name: "Alice's CT Log Shop"},
-				}, Logs: []Log{},
+				},
+				Logs: []Log{},
 			},
 			wantWarnings: []string{},
 		},
@@ -85,138 +89,181 @@ func TestCheckOperatorsDiff(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			wl := warningList{warnings: []string{}}
 			checkMasterOpsMatchBranch(&sampleLogList, &test.branch, &wl)
-			printMismatchIfAny(t, wl.warnings, test.wantWarnings, "checkOperators:")
+			wMismatchIds := getMismatchIds(wl.warnings, test.wantWarnings)
+			if len(wMismatchIds) > 0 {
+				t.Errorf("checkOperators %s: got '%v', want warnings '%v'.\n %v-st/d/th warning mismatch.", test.name, wl.warnings, test.wantWarnings, wMismatchIds)
+			}
 		})
 	}
+}
+
+func generateKeyURLMismatch(ll *LogList) Log {
+	log := deepcopy.Copy(ll.Logs[0]).(Log)
+	log.Key = ll.Logs[1].Key
+	log.URL = ll.Logs[1].URL
+	return log
+}
+
+func generateTimingsMismatch(ll *LogList) Log {
+	log := deepcopy.Copy(ll.Logs[0]).(Log)
+	log.MaximumMergeDelay = 86401
+	log.DisqualifiedAt = 1460678400
+	return log
+}
+
+func generateOperatorsDNSMismatch(ll *LogList) Log {
+	log := deepcopy.Copy(ll.Logs[0]).(Log)
+	log.OperatedBy = append(log.OperatedBy, 1)
+	log.DNSAPIEndpoint = ll.Logs[1].DNSAPIEndpoint
+	return log
 }
 
 func TestCheckLogPairEquivalence(t *testing.T) {
-	type logPair struct {
+	tests := []struct {
+		name         string
 		log1         Log
 		log2         Log
 		wantWarnings []string
-	}
-	var tests = make(map[string]*logPair)
-	tests["Equal"] = &logPair{
-		log1:         deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		log2:         deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		wantWarnings: []string{},
-	}
-	tests["KeyURLMismatch"] = &logPair{
-		log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		log2: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		wantWarnings: []string{
-			"Log \"Google 'Aviator' log\" and log \"Google 'Aviator' log\" have different keys.",
-			"URL mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": " +
-				"ct.googleapis.com/aviator/ != ct.googleapis.com/icarus/.",
+	}{
+		{
+			name:         "Equal",
+			log1:         deepcopy.Copy(sampleLogList.Logs[0]).(Log),
+			log2:         deepcopy.Copy(sampleLogList.Logs[0]).(Log),
+			wantWarnings: []string{},
+		},
+		{
+			name: "KeyURLMismatch",
+			log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
+			log2: generateKeyURLMismatch(&sampleLogList),
+			wantWarnings: []string{
+				"Log \"Google 'Aviator' log\" and log \"Google 'Aviator' log\" have different keys.",
+				"URL mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": ct.googleapis.com/aviator/ != ct.googleapis.com/icarus/.",
+			},
+		},
+		{
+			name: "TimingsMismatch",
+			log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
+			log2: generateTimingsMismatch(&sampleLogList),
+			wantWarnings: []string{
+				"Maximum merge delay mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": 86400 != 86401.",
+				"Disqualified-at-timing mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": ",
+			},
+		},
+		{
+			name: "OperatorsDNSMismatch",
+			log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
+			log2: generateOperatorsDNSMismatch(&sampleLogList),
+			wantWarnings: []string{
+				"Operators mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\".",
+				"DNS API mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": aviator.ct.googleapis.com != icarus.ct.googleapis.com.",
+			},
 		},
 	}
-	tests["KeyURLMismatch"].log2.Key = sampleLogList.Logs[1].Key
-	tests["KeyURLMismatch"].log2.URL = sampleLogList.Logs[1].URL
 
-	tests["TimingsMismatch"] = &logPair{
-		log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		log2: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		wantWarnings: []string{
-			"Maximum merge delay mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": " +
-				"86400 != 86401.",
-			"Disqualified-at-timing mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": ",
-		},
-	}
-	tests["TimingsMismatch"].log2.MaximumMergeDelay = 86401
-	tests["TimingsMismatch"].log2.DisqualifiedAt = 1460678400
-
-	tests["OperatorsDNSMismatch"] = &logPair{
-		log1: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		log2: deepcopy.Copy(sampleLogList.Logs[0]).(Log),
-		wantWarnings: []string{
-			"Operators mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\".",
-			"DNS API mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\": " +
-				"aviator.ct.googleapis.com != icarus.ct.googleapis.com.",
-		},
-	}
-	tests["OperatorsDNSMismatch"].log2.OperatedBy =
-		append(tests["OperatorsDNSMismatch"].log2.OperatedBy, 1)
-	tests["OperatorsDNSMismatch"].log2.DNSAPIEndpoint = sampleLogList.Logs[1].DNSAPIEndpoint
-	for testname, test := range tests {
-		t.Run(testname, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			wl := warningList{warnings: []string{}}
 			test.log1.checkEquivalence(&test.log2, &wl)
-			printMismatchIfAny(t, wl.warnings, test.wantWarnings, "CheckLogs:")
+			wMismatchIds := getMismatchIds(wl.warnings, test.wantWarnings)
+			if len(wMismatchIds) > 0 {
+				t.Errorf("checkLogs %s: got '%v', want warnings '%v'.\n %v-st/d/th warning mismatch.", test.name, wl.warnings, test.wantWarnings, wMismatchIds)
+			}
 		})
 	}
+}
+
+func leaveSingleLog() LogList {
+	ll := deepcopy.Copy(sampleLogList).(LogList)
+	ll.Logs = ll.Logs[0:1]
+	return ll
+}
+
+func leaveSingleLogSingleOp() LogList {
+	ll := leaveSingleLog()
+	ll.Operators = ll.Operators[0:1]
+	return ll
+}
+
+func messOperators() LogList {
+	ll := deepcopy.Copy(sampleLogList).(LogList)
+	ll.Logs[0].OperatedBy = []int{1}
+	ll.Operators = ll.Operators[0:1]
+	return ll
+}
+
+func swapLogsSwapOps() LogList {
+	ll := deepcopy.Copy(sampleLogList).(LogList)
+	ll.Logs[0] = sampleLogList.Logs[3]
+	ll.Logs[3] = sampleLogList.Logs[0]
+	ll.Operators[0] = sampleLogList.Operators[1]
+	ll.Operators[1] = sampleLogList.Operators[0]
+	return ll
 }
 
 func TestCheckBranch(t *testing.T) {
-	type logListTest struct {
+	tests := []struct {
+		name         string
 		branchList   LogList
 		wantWarnings []string
 		wantError    bool
-	}
-	var tests = make(map[string]*logListTest)
-	tests["Copy"] = &logListTest{
-		branchList:   deepcopy.Copy(sampleLogList).(LogList),
-		wantWarnings: []string{},
+	}{
+		{
+			name:         "Copy",
+			branchList:   deepcopy.Copy(sampleLogList).(LogList),
+			wantWarnings: []string{},
+			wantError:    false,
+		},
+		{
+			name:         "OneMatch",
+			branchList:   leaveSingleLog(),
+			wantWarnings: []string{},
+			wantError:    false,
+		},
+		{
+			name:       "OneMatchOperatorMiss", // Operator exclusion is restricted.
+			branchList: leaveSingleLogSingleOp(),
+			wantWarnings: []string{
+				"Operator \"Bob's CT Log Shop\" id=1 present at master log list but missing at branch.",
+			},
+			wantError: true,
+		},
+		{
+			name:         "Shuffled",
+			branchList:   swapLogsSwapOps(),
+			wantWarnings: []string{},
+			wantError:    false,
+		},
+		{
+			name:       "OperatorsMess",
+			branchList: messOperators(),
+			wantWarnings: []string{
+				"Operator \"Bob's CT Log Shop\" id=1 present at master log list but missing at branch.",
+				"Operators mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\".",
+			},
+			wantError: true,
+		},
 	}
 
-	tests["OneMatch"] = &logListTest{
-		branchList:   deepcopy.Copy(sampleLogList).(LogList),
-		wantWarnings: []string{},
-	}
-	tests["OneMatch"].branchList.Logs = tests["OneMatch"].branchList.Logs[0:1]
-
-	// Operator exclusion is restricted.
-	tests["OneMatchOperatorMiss"] = &logListTest{
-		branchList: deepcopy.Copy(sampleLogList).(LogList),
-		wantWarnings: []string{
-			"Operator \"Bob's CT Log Shop\" id=1 present at master log list but missing at branch."},
-		wantError: true,
-	}
-	tests["OneMatchOperatorMiss"].branchList.Logs =
-		tests["OneMatchOperatorMiss"].branchList.Logs[0:1]
-	tests["OneMatchOperatorMiss"].branchList.Operators =
-		tests["OneMatchOperatorMiss"].branchList.Operators[0:1]
-
-	tests["Shuffled"] = &logListTest{
-		branchList:   deepcopy.Copy(sampleLogList).(LogList),
-		wantWarnings: []string{},
-	}
-	tests["Shuffled"].branchList.Logs[0] = deepcopy.Copy(sampleLogList.Logs[3]).(Log)
-	tests["Shuffled"].branchList.Logs[3] = deepcopy.Copy(sampleLogList.Logs[0]).(Log)
-	tests["Shuffled"].branchList.Operators[0] = deepcopy.Copy(sampleLogList.Operators[1]).(Operator)
-	tests["Shuffled"].branchList.Operators[1] = deepcopy.Copy(sampleLogList.Operators[0]).(Operator)
-
-	tests["OperatorsMess"] = &logListTest{
-		branchList: deepcopy.Copy(sampleLogList).(LogList),
-		wantWarnings: []string{
-			"Operator \"Bob's CT Log Shop\" id=1 present at master log list but missing at branch.",
-			"Operators mismatch for logs \"Google 'Aviator' log\" and \"Google 'Aviator' log\"."},
-		wantError: true,
-	}
-	tests["OperatorsMess"].branchList.Logs[0].OperatedBy = []int{1}
-	tests["OperatorsMess"].branchList.Operators =
-		tests["OperatorsMess"].branchList.Operators[0:1]
-
-	for testname, test := range tests {
-		t.Run(testname, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			wl := sampleLogList.CheckBranch(&test.branchList)
 			if test.wantError != (len(wl) > 0) {
-				t.Errorf("CheckBranch %s: error status mismatch.", testname)
+				t.Errorf("CheckBranch %s: error status mismatch.", test.name)
 			}
-			printMismatchIfAny(t, wl, test.wantWarnings, "CheckBranch "+testname+":")
+			wMismatchIds := getMismatchIds(wl, test.wantWarnings)
+			if len(wMismatchIds) > 0 {
+				t.Errorf("CheckBranch %s: got '%v', want warnings '%v'.\n %v-st/d/th warning mismatch.", test.name, wl, test.wantWarnings, wMismatchIds)
+			}
 		})
 	}
 }
 
-func printMismatchIfAny(t *testing.T, got []string, want []string, lineStart string) {
+func getMismatchIds(got []string, want []string) []int {
 	wMismatchIds := make([]int, 0)
 	for i := 0; i < len(got) || i < len(want); i++ {
 		if i >= len(got) || i >= len(want) || !strings.Contains(got[i], want[i]) {
 			wMismatchIds = append(wMismatchIds, i)
 		}
 	}
-	if len(wMismatchIds) > 0 {
-		t.Errorf("%s got '%v', want warnings '%v'.\n %v-st/d/th warning mismatch.",
-			lineStart, got, want, wMismatchIds)
-	}
+	return wMismatchIds
 }

@@ -105,7 +105,7 @@ func checkMasterLogsMatchBranch(master *LogList, branch *LogList, wl *warningLis
 // CheckBranch checks edited version of LogList against a master one for edit
 // restrictions: consistency across operators, matching functionality of mutual
 // logs.
-// Returns array of warnings if any.
+// Returns slice of warnings if any.
 func (master *LogList) CheckBranch(branch *LogList) []string {
 	w := &warningList{warnings: []string{}}
 	checkMasterOpsMatchBranch(master, branch, w)
