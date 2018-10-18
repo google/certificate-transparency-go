@@ -57,7 +57,7 @@ spec:
           - name: ctfe-config-volume
             mountPath: /ctfe-config
         - name: prometheus-to-sd
-          image: gcr.io/google-containers/prometheus-to-sd:v0.2.6
+          image: gcr.io/google-containers/prometheus-to-sd:v0.3.2
           ports:
             - name: profiler
               containerPort: 6060
@@ -67,7 +67,8 @@ spec:
             - --source=ctfe:http://localhost:6963/metrics
             - --pod-id=$(POD_NAME)
             - --namespace-id=$(POD_NAMESPACE)
-            - --metrics-resolution=5s
+            - --scrape-interval=5s
+            - --export-interval=60s
           env:
             - name: POD_NAME
               valueFrom:
