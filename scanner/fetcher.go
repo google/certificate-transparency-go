@@ -171,7 +171,17 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 		defer close(ranges)
 		start, end := f.opts.StartIndex, f.opts.EndIndex
 
-		for start < end {
+		for start < end || f.opts.Continuous {
+			// In continuous mode wait for bigger STH every time we reach the end,
+			// including, possibly, the very first iteration.
+			if start == end { // Implies f.opts.Continuous == true.
+				if err := f.updateSTH(ctx); err != nil {
+					glog.Warningf("Failed to obtain bigger STH: %v", err)
+					return
+				}
+				end = f.opts.EndIndex
+			}
+
 			batchEnd := start + min(end-start, batch)
 			next := fetchRange{start, batchEnd - 1}
 			select {
@@ -181,14 +191,6 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			case ranges <- next:
 			}
 			start = batchEnd
-
-			if start == end && f.opts.Continuous {
-				if err := f.updateSTH(ctx); err != nil {
-					glog.Warningf("STH update cancelled: %v", err)
-					return
-				}
-				end = f.opts.EndIndex
-			}
 		}
 	}()
 
