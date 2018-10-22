@@ -176,7 +176,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			// including, possibly, the very first iteration.
 			if start == end { // Implies f.opts.Continuous == true.
 				if err := f.updateSTH(ctx); err != nil {
-					glog.Warningf("STH update cancelled: %v", err)
+					glog.Warningf("Failed to obtain bigger STH: %v", err)
 					return
 				}
 				end = f.opts.EndIndex
