@@ -75,6 +75,12 @@ type STH struct {
 	TreeHeadSignature []byte `json:"tree_head_signature"`
 }
 
+// GoogleOperated returns whether Log is operated by Google. Rough logic.
+func (l *Log) GoogleOperated() bool {
+	lowerDesc := strings.ToLower(l.Description)
+	return strings.Contains(lowerDesc, "google")
+}
+
 // NewFromJSON creates a LogList from JSON encoded data.
 func NewFromJSON(llData []byte) (*LogList, error) {
 	var ll LogList
