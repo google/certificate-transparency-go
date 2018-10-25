@@ -90,9 +90,11 @@ func (c *ctLogSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *c
 		return fmt.Errorf("synthetic cert generation failed: %v", err)
 	}
 	chain := []ct.ASN1Cert{*cert, {Data: g.root.Raw}}
-	if _, err := c.Log.AddChain(ctx, chain); err != nil {
+	sct, err := c.Log.AddChain(ctx, chain)
+	if err != nil {
 		return fmt.Errorf("failed to AddChain(%s): %v", c.Log.BaseURI(), err)
 	}
+	glog.V(1).Infof("SCT from %s for STH(size=%d) from %s: {ts=%d, sig=%x} ", c.Log.BaseURI(), sth.TreeSize, name, sct.Timestamp, sct.Signature.Signature)
 	return nil
 }
 
@@ -125,9 +127,11 @@ func (p *pureHubSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
 
 // SubmitSTH submits the given STH into the Gossip Hub.
 func (p *pureHubSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
-	if _, err := p.Hub.AddCTSTH(ctx, url, sth); err != nil {
+	sgt, err := p.Hub.AddCTSTH(ctx, url, sth)
+	if err != nil {
 		return fmt.Errorf("failed to AddCTSTH(%s): %v", p.Hub.BaseURI(), err)
 	}
+	glog.V(1).Infof("SGT from %s for STH(size=%d) from %s: {ts=%d, sig=%x} ", p.Hub.BaseURI(), sth.TreeSize, name, sgt.TimestampedEntry.HubTimestamp, sgt.HubSignature)
 	return nil
 }
 
