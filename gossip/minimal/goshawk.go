@@ -89,6 +89,13 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 	if cfg.SourceLog == nil || len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
 	}
+	bufSize := cfg.BufferSize
+	if bufSize <= 0 {
+		// Allow at least one buffered STH in the channel so context cancellation
+		// works (everything shuts down at the same time, so the fetcher might otherwise
+		// block on a channel that no longer has anything reading from it).
+		bufSize = 1
+	}
 
 	dest, err := hubScannerFromProto(cfg.DestHub, hc)
 	if err != nil {
@@ -111,7 +118,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		}
 		origins[base.URL] = &originLog{
 			logConfig: *base,
-			sths:      make(chan *x509ext.LogSTHInfo, cfg.BufferSize),
+			sths:      make(chan *x509ext.LogSTHInfo, bufSize),
 		}
 	}
 
