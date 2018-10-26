@@ -5,7 +5,7 @@
 #set -o xtrace
 
 function checkEnv() {
-  if [ -z ${PROJECT_NAME+x} ] ||
+  if [ -z ${PROJECT_ID+x} ] ||
      [ -z ${CLUSTER_NAME+x} ] ||
      [ -z ${MASTER_ZONE+x} ]; then
     echo "You must either pass an argument which is a config file, or set all the required environment variables"
@@ -24,7 +24,7 @@ fi
 
 export IMAGE_TAG=${IMAGE_TAG:-$(git rev-parse HEAD)}
 
-gcloud --quiet config set project ${PROJECT_NAME}
+gcloud --quiet config set project ${PROJECT_ID}
 gcloud --quiet config set container/cluster ${CLUSTER_NAME}
 gcloud --quiet config set compute/zone ${MASTER_ZONE}
 gcloud --quiet container clusters get-credentials ${CLUSTER_NAME}
@@ -39,7 +39,7 @@ if [[ ! "${configmaps}" =~ "ctfe-configmap" ]]; then
   echo "  kubectl create configmap ctfe-configmap \\"
   echo "     --from-file=roots=path/to/all-roots.pem \\"
   echo "     --from-file=ctfe-config-file=path/to/ct_server.cfg \\"
-  echo "     --from-literal=cloud-project=${PROJECT_NAME}"
+  echo "     --from-literal=cloud-project=${PROJECT_ID}"
   echo
   echo "Once you've created the configmap, re-run this script"
   exit 1
@@ -48,19 +48,19 @@ fi
 
 echo "Building docker images.."
 cd $GOPATH/src/github.com/google/certificate-transparency-go
-docker build --quiet -f trillian/examples/deployment/docker/ctfe/Dockerfile -t gcr.io/${PROJECT_NAME}/ctfe:${IMAGE_TAG} .
+docker build --quiet -f trillian/examples/deployment/docker/ctfe/Dockerfile -t gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG} .
 
 echo "Pushing docker image..."
-gcloud docker -- push gcr.io/${PROJECT_NAME}/ctfe:${IMAGE_TAG}
+gcloud docker -- push gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG}
 
 echo "Tagging docker image..."
-gcloud --quiet container images add-tag gcr.io/${PROJECT_NAME}/ctfe:${IMAGE_TAG} gcr.io/${PROJECT_NAME}/ctfe:latest
+gcloud --quiet container images add-tag gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG} gcr.io/${PROJECT_ID}/ctfe:latest
 
 echo "Updating jobs..."
 envsubst < trillian/examples/deployment/kubernetes/ctfe-deployment.yaml | kubectl apply -f -
 envsubst < trillian/examples/deployment/kubernetes/ctfe-service.yaml | kubectl apply -f -
 envsubst < trillian/examples/deployment/kubernetes/ctfe-ingress.yaml | kubectl apply -f -
-kubectl set image deployment/trillian-ctfe-deployment trillian-ctfe=gcr.io/${PROJECT_NAME}/ctfe:${IMAGE_TAG}
+kubectl set image deployment/trillian-ctfe-deployment trillian-ctfe=gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG}
 
 echo "CTFE is available at:"
 kubectl get ingress
