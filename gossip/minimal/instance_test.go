@@ -47,7 +47,7 @@ func TestNewGossiperFromFile(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewGossiperFromFile(ctx, test.filename, nil)
+			got, err := NewGossiperFromFile(ctx, test.filename, nil, nil)
 			if err != nil {
 				if test.wantErr == "" {
 					t.Errorf("NewGossiperFromFile(%v)=nil,%v; want _,nil", test.filename, err)

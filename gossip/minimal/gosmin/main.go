@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,18 +26,23 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/gossip/minimal"
+	"github.com/google/trillian/monitoring/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	// Register PEMKeyFile and PrivateKey ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
-var config = flag.String("config", "", "File holding configuration in text proto format")
+var (
+	config          = flag.String("config", "", "File holding configuration in text proto format")
+	metricsEndpoint = flag.String("metrics_endpoint", "", "Endpoint for serving metrics")
+)
 
 func main() {
 	flag.Parse()
 	ctx, cancel := context.WithCancel(context.Background())
-	g, err := minimal.NewGossiperFromFile(ctx, *config, nil)
+	g, err := minimal.NewGossiperFromFile(ctx, *config, nil, prometheus.MetricFactory{})
 	if err != nil {
 		glog.Exitf("failed to load --config: %v", err)
 	}
@@ -48,6 +54,17 @@ func main() {
 		glog.Warning("Cancelling master context")
 		cancel()
 	})
+
+	if *metricsEndpoint != "" {
+		// Run a separate handler for metrics.
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			metricsServer := http.Server{Addr: *metricsEndpoint, Handler: mux}
+			err := metricsServer.ListenAndServe()
+			glog.Warningf("Metrics server exited: %v", err)
+		}()
+	}
 
 	g.Run(ctx)
 

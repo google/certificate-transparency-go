@@ -31,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/monitoring"
 
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
@@ -39,7 +40,7 @@ import (
 // NewGossiperFromFile creates a gossiper from the given filename, which should
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
-func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client) (*Gossiper, error) {
+func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client) 
 	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
 		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
 	}
-	cfg, err := NewGossiper(ctx, &cfgProto, hc)
+	cfg, err := NewGossiper(ctx, &cfgProto, hc, mf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)
 	}
@@ -58,7 +59,8 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client) 
 
 // NewGossiper creates a gossiper from the given configuration protobuf and optional
 // http client.
-func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Client) (*Gossiper, error) {
+func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
+	once.Do(func() { setupMetrics(mf) })
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no dest hub config found")
 	}
@@ -108,6 +110,11 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 			return nil, fmt.Errorf("duplicate dest hubs for name %s", hub.Name)
 		}
 		dests[hub.Name] = hub
+		isHub := 0.0
+		if lc.IsHub {
+			isHub = 1.0
+		}
+		destPureHub.Set(isHub, hub.Name)
 	}
 	srcs := make(map[string]*sourceLog)
 	for _, lc := range cfg.SourceLog {
@@ -119,6 +126,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 			return nil, fmt.Errorf("duplicate source logs for name %s", base.Name)
 		}
 		srcs[base.Name] = &sourceLog{logConfig: *base}
+		knownSourceLogs.Set(1.0, base.Name)
 	}
 
 	return &Gossiper{
