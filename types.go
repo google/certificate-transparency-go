@@ -307,9 +307,8 @@ func (s SignedTreeHead) String() string {
 	// If the LogID field in the SignedTreeHead is empty, don't include it in
 	// the string.
 	var logIDStr string
-	var emptyLogId SHA256Hash
-	if s.LogID != emptyLogId {
-		logIDStr = fmt.Sprintf("LogID:%s, ", s.LogID.Base64String())
+	if id, empty := s.LogID, (SHA256Hash{}); id != empty {
+		logIDStr = fmt.Sprintf("LogID:%s, ", id.Base64String())
 	}
 
 	return fmt.Sprintf("{%sTreeSize:%d, Timestamp:%d, SHA256RootHash:%q, TreeHeadSignature:%q}",

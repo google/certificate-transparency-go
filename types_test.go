@@ -132,18 +132,15 @@ func TestToSignedTreeHead(t *testing.T) {
 
 func TestSTHString(t *testing.T) {
 	tests := []struct {
-		desc      string
-		logID     string
-		wantLogID bool
+		desc  string
+		logID string
 	}{
 		{
-			desc:      "no logID",
-			wantLogID: false,
+			desc: "no logID",
 		},
 		{
-			desc:      "logID",
-			logID:     "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=",
-			wantLogID: true,
+			desc:  "logID",
+			logID: "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=",
 		},
 	}
 
@@ -167,8 +164,8 @@ func TestSTHString(t *testing.T) {
 			}
 
 			sthStr := sth.String()
-			if got := strings.Contains(sthStr, "LogID"); got != test.wantLogID {
-				t.Errorf("SignedTreeHead.String(): contains LogID: %t, want LogID: %t", got, test.wantLogID)
+			if got, want := strings.Contains(sthStr, "LogID"), len(test.logID) != 0; got != want {
+				t.Errorf("SignedTreeHead.String(): contains LogID: %t, want LogID: %t", got, want)
 			}
 		})
 	}
