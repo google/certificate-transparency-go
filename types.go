@@ -298,6 +298,24 @@ type SignedTreeHead struct {
 	LogID             SHA256Hash      `json:"log_id"`              // The SHA256 hash of the log's public key
 }
 
+func (s SignedTreeHead) String() string {
+	sigStr, err := s.TreeHeadSignature.Base64String()
+	if err != nil {
+		sigStr = tls.DigitallySigned(s.TreeHeadSignature).String()
+	}
+
+	// If the LogID field in the SignedTreeHead is empty, don't include it in
+	// the string.
+	var logIDStr string
+	var emptyLogId SHA256Hash
+	if s.LogID != emptyLogId {
+		logIDStr = fmt.Sprintf("LogID:%s, ", s.LogID.Base64String())
+	}
+
+	return fmt.Sprintf("{%sTreeSize:%d, Timestamp:%d, SHA256RootHash:%q, TreeHeadSignature:%q}",
+		logIDStr, s.TreeSize, s.Timestamp, s.SHA256RootHash.Base64String(), sigStr)
+}
+
 // TreeHeadSignature holds the data over which the signature in an STH is
 // generated; see section 3.5
 type TreeHeadSignature struct {

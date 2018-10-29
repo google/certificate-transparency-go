@@ -129,3 +129,47 @@ func TestToSignedTreeHead(t *testing.T) {
 		})
 	}
 }
+
+func TestSTHString(t *testing.T) {
+	tests := []struct {
+		desc      string
+		logID     string
+		wantLogID bool
+	}{
+		{
+			desc:      "no logID",
+			wantLogID: false,
+		},
+		{
+			desc:      "logID",
+			logID:     "aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=",
+			wantLogID: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			sthResponse := &GetSTHResponse{
+				TreeSize:          278437663,
+				Timestamp:         1527076172068,
+				SHA256RootHash:    mustHexDecode(validRootHash),
+				TreeHeadSignature: mustHexDecode(validSignature),
+			}
+			sth, err := sthResponse.ToSignedTreeHead()
+			if err != nil {
+				t.Fatalf("sthResponse.ToSignedTreeHead(): %s", err)
+			}
+
+			if test.logID != "" {
+				if err := sth.LogID.FromBase64String(test.logID); err != nil {
+					t.Fatalf("SHA256Hash.FromBase64String(%s) = %s", test.logID, err)
+				}
+			}
+
+			sthStr := sth.String()
+			if got := strings.Contains(sthStr, "LogID"); got != test.wantLogID {
+				t.Errorf("SignedTreeHead.String(): contains LogID: %t, want LogID: %t", got, test.wantLogID)
+			}
+		})
+	}
+}
