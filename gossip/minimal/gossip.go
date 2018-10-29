@@ -30,6 +30,7 @@ import (
 
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
+	"github.com/google/trillian/monitoring"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go"
@@ -38,6 +39,42 @@ import (
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
 )
+
+var (
+	once sync.Once
+
+	// Per source-log (label "logname") metrics.
+	knownSourceLogs          monitoring.Gauge   // logname => value (always 1.0)
+	readsCounter             monitoring.Counter // logname => value
+	readErrorsCounter        monitoring.Counter // logname => value
+	lastSeenSTHTimestamp     monitoring.Gauge   // logname => value
+	lastSeenSTHTreeSize      monitoring.Gauge   // logname => value
+	lastRecordedSTHTimestamp monitoring.Gauge   // logname => value
+	lastRecordedSTHTreeSize  monitoring.Gauge   // logname => value
+
+	// Per destination hub (label "hubname") metrics.
+	destPureHub        monitoring.Gauge   // hubname => value (0.0 or 1.0)
+	writesCounter      monitoring.Counter // hubname => value
+	writeErrorsCounter monitoring.Counter // hubname => value
+)
+
+// setupMetrics initializes all the exported metrics.
+func setupMetrics(mf monitoring.MetricFactory) {
+	if mf == nil {
+		mf = monitoring.InertMetricFactory{}
+	}
+	knownSourceLogs = mf.NewGauge("known_logs", "Set to 1 for known source logs", "logname")
+	readsCounter = mf.NewCounter("log_reads", "Number of source log read requests", "logname")
+	readErrorsCounter = mf.NewCounter("log_read_errors", "Number of source log read errors", "logname")
+	lastSeenSTHTimestamp = mf.NewGauge("last_seen_sth_timestamp", "Time of last seen STH in ms since epoch", "logname")
+	lastSeenSTHTreeSize = mf.NewGauge("last_seen_sth_treesize", "Size of tree at last seen STH", "logname")
+	lastRecordedSTHTimestamp = mf.NewGauge("last_recorded_sth_timestamp", "Time of last recorded STH in ms since epoch", "logname")
+	lastRecordedSTHTreeSize = mf.NewGauge("last_recorded_sth_treesize", "Size of tree at last recorded STH", "logname")
+
+	destPureHub = mf.NewGauge("dest_pure_hub", "Set to  for known destination hubs", "hubname")
+	writesCounter = mf.NewCounter("hub_writes", "Number of destination hub submissions", "hubname")
+	writeErrorsCounter = mf.NewCounter("hub_write_errors", "Number of destination hub submission errors", "hubname")
+}
 
 type logConfig struct {
 	Name        string
@@ -214,8 +251,10 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 					glog.Warningf("Submitter: Add-chain(%s=>%s) skipped as only %v passed (< %v) since last submission", fromLog, dest.Name, interval, dest.MinInterval)
 					continue
 				}
+				writesCounter.Inc(dest.Name)
 				if err := dest.Submitter.SubmitSTH(ctx, src.Name, src.URL, info.sth, g); err != nil {
 					glog.Errorf("Submitter: Add-chain(%s=>%s) failed: %v", fromLog, dest.Name, err)
+					writeErrorsCounter.Inc(dest.Name)
 				} else {
 					glog.Infof("Submitter: Add-chain(%s=>%s) returned SCT", fromLog, dest.Name)
 					dest.lastHubSubmission[fromLog] = time.Now()
@@ -238,11 +277,15 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 	ticker := time.NewTicker(src.MinInterval)
 	for {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
+		readsCounter.Inc(src.Name)
 		sth, err := src.GetNewerSTH(ctx, g)
 		if err != nil {
 			glog.Errorf("Retriever(%s): failed to get STH: %v", src.Name, err)
+			readErrorsCounter.Inc(src.Name)
 		} else if sth != nil {
 			glog.V(1).Infof("Retriever(%s): pass on STH", src.Name)
+			lastRecordedSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
+			lastRecordedSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
 			s <- sthInfo{name: src.Name, sth: sth}
 		}
 
@@ -265,6 +308,9 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new STH: %v", err)
 	}
+	lastSeenSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
+	lastSeenSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
+
 	src.mu.Lock()
 	defer src.mu.Unlock()
 	if reflect.DeepEqual(sth, src.lastSTH) {

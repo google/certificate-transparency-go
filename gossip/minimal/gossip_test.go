@@ -33,7 +33,7 @@ import (
 
 func testCTGossiper(ctx context.Context, t *testing.T) *Gossiper {
 	t.Helper()
-	g, err := NewGossiperFromFile(ctx, "testdata/ct-test.cfg", nil)
+	g, err := NewGossiperFromFile(ctx, "testdata/ct-test.cfg", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create Gossiper for test: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestCanSubmitCT(t *testing.T) {
 
 func testHubGossiper(ctx context.Context, t *testing.T) *Gossiper {
 	t.Helper()
-	g, err := NewGossiperFromFile(ctx, "testdata/hub-test.cfg", nil)
+	g, err := NewGossiperFromFile(ctx, "testdata/hub-test.cfg", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create Gossiper for test: %v", err)
 	}
