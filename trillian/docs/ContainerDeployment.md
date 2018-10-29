@@ -23,6 +23,6 @@ and on [Amazon Web Services (AWS)](https://github.com/google/trillian/blob/maste
 ## CTFE Personality
 
 The `examples/deployment/` subdirectory includes
-[Kubernetes instructions](../examples/deployment/kubernetes/README.md)
-for deploying a CTFE personality on top of a deployment of the Trillian core
-services.
+[Kubernetes instructions](../examples/deployment/kubernetes/README.md) for
+deploying a CTFE personality on top of an existing deployment of the Trillian
+core services.

@@ -24,7 +24,8 @@ personality on Google Cloud using Kubernetes and Cloud Spanner.
 
 1. Ensure that you've followed the instructions to [create a Trillian instance on
    GCP](https://github.com/google/trillian/tree/master/examples/deployment/kubernetes),
-   and have provisioned a suitable log tree into it (and have the tree ID).
+   and have provisioned a suitable log tree into it (and have the
+   corresponding tree ID).
 1. Create an "all-roots.pem" file which contains all of the trusted roots you
    want your CT instance to allow.
    (e.g. `cat /etc/ssl/certs/* > /tmp/all-roots.pem`)
@@ -39,7 +40,7 @@ personality on Google Cloud using Kubernetes and Cloud Spanner.
       utility can help with the conversion to protobuf format.)
 1. Run the [deploy.sh](deploy.sh) script, using the same `config.sh` file you
    used for your Trillian deployment:
-  `./deploy.sh ${GOPATH}/src/github.com/google/trillian/examples/deployment/kubernetes/config.sh`
+  `./deploy.sh ../../../../../trillian/examples/deployment/kubernetes/config.sh`
 1. The script may ask you to create a `configmap`. If so, follow the
    instructions it provides to do so, not forgetting to **run the `deploy.sh`
    script again**.
