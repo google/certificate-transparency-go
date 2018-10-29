@@ -170,7 +170,9 @@ ct_gosmin_config() {
 #   - GOSMIN_PID : pid for gosmin instance.
 ct_start_gosmin() {
   go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/gosmin
-  ./gosmin --config="${GOSMIN_CFG}" --logtostderr &
+  local metrics_port=$(pick_unused_port)
+  echo "Starting gosmin with metrics on localhost:${metrics_port}"
+  ./gosmin --config="${GOSMIN_CFG}" --metrics_endpoint "localhost:${metrics_port}" --logtostderr &
   GOSMIN_PID=$!
 }
 
