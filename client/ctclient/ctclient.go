@@ -225,9 +225,22 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 			log.Fatalf("Invalid --leaf_hash supplied: %v", err)
 		}
 	} else if len(*certChain) > 0 && *timestamp != 0 {
-		// Build a leaf hash from the chain and a timestamp
+		// Build a leaf hash from the chain and a timestamp.
 		chain := chainFromFile(*certChain)
-		leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
+		var leafEntry *ct.MerkleTreeLeaf
+		cert, err := x509.ParseCertificate(chain[0].Data)
+		if x509.IsFatal(err) {
+			log.Printf("Failed to parse leaf certificate: %v", err)
+			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
+		} else if cert.IsPrecertificate() {
+			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(*timestamp))
+			if err != nil {
+				log.Fatalf("Failed to build pre-certificate leaf entry: %v", err)
+			}
+		} else {
+			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
+		}
+
 		leafHash, err := ct.LeafHashForLeaf(leafEntry)
 		if err != nil {
 			log.Fatalf("Failed to create hash of leaf: %v", err)
