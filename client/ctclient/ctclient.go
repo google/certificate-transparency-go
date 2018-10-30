@@ -25,12 +25,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/dnsclient"
@@ -68,10 +68,11 @@ func signatureToString(signed *ct.DigitallySigned) string {
 	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
 }
 
-func logErrDetails(err error) {
+func exitWithDetails(err error) {
 	if err, ok := err.(client.RspError); ok {
-		log.Printf("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
+		glog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
+	glog.Exit(err.Error())
 }
 
 func hashFromString(input string) ([]byte, error) {
@@ -89,8 +90,7 @@ func hashFromString(input string) ([]byte, error) {
 func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 	sth, err := logClient.GetSTH(ctx)
 	if err != nil {
-		logErrDetails(err)
-		log.Fatal(err)
+		exitWithDetails(err)
 	}
 	// Display the STH
 	when := ct.TimestampToTime(sth.Timestamp)
@@ -101,7 +101,7 @@ func getSTH(ctx context.Context, logClient client.CheckLogClient) {
 func chainFromFile(filename string) []ct.ASN1Cert {
 	rest, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("Failed to read certificate file: %v", err)
+		glog.Exitf("Failed to read certificate file: %v", err)
 	}
 	var chain []ct.ASN1Cert
 	for {
@@ -115,14 +115,14 @@ func chainFromFile(filename string) []ct.ASN1Cert {
 		}
 	}
 	if len(chain) == 0 {
-		log.Fatalf("No certificates found in %s", *certChain)
+		glog.Exitf("No certificates found in %s", *certChain)
 	}
 	return chain
 }
 
 func addChain(ctx context.Context, logClient *client.LogClient) {
 	if *certChain == "" {
-		log.Fatalf("No certificate chain file specified with -cert_chain")
+		glog.Exitf("No certificate chain file specified with -cert_chain")
 	}
 	chain := chainFromFile(*certChain)
 
@@ -144,14 +144,13 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 		sct, err = logClient.AddChain(ctx, chain)
 	}
 	if err != nil {
-		logErrDetails(err)
-		log.Fatalf("Upload failed: %q", err)
+		exitWithDetails(err)
 	}
 	// Calculate the leaf hash
 	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
 	leafHash, err := ct.LeafHashForLeaf(leafEntry)
 	if err != nil {
-		log.Fatalf("Failed to create hash of leaf: %v", err)
+		glog.Exitf("Failed to create hash of leaf: %v", err)
 	}
 
 	// Display the SCT
@@ -171,8 +170,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 func getRoots(ctx context.Context, logClient *client.LogClient) {
 	roots, err := logClient.GetAcceptedRoots(ctx)
 	if err != nil {
-		logErrDetails(err)
-		log.Fatal(err)
+		exitWithDetails(err)
 	}
 	for _, root := range roots {
 		showRawCert(root)
@@ -181,15 +179,14 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 
 func getEntries(ctx context.Context, logClient *client.LogClient) {
 	if *getFirst == -1 {
-		log.Fatal("No -first option supplied")
+		glog.Exit("No -first option supplied")
 	}
 	if *getLast == -1 {
 		*getLast = *getFirst
 	}
 	rsp, err := logClient.GetRawEntries(ctx, *getFirst, *getLast)
 	if err != nil {
-		logErrDetails(err)
-		log.Fatal(err)
+		exitWithDetails(err)
 	}
 
 	for i, rawEntry := range rsp.Entries {
@@ -228,7 +225,7 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 		var err error
 		hash, err = hashFromString(*leafHash)
 		if err != nil {
-			log.Fatalf("Invalid --leaf_hash supplied: %v", err)
+			glog.Exitf("Invalid --leaf_hash supplied: %v", err)
 		}
 	} else if len(*certChain) > 0 && *timestamp != 0 {
 		// Build a leaf hash from the chain and a timestamp.
@@ -236,12 +233,12 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 		var leafEntry *ct.MerkleTreeLeaf
 		cert, err := x509.ParseCertificate(chain[0].Data)
 		if x509.IsFatal(err) {
-			log.Printf("Failed to parse leaf certificate: %v", err)
+			glog.Warningf("Failed to parse leaf certificate: %v", err)
 			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
 		} else if cert.IsPrecertificate() {
 			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(*timestamp))
 			if err != nil {
-				log.Fatalf("Failed to build pre-certificate leaf entry: %v", err)
+				glog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
 			}
 		} else {
 			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(*timestamp))
@@ -249,18 +246,18 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 
 		leafHash, err := ct.LeafHashForLeaf(leafEntry)
 		if err != nil {
-			log.Fatalf("Failed to create hash of leaf: %v", err)
+			glog.Exitf("Failed to create hash of leaf: %v", err)
 		}
 		hash = leafHash[:]
 
 		// Print a warning if this timestamp is still within the MMD window
 		when := ct.TimestampToTime(uint64(*timestamp))
 		if age := time.Since(when); age < *logMMD {
-			log.Printf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, *logMMD)
+			glog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, *logMMD)
 		}
 	}
 	if len(hash) != sha256.Size {
-		log.Fatal("No leaf hash available")
+		glog.Exit("No leaf hash available")
 	}
 	getInclusionProofForHash(ctx, logClient, hash)
 }
@@ -272,16 +269,14 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 		var err error
 		sth, err = logClient.GetSTH(ctx)
 		if err != nil {
-			logErrDetails(err)
-			log.Fatalf("Failed to get current STH: %v", err)
+			exitWithDetails(err)
 		}
 		size = int64(sth.TreeSize)
 	}
 	// Display the inclusion proof.
 	rsp, err := logClient.GetProofByHash(ctx, hash, uint64(size))
 	if err != nil {
-		logErrDetails(err)
-		log.Fatalf("Failed to get-proof-by-hash: %v", err)
+		exitWithDetails(err)
 	}
 	fmt.Printf("Inclusion proof for index %d in tree of size %d:\n", rsp.LeafIndex, size)
 	for _, e := range rsp.AuditPath {
@@ -291,7 +286,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 		// If we retrieved an STH we can verify the proof.
 		verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 		if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
-			log.Fatalf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+			glog.Exitf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
 	}
@@ -299,28 +294,28 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 
 func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 	if *treeSize <= 0 {
-		log.Fatal("No valid --size supplied")
+		glog.Exit("No valid --size supplied")
 	}
 	if *prevSize <= 0 {
-		log.Fatal("No valid --prev_size supplied")
+		glog.Exit("No valid --prev_size supplied")
 	}
 	var hash1, hash2 []byte
 	if *prevHash != "" {
 		var err error
 		hash1, err = hashFromString(*prevHash)
 		if err != nil {
-			log.Fatalf("Invalid --prev_hash: %v", err)
+			glog.Exitf("Invalid --prev_hash: %v", err)
 		}
 	}
 	if *treeHash != "" {
 		var err error
 		hash2, err = hashFromString(*treeHash)
 		if err != nil {
-			log.Fatalf("Invalid --tree_hash: %v", err)
+			glog.Exitf("Invalid --tree_hash: %v", err)
 		}
 	}
 	if (hash1 != nil) != (hash2 != nil) {
-		log.Fatalf("Need both --prev_hash and --tree_hash or neither")
+		glog.Exitf("Need both --prev_hash and --tree_hash or neither")
 	}
 	getConsistencyProofBetween(ctx, logClient, *prevSize, *treeSize, hash1, hash2)
 }
@@ -328,8 +323,7 @@ func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second int64, prevHash, treeHash []byte) {
 	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
 	if err != nil {
-		logErrDetails(err)
-		log.Fatalf("Failed to get-sth-consistency: %v", err)
+		exitWithDetails(err)
 	}
 	fmt.Printf("Consistency proof from size %d to size %d:\n", first, second)
 	for _, e := range proof {
@@ -341,7 +335,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 	// We have tree hashes so we can verify the proof.
 	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	if err := verifier.VerifyConsistencyProof(first, second, prevHash, treeHash, proof); err != nil {
-		log.Fatalf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
+		glog.Exitf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}
 	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
 }
@@ -350,7 +344,7 @@ func showRawCert(cert ct.ASN1Cert) {
 	if *textOut {
 		c, err := x509.ParseCertificate(cert.Data)
 		if err != nil {
-			log.Printf("Error parsing certificate: %q", err.Error())
+			glog.Errorf("Error parsing certificate: %q", err.Error())
 		}
 		if c == nil {
 			return
@@ -371,7 +365,7 @@ func showParsedCert(cert *x509.Certificate) {
 
 func showPEMData(data []byte) {
 	if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: data}); err != nil {
-		log.Printf("Failed to PEM encode cert: %q", err.Error())
+		glog.Errorf("Failed to PEM encode cert: %q", err.Error())
 	}
 }
 
@@ -394,7 +388,7 @@ func main() {
 
 	var tlsCfg *tls.Config
 	if *skipHTTPSVerify {
-		log.Print("Skipping HTTPS connection verification")
+		glog.Warning("Skipping HTTPS connection verification")
 		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
 	}
 	httpClient := &http.Client{
@@ -414,7 +408,7 @@ func main() {
 	if *pubKey != "" {
 		pubkey, err := ioutil.ReadFile(*pubKey)
 		if err != nil {
-			log.Fatal(err)
+			glog.Exit(err)
 		}
 		opts.PublicKey = string(pubkey)
 	}
@@ -424,23 +418,23 @@ func main() {
 	if *logName != "" {
 		llData, err := x509util.ReadFileOrURL(*logList, httpClient)
 		if err != nil {
-			log.Fatalf("Failed to read log list: %v", err)
+			glog.Exitf("Failed to read log list: %v", err)
 		}
 		ll, err := loglist.NewFromJSON(llData)
 		if err != nil {
-			log.Fatalf("Failed to build log list: %v", err)
+			glog.Exitf("Failed to build log list: %v", err)
 		}
 
 		logs := ll.FindLogByName(*logName)
 		if len(logs) == 0 {
-			log.Fatalf("No log with name like %q found in loglist %q", *logName, *logList)
+			glog.Exitf("No log with name like %q found in loglist %q", *logName, *logList)
 		}
 		if len(logs) > 1 {
 			logNames := make([]string, len(logs))
 			for i, log := range logs {
 				logNames[i] = fmt.Sprintf("%q", log.Description)
 			}
-			log.Fatalf("Multiple logs with name like %q found in loglist: %s", *logName, strings.Join(logNames, ","))
+			glog.Exitf("Multiple logs with name like %q found in loglist: %s", *logName, strings.Join(logNames, ","))
 		}
 		uri = "https://" + logs[0].URL
 		if *useDNS {
@@ -451,7 +445,7 @@ func main() {
 		}
 	}
 	if *useDNS && dns == "" {
-		log.Fatal("DNS access requested (with --dns) but no DNS base name known")
+		glog.Exit("DNS access requested (with --dns) but no DNS base name known")
 	}
 
 	var err error
@@ -464,7 +458,7 @@ func main() {
 		checkClient = logClient
 	}
 	if err != nil {
-		log.Fatal(err)
+		glog.Exit(err)
 	}
 
 	args := flag.Args()
@@ -477,17 +471,17 @@ func main() {
 		getSTH(ctx, checkClient)
 	case "upload":
 		if logClient == nil {
-			log.Fatal("Cannot upload over DNS")
+			glog.Exit("Cannot upload over DNS")
 		}
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
 		if logClient == nil {
-			log.Fatal("Cannot retrieve roots over DNS")
+			glog.Exit("Cannot retrieve roots over DNS")
 		}
 		getRoots(ctx, logClient)
 	case "getentries", "get_entries", "get-entries":
 		if logClient == nil {
-			log.Fatal("Cannot get-entries over DNS")
+			glog.Exit("Cannot get-entries over DNS")
 		}
 		getEntries(ctx, logClient)
 	case "inclusion", "inclusion-proof":
