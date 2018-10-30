@@ -28,7 +28,7 @@ import (
 
 var sampleLogList = LogList{
 	Operators: map[string]*Operator{
-		"Google": &Operator{
+		"Google": {
 			Logs: map[string]*Log{
 				"google_aviator": {
 					Description: []string{"Google 'Aviator' log"},
@@ -74,9 +74,9 @@ var sampleLogList = LogList{
 				},
 			},
 		},
-		"Bob's CT Log Shop": &Operator{
+		"Bob's CT Log Shop": {
 			Logs: map[string]*Log{
-				"bob_dubious": &Log{
+				"bob_dubious": {
 					Description: []string{"Bob's Dubious Log"},
 					LogID:       deb64("zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA="),
 					Key:         deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA=="),
