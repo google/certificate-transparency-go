@@ -54,6 +54,7 @@ var (
 	certChain       = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	timestamp       = flag.Int64("timestamp", 0, "Timestamp to use for inclusion checking")
 	textOut         = flag.Bool("text", true, "Display certificates as text")
+	chainOut        = flag.Bool("chain", false, "Display entire certificate chain")
 	getFirst        = flag.Int64("first", -1, "First entry to get")
 	getLast         = flag.Int64("last", -1, "Last entry to get")
 	treeSize        = flag.Int64("size", -1, "Tree size to query at")
@@ -212,6 +213,11 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 			showRawCert(rle.Cert) // As-submitted: with signature and poison.
 		default:
 			fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
+		}
+		if *chainOut {
+			for _, c := range rle.Chain {
+				showRawCert(c)
+			}
 		}
 	}
 }
