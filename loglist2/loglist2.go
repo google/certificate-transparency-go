@@ -57,7 +57,7 @@ type LogList struct {
 type Operator struct {
 	// Email lists the email addresses that can be used to contact this log
 	// operator.
-	Email []string `json:"email,omitempty"`
+	Email []string `json:"email"`
 	// Logs is a map of unique names to CT logs run by this operator.
 	Logs map[string]*Log `json:"logs"`
 }
