@@ -690,7 +690,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.SignedLogRoot.TreeSize, start)
+			return http.StatusBadRequest, fmt.Errorf("request for leaves from %d but current tree size only %d", start, rsp.SignedLogRoot.TreeSize)
 		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
