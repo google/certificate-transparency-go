@@ -37,6 +37,11 @@ import (
 	hubclient "github.com/google/trillian-examples/gossip/client"
 )
 
+const (
+	defaultRateHz      = 1.0
+	defaultMinInterval = 1 * time.Second
+)
+
 // NewGossiperFromFile creates a gossiper from the given filename, which should
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
@@ -100,14 +105,34 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 		}
 	}
 
+	allSTHsRate := 0.0
+	srcs := make(map[string]*sourceLog)
+	for _, lc := range cfg.SourceLog {
+		base, err := logConfigFromProto(lc, hc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse source log config for %q: %v", lc.Name, err)
+		}
+		if _, ok := srcs[base.Name]; ok {
+			return nil, fmt.Errorf("duplicate source logs for name %q", base.Name)
+		}
+		srcs[base.Name] = &sourceLog{logConfig: *base}
+		knownSourceLogs.Set(1.0, base.Name)
+
+		// Assume that each source log has a new STH when polled.
+		sthRate := defaultRateHz
+		if base.MinInterval > 0 {
+			sthRate = 1.0 / base.MinInterval.Seconds()
+		}
+		allSTHsRate += sthRate
+	}
 	dests := make(map[string]*destHub)
 	for _, lc := range cfg.DestHub {
 		hub, err := hubFromProto(lc, hc)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
+			return nil, fmt.Errorf("failed to parse dest hub config for %q: %v", lc.Name, err)
 		}
 		if _, ok := dests[hub.Name]; ok {
-			return nil, fmt.Errorf("duplicate dest hubs for name %s", hub.Name)
+			return nil, fmt.Errorf("duplicate dest hubs for name %q", hub.Name)
 		}
 		dests[hub.Name] = hub
 		isHub := 0.0
@@ -115,18 +140,14 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 			isHub = 1.0
 		}
 		destPureHub.Set(isHub, hub.Name)
-	}
-	srcs := make(map[string]*sourceLog)
-	for _, lc := range cfg.SourceLog {
-		base, err := logConfigFromProto(lc, hc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse source log config: %v", err)
+
+		submitRate := defaultRateHz
+		if hub.MinInterval > 0 {
+			submitRate = 1.0 / hub.MinInterval.Seconds()
 		}
-		if _, ok := srcs[base.Name]; ok {
-			return nil, fmt.Errorf("duplicate source logs for name %s", base.Name)
+		if allSTHsRate > submitRate {
+			glog.Errorf("%s: Overall STH retrieval rate (%f Hz) higher than submission limit (%f Hz) for hub, retrieved STHs may be dropped", hub.Name, allSTHsRate, submitRate)
 		}
-		srcs[base.Name] = &sourceLog{logConfig: *base}
-		knownSourceLogs.Set(1.0, base.Name)
 	}
 
 	return &Gossiper{
@@ -145,6 +166,9 @@ func logConfigFromProto(cfg *configpb.LogConfig, hc *http.Client) (*logConfig, e
 	interval, err := ptypes.Duration(cfg.MinReqInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
+	}
+	if interval <= 0 {
+		interval = defaultMinInterval
 	}
 	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-client/1.0"}
 	client, err := logclient.New(cfg.Url, hc, opts)
@@ -169,6 +193,9 @@ func hubFromProto(cfg *configpb.HubConfig, hc *http.Client) (*destHub, error) {
 	interval, err := ptypes.Duration(cfg.MinReqInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
+	}
+	if interval <= 0 {
+		interval = defaultMinInterval
 	}
 	var submitter hubSubmitter
 	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-hub/1.0"}
