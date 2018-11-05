@@ -357,6 +357,32 @@ func TestStripInternalSpace(t *testing.T) {
 	}
 }
 
+func changeLogDesc(log Log, desc string) Log {
+	log.Description = desc
+	return log
+}
+
+func TestGoogleOperated(t *testing.T) {
+	var tests = []struct {
+		in  Log
+		out bool
+	}{
+		{in: sampleLogList.Logs[0], out: true},
+		{in: sampleLogList.Logs[1], out: true},
+		{in: sampleLogList.Logs[2], out: true},
+		{in: sampleLogList.Logs[3], out: true},
+		{in: sampleLogList.Logs[4], out: false},
+		{in: changeLogDesc(sampleLogList.Logs[1], "Gogle 'Aviator' log"), out: false},
+		{in: changeLogDesc(sampleLogList.Logs[4], "Bob's Dubious Log is non-Google"), out: true},
+	}
+	for _, test := range tests {
+		isGoog := test.in.GoogleOperated()
+		if isGoog != test.out {
+			t.Errorf("GoogleOperated status for %s is %t, want %t", test.in.Description, isGoog, test.out)
+		}
+	}
+}
+
 func deb64(b string) []byte {
 	data, err := base64.StdEncoding.DecodeString(b)
 	if err != nil {
