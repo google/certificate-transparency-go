@@ -30,10 +30,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/integration"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -94,15 +95,10 @@ func main() {
 		glog.Exitf("Failed to read log config: %v", err)
 	}
 
-	var caChain, leafChain []ct.ASN1Cert
+	var leafChain []ct.ASN1Cert
 	var signer crypto.Signer
-	var leafCert, caCert *x509.Certificate
 	if *testDir != "" {
 		// Retrieve the test data.
-		caChain, err = integration.GetChain(*testDir, "int-ca.cert")
-		if err != nil {
-			glog.Exitf("failed to load certificate: %v", err)
-		}
 		leafChain, err = integration.GetChain(*testDir, "leaf01.chain")
 		if err != nil {
 			glog.Exitf("failed to load certificate: %v", err)
@@ -111,16 +107,8 @@ func main() {
 		if err != nil {
 			glog.Exitf("failed to retrieve signer for re-signing: %v", err)
 		}
-		leafCert, err = x509.ParseCertificate(leafChain[0].Data)
-		if err != nil {
-			glog.Exitf("failed to parse leaf certificate to build precert from: %v", err)
-		}
-		caCert, err = x509.ParseCertificate(caChain[0].Data)
-		if err != nil {
-			glog.Exitf("failed to parse issuer for precert: %v", err)
-		}
 	} else {
-		glog.Warningf("Warning: add-[pre-]chain operations disabled as no test data provided")
+		glog.Warningf("Warning: add-[pre-]chain operations disabled as no cert generation method available")
 		*addChainBias = 0
 		*addPreChainBias = 0
 	}
@@ -205,14 +193,23 @@ func main() {
 			mmd = time.Second * time.Duration(emd)
 		}
 
+		notAfter := notAfterOverride
+		if notAfter.IsZero() {
+			notAfter, err = notAfterForLog(c)
+			if err != nil {
+				glog.Exitf("Failed to determine notAfter for %s: %v", c.Prefix, err)
+			}
+		}
+		generator, err := integration.NewSyntheticChainGenerator(leafChain, signer, notAfter)
+		if err != nil {
+			glog.Exitf("Failed to build chain generator: %v", err)
+		}
+
 		cfg := integration.HammerConfig{
 			LogCfg:              c,
 			MetricFactory:       mf,
 			MMD:                 mmd,
-			LeafChain:           leafChain,
-			LeafCert:            leafCert,
-			CACert:              caCert,
-			Signer:              signer,
+			ChainGenerator:      generator,
 			ClientPool:          pool,
 			EPBias:              bias,
 			MinGetEntries:       *minGetEntries,
@@ -223,7 +220,6 @@ func main() {
 			MaxParallelChains:   *maxParallelChains,
 			IgnoreErrors:        *ignoreErrors,
 			MaxRetryDuration:    *maxRetry,
-			NotAfterOverride:    notAfterOverride,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()
@@ -246,4 +242,34 @@ func main() {
 		glog.Exitf("non-zero error count (%d), exiting", errCount)
 	}
 	glog.Info("  no errors; done")
+}
+
+// notAfterForLog returns a notAfter time to be used for certs submitted
+// to the given log instance, allowing for any temporal shard configuration.
+func notAfterForLog(c *configpb.LogConfig) (time.Time, error) {
+	if c.NotAfterStart == nil && c.NotAfterLimit == nil {
+		return time.Now().Add(24 * time.Hour), nil
+	}
+
+	if c.NotAfterStart != nil {
+		start, err := ptypes.Timestamp(c.NotAfterStart)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterStart: %v", err)
+		}
+		if c.NotAfterLimit == nil {
+			return start.Add(24 * time.Hour), nil
+		}
+
+		limit, err := ptypes.Timestamp(c.NotAfterLimit)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+		}
+		return time.Unix(0, (limit.UnixNano()-start.UnixNano())/2+start.UnixNano()), nil
+	}
+
+	limit, err := ptypes.Timestamp(c.NotAfterLimit)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+	}
+	return limit.Add(-1 * time.Hour), nil
 }

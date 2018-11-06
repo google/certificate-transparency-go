@@ -119,17 +119,17 @@ func TestHammer_NotAfter(t *testing.T) {
 		if ts := test.notAfterLimit; ts.UnixNano() > 0 {
 			limitPB, _ = ptypes.TimestampProto(ts)
 		}
+		generator, err := NewSyntheticChainGenerator(keys.leafChain, keys.signer, test.notAfterOverride)
+		if err != nil {
+			t.Fatalf("Failed to build chain generator: %v", err)
+		}
 		hs, err := newHammerState(&HammerConfig{
-			CACert:     keys.caCert,
-			ClientPool: RandomPool{lc},
-			LeafChain:  keys.leafChain,
-			LeafCert:   keys.leafCert,
+			ChainGenerator: generator,
+			ClientPool:     RandomPool{lc},
 			LogCfg: &configpb.LogConfig{
 				NotAfterStart: startPB,
 				NotAfterLimit: limitPB,
 			},
-			Signer:           keys.signer,
-			NotAfterOverride: test.notAfterOverride,
 		})
 		if err != nil {
 			t.Errorf("%v: newHammerState() returned err = %v", test.desc, err)
