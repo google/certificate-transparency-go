@@ -63,7 +63,7 @@ func main() {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	logClient, err := client.New(*logURI, hc, jsonclient.Options{})
+	logClient, err := client.New(*logURI, hc, jsonclient.Options{UserAgent: "ct-go-sctscan/1.0"})
 	if err != nil {
 		glog.Exitf("Failed to create log client: %v", err)
 	}

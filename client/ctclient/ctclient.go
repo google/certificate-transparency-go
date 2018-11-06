@@ -404,7 +404,7 @@ func main() {
 			TLSClientConfig:       tlsCfg,
 		},
 	}
-	var opts jsonclient.Options
+	opts := jsonclient.Options{UserAgent: "ct-go-ctclient/1.0"}
 	if *pubKey != "" {
 		pubkey, err := ioutil.ReadFile(*pubKey)
 		if err != nil {

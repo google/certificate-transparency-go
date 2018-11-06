@@ -196,7 +196,7 @@ func main() {
 			IdleConnTimeout:       90 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-	}, jsonclient.Options{})
+	}, jsonclient.Options{UserAgent: "ct-go-scanlog/1.0"})
 	if err != nil {
 		log.Fatal(err)
 	}

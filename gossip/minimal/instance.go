@@ -146,7 +146,7 @@ func logConfigFromProto(cfg *configpb.LogConfig, hc *http.Client) (*logConfig, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
 	}
-	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-client/1.0"}
 	client, err := logclient.New(cfg.Url, hc, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log client for %q: %v", cfg.Name, err)
@@ -171,7 +171,7 @@ func hubFromProto(cfg *configpb.HubConfig, hc *http.Client) (*destHub, error) {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
 	}
 	var submitter hubSubmitter
-	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-hub/1.0"}
 	if cfg.IsHub {
 		cl, err := hubclient.New(cfg.Url, hc, opts)
 		if err != nil {
@@ -208,7 +208,7 @@ func hubScannerFromProto(cfg *configpb.HubConfig, hc *http.Client) (*hubScanner,
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MinReqInterval: %v", err)
 	}
-	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer()}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-scanner/1.0"}
 	if cfg.IsHub {
 		return nil, errors.New("Pure Gossip Hubs not yet supported")
 	}

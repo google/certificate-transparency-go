@@ -109,6 +109,7 @@ func (p RandomPool) Next() *client.LogClient {
 func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (ClientPool, error) {
 	opts := jsonclient.Options{
 		PublicKeyDER: pubKey.GetDer(),
+		UserAgent:    "ct-go-integrationtest/1.0",
 	}
 
 	hc := &http.Client{Transport: DefaultTransport}

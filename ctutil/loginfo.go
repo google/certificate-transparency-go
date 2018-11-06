@@ -52,7 +52,7 @@ func NewLogInfo(log *loglist.Log, hc *http.Client) (*LogInfo, error) {
 	if !strings.HasPrefix(url, "https://") {
 		url = "https://" + url
 	}
-	lc, err := client.New(url, hc, jsonclient.Options{PublicKeyDER: log.Key})
+	lc, err := client.New(url, hc, jsonclient.Options{PublicKeyDER: log.Key, UserAgent: "ct-go-logclient"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client for log %q: %v", log.Description, err)
 	}
