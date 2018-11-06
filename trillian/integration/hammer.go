@@ -561,6 +561,10 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to make pre-cert chain (%s): %v", choice, err)
 	}
+	issuer, err := x509.ParseCertificate(prechain[1].Data)
+	if err != nil {
+		return fmt.Errorf("failed to parse pre-cert issuer: %v", err)
+	}
 
 	sct, err := s.client().AddPreChain(ctx, prechain)
 	if err != nil {
@@ -570,6 +574,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 		return fmt.Errorf("failed to add-pre-chain: %v", err)
 	}
 	glog.V(2).Infof("%s: Uploaded %s pre-cert, got SCT(time=%q)", s.cfg.LogCfg.Prefix, choice, timeFromMS(sct.Timestamp))
+
 	// Calculate leaf hash =  SHA256(0x00 | tls-encode(MerkleTreeLeaf))
 	submitted := submittedCert{precert: true, sct: sct}
 	leaf := ct.MerkleTreeLeaf{
@@ -579,7 +584,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 			Timestamp: sct.Timestamp,
 			EntryType: ct.PrecertLogEntryType,
 			PrecertEntry: &ct.PreCert{
-				IssuerKeyHash:  sha256.Sum256(s.cfg.CACert.RawSubjectPublicKeyInfo),
+				IssuerKeyHash:  sha256.Sum256(issuer.RawSubjectPublicKeyInfo),
 				TBSCertificate: tbs,
 			},
 			Extensions: sct.Extensions,
