@@ -17,9 +17,6 @@ package integration
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -80,21 +77,20 @@ type Choice string
 
 // Constants for per-operation choices.
 const (
-	ParamTooBig         = Choice("ParamTooBig")
-	Param2TooBig        = Choice("Param2TooBig")
-	ParamNegative       = Choice("ParamNegative")
-	ParamInvalid        = Choice("ParamInvalid")
-	ParamsInverted      = Choice("ParamsInverted")
-	InvalidBase64       = Choice("InvalidBase64")
-	EmptyChain          = Choice("EmptyChain")
-	CertNotPrecert      = Choice("CertNotPrecert")
-	PrecertNotCert      = Choice("PrecertNotCert")
-	NoChainToRoot       = Choice("NoChainToRoot")
-	UnparsableCert      = Choice("UnparsableCert")
-	SignatureNotCorrect = Choice("SignatureNotCorrect")
-	NewCert             = Choice("NewCert")
-	LastCert            = Choice("LastCert")
-	FirstCert           = Choice("FirstCert")
+	ParamTooBig    = Choice("ParamTooBig")
+	Param2TooBig   = Choice("Param2TooBig")
+	ParamNegative  = Choice("ParamNegative")
+	ParamInvalid   = Choice("ParamInvalid")
+	ParamsInverted = Choice("ParamsInverted")
+	InvalidBase64  = Choice("InvalidBase64")
+	EmptyChain     = Choice("EmptyChain")
+	CertNotPrecert = Choice("CertNotPrecert")
+	PrecertNotCert = Choice("PrecertNotCert")
+	NoChainToRoot  = Choice("NoChainToRoot")
+	UnparsableCert = Choice("UnparsableCert")
+	NewCert        = Choice("NewCert")
+	LastCert       = Choice("LastCert")
+	FirstCert      = Choice("FirstCert")
 )
 
 // Limiter is an interface to allow different rate limiters to be used with the
@@ -279,8 +275,7 @@ func (pc *pendingCerts) dropOldest() {
 // hammerState tracks the operations that have been performed during a test run, including
 // earlier SCTs/STHs for later checking.
 type hammerState struct {
-	cfg       *HammerConfig
-	altSigner crypto.Signer
+	cfg *HammerConfig
 
 	// Store the first submitted and the most recently submitted [pre-]chain,
 	// to allow submission of both old and new duplicates.
@@ -340,17 +335,10 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 	glog.Infof("%v: using NotAfter = %v", cfg.LogCfg.Prefix, notAfter)
 
-	// Build a signer for a different private key
-	altSigner, err := ecdsa.GenerateKey(elliptic.P224(), cryptorand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a spare ECDSA private key: %v", err)
-	}
-
 	state := hammerState{
-		cfg:       cfg,
-		altSigner: altSigner,
-		nextOp:    make([]ctfe.EntrypointName, 0),
-		notAfter:  notAfter,
+		cfg:      cfg,
+		nextOp:   make([]ctfe.EntrypointName, 0),
+		notAfter: notAfter,
 	}
 	return &state, nil
 }
@@ -492,7 +480,7 @@ func (s *hammerState) addChain(ctx context.Context) error {
 }
 
 func (s *hammerState) addChainInvalid(ctx context.Context) error {
-	choices := []Choice{EmptyChain, PrecertNotCert, NoChainToRoot, UnparsableCert, SignatureNotCorrect}
+	choices := []Choice{EmptyChain, PrecertNotCert, NoChainToRoot, UnparsableCert}
 	choice := choices[rand.Intn(len(choices))]
 
 	var err error
@@ -518,12 +506,6 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 		}
 		// Remove the initial ASN.1 SEQUENCE type byte (0x30) to make an unparsable cert.
 		chain[0].Data[0] = 0x00
-	case SignatureNotCorrect:
-		// Use a signer for a different key than the intermediate CA's key.
-		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.altSigner, s.notAfter)
-		if err != nil {
-			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
-		}
 	default:
 		glog.Exitf("Unhandled choice %s", choice)
 	}
@@ -615,7 +597,7 @@ func (s *hammerState) addPreChain(ctx context.Context) error {
 }
 
 func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
-	choices := []Choice{EmptyChain, CertNotPrecert, NoChainToRoot, UnparsableCert, SignatureNotCorrect}
+	choices := []Choice{EmptyChain, CertNotPrecert, NoChainToRoot, UnparsableCert}
 	choice := choices[rand.Intn(len(choices))]
 
 	var err error
@@ -641,12 +623,6 @@ func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
 		}
 		// Remove the initial ASN.1 SEQUENCE type byte (0x30) to make an unparsable cert.
 		prechain[0].Data[0] = 0x00
-	case SignatureNotCorrect:
-		// Use a signer for a different key than the intermediate CA's key.
-		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.altSigner, s.notAfter)
-		if err != nil {
-			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
-		}
 	default:
 		glog.Exitf("Unhandled choice %s", choice)
 	}
