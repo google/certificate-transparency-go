@@ -24,7 +24,6 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -44,7 +43,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -61,8 +59,6 @@ const (
 	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} (\d+)$`
 	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
 )
-
-var zeroTime = time.Time{}
 
 // DefaultTransport is a http Transport more suited for use in the hammer
 // context.
@@ -309,6 +305,10 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
+	issuer, err := x509.ParseCertificate(chain[0][0].Data)
+	if err != nil {
+		return fmt.Errorf("failed to parse int-ca.cert: %v", err)
+	}
 	scts[0], err = t.client().AddChain(ctx, chain[0])
 	t.stats.expect(ctfe.AddChainName, 200)
 	if err != nil {
@@ -503,11 +503,12 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
 	}
-	issuer, err := x509.ParseCertificate(chain[0][0].Data)
+	generator, err := NewSyntheticChainGenerator(chain[1], signer, time.Time{})
 	if err != nil {
-		return fmt.Errorf("failed to parse issuer for precert: %v", err)
+		return fmt.Errorf("failed to create chain generator: %v", err)
 	}
-	prechain, tbs, err := makePrecertChain(chain[1], issuer, signer, time.Time{} /*  notAfter */)
+
+	prechain, tbs, err := generator.PreCertChain()
 	if err != nil {
 		return fmt.Errorf("failed to build pre-certificate: %v", err)
 	}
@@ -611,14 +612,11 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	if err != nil {
 		return err
 	}
-	leafCert, err := x509.ParseCertificate(leafChain[0].Data)
+	generator, err := NewSyntheticChainGenerator(leafChain, signer, time.Time{})
 	if err != nil {
 		return err
 	}
-	caCert, err := x509.ParseCertificate(caChain[0].Data)
-	if err != nil {
-		return err
-	}
+
 	ctx := context.Background()
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
@@ -667,7 +665,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	count := atLeast + rand.Intn(3000-atLeast)
 	fmt.Printf("%s: Starting upload of %d certificates ....\n", t.prefix, count)
 	for i := 1; i <= count; i++ {
-		chain, err := makeCertChain(leafChain, leafCert, caCert, signer, time.Now().Add(24*time.Hour))
+		chain, err := generator.CertChain()
 		if err != nil {
 			return err
 		}
@@ -819,34 +817,6 @@ func checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) erro
 		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
-// makePrecertChain builds a precert chain based from the given cert chain and cert, converting and
-// re-signing relative to the given issuer.
-func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, []byte, error) {
-	prechain := make([]ct.ASN1Cert, len(chain))
-	copy(prechain[1:], chain[1:])
-
-	cert, err := x509.ParseCertificate(chain[0].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
-	}
-	cert.NotAfter = notAfter
-	if cert.NotAfter == zeroTime {
-		cert.NotAfter = time.Now().Add(24 * time.Hour)
-	}
-
-	prechain[0].Data, err = buildNewPrecertData(cert, issuer, signer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	// For later verification, build the leaf TBS data that is included in the log.
-	tbs, err := buildLeafTBS(prechain[0].Data, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
-	}
-	return prechain, tbs, nil
-}
-
 // buildNewPrecertData creates a new pre-certificate based on the given template cert (which is
 // modified)
 func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) ([]byte, error) {
@@ -871,158 +841,6 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 		return nil, fmt.Errorf("failed to CreateCertificate: %v", err)
 	}
 	return data, nil
-}
-
-// buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
-// in the log.
-func buildLeafTBS(precertData []byte, preIssuer *x509.Certificate) ([]byte, error) {
-	reparsed, err := x509.ParseCertificate(precertData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
-	}
-	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, preIssuer)
-}
-
-// makePreIssuerPrecertChain builds a precert chain where the pre-cert is signed by a new
-// pre-issuer intermediate.
-func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
-	prechain := make([]ct.ASN1Cert, len(chain)+1)
-	copy(prechain[2:], chain[1:])
-
-	// Create a new private key and intermediate CA cert to go with it.
-	preSigner, err := keys.NewFromSpec(&keyspb.Specification{
-		Params: &keyspb.Specification_EcdsaParams{
-			EcdsaParams: &keyspb.Specification_ECDSA{
-				Curve: keyspb.Specification_ECDSA_P256,
-			},
-		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create pre-issuer private key: %v", err)
-	}
-
-	preIssuerTemplate := *issuer
-	preIssuerTemplate.RawSubject = nil
-	preIssuerTemplate.Subject.CommonName += "PrecertIssuer"
-	preIssuerTemplate.PublicKeyAlgorithm = x509.ECDSA
-	preIssuerTemplate.PublicKey = preSigner.Public()
-	preIssuerTemplate.ExtKeyUsage = append(preIssuerTemplate.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
-
-	// Set a new subject-key-id for the intermediate (to ensure it's different from the true
-	// issuer's subject-key-id).
-	randData := make([]byte, 128)
-	if _, err := cryptorand.Read(randData); err != nil {
-		return nil, nil, fmt.Errorf("failed to read random data: %v", err)
-	}
-	preIssuerTemplate.SubjectKeyId = randData
-	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuerTemplate, issuer, preIssuerTemplate.PublicKey, signer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create pre-issuer certificate: %v", err)
-	}
-
-	// Parse the pre-issuer back to a fully-populated x509.Certificate.
-	preIssuer, err := x509.ParseCertificate(prechain[1].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to re-parse generated pre-issuer: %v", err)
-	}
-
-	cert, err := x509.ParseCertificate(chain[0].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
-	}
-
-	prechain[0].Data, err = buildNewPrecertData(cert, preIssuer, preSigner)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	if err := verifyChain(prechain); err != nil {
-		return nil, nil, fmt.Errorf("failed to verify just-created prechain: %v", err)
-	}
-
-	// The leaf data has the poison removed and the issuance information changed.
-	tbs, err := buildLeafTBS(prechain[0].Data, preIssuer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
-	}
-	return prechain, tbs, nil
-}
-
-// makeCertChain builds a new cert chain based from the given cert chain, changing SubjectKeyId and
-// re-signing relative to the given issuer.
-func makeCertChain(chain []ct.ASN1Cert, template, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, error) {
-	cert := *template
-	cert.NotAfter = notAfter
-	if cert.NotAfter == zeroTime {
-		cert.NotAfter = time.Now().Add(24 * time.Hour)
-	}
-
-	newchain := make([]ct.ASN1Cert, len(chain))
-	copy(newchain[1:], chain[1:])
-
-	// Randomize the subject key ID.
-	randData := make([]byte, 128)
-	if _, err := cryptorand.Read(randData); err != nil {
-		return nil, fmt.Errorf("failed to read random data: %v", err)
-	}
-	cert.SubjectKeyId = randData
-
-	// Create a fresh certificate, signed by the intermediate CA.
-	var err error
-	newchain[0].Data, err = x509.CreateCertificate(cryptorand.Reader, &cert, issuer, cert.PublicKey, signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	return newchain, nil
-}
-
-// verifyChain checks that a chain of certificates validates locally.
-func verifyChain(rawChain []ct.ASN1Cert) error {
-	chain := make([]*x509.Certificate, 0, len(rawChain))
-	for i, c := range rawChain {
-		cert, err := x509.ParseCertificate(c.Data)
-		if err != nil {
-			return fmt.Errorf("failed to parse rawChain[%d]: %v", i, err)
-		}
-		chain = append(chain, cert)
-	}
-
-	// First verify signatures cert-by-cert.
-	for i := 1; i < len(chain); i++ {
-		issuer := chain[i]
-		cert := chain[i-1]
-		if err := cert.CheckSignatureFrom(issuer); err != nil {
-			return fmt.Errorf("failed to check signature on rawChain[%d] using rawChain[%d]: %v", i-1, i, err)
-		}
-	}
-
-	// Now verify the chain as a whole
-	intermediatePool := x509.NewCertPool()
-	for i := 1; i < len(chain); i++ {
-		// Don't check path-len constraints
-		chain[i].MaxPathLen = -1
-		intermediatePool.AddCert(chain[i])
-	}
-	rootPool := x509.NewCertPool()
-	rootPool.AddCert(chain[len(chain)-1])
-	opts := x509.VerifyOptions{
-		Roots:             rootPool,
-		Intermediates:     intermediatePool,
-		DisableTimeChecks: true,
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-	}
-
-	chain[0].UnhandledCriticalExtensions = nil
-	chains, err := chain[0].Verify(opts)
-	if err != nil {
-		return fmt.Errorf("chain[0].Verify(%+v) failed: %v", opts, err)
-	}
-	if len(chains) == 0 {
-		return errors.New("no path to root found when trying to validate chains")
-	}
-
-	return nil
 }
 
 // MakeSigner creates a signer using the private key in the test directory.

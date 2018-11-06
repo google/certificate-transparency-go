@@ -16,7 +16,6 @@ package integration
 
 import (
 	"context"
-	"crypto"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -27,7 +26,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -112,13 +110,8 @@ type HammerConfig struct {
 	MetricFactory monitoring.MetricFactory
 	// Maximum merge delay.
 	MMD time.Duration
-	// Leaf certificate chain to use as template.
-	LeafChain []ct.ASN1Cert
-	// Parsed leaf certificate to use as template.
-	LeafCert *x509.Certificate
-	// Intermediate CA certificate chain to use as re-signing CA.
-	CACert *x509.Certificate
-	Signer crypto.Signer
+	// Certificate chain generator.
+	ChainGenerator ChainGenerator
 	// ClientPool provides the clients used to make requests.
 	ClientPool ClientPool
 	// Bias values to favor particular log operations.
@@ -141,9 +134,6 @@ type HammerConfig struct {
 	IgnoreErrors bool
 	// MaxRetryDuration governs how long to keep retrying when IgnoreErrors is true.
 	MaxRetryDuration time.Duration
-	// NotAfterOverride is used as cert and precert's NotAfter if not zeroed.
-	// It takes precedence over automatic NotAfter fixing for temporal logs.
-	NotAfterOverride time.Time
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -297,8 +287,6 @@ type hammerState struct {
 	pending pendingCerts
 	// Operations that are required to fix dependencies.
 	nextOp []ctfe.EntrypointName
-	// notAfter is the NotAfter time used for new certs and precerts.
-	notAfter time.Time
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -329,41 +317,11 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 		cfg.EPBias.Bias[ctfe.AddPreChainName] = 0
 	}
 
-	notAfter, err := getNotAfter(cfg)
-	if err != nil {
-		return nil, err
-	}
-	glog.Infof("%v: using NotAfter = %v", cfg.LogCfg.Prefix, notAfter)
-
 	state := hammerState{
-		cfg:      cfg,
-		nextOp:   make([]ctfe.EntrypointName, 0),
-		notAfter: notAfter,
+		cfg:    cfg,
+		nextOp: make([]ctfe.EntrypointName, 0),
 	}
 	return &state, nil
-}
-
-// getNotAfter returns the NotAfter time to be used on new certs.
-// If cfg.NotAfterOverride is non-zero, it takes precedence and is returned.
-// If cfg.LogCfg is a temporal log, the halfway point between its NotAfterStart and NotAfterLimit is
-// returned.
-// Otherwise a zeroed time is returned.
-func getNotAfter(cfg *HammerConfig) (time.Time, error) {
-	if cfg.NotAfterOverride.UnixNano() > 0 {
-		return cfg.NotAfterOverride, nil
-	}
-	if cfg.LogCfg.NotAfterStart == nil || cfg.LogCfg.NotAfterLimit == nil {
-		return time.Time{}, nil
-	}
-	start, err := ptypes.Timestamp(cfg.LogCfg.NotAfterStart)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("error parsing NotAfterStart for %v: %v", cfg.LogCfg.Prefix, cfg.LogCfg.NotAfterStart)
-	}
-	limit, err := ptypes.Timestamp(cfg.LogCfg.NotAfterLimit)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("error parsing NotAfterLimit for %v: %v", cfg.LogCfg.Prefix, cfg.LogCfg.NotAfterLimit)
-	}
-	return time.Unix(0, (limit.UnixNano()-start.UnixNano())/2+start.UnixNano()), nil
 }
 
 func (s *hammerState) client() *client.LogClient {
@@ -424,7 +382,7 @@ func (s *hammerState) getChain() (Choice, []ct.ASN1Cert, error) {
 	}
 	switch choice {
 	case NewCert:
-		chain, err := makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		chain, err := s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return choice, nil, fmt.Errorf("failed to make fresh cert: %v", err)
 		}
@@ -488,19 +446,19 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	switch choice {
 	case EmptyChain:
 	case PrecertNotCert:
-		chain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		chain, _, err = s.cfg.ChainGenerator.PreCertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
 	case NoChainToRoot:
-		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		chain, err := s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
 		// Drop the intermediate (chain[1]).
 		chain = append(chain[:1], chain[2:]...)
 	case UnparsableCert:
-		chain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		chain, err := s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
@@ -536,7 +494,7 @@ func (s *hammerState) getPreChain() (Choice, []ct.ASN1Cert, []byte, error) {
 	}
 	switch choice {
 	case NewCert:
-		prechain, tbs, err := makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		prechain, tbs, err := s.cfg.ChainGenerator.PreCertChain()
 		if err != nil {
 			return choice, nil, nil, fmt.Errorf("failed to make fresh pre-cert: %v", err)
 		}
@@ -610,19 +568,19 @@ func (s *hammerState) addPreChainInvalid(ctx context.Context) error {
 	switch choice {
 	case EmptyChain:
 	case CertNotPrecert:
-		prechain, err = makeCertChain(s.cfg.LeafChain, s.cfg.LeafCert, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		prechain, err = s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
 		}
 	case NoChainToRoot:
-		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		prechain, _, err = s.cfg.ChainGenerator.PreCertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
 		}
 		// Drop the intermediate (prechain[1]).
 		prechain = append(prechain[:1], prechain[2:]...)
 	case UnparsableCert:
-		prechain, _, err = makePrecertChain(s.cfg.LeafChain, s.cfg.CACert, s.cfg.Signer, s.notAfter)
+		prechain, _, err = s.cfg.ChainGenerator.PreCertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make pre-chain(%s): %v", choice, err)
 		}
