@@ -187,6 +187,16 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 			} else {
 				fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`)
 			}
+		case "/useragent/banana":
+			if got, want := r.Header.Get("User-Agent"), "banana"; got != want {
+				w.WriteHeader(400)
+			}
+			fmt.Fprintf(w, `{}`)
+		case "/useragent/none":
+			if got, want := r.Header.Get("User-Agent"), ""; got != want {
+				w.WriteHeader(400)
+			}
+			fmt.Fprintf(w, `{}`)
 		default:
 			t.Fatalf("Unhandled URL path: %s", r.URL.Path)
 		}
@@ -200,12 +210,15 @@ func TestGetAndParse(t *testing.T) {
 		wantStatus int
 		want       TestStruct
 		wantErr    string
+		ua         string
 	}{
 		{uri: "/short%", wantErr: "invalid URL escape"},
 		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected EOF"},
 		{uri: "/error", params: map[string]string{"rc": "404"}, wantErr: "404 Not Found"},
 		{uri: "/error", params: map[string]string{"rc": "403"}, wantErr: "403 Forbidden"},
 		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}},
+		{uri: "/useragent/banana", wantStatus: http.StatusOK, ua: "banana"},
+		{uri: "/useragent/banana", wantErr: "400 Bad Request", ua: "not-a-banana"},
 		{
 			uri:        "/struct/params",
 			params:     map[string]string{"tree_size": "42", "timestamp": "88", "data": "abcd"},
@@ -217,13 +230,13 @@ func TestGetAndParse(t *testing.T) {
 	ts := MockServer(t, -1, 0)
 	defer ts.Close()
 
-	logClient, err := New(ts.URL, &http.Client{}, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 
 	for _, test := range tests {
+		logClient, err := New(ts.URL, &http.Client{}, Options{UserAgent: test.ua})
+		if err != nil {
+			t.Fatal(err)
+		}
 		var got TestStruct
 		httpRsp, body, err := logClient.GetAndParse(ctx, test.uri, test.params, &got)
 		var gotStatus int
@@ -267,6 +280,7 @@ func TestPostAndParse(t *testing.T) {
 		wantStatus int
 		want       TestStruct
 		wantErr    string
+		ua         string
 	}{
 		{uri: "/short%", wantErr: "invalid URL escape"},
 		{uri: "/struct/params", request: json.Number(`invalid`), wantErr: "invalid number literal"},
@@ -274,6 +288,8 @@ func TestPostAndParse(t *testing.T) {
 		{uri: "/error", request: TestParams{RespCode: 404}, wantStatus: http.StatusNotFound},
 		{uri: "/error", request: TestParams{RespCode: 403}, wantStatus: http.StatusForbidden},
 		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}},
+		{uri: "/useragent/banana", wantStatus: http.StatusOK, ua: "banana"},
+		{uri: "/useragent/banana", wantStatus: 400, ua: "not-a-banana"},
 		{
 			uri:        "/struct/params",
 			wantStatus: http.StatusOK,
@@ -285,13 +301,13 @@ func TestPostAndParse(t *testing.T) {
 	ts := MockServer(t, -1, 0)
 	defer ts.Close()
 
-	logClient, err := New(ts.URL, &http.Client{}, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 
 	for _, test := range tests {
+		logClient, err := New(ts.URL, &http.Client{}, Options{UserAgent: test.ua})
+		if err != nil {
+			t.Fatal(err)
+		}
 		var got TestStruct
 		httpRsp, body, err := logClient.PostAndParse(ctx, test.uri, test.request, &got)
 		var gotStatus int
