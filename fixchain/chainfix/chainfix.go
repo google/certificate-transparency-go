@@ -119,7 +119,7 @@ func main() {
 
 	limiter := ratelimiter.NewLimiter(1000)
 	c := &http.Client{}
-	logClient, err := client.New(logURL, c, jsonclient.Options{})
+	logClient, err := client.New(logURL, c, jsonclient.Options{UserAgent: "ct-go-fixchain/1.0"})
 	if err != nil {
 		log.Fatalf("failed to create log client: %v", err)
 	}

@@ -165,7 +165,7 @@ func main() {
 	fetchLogClient, err := client.New(*sourceLogURI, &http.Client{
 		Timeout:   10 * time.Second,
 		Transport: transport,
-	}, jsonclient.Options{})
+	}, jsonclient.Options{UserAgent: "ct-go-preloader/1.0"})
 	if err != nil {
 		glog.Exitf("Failed to create client for source log: %v", err)
 	}
@@ -205,7 +205,7 @@ func main() {
 			glog.Exitf("Failed to create client for destination temporal log: %v", err)
 		}
 	} else {
-		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{})
+		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{UserAgent: "ct-go-preloader/1.0"})
 		if err != nil {
 			glog.Exitf("Failed to create client for destination log: %v", err)
 		}

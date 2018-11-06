@@ -127,7 +127,7 @@ func getController(
 	ef election2.Factory,
 	conn *grpc.ClientConn,
 ) (*core.Controller, error) {
-	ctOpts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.Der}
+	ctOpts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.Der, UserAgent: "ct-go-migrillian/1.0"}
 	ctClient, err := client.New(cfg.SourceUri, httpClient, ctOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CT client: %v", err)

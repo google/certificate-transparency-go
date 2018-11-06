@@ -106,7 +106,7 @@ func NewTemporalLogClient(cfg configpb.TemporalLogConfig, hc *http.Client) (*Tem
 	}
 	clients := make([]*LogClient, 0, len(cfg.Shard))
 	for i, shard := range cfg.Shard {
-		opts := jsonclient.Options{}
+		opts := jsonclient.Options{UserAgent: "ct-go-multilog/1.0"}
 		opts.PublicKeyDER = shard.GetPublicKeyDer()
 		c, err := New(shard.Uri, hc, opts)
 		if err != nil {
