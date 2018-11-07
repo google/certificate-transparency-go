@@ -48,7 +48,7 @@ func TestNewGoshawkFromFile(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewGoshawkFromFile(ctx, test.filename, nil, scanner.ScannerOptions{})
+			got, err := NewGoshawkFromFile(ctx, test.filename, nil, scanner.FetcherOptions{})
 			if err != nil {
 				if test.wantErr == "" {
 					t.Errorf("NewGoshawkFromFile(%v)=nil,%v; want _,nil", test.filename, err)
