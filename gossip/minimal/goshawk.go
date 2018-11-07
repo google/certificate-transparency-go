@@ -40,9 +40,9 @@ import (
 // the form of synthetic certificates or more directly as signed blobs. Each
 // STH is then checked for consistency against the source log.
 type Goshawk struct {
-	dest     *hubScanner
-	origins  map[string]*originLog // URL => log
-	scanOpts scanner.ScannerOptions
+	dest      *hubScanner
+	origins   map[string]*originLog // URL => log
+	fetchOpts scanner.FetcherOptions
 }
 
 type originLog struct {
@@ -64,7 +64,7 @@ type hubScanner struct {
 // NewGoshawkFromFile creates a Goshawk from the given filename, which should
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
-func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, scanOpts scanner.ScannerOptions) (*Goshawk, error) {
+func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, fetchOpts scanner.FetcherOptions) (*Goshawk, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, s
 	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
 		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
 	}
-	cfg, err := NewGoshawk(ctx, &cfgProto, hc, scanOpts)
+	cfg, err := NewGoshawk(ctx, &cfgProto, hc, fetchOpts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)
 	}
@@ -82,19 +82,15 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, s
 }
 
 // NewGoshawk creates a gossiper from the given configuration protobuf and optional http client.
-func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, scanOpts scanner.ScannerOptions) (*Goshawk, error) {
+func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, fetchOpts scanner.FetcherOptions) (*Goshawk, error) {
 	if cfg.DestHub == nil {
 		return nil, errors.New("no destination hub config found")
 	}
 	if cfg.SourceLog == nil || len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
 	}
-	bufSize := cfg.BufferSize
-	if bufSize <= 0 {
-		// Allow at least one buffered STH in the channel so context cancellation
-		// works (everything shuts down at the same time, so the fetcher might otherwise
-		// block on a channel that no longer has anything reading from it).
-		bufSize = 1
+	if cfg.BufferSize < 0 {
+		return nil, fmt.Errorf("negative STH buffer size (%d) specified", cfg.BufferSize)
 	}
 
 	dest, err := hubScannerFromProto(cfg.DestHub, hc)
@@ -118,30 +114,17 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		}
 		origins[base.URL] = &originLog{
 			logConfig: *base,
-			sths:      make(chan *x509ext.LogSTHInfo, bufSize),
+			sths:      make(chan *x509ext.LogSTHInfo, cfg.BufferSize),
 		}
 	}
 
-	hawk := Goshawk{dest: dest, origins: origins}
-	scanOpts.Matcher = &hawk
-	if scanOpts.Matcher.(scanner.Matcher) == nil {
-		return nil, fmt.Errorf("hawk does not satisfy scanner.Matcher interface")
+	hawk := Goshawk{
+		dest:      dest,
+		origins:   origins,
+		fetchOpts: fetchOpts,
 	}
-	hawk.scanOpts = scanOpts
+	hawk.fetchOpts.Continuous = true
 	return &hawk, nil
-}
-
-// Methods to ensure Goshawk implements the scanner.Matcher interface
-
-// CertificateMatches identifies certificates in the log that have the STH extension.
-func (hawk *Goshawk) CertificateMatches(cert *x509.Certificate) bool {
-	return x509ext.HasSTHInfo(cert)
-}
-
-// PrecertificateMatches identifies those precertificates in the log that are of
-// interest: none.
-func (hawk *Goshawk) PrecertificateMatches(*ct.Precertificate) bool {
-	return false
 }
 
 // Fly starts a collection of goroutines to perform log scanning and STH
@@ -151,19 +134,21 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(1 + len(hawk.origins) + len(hawk.origins))
 
+	// If the Scanner fails, cancel subsequent parts.
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		// TODO: check scanner.Scan respects context cancellation
-		// TODO: make Scan return scanned size and restart
 		defer wg.Done()
 		glog.Infof("starting Scanner(%s)", hawk.dest.Name)
-		hawk.Scanner(ctx)
-		glog.Infof("finished Scanner(%s)", hawk.dest.Name)
+		err := hawk.Scanner(ctx)
+		cancel()
+		glog.Infof("finished Scanner(%s): %v", hawk.dest.Name, err)
 	}()
 	for _, origin := range hawk.origins {
 		go func(origin *originLog) {
 			defer wg.Done()
 			glog.Infof("starting STHRetriever(%s)", origin.Name)
-			origin.STHRetriever(ctx)
+			origin.STHRetriever(cctx)
 			glog.Infof("finished STHRetriever(%s)", origin.Name)
 		}(origin)
 		go func(origin *originLog) {
@@ -173,30 +158,28 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 			glog.Infof("finished Checker(%s)", origin.Name)
 		}(origin)
 	}
+
 	wg.Wait()
 }
 
 // Scanner runs a continuous scan of the destination log.
-func (hawk *Goshawk) Scanner(ctx context.Context) {
-	ticker := time.NewTicker(hawk.dest.MinInterval)
-	for {
-		glog.V(1).Infof("Scanner(%s): run scan from %d to current size", hawk.dest.Name, hawk.scanOpts.StartIndex)
-		s := scanner.NewScanner(hawk.dest.Log, hawk.scanOpts)
-		size, err := s.ScanLog(ctx, hawk.foundCert, foundPrecert)
-		if err != nil {
-			glog.Errorf("Scanner(%s) terminated: %v", hawk.dest.Name, err)
-			return
+func (hawk *Goshawk) Scanner(ctx context.Context) error {
+	fetcher := scanner.NewFetcher(hawk.dest.Log, &hawk.fetchOpts)
+	return fetcher.Run(ctx, func(batch scanner.EntryBatch) {
+		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", hawk.dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
+		for i, entry := range batch.Entries {
+			index := batch.Start + int64(i)
+			rawLogEntry, err := ct.RawLogEntryFromLeaf(index, &entry)
+			if err != nil || rawLogEntry == nil {
+				glog.Errorf("Scanner(%s): failed to build raw log entry %d: %v", hawk.dest.Name, index, err)
+				continue
+			}
+			if rawLogEntry.Leaf.TimestampedEntry.EntryType != ct.X509LogEntryType {
+				continue
+			}
+			hawk.foundCert(rawLogEntry)
 		}
-		hawk.scanOpts.StartIndex = size
-
-		glog.V(2).Infof("Scanner(%s): wait for a %s tick", hawk.dest.Name, hawk.dest.MinInterval)
-		select {
-		case <-ctx.Done():
-			glog.Infof("Scanner(%s): termination requested", hawk.dest.Name)
-			return
-		case <-ticker.C:
-		}
-	}
+	})
 }
 
 func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
@@ -205,7 +188,6 @@ func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
 		glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", hawk.dest.Name, rawEntry.Index, err)
 		return
 	}
-
 	if entry.X509Cert == nil {
 		glog.Errorf("Internal error: no X509Cert entry in %+v", entry)
 		return
@@ -213,7 +195,6 @@ func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
 
 	sthInfo, err := x509ext.LogSTHInfoFromCert(entry.X509Cert)
 	if err != nil {
-		glog.Errorf("Scanner(%s): failed to retrieve STH info from entry at %d: %v", hawk.dest.Name, entry.Index, err)
 		return
 	}
 	url := string(sthInfo.LogURL)
@@ -224,10 +205,6 @@ func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
 		glog.Errorf("Scanner(%s): found STH info for unrecognized log at %q in entry at %d", hawk.dest.Name, url, entry.Index)
 	}
 	origin.sths <- sthInfo
-}
-
-func foundPrecert(entry *ct.RawLogEntry) {
-	glog.Errorf("Internal error: found pre-cert! %+v", entry)
 }
 
 func (o *originLog) Checker(ctx context.Context) {
