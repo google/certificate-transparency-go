@@ -132,7 +132,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 // context.
 func (hawk *Goshawk) Fly(ctx context.Context) {
 	var wg sync.WaitGroup
-	wg.Add(1 + len(hawk.origins) + len(hawk.origins))
+	wg.Add(1 + len(hawk.origins))
 
 	// If the Scanner fails, cancel subsequent parts.
 	cctx, cancel := context.WithCancel(ctx)
@@ -151,8 +151,15 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 			origin.STHRetriever(cctx)
 			glog.Infof("finished STHRetriever(%s)", origin.Name)
 		}(origin)
+	}
+
+	// The Checkers are consumers at the end of a chain of channels and goroutines,
+	// so they need to shut down last to prevent the producers getting blocked.
+	var checkerWG sync.WaitGroup
+	checkerWG.Add(len(hawk.origins))
+	for _, origin := range hawk.origins {
 		go func(origin *originLog) {
-			defer wg.Done()
+			defer checkerWG.Done()
 			glog.Infof("starting Checker(%s)", origin.Name)
 			origin.Checker(ctx)
 			glog.Infof("finished Checker(%s)", origin.Name)
@@ -160,6 +167,12 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 	}
 
 	wg.Wait()
+	glog.Info("Scanner and STHRetrievers finished, now terminate Checkers")
+	for _, origin := range hawk.origins {
+		close(origin.sths)
+	}
+	checkerWG.Wait()
+	glog.Info("Checkers finished")
 }
 
 // Scanner runs a continuous scan of the destination log.
@@ -207,27 +220,20 @@ func (hawk *Goshawk) foundCert(rawEntry *ct.RawLogEntry) {
 	origin.sths <- sthInfo
 }
 
+// Checker processes retrieved STH information, checking against the source log
+// (as long is has been long enough since the last check).
 func (o *originLog) Checker(ctx context.Context) {
-	ticker := time.NewTicker(o.MinInterval)
-	for {
-		select {
-		case sthInfo := <-o.sths:
-			glog.Infof("Checker(%s): check STH size=%d timestamp=%d", o.Name, sthInfo.TreeSize, sthInfo.Timestamp)
-			if err := o.validateSTH(ctx, sthInfo); err != nil {
-				glog.Errorf("Checker(%s): failed to validate STH: %v", o.Name, err)
-			}
-
-		case <-ctx.Done():
-			glog.Infof("Checker(%s): termination requested", o.Name)
-			return
+	var lastCheck time.Time
+	for sthInfo := range o.sths {
+		glog.Infof("Checker(%s): check STH size=%d timestamp=%d", o.Name, sthInfo.TreeSize, sthInfo.Timestamp)
+		interval := time.Since(lastCheck)
+		if interval < o.MinInterval {
+			glog.Infof("Checker(%s): skip validation as too soon (%v) since last check (%v)", o.Name, interval, lastCheck)
+			continue
 		}
-
-		glog.V(2).Infof("Checker(%s): wait for a %s tick", o.Name, o.MinInterval)
-		select {
-		case <-ctx.Done():
-			glog.Infof("Checker(%s): termination requested", o.Name)
-			return
-		case <-ticker.C:
+		lastCheck = time.Now()
+		if err := o.validateSTH(ctx, sthInfo); err != nil {
+			glog.Errorf("Checker(%s): failed to validate STH: %v", o.Name, err)
 		}
 	}
 }
