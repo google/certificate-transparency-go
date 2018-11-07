@@ -39,7 +39,7 @@ type PEMCertPool struct {
 	certPool             *x509.CertPool
 }
 
-// NewPEMCertPool creates a new, empty,  instance of PEMCertPool.
+// NewPEMCertPool creates a new, empty, instance of PEMCertPool.
 func NewPEMCertPool() *PEMCertPool {
 	return &PEMCertPool{fingerprintToCertMap: make(map[[sha256.Size]byte]x509.Certificate), certPool: x509.NewCertPool()}
 }
@@ -55,6 +55,13 @@ func (p *PEMCertPool) AddCert(cert *x509.Certificate) {
 		p.certPool.AddCert(cert)
 		p.rawCerts = append(p.rawCerts, cert)
 	}
+}
+
+// Included indicates whether the given cert is included in the pool.
+func (p *PEMCertPool) Included(cert *x509.Certificate) bool {
+	fingerprint := sha256.Sum256(cert.Raw)
+	_, ok := p.fingerprintToCertMap[fingerprint]
+	return ok
 }
 
 // AppendCertsFromPEM adds certs to the pool from a byte slice assumed to contain PEM encoded data.
