@@ -140,7 +140,7 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			glog.V(1).Infof("Starting up Fetcher worker %d...", idx)
+			glog.V(1).Infof("Fetcher worker %d starting...", idx)
 			f.runWorker(ctx, ranges, fn)
 			glog.V(1).Infof("Fetcher worker %d finished", idx)
 		}(w)
@@ -168,6 +168,8 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 	ranges := make(chan fetchRange)
 
 	go func() {
+		glog.V(1).Info("Range generator starting")
+		defer glog.V(1).Info("Range generator finished")
 		defer close(ranges)
 		start, end := f.opts.StartIndex, f.opts.EndIndex
 

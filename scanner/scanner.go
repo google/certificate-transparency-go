@@ -283,6 +283,7 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), 
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
+			glog.V(1).Infof("Matcher %d starting", idx)
 			s.matcherJob(entries, foundCert, foundPrecert)
 			glog.V(1).Infof("Matcher %d finished", idx)
 		}(w)
