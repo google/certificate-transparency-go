@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
@@ -33,13 +34,13 @@ func wipeExtensions(cert *x509.Certificate) *x509.Certificate {
 
 func makePoisonNonCritical(cert *x509.Certificate) *x509.Certificate {
 	// Invalid as a pre-cert because poison extension needs to be marked as critical.
-	cert.Extensions = []pkix.Extension{{Id: ctPoisonExtensionOID, Critical: false, Value: asn1NullBytes}}
+	cert.Extensions = []pkix.Extension{{Id: x509.OIDExtensionCTPoison, Critical: false, Value: asn1.NullBytes}}
 	return cert
 }
 
 func makePoisonNonNull(cert *x509.Certificate) *x509.Certificate {
 	// Invalid as a pre-cert because poison extension is not ASN.1 NULL value.
-	cert.Extensions = []pkix.Extension{{Id: ctPoisonExtensionOID, Critical: false, Value: []byte{0x42, 0x42, 0x42}}}
+	cert.Extensions = []pkix.Extension{{Id: x509.OIDExtensionCTPoison, Critical: false, Value: []byte{0x42, 0x42, 0x42}}}
 	return cert
 }
 

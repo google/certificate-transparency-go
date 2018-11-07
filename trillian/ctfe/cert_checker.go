@@ -23,19 +23,13 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// OID of the non-critical extension used to mark pre-certificates, defined in RFC 6962
-var ctPoisonExtensionOID = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 4, 3}
-
-// Byte representation of ASN.1 NULL.
-var asn1NullBytes = []byte{0x05, 0x00}
-
 // IsPrecertificate tests if a certificate is a pre-certificate as defined in CT.
 // An error is returned if the CT extension is present but is not ASN.1 NULL as defined
 // by the spec.
 func IsPrecertificate(cert *x509.Certificate) (bool, error) {
 	for _, ext := range cert.Extensions {
-		if ctPoisonExtensionOID.Equal(ext.Id) {
-			if !ext.Critical || !bytes.Equal(asn1NullBytes, ext.Value) {
+		if x509.OIDExtensionCTPoison.Equal(ext.Id) {
+			if !ext.Critical || !bytes.Equal(asn1.NullBytes, ext.Value) {
 				return false, fmt.Errorf("CT poison ext is not critical or invalid: %v", ext)
 			}
 
