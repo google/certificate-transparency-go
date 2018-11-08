@@ -18,7 +18,6 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"crypto"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -38,8 +37,6 @@ import (
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	ct "github.com/google/certificate-transparency-go"
 )
 
 var (
@@ -95,29 +92,43 @@ func main() {
 		glog.Exitf("Failed to read log config: %v", err)
 	}
 
-	var leafChain []ct.ASN1Cert
-	var signer crypto.Signer
+	var generatorFactory func(c *configpb.LogConfig) (integration.ChainGenerator, error) // Almost Java-esque...
 	if *testDir != "" {
 		// Retrieve the test data.
-		leafChain, err = integration.GetChain(*testDir, "leaf01.chain")
+		leafChain, err := integration.GetChain(*testDir, "leaf01.chain")
 		if err != nil {
 			glog.Exitf("failed to load certificate: %v", err)
 		}
-		signer, err = integration.MakeSigner(*testDir)
+		signer, err := integration.MakeSigner(*testDir)
 		if err != nil {
 			glog.Exitf("failed to retrieve signer for re-signing: %v", err)
 		}
-	} else {
+		var notAfterOverride time.Time
+		if *leafNotAfter != "" {
+			notAfterOverride, err = time.Parse(time.RFC3339, *leafNotAfter)
+			if err != nil {
+				glog.Exitf("Failed to parse leaf notAfter: %v", err)
+			}
+		}
+		// Build a synthetic generator for each target log.
+		generatorFactory = func(c *configpb.LogConfig) (integration.ChainGenerator, error) {
+			notAfter := notAfterOverride
+			if notAfter.IsZero() {
+				notAfter, err = notAfterForLog(c)
+				if err != nil {
+					return nil, fmt.Errorf("failed to determine notAfter for %s: %v", c.Prefix, err)
+				}
+			}
+			return integration.NewSyntheticChainGenerator(leafChain, signer, notAfter)
+		}
+	}
+
+	if generatorFactory == nil {
 		glog.Warningf("Warning: add-[pre-]chain operations disabled as no cert generation method available")
 		*addChainBias = 0
 		*addPreChainBias = 0
-	}
-
-	var notAfterOverride time.Time
-	if *leafNotAfter != "" {
-		notAfterOverride, err = time.Parse(time.RFC3339, *leafNotAfter)
-		if err != nil {
-			glog.Exitf("Failed to parse leaf notAfter: %v", err)
+		generatorFactory = func(c *configpb.LogConfig) (integration.ChainGenerator, error) {
+			return nil, nil
 		}
 	}
 
@@ -193,14 +204,7 @@ func main() {
 			mmd = time.Second * time.Duration(emd)
 		}
 
-		notAfter := notAfterOverride
-		if notAfter.IsZero() {
-			notAfter, err = notAfterForLog(c)
-			if err != nil {
-				glog.Exitf("Failed to determine notAfter for %s: %v", c.Prefix, err)
-			}
-		}
-		generator, err := integration.NewSyntheticChainGenerator(leafChain, signer, notAfter)
+		generator, err := generatorFactory(c)
 		if err != nil {
 			glog.Exitf("Failed to build chain generator: %v", err)
 		}
