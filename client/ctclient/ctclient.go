@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -196,27 +197,69 @@ func getEntries(ctx context.Context, logClient *client.LogClient) {
 			fmt.Printf("Index=%d Failed to unmarshal leaf entry: %v", index, err)
 			continue
 		}
+		showRawLogEntry(rle)
+	}
+}
 
-		ts := rle.Leaf.TimestampedEntry
-		when := ct.TimestampToTime(ts.Timestamp)
-		fmt.Printf("Index=%d Timestamp=%d (%v) ", rle.Index, ts.Timestamp, when)
+func showRawLogEntry(rle *ct.RawLogEntry) {
+	ts := rle.Leaf.TimestampedEntry
+	when := ct.TimestampToTime(ts.Timestamp)
+	fmt.Printf("Index=%d Timestamp=%d (%v) ", rle.Index, ts.Timestamp, when)
 
-		switch ts.EntryType {
-		case ct.X509LogEntryType:
-			fmt.Printf("X.509 certificate:\n")
-			showRawCert(*ts.X509Entry)
-		case ct.PrecertLogEntryType:
-			fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
-			showRawCert(rle.Cert) // As-submitted: with signature and poison.
-		default:
-			fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
-		}
-		if *chainOut {
-			for _, c := range rle.Chain {
-				showRawCert(c)
-			}
+	switch ts.EntryType {
+	case ct.X509LogEntryType:
+		fmt.Printf("X.509 certificate:\n")
+		showRawCert(*ts.X509Entry)
+	case ct.PrecertLogEntryType:
+		fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
+		showRawCert(rle.Cert) // As-submitted: with signature and poison.
+	default:
+		fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
+	}
+	if *chainOut {
+		for _, c := range rle.Chain {
+			showRawCert(c)
 		}
 	}
+}
+
+func findTimestamp(ctx context.Context, logClient *client.LogClient) {
+	if *timestamp == 0 {
+		glog.Exit("No -timestamp option supplied")
+	}
+	target := *timestamp
+	sth, err := logClient.GetSTH(ctx)
+	if err != nil {
+		exitWithDetails(err)
+	}
+	getEntry := func(idx int64) *ct.RawLogEntry {
+		entries, err := logClient.GetRawEntries(ctx, idx, idx)
+		if err != nil {
+			exitWithDetails(err)
+		}
+		if l := len(entries.Entries); l != 1 {
+			glog.Exitf("Unexpected number (%d) of entries received requesting index %d", l, idx)
+		}
+		logEntry, err := ct.RawLogEntryFromLeaf(idx, &entries.Entries[0])
+		if err != nil {
+			glog.Exitf("Failed to parse leaf %d: %v", idx, err)
+		}
+		return logEntry
+	}
+	// Performing a binary search assumes that the timestamps are
+	// monotonically increasing.
+	idx := sort.Search(int(sth.TreeSize), func(idx int) bool {
+		glog.V(1).Infof("check timestamp at index %d", idx)
+		entry := getEntry(int64(idx))
+		return (entry.Leaf.TimestampedEntry.Timestamp >= uint64(target))
+	})
+	when := ct.TimestampToTime(uint64(target))
+	if idx >= int(sth.TreeSize) {
+		fmt.Printf("No entry with timestamp>=%d (%v) found up to tree size %d\n", target, when, sth.TreeSize)
+		return
+	}
+	fmt.Printf("First entry with timestamp>=%d (%v) found at index %d\n", target, when, idx)
+	showRawLogEntry(getEntry(int64(idx)))
 }
 
 func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
@@ -378,7 +421,8 @@ func dieWithUsage(msg string) {
 		"   getroots      show accepted roots\n"+
 		"   getentries    get log entries (needs -first and -last)\n"+
 		"   inclusion     get inclusion proof (needs -leaf_hash and optionally -size)\n"+
-		"   consistency   get consistency proof (needs -size and -prev_size, optionally -tree_hash and -prev_hash)\n")
+		"   consistency   get consistency proof (needs -size and -prev_size, optionally -tree_hash and -prev_hash)\n"+
+		"   bisect        find log entry by timestamp (needs -timestamp)\n")
 	os.Exit(1)
 }
 
@@ -488,6 +532,11 @@ func main() {
 		getInclusionProof(ctx, checkClient)
 	case "consistency":
 		getConsistencyProof(ctx, checkClient)
+	case "bisect":
+		if logClient == nil {
+			glog.Exit("Cannot bisect over DNS")
+		}
+		findTimestamp(ctx, logClient)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
 	}
