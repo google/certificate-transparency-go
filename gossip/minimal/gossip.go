@@ -24,6 +24,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -274,6 +275,18 @@ type sthInfo struct {
 // Retriever periodically retrieves an STH from the source log, and if a new STH is
 // available, writes it to the given channel.
 func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthInfo) {
+	// Wait for a random interval so all Retrievers aren't in sync.
+	jitterWait := time.Duration(rand.Int63n(int64(src.MinInterval)))
+	glog.V(1).Infof("Retriever(%s): wait for %v before starting...", src.Name, jitterWait)
+	waitChan := time.After(jitterWait)
+	select {
+	case <-ctx.Done():
+		glog.Infof("Retriever(%s): termination requested", src.Name)
+		return
+	case <-waitChan:
+		glog.V(1).Infof("Retriever(%s): wait for %v before starting...done", src.Name, jitterWait)
+	}
+
 	ticker := time.NewTicker(src.MinInterval)
 	for {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
