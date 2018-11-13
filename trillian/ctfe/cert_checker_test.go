@@ -17,6 +17,7 @@ package ctfe
 import (
 	"encoding/base64"
 	"encoding/pem"
+	"strings"
 	"testing"
 	"time"
 
@@ -315,6 +316,77 @@ func TestNotAfterRange(t *testing.T) {
 			}
 			if test.wantErr {
 				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+			}
+		})
+	}
+}
+
+func TestRejectExpiredNonExpired(t *testing.T) {
+	fakeCARoots := NewPEMCertPool()
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
+		t.Fatal("failed to load fake root")
+	}
+	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
+	validateOpts := CertValidationOpts{
+		trustedRoots: fakeCARoots,
+		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	for _, tc := range []struct {
+		desc             string
+		rejectExpired    bool
+		rejectNonExpired bool
+		now              time.Time
+		wantErr          string
+	}{
+		{desc: "no-reject"},
+		{
+			desc:          "reject-expired-pass",
+			rejectExpired: true,
+			now:           time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:          "reject-expired-after",
+			rejectExpired: true,
+			now:           time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       "expired or is not yet valid",
+		},
+		{
+			desc:          "reject-expired-before",
+			rejectExpired: true,
+			now:           time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       "expired or is not yet valid",
+		},
+		{
+			desc:             "reject-non-expired-pass-after",
+			rejectNonExpired: true,
+			now:              time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:             "reject-non-expired-pass-before",
+			rejectNonExpired: true,
+			now:              time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:             "reject-non-expired",
+			rejectNonExpired: true,
+			now:              time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:          "only expired certificates",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			validateOpts.currentTime = tc.now
+			validateOpts.rejectExpired = tc.rejectExpired
+			validateOpts.rejectNonExpired = tc.rejectNonExpired
+			chainX509, err := ValidateChain(chain, validateOpts)
+			if err != nil {
+				if len(tc.wantErr) == 0 {
+					t.Errorf("ValidateChain()=_,%v; want _,nil", err)
+				} else if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("ValidateChain()=_,%v; want err containing %q", err, tc.wantErr)
+				}
+			} else if len(tc.wantErr) != 0 {
+				t.Errorf("ValidateChain()=%v,nil; want err containing %q", chainX509, tc.wantErr)
 			}
 		})
 	}
