@@ -321,11 +321,13 @@ func TestNotAfterRange(t *testing.T) {
 	}
 }
 
-func TestRejectExpiredNonExpired(t *testing.T) {
+func TestRejectExpiredUnexpired(t *testing.T) {
 	fakeCARoots := NewPEMCertPool()
+	// Validity period: Jul 11, 2016 - Jul 11, 2017.
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
+	// Validity period: May 13, 2016 - Jul 12, 2019.
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
@@ -333,11 +335,11 @@ func TestRejectExpiredNonExpired(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc             string
-		rejectExpired    bool
-		rejectNonExpired bool
-		now              time.Time
-		wantErr          string
+		desc            string
+		rejectExpired   bool
+		rejectUnexpired bool
+		now             time.Time
+		wantErr         string
 	}{
 		{desc: "no-reject"},
 		{
@@ -358,27 +360,27 @@ func TestRejectExpiredNonExpired(t *testing.T) {
 			wantErr:       "expired or is not yet valid",
 		},
 		{
-			desc:             "reject-non-expired-pass-after",
-			rejectNonExpired: true,
-			now:              time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			desc:            "reject-non-expired-pass-after",
+			rejectUnexpired: true,
+			now:             time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			desc:             "reject-non-expired-pass-before",
-			rejectNonExpired: true,
-			now:              time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			desc:            "reject-non-expired-pass-before",
+			rejectUnexpired: true,
+			now:             time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			desc:             "reject-non-expired",
-			rejectNonExpired: true,
-			now:              time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
-			wantErr:          "only expired certificates",
+			desc:            "reject-non-expired",
+			rejectUnexpired: true,
+			now:             time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:         "only expired certificates",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			validateOpts.currentTime = tc.now
 			validateOpts.rejectExpired = tc.rejectExpired
-			validateOpts.rejectNonExpired = tc.rejectNonExpired
-			chainX509, err := ValidateChain(chain, validateOpts)
+			validateOpts.rejectUnexpired = tc.rejectUnexpired
+			_, err := ValidateChain(chain, validateOpts)
 			if err != nil {
 				if len(tc.wantErr) == 0 {
 					t.Errorf("ValidateChain()=_,%v; want _,nil", err)
@@ -386,7 +388,7 @@ func TestRejectExpiredNonExpired(t *testing.T) {
 					t.Errorf("ValidateChain()=_,%v; want err containing %q", err, tc.wantErr)
 				}
 			} else if len(tc.wantErr) != 0 {
-				t.Errorf("ValidateChain()=%v,nil; want err containing %q", chainX509, tc.wantErr)
+				t.Errorf("ValidateChain()=_,nil; want err containing %q", tc.wantErr)
 			}
 		})
 	}

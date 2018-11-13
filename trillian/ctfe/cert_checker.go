@@ -88,7 +88,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 	}
 
 	now := validationOpts.currentTime
-	if validationOpts.rejectNonExpired {
+	if validationOpts.rejectUnexpired {
 		if now.IsZero() {
 			now = time.Now()
 		}

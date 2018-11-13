@@ -140,6 +140,16 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "rejecting-all",
+			wantErr: "rejecting all certificates",
+			cfg: configpb.LogConfig{
+				LogId:           123,
+				RejectExpired:   true,
+				RejectUnexpired: true,
+				PrivateKey:      privKey,
+			},
+		},
+		{
 			desc:    "unknown-ext-key-usage-1",
 			wantErr: "unknown extended key usage",
 			cfg: configpb.LogConfig{
