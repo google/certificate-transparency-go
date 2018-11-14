@@ -99,12 +99,13 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	}
 
 	validationOpts := CertValidationOpts{
-		trustedRoots:  roots,
-		rejectExpired: cfg.RejectExpired,
-		notAfterStart: vCfg.NotAfterStart,
-		notAfterLimit: vCfg.NotAfterLimit,
-		acceptOnlyCA:  cfg.AcceptOnlyCa,
-		extKeyUsages:  vCfg.KeyUsages,
+		trustedRoots:    roots,
+		rejectExpired:   cfg.RejectExpired,
+		rejectUnexpired: cfg.RejectUnexpired,
+		notAfterStart:   vCfg.NotAfterStart,
+		notAfterLimit:   vCfg.NotAfterLimit,
+		acceptOnlyCA:    cfg.AcceptOnlyCa,
+		extKeyUsages:    vCfg.KeyUsages,
 	}
 
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))

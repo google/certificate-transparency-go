@@ -133,6 +133,10 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		return nil, errors.New("unnecessary private key for mirror")
 	}
 
+	if cfg.RejectExpired && cfg.RejectUnexpired {
+		return nil, errors.New("rejecting all certificates")
+	}
+
 	// Validate the extended key usages list.
 	if len(cfg.ExtKeyUsages) > 0 {
 		for _, kuStr := range cfg.ExtKeyUsages {

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
@@ -72,24 +73,35 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 
 	naStart := validationOpts.notAfterStart
 	naLimit := validationOpts.notAfterLimit
+	cert := chain[0]
 
-	// Check whether the expiry date of this certificate is within the acceptable
-	// range.
-	if naStart != nil && chain[0].NotAfter.Before(*naStart) {
-		return nil, fmt.Errorf("certificate NotAfter (%v) < %v", chain[0].NotAfter, *naStart)
+	// Check whether the expiry date of the cert is within the acceptable range.
+	if naStart != nil && cert.NotAfter.Before(*naStart) {
+		return nil, fmt.Errorf("certificate NotAfter (%v) < %v", cert.NotAfter, *naStart)
 	}
-	if naLimit != nil && !chain[0].NotAfter.Before(*naLimit) {
-		return nil, fmt.Errorf("certificate NotAfter (%v) >= %v", chain[0].NotAfter, *naLimit)
+	if naLimit != nil && !cert.NotAfter.Before(*naLimit) {
+		return nil, fmt.Errorf("certificate NotAfter (%v) >= %v", cert.NotAfter, *naLimit)
 	}
 
-	if validationOpts.acceptOnlyCA && !chain[0].IsCA {
+	if validationOpts.acceptOnlyCA && !cert.IsCA {
 		return nil, errors.New("only certificates with CA bit set are accepted")
+	}
+
+	now := validationOpts.currentTime
+	if validationOpts.rejectUnexpired {
+		if now.IsZero() {
+			now = time.Now()
+		}
+		if !now.Before(cert.NotBefore) && !now.After(cert.NotAfter) {
+			return nil, errors.New("only expired certificates are accepted")
+		}
 	}
 
 	// We can now do the verification.  Use fairly lax options for verification, as
 	// CT is intended to observe certificates rather than police them.
 	verifyOpts := x509.VerifyOptions{
 		Roots:             validationOpts.trustedRoots.CertPool(),
+		CurrentTime:       now,
 		Intermediates:     intermediatePool.CertPool(),
 		DisableTimeChecks: !validationOpts.rejectExpired,
 		// Precertificates have the poison extension; also the Go library code does not
@@ -109,7 +121,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		KeyUsages:                   validationOpts.extKeyUsages,
 	}
 
-	verifiedChains, err := chain[0].Verify(verifyOpts)
+	verifiedChains, err := cert.Verify(verifyOpts)
 	if err != nil {
 		return nil, err
 	}

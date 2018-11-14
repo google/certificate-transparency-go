@@ -199,8 +199,13 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type CertValidationOpts struct {
 	// trustedRoots is a pool of certificates that defines the roots the CT log will accept
 	trustedRoots *PEMCertPool
+	// currentTime is the time used for checking a certificate's validity period
+	// against. If it's zero then time.Now() is used. Only for testing.
+	currentTime time.Time
 	// rejectExpired indicates whether certificate validity period should be used during chain verification
 	rejectExpired bool
+	// rejectUnexpired instructs to reject certificates that are still valid.
+	rejectUnexpired bool
 	// notAfterStart is the earliest notAfter date which will be accepted.
 	// nil means no lower bound on the accepted range.
 	notAfterStart *time.Time
