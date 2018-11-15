@@ -202,8 +202,7 @@ func (ll *LogList) FindLogByURL(url string) *Log {
 func (ll *LogList) FindLogByKeyHash(keyhash [sha256.Size]byte) *Log {
 	for _, op := range ll.Operators {
 		for _, log := range op.Logs {
-			h := sha256.Sum256(log.Key)
-			if bytes.Equal(h[:], keyhash[:]) {
+			if bytes.Equal(log.LogID, keyhash[:]) {
 				return log
 			}
 		}
@@ -216,8 +215,7 @@ func (ll *LogList) FindLogByKeyHashPrefix(prefix string) []*Log {
 	var results []*Log
 	for _, op := range ll.Operators {
 		for _, log := range op.Logs {
-			h := sha256.Sum256(log.Key)
-			hh := hex.EncodeToString(h[:])
+			hh := hex.EncodeToString(log.LogID[:])
 			if strings.HasPrefix(hh, prefix) {
 				results = append(results, log)
 			}
