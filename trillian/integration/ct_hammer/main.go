@@ -61,7 +61,7 @@ var (
 	logList         = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
 	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection to source log")
 	chainBufSize    = flag.Int("buffered_chains", 100, "Number of buffered certificate chains to hold")
-	startIndex      = flag.Int("start_index", 0, "Index of start point in source log to scan from")
+	startIndex      = flag.Int64("start_index", 0, "Index of start point in source log to scan from (-1 for random start index)")
 
 	metricsEndpoint     = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
 	seed                = flag.Int64("seed", -1, "Seed for random number generation")

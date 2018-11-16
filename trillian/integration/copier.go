@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/golang/glog"
@@ -41,10 +42,12 @@ type CopyChainGenerator struct {
 }
 
 // NewCopyChainGenerator builds a certificate chain generator that sources
-// chains from another source log.  This starts background goroutines that scan
-// the log; cancelling the context will terminate these goroutines (after that
-// the [Pre]CertChain() entrypoints will permanently fail).
-func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *configpb.LogConfig, startIndex, bufSize int) (ChainGenerator, error) {
+// chains from another source log, starting at startIndex (or a random index in
+// the current tree size if startIndex is negative).  This function starts
+// background goroutines that scan the log; cancelling the context will
+// terminate these goroutines (after that the [Pre]CertChain() entrypoints will
+// permanently fail).
+func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *configpb.LogConfig, startIndex int64, bufSize int) (ChainGenerator, error) {
 	var start, limit time.Time
 	var err error
 	if cfg.NotAfterStart != nil {
@@ -95,6 +98,16 @@ func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *c
 		return nil, fmt.Errorf("failed to find any overlap in accepted roots for target %s", cfg.Prefix)
 	}
 
+	if startIndex < 0 {
+		// Pick a random start point in the source log's tree.
+		sth, err := client.GetSTH(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get STH for source log: %v", err)
+		}
+		startIndex = rand.Int63n(int64(sth.TreeSize))
+		glog.Infof("starting CopyChainGenerator from index %d (of %d) in source log", startIndex, sth.TreeSize)
+	}
+
 	generator := &CopyChainGenerator{
 		start:       start,
 		limit:       limit,
@@ -109,7 +122,7 @@ func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *c
 		BatchSize:     bufSize,
 		ParallelFetch: 1,
 		Continuous:    true,
-		StartIndex:    int64(startIndex),
+		StartIndex:    startIndex,
 	}
 	certFetcher := scanner.NewFetcher(client, &fetchOpts)
 	go certFetcher.Run(ctx, func(batch scanner.EntryBatch) {
