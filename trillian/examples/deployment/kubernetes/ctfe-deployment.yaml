@@ -22,7 +22,7 @@ spec:
           "--log_config=/ctfe-config/ct_server.cfg",
           "--alsologtostderr"
           ]
-          image: gcr.io/${PROJECT_NAME}/ctfe:latest
+          image: gcr.io/${PROJECT_ID}/ctfe:latest
           imagePullPolicy: Always
           resources:
             limits:

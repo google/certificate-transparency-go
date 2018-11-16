@@ -6,7 +6,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export PROJECT_NAME=trillian-opensource-ci
+export PROJECT_ID=trillian-opensource-ci
 export CLUSTER_NAME=trillian-opensource-ci
 export MASTER_ZONE=us-central1-a
 
