@@ -60,7 +60,6 @@ echo "Updating jobs..."
 envsubst < trillian/examples/deployment/kubernetes/ctfe-deployment.yaml | kubectl apply -f -
 envsubst < trillian/examples/deployment/kubernetes/ctfe-service.yaml | kubectl apply -f -
 envsubst < trillian/examples/deployment/kubernetes/ctfe-ingress.yaml | kubectl apply -f -
-kubectl set image deployment/trillian-ctfe-deployment trillian-ctfe=gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG}
 
 echo "CTFE is available at:"
 kubectl get ingress
