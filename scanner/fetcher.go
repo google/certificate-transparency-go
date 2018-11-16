@@ -16,6 +16,7 @@ package scanner
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -23,8 +24,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/trillian/client/backoff"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // FetcherOptions holds configuration options for the Fetcher.
@@ -232,8 +231,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 		quick := time.Now().Before(quickDeadline)
 		if sth.TreeSize <= lastSize || quick && sth.TreeSize < targetSize {
 			// Use an explicitly retriable error code.
-			// TODO(daviddrysdale): shift to backoff.RetriableError(fmt.Errorf(...)) when available.
-			return status.Errorf(codes.Unavailable, "wait for bigger STH than %d (last=%d, target=%d)", sth.TreeSize, lastSize, targetSize)
+			return backoff.Retry(fmt.Errorf("wait for bigger STH than %d (last=%d, target=%d)", sth.TreeSize, lastSize, targetSize))
 		}
 
 		if quick {
