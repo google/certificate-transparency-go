@@ -230,8 +230,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 
 		quick := time.Now().Before(quickDeadline)
 		if sth.TreeSize <= lastSize || quick && sth.TreeSize < targetSize {
-			// Use an explicitly retriable error code.
-			return backoff.Retry(fmt.Errorf("wait for bigger STH than %d (last=%d, target=%d)", sth.TreeSize, lastSize, targetSize))
+			return backoff.RetriableErrorf("wait for bigger STH than %d (last=%d, target=%d)", sth.TreeSize, lastSize, targetSize)
 		}
 
 		if quick {
