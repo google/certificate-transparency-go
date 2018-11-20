@@ -16,7 +16,6 @@ package scanner
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
