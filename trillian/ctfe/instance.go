@@ -66,17 +66,17 @@ type InstanceOptions struct {
 // configuration, and returns a set of handlers for this log. This is the
 // standard way of setting up a log instance.
 func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, error) {
-	handlers, _, err := SetUpInstance2(ctx, opts)
+	handlers, _, err := SetUpInstanceAndGetter(ctx, opts)
 	return handlers, err
 }
 
-// SetUpInstance2 sets up a log (or log mirror) instance using the provided
-// configuration, and returns a set of handlers for this log and the
+// SetUpInstanceAndGetter sets up a log (or log mirror) instance using the
+// provided configuration, and returns a set of handlers for this log and the
 // STHGetter being used for it.
 //
 // Note: This is for experiments with DNS serving and is not currently used
 // by CTFE. This may either go away or become an official thing in future.
-func SetUpInstance2(ctx context.Context, opts InstanceOptions) (*PathHandlers, STHGetter, error) {
+func SetUpInstanceAndGetter(ctx context.Context, opts InstanceOptions) (*PathHandlers, STHGetter, error) {
 	logInfo, err := setUpLogInfo(ctx, opts)
 	if err != nil {
 		return nil, nil, err
