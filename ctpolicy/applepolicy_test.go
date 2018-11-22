@@ -23,7 +23,7 @@ import (
 func wantedAppleGroups(count int) map[string]*LogGroupInfo {
 	gi := map[string]*LogGroupInfo{
 		BaseName: {
-			name: BaseName,
+			Name: BaseName,
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,
@@ -31,8 +31,8 @@ func wantedAppleGroups(count int) map[string]*LogGroupInfo {
 				"ct.googleapis.com/racketeer/": true,
 				"log.bob.io":                   true,
 			},
-			minInclusions: count,
-			isBase:        true,
+			MinInclusions: count,
+			IsBase:        true,
 		},
 	}
 	return gi

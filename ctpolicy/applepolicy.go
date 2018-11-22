@@ -36,6 +36,6 @@ func (appleP *AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logli
 		incCount = 5
 	}
 	baseGroup, err := baseGroupFor(approved, incCount)
-	groups := map[string]*LogGroupInfo{baseGroup.name: &baseGroup}
+	groups := map[string]*LogGroupInfo{baseGroup.Name: &baseGroup}
 	return groups, err
 }

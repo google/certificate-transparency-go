@@ -23,26 +23,26 @@ import (
 func wantedGroups(goog int, nonGoog int, base int, minusBob bool) map[string]*LogGroupInfo {
 	gi := map[string]*LogGroupInfo{
 		"Google-operated": {
-			name: "Google-operated",
+			Name: "Google-operated",
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,
 				"ct.googleapis.com/rocketeer/": true,
 				"ct.googleapis.com/racketeer/": true,
 			},
-			minInclusions: goog,
-			isBase:        false,
+			MinInclusions: goog,
+			IsBase:        false,
 		},
 		"Non-Google-operated": {
-			name: "Non-Google-operated",
+			Name: "Non-Google-operated",
 			LogURLs: map[string]bool{
 				"log.bob.io": true,
 			},
-			minInclusions: nonGoog,
-			isBase:        false,
+			MinInclusions: nonGoog,
+			IsBase:        false,
 		},
 		BaseName: {
-			name: BaseName,
+			Name: BaseName,
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,
@@ -50,8 +50,8 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) map[string]*Lo
 				"ct.googleapis.com/racketeer/": true,
 				"log.bob.io":                   true,
 			},
-			minInclusions: base,
-			isBase:        true,
+			MinInclusions: base,
+			IsBase:        true,
 		},
 	}
 	if minusBob {

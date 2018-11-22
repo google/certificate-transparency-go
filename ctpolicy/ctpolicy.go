@@ -29,10 +29,10 @@ const (
 
 // LogGroupInfo holds information on a single group of logs specified by Policy.
 type LogGroupInfo struct {
-	name          string
+	Name          string
 	LogURLs       map[string]bool // set of members
-	minInclusions int             // Required number of submissions.
-	isBase        bool            // True only for Log-group covering all logs.
+	MinInclusions int             // Required number of submissions.
+	IsBase        bool            // True only for Log-group covering all logs.
 }
 
 func (group *LogGroupInfo) setMinInclusions(i int) error {
@@ -40,9 +40,9 @@ func (group *LogGroupInfo) setMinInclusions(i int) error {
 		return fmt.Errorf("cannot assign negative minimal inclusions number")
 	}
 	// Assign given number even if it's bigger than group size.
-	group.minInclusions = i
+	group.MinInclusions = i
 	if i > len(group.LogURLs) {
-		return fmt.Errorf("trying to assign %d minimal inclusion number while only %d logs are part of group %q", i, len(group.LogURLs), group.name)
+		return fmt.Errorf("trying to assign %d minimal inclusion number while only %d logs are part of group %q", i, len(group.LogURLs), group.Name)
 	}
 	return nil
 }
@@ -64,7 +64,7 @@ type CTPolicy interface {
 
 // baseGroupFor creates and propagates all-log group.
 func baseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
-	baseGroup := LogGroupInfo{name: BaseName, isBase: true}
+	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
 	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return baseGroup, err
