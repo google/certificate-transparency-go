@@ -59,6 +59,20 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 // LogPolicyData contains info on log-partition and submission requirements for a single cert. Key always matches value Name field.
 type LogPolicyData map[string]*LogGroupInfo
 
+// TotalLogs returns number of logs within set of Log-groups. Taking possible intersection into account.
+func (groups LogPolicyData) TotalLogs() int {
+	unifiedLogs := make(map[string]bool)
+	for _, g := range groups {
+		if g.IsBase {
+			return len(g.LogURLs)
+		}
+		for l := range g.LogURLs {
+			unifiedLogs[l] = true
+		}
+	}
+	return len(unifiedLogs)
+}
+
 // CTPolicy interface describes requirements determined for logs in terms of per-group-submit.
 type CTPolicy interface {
 	// Provides info on Log-grouping. Returns an error if loglist provided is not sufficient to satisfy policy. The data output is formed even when error returned.
