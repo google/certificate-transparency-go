@@ -1,0 +1,27 @@
+version: '3.1'
+services:
+  ctfe:
+    build:
+      context: ../../..
+      dockerfile: trillian/examples/deployment/docker/ctfe/Dockerfile
+      args:
+      - GOFLAGS
+    command: [
+      "--http_endpoint=0.0.0.0:6962",
+      "--metrics_endpoint=0.0.0.0:6963",
+      "--log_rpc_server=trillian-log-server:8090",
+      "--log_config=/run/secrets/ctfe_config",
+      "--alsologtostderr",
+    ]
+    secrets:
+    - ctfe_config
+    - ctfe_roots
+    restart: always # retry while trillian-log-server is starting up
+    ports:
+    - "6962:6962"
+    - "6963:6963"
+secrets:
+  ctfe_config:
+    file: ct_server.cfg
+  ctfe_roots:
+    file: roots.pem
