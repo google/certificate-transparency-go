@@ -33,8 +33,8 @@ func testdataSCT() *ct.SignedCertificateTimestamp {
 	return &sct
 }
 
+// mockSubmitter keeps track of number of requests per log-group. Logs split into groups based on logURL first letter.
 type mockSubmitter struct {
-	// keeps track of number of requests per log-group. Logs splitted into groups based on logURL first letter.
 	firstLetterURLReqNumber map[byte]int
 	mu                      sync.Mutex
 }
@@ -55,11 +55,11 @@ func evaluateSCTs(t *testing.T, got []*AssignedSCT, trail map[string]int) {
 	for _, sct := range got {
 		if _, ok := trail[ctpolicy.BaseName]; ok {
 			trail[ctpolicy.BaseName]--
-			if trail[sct.logURL[0:1]] > 0 {
-				trail[sct.logURL[0:1]]--
+			if trail[sct.LogURL[0:1]] > 0 {
+				trail[sct.LogURL[0:1]]--
 			}
 		} else {
-			trail[sct.logURL[0:1]]--
+			trail[sct.LogURL[0:1]]--
 		}
 	}
 	for groupName, count := range trail {

@@ -64,7 +64,8 @@ func (gList *safeStringSet) sumFor(URLs map[string]bool) int {
 	return matches
 }
 
-type result struct {
+// submissionResult holds outcome from a single-log submission.
+type submissionResult struct {
 	logURL string
 	sct    *ct.SignedCertificateTimestamp
 	err    error
@@ -84,7 +85,7 @@ type Submitter interface {
 }
 
 func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGroupInfo, parallelStart int,
-	results chan result, requested *safeStringSet, receivedSCTFrom *safeStringSet, submitter Submitter) {
+	results chan<- submissionResult, requested *safeStringSet, receivedSCTFrom *safeStringSet, submitter Submitter) {
 	groupURLs := make([]string, 0, len(group.LogURLs))
 	for logURL := range group.LogURLs {
 		groupURLs = append(groupURLs, logURL)
@@ -104,15 +105,8 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 				return
 			}
 			sct, err := submitter.SubmitToLog(ctx, logURL, chain)
-			if err != nil {
-				if err != context.Canceled {
-					// TODO(Mercurrent) Submission failed. Log it
-				}
-				results <- result{logURL: logURL, sct: sct, err: err}
-				return
-			}
 			// verify SCT
-			results <- result{logURL: logURL, sct: sct}
+			results <- submissionResult{logURL: logURL, sct: sct, err: err}
 		}(i, groupURLs[urlNum])
 	}
 }
@@ -132,8 +126,8 @@ func parallelNums(groups ctpolicy.LogPolicyData) map[string]int {
 
 // AssignedSCT represents SCT with logURL of log-producer.
 type AssignedSCT struct {
-	sct    *ct.SignedCertificateTimestamp
-	logURL string
+	LogURL string
+	Sct    *ct.SignedCertificateTimestamp
 }
 
 func groupsComplete(groups ctpolicy.LogPolicyData, receivedSCTFrom *safeStringSet) bool {
@@ -161,16 +155,14 @@ func completenessError(groups ctpolicy.LogPolicyData, receivedSCTFrom *safeStrin
 // GetSCTs picks required number of Logs according to policy-group logic and collects SCTs from them. Emits all collected SCTs even when any error produced.
 func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
 	logsNumber := groups.TotalLogs()
-	results := make(chan result, logsNumber)
+	results := make(chan submissionResult, logsNumber)
 	requested := safeStringSet{entries: make(map[string]bool)}
 	receivedSCTFrom := safeStringSet{entries: make(map[string]bool)}
 	parallelNums := parallelNums(groups)
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, g := range groups {
-		go func(group *ctpolicy.LogGroupInfo) {
-			groupRace(subCtx, chain, group, parallelNums[group.Name], results, &requested, &receivedSCTFrom, submitter)
-		}(g)
+		go groupRace(subCtx, chain, g, parallelNums[g.Name], results, &requested, &receivedSCTFrom, submitter)
 	}
 
 	var collectedSCTs []*AssignedSCT
@@ -182,7 +174,7 @@ func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, grou
 			return collectedSCTs, err
 		case res := <-results:
 			if res.sct != nil {
-				collectedSCTs = append(collectedSCTs, &AssignedSCT{sct: res.sct, logURL: res.logURL})
+				collectedSCTs = append(collectedSCTs, &AssignedSCT{LogURL: res.logURL, Sct: res.sct})
 				receivedSCTFrom.add(res.logURL)
 				if groupsComplete(groups, &receivedSCTFrom) {
 					return collectedSCTs, nil
