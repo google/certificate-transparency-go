@@ -437,6 +437,10 @@ func TestPostAndParseWithRetry(t *testing.T) {
 				t.Errorf("PostAndParseWithRetry()=%+v,nil; want error %q", got, test.wantErr)
 			} else if !strings.Contains(err.Error(), test.wantErr) {
 				t.Errorf("PostAndParseWithRetry()=nil,%q; want error %q", err.Error(), test.wantErr)
+			} else if _, isRspError := err.(RspError); !isRspError && err != context.DeadlineExceeded {
+				// We expect all non-nil errors to be either a RspError instance or to
+				// be the context DeadlineExceeded error.
+				t.Errorf("PostAndParseWithRetry()=%T; want jsonClient.RspError or context.DeadlineExceeded", err)
 			}
 			continue
 		}
