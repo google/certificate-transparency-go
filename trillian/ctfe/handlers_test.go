@@ -419,65 +419,65 @@ func TestAddChain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
-		info.setRemoteQuotaUser(test.remoteQuotaUser)
-		info.enableCertQuota(test.enableCertQuota)
-		pool := loadCertsIntoPoolOrDie(t, test.chain)
-		chain := createJSONChain(t, *pool)
-		if len(test.toSign) > 0 {
-			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := ct.MerkleTreeLeafFromChain(pool.RawCertificates(), ct.X509LogEntryType, fakeTimeMillis)
-			if err != nil {
-				t.Errorf("Unexpected error signing SCT: %v", err)
-				continue
+		t.Run(test.descr, func(t *testing.T) {
+			info.setRemoteQuotaUser(test.remoteQuotaUser)
+			info.enableCertQuota(test.enableCertQuota)
+			pool := loadCertsIntoPoolOrDie(t, test.chain)
+			chain := createJSONChain(t, *pool)
+			if len(test.toSign) > 0 {
+				root := info.roots.RawCertificates()[0]
+				merkleLeaf, err := ct.MerkleTreeLeafFromChain(pool.RawCertificates(), ct.X509LogEntryType, fakeTimeMillis)
+				if err != nil {
+					t.Fatalf("Unexpected error signing SCT: %v", err)
+				}
+				leafChain := pool.RawCertificates()
+				if !leafChain[len(leafChain)-1].Equal(root) {
+					// The submitted chain may not include a root, but the generated LogLeaf will
+					fullChain := make([]*x509.Certificate, len(leafChain)+1)
+					copy(fullChain, leafChain)
+					fullChain[len(leafChain)] = root
+					leafChain = fullChain
+				}
+				leaves := logLeavesForCert(t, leafChain, merkleLeaf, false)
+				queuedLeaves := make([]*trillian.QueuedLogLeaf, len(leaves))
+				for i, leaf := range leaves {
+					queuedLeaves[i] = &trillian.QueuedLogLeaf{
+						Leaf:   leaf,
+						Status: status.New(codes.OK, "ok").Proto(),
+					}
+				}
+				rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
+				req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
+				if len(test.wantQuotaUsers) > 0 {
+					req.ChargeTo = &trillian.ChargeTo{User: test.wantQuotaUsers}
+				}
+				info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 			}
-			leafChain := pool.RawCertificates()
-			if !leafChain[len(leafChain)-1].Equal(root) {
-				// The submitted chain may not include a root, but the generated LogLeaf will
-				fullChain := make([]*x509.Certificate, len(leafChain)+1)
-				copy(fullChain, leafChain)
-				fullChain[len(leafChain)] = root
-				leafChain = fullChain
+
+			recorder := makeAddChainRequest(t, info.li, chain)
+			if recorder.Code != test.want {
+				t.Fatalf("addChain()=%d (body:%v); want %dv", recorder.Code, recorder.Body, test.want)
 			}
-			leaves := logLeavesForCert(t, leafChain, merkleLeaf, false)
-			queuedLeaves := make([]*trillian.QueuedLogLeaf, len(leaves))
-			for i, leaf := range leaves {
-				queuedLeaves[i] = &trillian.QueuedLogLeaf{
-					Leaf:   leaf,
-					Status: status.New(codes.OK, "ok").Proto(),
+			if test.want == http.StatusOK {
+				var resp ct.AddChainResponse
+				if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+					t.Fatalf("json.Decode(%s)=%v; want nil", recorder.Body.Bytes(), err)
+				}
+
+				if got, want := ct.Version(resp.SCTVersion), ct.V1; got != want {
+					t.Errorf("resp.SCTVersion=%v; want %v", got, want)
+				}
+				if got, want := resp.ID, demoLogID[:]; !bytes.Equal(got, want) {
+					t.Errorf("resp.ID=%v; want %v", got, want)
+				}
+				if got, want := resp.Timestamp, uint64(1469185273000); got != want {
+					t.Errorf("resp.Timestamp=%d; want %d", got, want)
+				}
+				if got, want := hex.EncodeToString(resp.Signature), "040300067369676e6564"; got != want {
+					t.Errorf("resp.Signature=%s; want %s", got, want)
 				}
 			}
-			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
-			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
-			if len(test.wantQuotaUsers) > 0 {
-				req.ChargeTo = &trillian.ChargeTo{User: test.wantQuotaUsers}
-			}
-			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
-		}
-
-		recorder := makeAddChainRequest(t, info.li, chain)
-		if recorder.Code != test.want {
-			t.Errorf("addChain(%s)=%d (body:%v); want %dv", test.descr, recorder.Code, recorder.Body, test.want)
-			continue
-		}
-		if test.want == http.StatusOK {
-			var resp ct.AddChainResponse
-			if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
-				t.Fatalf("json.Decode(%s)=%v; want nil", recorder.Body.Bytes(), err)
-			}
-
-			if got, want := ct.Version(resp.SCTVersion), ct.V1; got != want {
-				t.Errorf("resp.SCTVersion=%v; want %v", got, want)
-			}
-			if got, want := resp.ID, demoLogID[:]; !bytes.Equal(got, want) {
-				t.Errorf("resp.ID=%v; want %v", got, want)
-			}
-			if got, want := resp.Timestamp, uint64(1469185273000); got != want {
-				t.Errorf("resp.Timestamp=%d; want %d", got, want)
-			}
-			if got, want := hex.EncodeToString(resp.Signature), "040300067369676e6564"; got != want {
-				t.Errorf("resp.Signature=%s; want %s", got, want)
-			}
-		}
+		})
 	}
 }
 
@@ -545,64 +545,64 @@ func TestAddPrechain(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	for _, test := range tests {
-		info.setRemoteQuotaUser(test.wantQuotaUser)
-		pool := loadCertsIntoPoolOrDie(t, test.chain)
-		chain := createJSONChain(t, *pool)
-		if len(test.toSign) > 0 {
-			root := info.roots.RawCertificates()[0]
-			merkleLeaf, err := ct.MerkleTreeLeafFromChain([]*x509.Certificate{pool.RawCertificates()[0], root}, ct.PrecertLogEntryType, fakeTimeMillis)
-			if err != nil {
-				t.Errorf("Unexpected error signing SCT: %v", err)
-				continue
+		t.Run(test.descr, func(t *testing.T) {
+			info.setRemoteQuotaUser(test.wantQuotaUser)
+			pool := loadCertsIntoPoolOrDie(t, test.chain)
+			chain := createJSONChain(t, *pool)
+			if len(test.toSign) > 0 {
+				root := info.roots.RawCertificates()[0]
+				merkleLeaf, err := ct.MerkleTreeLeafFromChain([]*x509.Certificate{pool.RawCertificates()[0], root}, ct.PrecertLogEntryType, fakeTimeMillis)
+				if err != nil {
+					t.Fatalf("Unexpected error signing SCT: %v", err)
+				}
+				leafChain := pool.RawCertificates()
+				if !leafChain[len(leafChain)-1].Equal(root) {
+					// The submitted chain may not include a root, but the generated LogLeaf will
+					fullChain := make([]*x509.Certificate, len(leafChain)+1)
+					copy(fullChain, leafChain)
+					fullChain[len(leafChain)] = root
+					leafChain = fullChain
+				}
+				leaves := logLeavesForCert(t, leafChain, merkleLeaf, true)
+				queuedLeaves := make([]*trillian.QueuedLogLeaf, len(leaves))
+				for i, leaf := range leaves {
+					queuedLeaves[i] = &trillian.QueuedLogLeaf{
+						Leaf:   leaf,
+						Status: status.New(codes.OK, "ok").Proto(),
+					}
+				}
+				rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
+				req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
+				if len(test.wantQuotaUser) != 0 {
+					req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+				}
+				info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
 			}
-			leafChain := pool.RawCertificates()
-			if !leafChain[len(leafChain)-1].Equal(root) {
-				// The submitted chain may not include a root, but the generated LogLeaf will
-				fullChain := make([]*x509.Certificate, len(leafChain)+1)
-				copy(fullChain, leafChain)
-				fullChain[len(leafChain)] = root
-				leafChain = fullChain
+
+			recorder := makeAddPrechainRequest(t, info.li, chain)
+			if recorder.Code != test.want {
+				t.Fatalf("addPrechain()=%d (body:%v); want %d", recorder.Code, recorder.Body, test.want)
 			}
-			leaves := logLeavesForCert(t, leafChain, merkleLeaf, true)
-			queuedLeaves := make([]*trillian.QueuedLogLeaf, len(leaves))
-			for i, leaf := range leaves {
-				queuedLeaves[i] = &trillian.QueuedLogLeaf{
-					Leaf:   leaf,
-					Status: status.New(codes.OK, "ok").Proto(),
+			if test.want == http.StatusOK {
+				var resp ct.AddChainResponse
+				if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+					t.Fatalf("json.Decode(%s)=%v; want nil", recorder.Body.Bytes(), err)
+				}
+
+				if got, want := ct.Version(resp.SCTVersion), ct.V1; got != want {
+					t.Errorf("resp.SCTVersion=%v; want %v", got, want)
+				}
+				if got, want := resp.ID, demoLogID[:]; !bytes.Equal(got, want) {
+					t.Errorf("resp.ID=%x; want %x", got, want)
+				}
+				if got, want := resp.Timestamp, uint64(1469185273000); got != want {
+					t.Errorf("resp.Timestamp=%d; want %d", got, want)
+				}
+				if got, want := hex.EncodeToString(resp.Signature), "040300067369676e6564"; got != want {
+					t.Errorf("resp.Signature=%s; want %s", got, want)
 				}
 			}
-			rsp := trillian.QueueLeavesResponse{QueuedLeaves: queuedLeaves}
-			req := &trillian.QueueLeavesRequest{LogId: 0x42, Leaves: leaves}
-			if len(test.wantQuotaUser) != 0 {
-				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
-			}
-			info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
-		}
-
-		recorder := makeAddPrechainRequest(t, info.li, chain)
-		if recorder.Code != test.want {
-			t.Errorf("addPrechain(%s)=%d (body:%v); want %d", test.descr, recorder.Code, recorder.Body, test.want)
-			continue
-		}
-		if test.want == http.StatusOK {
-			var resp ct.AddChainResponse
-			if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
-				t.Fatalf("json.Decode(%s)=%v; want nil", recorder.Body.Bytes(), err)
-			}
-
-			if got, want := ct.Version(resp.SCTVersion), ct.V1; got != want {
-				t.Errorf("resp.SCTVersion=%v; want %v", got, want)
-			}
-			if got, want := resp.ID, demoLogID[:]; !bytes.Equal(got, want) {
-				t.Errorf("resp.ID=%x; want %x", got, want)
-			}
-			if got, want := resp.Timestamp, uint64(1469185273000); got != want {
-				t.Errorf("resp.Timestamp=%d; want %d", got, want)
-			}
-			if got, want := hex.EncodeToString(resp.Signature), "040300067369676e6564"; got != want {
-				t.Errorf("resp.Signature=%s; want %s", got, want)
-			}
-		}
+		})
 	}
 }
 
