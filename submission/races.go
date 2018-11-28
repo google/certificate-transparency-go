@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,45 +31,63 @@ const (
 	PostBatchInterval = time.Second
 )
 
-type safeStringSet struct {
-	entries map[string]bool
+// submissionState holds outcome of a single-log submission.
+type submissionResult struct {
+	sct *ct.SignedCertificateTimestamp
+	err error
+}
+
+// safeSubmissionSet guards submission states for set of Logs.
+type safeSubmissionSet struct {
+	results map[string]*submissionResult
 	mu      sync.Mutex
 }
 
-// add includes the entry in the set, returns whether the entry wasn't included before.
-func (gList *safeStringSet) add(logURL string) bool {
-	gList.mu.Lock()
-	defer gList.mu.Unlock()
-	if gList.entries[logURL] {
+// request includes empty submissionResult in the set, returns whether the entry wasn't requested (added) before.
+func (sub *safeSubmissionSet) request(logURL string) bool {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	if sub.results[logURL] != nil {
 		return false
 	}
-	gList.entries[logURL] = true
+	sub.results[logURL] = &submissionResult{}
 	return true
 }
 
-func (gList *safeStringSet) has(logURL string) bool {
-	gList.mu.Lock()
-	defer gList.mu.Unlock()
-	return gList.entries[logURL]
+func (sub *safeSubmissionSet) has(logURL string) bool {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	return sub.results[logURL] != nil
 }
 
-func (gList *safeStringSet) sumFor(URLs map[string]bool) int {
+func (sub *safeSubmissionSet) sumSCTsFor(URLs map[string]bool) int {
 	var matches int
-	gList.mu.Lock()
-	defer gList.mu.Unlock()
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
 	for url := range URLs {
-		if gList.entries[url] {
+		if sub.results[url] != nil && sub.results[url].sct != nil {
 			matches++
 		}
 	}
 	return matches
 }
 
-// submissionResult holds outcome from a single-log submission.
-type submissionResult struct {
-	logURL string
-	sct    *ct.SignedCertificateTimestamp
-	err    error
+func (sub *safeSubmissionSet) setResult(logURL string, sct *ct.SignedCertificateTimestamp, err error) {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	sub.results[logURL] = &submissionResult{sct: sct, err: err}
+}
+
+func (sub *safeSubmissionSet) collectSCTs() []*AssignedSCT {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	scts := []*AssignedSCT{}
+	for logURL, r := range sub.results {
+		if r != nil && r.sct != nil {
+			scts = append(scts, &AssignedSCT{LogURL: logURL, SCT: r.sct})
+		}
+	}
+	return scts
 }
 
 // postInterval calculates duration for consequent call. For first parallelStart calls duration is 0, while every next one gets additional dur interval.
@@ -84,30 +103,63 @@ type Submitter interface {
 	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
 }
 
+type groupState struct {
+	Name    string
+	Success bool
+}
+
+// groupRace shuffles logs within the group, submits avoiding duplicate-requests and collects responses. Upon (not)reaching required number of SCTs signals via completion channel.
 func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGroupInfo, parallelStart int,
-	results chan<- submissionResult, requested *safeStringSet, receivedSCTFrom *safeStringSet, submitter Submitter) {
+	state *safeSubmissionSet, completion chan<- groupState, submitter Submitter) {
 	groupURLs := make([]string, 0, len(group.LogURLs))
 	for logURL := range group.LogURLs {
 		groupURLs = append(groupURLs, logURL)
 	}
+
+	type count struct{}
+	counter := make(chan count, len(groupURLs))
+	var earlyCompletion bool
+	var completionMu sync.Mutex
 	// Randomize the order in which we send requests to the logs in a group
 	// so we maximize the distribution of logs we get SCTs from.
 	for i, urlNum := range rand.Perm(len(groupURLs)) {
 		go func(i int, logURL string) {
 			time.Sleep(postInterval(i, parallelStart, PostBatchInterval))
 			if ctx.Err() != nil {
+				counter <- count{}
 				return
 			}
-			if firstRequested := requested.add(logURL); !firstRequested {
+			if firstRequested := state.request(logURL); !firstRequested {
+				counter <- count{}
 				return
 			}
-			if receivedSCTFrom.sumFor(group.LogURLs) >= group.MinInclusions {
+			if state.sumSCTsFor(group.LogURLs) >= group.MinInclusions {
+				completionMu.Lock()
+				if !earlyCompletion {
+					completion <- groupState{Name: group.Name, Success: true}
+					earlyCompletion = true
+				}
+				completionMu.Unlock()
+				counter <- count{}
 				return
 			}
 			sct, err := submitter.SubmitToLog(ctx, logURL, chain)
-			// verify SCT
-			results <- submissionResult{logURL: logURL, sct: sct, err: err}
+			// TODO(Mercurrent): verify SCT
+			state.setResult(logURL, sct, err)
+			counter <- count{}
 		}(i, groupURLs[urlNum])
+	}
+	// Wait until either all logs within groups are processed or context is cancelled.
+	for i := 0; i < len(groupURLs); i++ {
+		select {
+		case <-ctx.Done():
+			break
+		case <-counter:
+		}
+	}
+	// Avoid signal duplicate.
+	if !earlyCompletion {
+		completion <- groupState{Name: group.Name, Success: state.sumSCTsFor(group.LogURLs) >= group.MinInclusions}
 	}
 }
 
@@ -115,73 +167,59 @@ func parallelNums(groups ctpolicy.LogPolicyData) map[string]int {
 	nums := make(map[string]int)
 	var subsetSum int
 	for _, g := range groups {
+		nums[g.Name] = g.MinInclusions
 		if !g.IsBase {
-			nums[g.Name] = g.MinInclusions
 			subsetSum += g.MinInclusions
 		}
 	}
-	nums[ctpolicy.BaseName] -= subsetSum
+	if _, hasBase := nums[ctpolicy.BaseName]; hasBase {
+		if nums[ctpolicy.BaseName] >= subsetSum {
+			nums[ctpolicy.BaseName] -= subsetSum
+		} else {
+			nums[ctpolicy.BaseName] = 0
+		}
+	}
 	return nums
 }
 
 // AssignedSCT represents SCT with logURL of log-producer.
 type AssignedSCT struct {
 	LogURL string
-	Sct    *ct.SignedCertificateTimestamp
+	SCT    *ct.SignedCertificateTimestamp
 }
 
-func groupsComplete(groups ctpolicy.LogPolicyData, receivedSCTFrom *safeStringSet) bool {
-	for _, g := range groups {
-		var withinGroup int
-		for logURL := range g.LogURLs {
-			if receivedSCTFrom.has(logURL) {
-				withinGroup++
-			}
-		}
-		if withinGroup < g.MinInclusions {
-			return false
+func completenessError(groupComplete map[string]bool) error {
+	failedGroups := []string{}
+	for name, success := range groupComplete {
+		if !success {
+			failedGroups = append(failedGroups, name)
 		}
 	}
-	return true
-}
-
-func completenessError(groups ctpolicy.LogPolicyData, receivedSCTFrom *safeStringSet) error {
-	if !groupsComplete(groups, receivedSCTFrom) {
-		return errors.New("Not all log-groups collected required number of SCTs")
+	if len(failedGroups) > 0 {
+		return errors.New("Log-group(s) " + strings.Join(failedGroups, ", ") + "didn't receive enough SCTs.")
 	}
 	return nil
 }
 
 // GetSCTs picks required number of Logs according to policy-group logic and collects SCTs from them. Emits all collected SCTs even when any error produced.
 func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
-	logsNumber := groups.TotalLogs()
-	results := make(chan submissionResult, logsNumber)
-	requested := safeStringSet{entries: make(map[string]bool)}
-	receivedSCTFrom := safeStringSet{entries: make(map[string]bool)}
 	parallelNums := parallelNums(groups)
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	submissions := safeSubmissionSet{results: make(map[string]*submissionResult)}
+	// channel listening to group-completion (failure) events
+	groupEvents := make(chan groupState, len(groups))
 	for _, g := range groups {
-		go groupRace(subCtx, chain, g, parallelNums[g.Name], results, &requested, &receivedSCTFrom, submitter)
+		go groupRace(ctx, chain, g, parallelNums[g.Name], &submissions, groupEvents, submitter)
 	}
 
-	var collectedSCTs []*AssignedSCT
+	groupComplete := make(map[string]bool)
 	// Terminates upon either all logs available are requested or required number of SCTs is collected or upon context timeout.
-	for i := 0; i < logsNumber; i++ {
+	for i := 0; i < len(groups); i++ {
 		select {
 		case <-ctx.Done():
-			err := completenessError(groups, &receivedSCTFrom)
-			return collectedSCTs, err
-		case res := <-results:
-			if res.sct != nil {
-				collectedSCTs = append(collectedSCTs, &AssignedSCT{LogURL: res.logURL, Sct: res.sct})
-				receivedSCTFrom.add(res.logURL)
-				if groupsComplete(groups, &receivedSCTFrom) {
-					return collectedSCTs, nil
-				}
-			}
+			return submissions.collectSCTs(), completenessError(groupComplete)
+		case g := <-groupEvents:
+			groupComplete[g.Name] = g.Success
 		}
 	}
-	err := completenessError(groups, &receivedSCTFrom)
-	return collectedSCTs, err
+	return submissions.collectSCTs(), completenessError(groupComplete)
 }
