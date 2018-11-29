@@ -28,6 +28,7 @@ import (
 
 const (
 	// PostBatchInterval is duration between parallel batch call and subsequent requests to Logs within group.
+	// TODO(Mercurrent): optimize to avoid excessive requests.
 	PostBatchInterval = time.Second
 )
 
@@ -108,9 +109,9 @@ type groupState struct {
 	Success bool
 }
 
-// groupRace shuffles logs within the group, submits avoiding duplicate-requests and collects responses. Upon (not)reaching required number of SCTs signals via completion channel.
+// groupRace shuffles logs within the group, submits avoiding duplicate-requests and collects responses. Upon (not)reaching required number of SCTs returns.
 func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGroupInfo, parallelStart int,
-	state *safeSubmissionSet, completion chan<- groupState, submitter Submitter) {
+	state *safeSubmissionSet, submitter Submitter) groupState {
 	groupURLs := make([]string, 0, len(group.LogURLs))
 	for logURL := range group.LogURLs {
 		groupURLs = append(groupURLs, logURL)
@@ -118,14 +119,22 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 
 	type count struct{}
 	counter := make(chan count, len(groupURLs))
-	var earlyCompletion bool
-	var completionMu sync.Mutex
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Randomize the order in which we send requests to the logs in a group
 	// so we maximize the distribution of logs we get SCTs from.
 	for i, urlNum := range rand.Perm(len(groupURLs)) {
 		go func(i int, logURL string) {
-			time.Sleep(postInterval(i, parallelStart, PostBatchInterval))
-			if ctx.Err() != nil {
+			timeoutchan := time.After(postInterval(i, parallelStart, PostBatchInterval))
+			select {
+			case <-subCtx.Done():
+				counter <- count{}
+				return
+			case <-timeoutchan:
+			}
+			if state.sumSCTsFor(group.LogURLs) >= group.MinInclusions {
+				cancel()
 				counter <- count{}
 				return
 			}
@@ -133,16 +142,7 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 				counter <- count{}
 				return
 			}
-			if state.sumSCTsFor(group.LogURLs) >= group.MinInclusions {
-				completionMu.Lock()
-				if !earlyCompletion {
-					completion <- groupState{Name: group.Name, Success: true}
-					earlyCompletion = true
-				}
-				completionMu.Unlock()
-				counter <- count{}
-				return
-			}
+			// Relies on parent context. Even when group is complete, this SCT should be returned as requests for this Log have already been blocked for all other groups.
 			sct, err := submitter.SubmitToLog(ctx, logURL, chain)
 			// TODO(Mercurrent): verify SCT
 			state.setResult(logURL, sct, err)
@@ -155,12 +155,12 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 		case <-ctx.Done():
 			break
 		case <-counter:
+			if state.sumSCTsFor(group.LogURLs) >= group.MinInclusions {
+				cancel()
+			}
 		}
 	}
-	// Avoid signal duplicate.
-	if !earlyCompletion {
-		completion <- groupState{Name: group.Name, Success: state.sumSCTsFor(group.LogURLs) >= group.MinInclusions}
-	}
+	return groupState{Name: group.Name, Success: state.sumSCTsFor(group.LogURLs) >= group.MinInclusions}
 }
 
 func parallelNums(groups ctpolicy.LogPolicyData) map[string]int {
@@ -201,7 +201,8 @@ func completenessError(groupComplete map[string]bool) error {
 	return nil
 }
 
-// GetSCTs picks required number of Logs according to policy-group logic and collects SCTs from them. Emits all collected SCTs even when any error produced.
+// GetSCTs picks required number of Logs according to policy-group logic and collects SCTs from them.
+// Emits all collected SCTs even when any error produced.
 func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
 	parallelNums := parallelNums(groups)
 	submissions := safeSubmissionSet{results: make(map[string]*submissionResult)}
@@ -210,9 +211,14 @@ func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, grou
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, g := range groups {
-		go groupRace(subCtx, chain, g, parallelNums[g.Name], &submissions, groupEvents, submitter)
+		go func(g *ctpolicy.LogGroupInfo) {
+			groupEvents <- groupRace(subCtx, chain, g, parallelNums[g.Name], &submissions, submitter)
+		}(g)
 	}
 
+	// A group name being present in the map indicates that group has
+	// completed processing, and the bool value indicates whether it
+	// completed successfully.
 	groupComplete := make(map[string]bool)
 	// Terminates upon either all logs available are requested or required number of SCTs is collected or upon context timeout.
 	for i := 0; i < len(groups); i++ {

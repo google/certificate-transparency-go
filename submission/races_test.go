@@ -63,9 +63,9 @@ func evaluateSCTs(t *testing.T, got []*AssignedSCT, trail map[string]int) {
 		}
 	}
 	for groupName, count := range trail {
-		if count < 0 {
-			t.Errorf("Received %d more SCTs from group %q than expected", count*(-1), groupName)
-		} else if count > 0 {
+		// It's possible to get more SCTs for Log-group than minimally-required.
+		// If group completion happenned in-between Log-request and response. Or in case of group-intersection.
+		if count > 0 {
 			t.Errorf("Received %d less SCTs from group %q than expected", count, groupName)
 		}
 	}
