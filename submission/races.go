@@ -207,8 +207,10 @@ func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, grou
 	submissions := safeSubmissionSet{results: make(map[string]*submissionResult)}
 	// channel listening to group-completion (failure) events
 	groupEvents := make(chan groupState, len(groups))
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	for _, g := range groups {
-		go groupRace(ctx, chain, g, parallelNums[g.Name], &submissions, groupEvents, submitter)
+		go groupRace(subCtx, chain, g, parallelNums[g.Name], &submissions, groupEvents, submitter)
 	}
 
 	groupComplete := make(map[string]bool)
