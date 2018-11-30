@@ -22,8 +22,8 @@ import (
 
 func wantedAppleGroups(count int) map[string]*LogGroupInfo {
 	gi := map[string]*LogGroupInfo{
-		"All-logs": {
-			name: "All-logs",
+		BaseName: {
+			name: BaseName,
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,

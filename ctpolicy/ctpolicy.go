@@ -22,6 +22,11 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
+const (
+	// BaseName is name for the group covering all logs.
+	BaseName = "All-logs"
+)
+
 // LogGroupInfo holds information on a single group of logs specified by Policy.
 type LogGroupInfo struct {
 	name          string
@@ -59,7 +64,7 @@ type CTPolicy interface {
 
 // baseGroupFor creates and propagates all-log group.
 func baseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
-	baseGroup := LogGroupInfo{name: "All-logs", isBase: true}
+	baseGroup := LogGroupInfo{name: BaseName, isBase: true}
 	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return baseGroup, err
@@ -75,4 +80,18 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 		lifetimeInMonths--
 	}
 	return lifetimeInMonths
+}
+
+// GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names.
+func GroupByLogs(lg map[string]*LogGroupInfo) map[string]map[string]bool {
+	result := make(map[string]map[string]bool)
+	for groupname, g := range lg {
+		for logURL := range g.LogURLs {
+			if _, seen := result[logURL]; !seen {
+				result[logURL] = make(map[string]bool)
+			}
+			result[logURL][groupname] = true
+		}
+	}
+	return result
 }

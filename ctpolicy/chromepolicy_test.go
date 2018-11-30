@@ -41,8 +41,8 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) map[string]*Lo
 			minInclusions: nonGoog,
 			isBase:        false,
 		},
-		"All-logs": {
-			name: "All-logs",
+		BaseName: {
+			name: BaseName,
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,
@@ -55,7 +55,7 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) map[string]*Lo
 		},
 	}
 	if minusBob {
-		delete(gi["All-logs"].LogURLs, "log.bob.io")
+		delete(gi[BaseName].LogURLs, "log.bob.io")
 		delete(gi["Non-Google-operated"].LogURLs, "log.bob.io")
 	}
 	return gi

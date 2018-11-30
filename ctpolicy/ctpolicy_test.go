@@ -15,6 +15,7 @@ package ctpolicy
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -98,6 +99,116 @@ func TestLifetimeInMonths(t *testing.T) {
 			got := lifetimeInMonths(cert)
 			if got != test.want {
 				t.Errorf("lifetimeInMonths(%v, %v)=%d, want %d", test.notBefore, test.notAfter, got, test.want)
+			}
+		})
+	}
+}
+
+func TestGroupByLogs(t *testing.T) {
+	tests := []struct {
+		name      string
+		logGroups map[string]*LogGroupInfo
+		want      map[string]map[string]bool
+	}{
+		{
+			name: "BaseGroup",
+			logGroups: map[string]*LogGroupInfo{
+				BaseName: {
+					name: BaseName,
+					LogURLs: map[string]bool{
+						"ct.googleapis.com/aviator/":   true,
+						"ct.googleapis.com/icarus/":    true,
+						"ct.googleapis.com/rocketeer/": true,
+						"ct.googleapis.com/racketeer/": true,
+						"log.bob.io":                   true,
+					},
+					minInclusions: 2,
+					isBase:        true,
+				},
+			},
+			want: map[string]map[string]bool{
+				"ct.googleapis.com/aviator/": {
+					BaseName: true,
+				},
+				"ct.googleapis.com/icarus/": {
+					BaseName: true,
+				},
+				"ct.googleapis.com/rocketeer/": {
+					BaseName: true,
+				},
+				"ct.googleapis.com/racketeer/": {
+					BaseName: true,
+				},
+				"log.bob.io": {
+					BaseName: true,
+				},
+			},
+		},
+		{
+			name: "ChromeLikeGroups",
+			logGroups: map[string]*LogGroupInfo{
+				"Google-operated": {
+					name: "Google-operated",
+					LogURLs: map[string]bool{
+						"ct.googleapis.com/aviator/":   true,
+						"ct.googleapis.com/icarus/":    true,
+						"ct.googleapis.com/rocketeer/": true,
+						"ct.googleapis.com/racketeer/": true,
+					},
+					minInclusions: 2,
+					isBase:        false,
+				},
+				"Non-Google-operated": {
+					name: "Non-Google-operated",
+					LogURLs: map[string]bool{
+						"log.bob.io": true,
+					},
+					minInclusions: 1,
+					isBase:        false,
+				},
+				BaseName: {
+					name: BaseName,
+					LogURLs: map[string]bool{
+						"ct.googleapis.com/aviator/":   true,
+						"ct.googleapis.com/icarus/":    true,
+						"ct.googleapis.com/rocketeer/": true,
+						"ct.googleapis.com/racketeer/": true,
+						"log.bob.io":                   true,
+					},
+					minInclusions: 2,
+					isBase:        true,
+				},
+			},
+			want: map[string]map[string]bool{
+				"ct.googleapis.com/aviator/": {
+					BaseName:          true,
+					"Google-operated": true,
+				},
+				"ct.googleapis.com/icarus/": {
+					BaseName:          true,
+					"Google-operated": true,
+				},
+				"ct.googleapis.com/rocketeer/": {
+					BaseName:          true,
+					"Google-operated": true,
+				},
+				"ct.googleapis.com/racketeer/": {
+					BaseName:          true,
+					"Google-operated": true,
+				},
+				"log.bob.io": {
+					BaseName:              true,
+					"Non-Google-operated": true,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := GroupByLogs(test.logGroups)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("Unable to map logs to groups properly, got \n%v\n, want \n%v\n", got, test.want)
 			}
 		})
 	}
