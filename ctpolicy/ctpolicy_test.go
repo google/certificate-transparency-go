@@ -208,7 +208,7 @@ func TestGroupByLogs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got := GroupByLogs(test.logGroups)
 			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("Unable to map logs to groups properly, got \n%v\n, want \n%v\n", got, test.want)
+				t.Errorf("GroupByLogs()=%v, want %v", got, test.want)
 			}
 		})
 	}

@@ -82,7 +82,7 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 	return lifetimeInMonths
 }
 
-// GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names.
+// GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names that contain the log.
 func GroupByLogs(lg map[string]*LogGroupInfo) map[string]map[string]bool {
 	result := make(map[string]map[string]bool)
 	for groupname, g := range lg {
