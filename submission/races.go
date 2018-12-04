@@ -16,7 +16,7 @@ package races
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -43,7 +43,7 @@ type groupState struct {
 	Success bool
 }
 
-// safeSubmissionState guards submission state-machine for set of Log-groups. Communicates via channel when some group is complete.
+// safeSubmissionState is a submission state-machine for set of Log-groups. When some group is complete cancels all requests that are not needed by any group.
 type safeSubmissionState struct {
 	logToGroups map[string]map[string]bool
 	groupNeeds  map[string]int
@@ -249,7 +249,7 @@ func completenessError(groupComplete map[string]bool) error {
 		}
 	}
 	if len(failedGroups) > 0 {
-		return errors.New("Log-group(s) " + strings.Join(failedGroups, ", ") + "didn't receive enough SCTs.")
+		return fmt.Errorf("log-group(s) %s didn't receive enough SCTs", strings.Join(failedGroups, ", "))
 	}
 	return nil
 }
