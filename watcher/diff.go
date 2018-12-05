@@ -17,14 +17,12 @@ package watcher
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"golang.org/x/net/context/ctxhttp"
 )
 
 // Diff regularly check data at path provided, notifies if changes detected.
@@ -80,41 +78,21 @@ func (d *Diff) init(ctx context.Context) {
 	}()
 }
 
-func loadData(ctx context.Context, url string) ([]byte, error) {
-	httpReq, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	httpRsp, err := ctxhttp.Do(ctx, &http.Client{}, httpReq)
-	if err != nil {
-		return nil, err
-	}
-	body, err := ioutil.ReadAll(httpRsp.Body)
-	httpRsp.Body.Close()
-	if err != nil {
-		return nil, err
-	}
-	if httpRsp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Got HTTP Status %q", httpRsp.Status)
-	}
-	return body, nil
-}
-
 func (d *Diff) checkUpdate() {
-	var data []byte
-	var err error
+	var path string
 	if len(d.url) > 0 {
-		data, err = loadData(context.Background(), d.url)
+		path = d.url
 	} else {
-		data, err = ioutil.ReadFile(d.filepath)
+		path = d.filepath
 	}
+	llData, err := x509util.ReadFileOrURL(path, &http.Client{Timeout: time.Second * 10})
 	if err != nil {
 		d.events <- DiffEvent{Err: err}
 		return
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.latest = data
+	d.latest = llData
 	// Compare data as strings
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(string(d.synced), string(d.latest), false)
