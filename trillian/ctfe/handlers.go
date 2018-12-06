@@ -321,7 +321,8 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	return ph
 }
 
-func parseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
+// ParseBodyAsJSONChain tries to extract cert-chain out of request.
+func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		glog.V(1).Infof("Failed to read request body: %v", err)
@@ -378,7 +379,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	// Check the contents of the request and convert to slice of certificates.
-	addChainReq, err := parseBodyAsJSONChain(r)
+	addChainReq, err := ParseBodyAsJSONChain(r)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("%s: failed to parse add-chain body: %s", li.LogPrefix, err)
 	}
