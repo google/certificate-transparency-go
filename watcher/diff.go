@@ -31,7 +31,7 @@ type Diff struct {
 
 	synced []byte
 	diffs  []diffmatchpatch.Diff
-	// mu guards all data-feilds: latest, synced and diffs.
+	// mu guards all data-fields: latest, synced and diffs.
 	mu sync.Mutex
 
 	// Exactly one of url/filepath fields is specified.
