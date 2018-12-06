@@ -321,22 +321,23 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	return ph
 }
 
-func parseBodyAsJSONChain(li *logInfo, r *http.Request) (ct.AddChainRequest, error) {
+// ParseBodyAsJSONChain tries to extract cert-chain out of request.
+func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		glog.V(1).Infof("%s: Failed to read request body: %v", li.LogPrefix, err)
+		glog.V(1).Infof("Failed to read request body: %v", err)
 		return ct.AddChainRequest{}, err
 	}
 
 	var req ct.AddChainRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		glog.V(1).Infof("%s: Failed to parse request body: %v", li.LogPrefix, err)
+		glog.V(1).Infof("Failed to parse request body: %v", err)
 		return ct.AddChainRequest{}, err
 	}
 
 	// The cert chain is not allowed to be empty. We'll defer other validation for later
 	if len(req.Chain) == 0 {
-		glog.V(1).Infof("%s: Request chain is empty: %s", li.LogPrefix, body)
+		glog.V(1).Infof("Request chain is empty: %s", body)
 		return ct.AddChainRequest{}, errors.New("cert chain was empty")
 	}
 
@@ -378,9 +379,9 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	// Check the contents of the request and convert to slice of certificates.
-	addChainReq, err := parseBodyAsJSONChain(li, r)
+	addChainReq, err := ParseBodyAsJSONChain(r)
 	if err != nil {
-		return http.StatusBadRequest, fmt.Errorf("failed to parse add-chain body: %s", err)
+		return http.StatusBadRequest, fmt.Errorf("%s: failed to parse add-chain body: %s", li.LogPrefix, err)
 	}
 	// Log the DERs now because they might not parse as valid X.509.
 	for _, der := range addChainReq.Chain {
