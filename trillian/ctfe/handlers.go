@@ -219,6 +219,20 @@ type CertValidationOpts struct {
 	extKeyUsages []x509.ExtKeyUsage
 }
 
+// NewCertValidationOpts builds validation options based on parameters.
+func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rejectExpired bool, rejectUnexpired bool, notAfterStart *time.Time, notAfterLimit *time.Time, acceptOnlyCA bool, extKeyUsages []x509.ExtKeyUsage) CertValidationOpts {
+	var vOpts CertValidationOpts
+	vOpts.trustedRoots = trustedRoots
+	vOpts.currentTime = currentTime
+	vOpts.rejectExpired = rejectExpired
+	vOpts.rejectUnexpired = rejectUnexpired
+	vOpts.notAfterStart = notAfterStart
+	vOpts.notAfterLimit = notAfterLimit
+	vOpts.acceptOnlyCA = acceptOnlyCA
+	vOpts.extKeyUsages = extKeyUsages
+	return vOpts
+}
+
 // logInfo holds information for a specific log instance.
 type logInfo struct {
 	// LogPrefix is a pre-formatted string identifying the log for diagnostics
