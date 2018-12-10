@@ -219,7 +219,7 @@ type CertValidationOpts struct {
 	extKeyUsages []x509.ExtKeyUsage
 }
 
-// NewCertValidationOpts can be used for struct creation outside of ctfe package.
+// NewCertValidationOpts builds validation options based on parameters.
 func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rejectExpired bool, rejectUnexpired bool, notAfterStart *time.Time, notAfterLimit *time.Time, acceptOnlyCA bool, extKeyUsages []x509.ExtKeyUsage) CertValidationOpts {
 	var vOpts CertValidationOpts
 	vOpts.trustedRoots = trustedRoots
@@ -229,12 +229,7 @@ func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rej
 	vOpts.notAfterStart = notAfterStart
 	vOpts.notAfterLimit = notAfterLimit
 	vOpts.acceptOnlyCA = acceptOnlyCA
-	if extKeyUsages != nil {
-		vOpts.extKeyUsages = make([]x509.ExtKeyUsage, len(extKeyUsages))
-		for i, k := range extKeyUsages {
-			vOpts.extKeyUsages[i] = k
-		}
-	}
+	vOpts.extKeyUsages = extKeyUsages
 	return vOpts
 }
 
