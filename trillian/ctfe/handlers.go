@@ -197,7 +197,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // CertValidationOpts contains various parameters for certificate chain validation
 type CertValidationOpts struct {
-	// TrustedRoots is a pool of certificates that defines the roots the CT log will accept
+	// trustedRoots is a pool of certificates that defines the roots the CT log will accept
 	trustedRoots *PEMCertPool
 	// currentTime is the time used for checking a certificate's validity period
 	// against. If it's zero then time.Now() is used. Only for testing.
