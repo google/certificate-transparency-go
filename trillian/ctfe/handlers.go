@@ -224,17 +224,11 @@ func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rej
 	var vOpts CertValidationOpts
 	vOpts.trustedRoots = trustedRoots
 	vOpts.currentTime = currentTime
-	if rejectExpired != nil {
-		vOpts.rejectExpired = rejectExpired
-	}
-	if rejectUnexpired != nil {
-		vOpts.rejectUnexpired = rejectUnexpired
-	}
+	vOpts.rejectExpired = rejectExpired
+	vOpts.rejectUnexpired = rejectUnexpired
 	vOpts.notAfterStart = notAfterStart
 	vOpts.notAfterLimit = notAfterLimit
-	if acceptOnlyCA != nil {
-		vOpts.acceptOnlyCA = acceptOnlyCA
-	}
+	vOpts.acceptOnlyCA = acceptOnlyCA
 	if extKeyUsages != nil {
 		vOpts.extKeyUsages = make([]x509.ExtKeyUsage, len(extKeyUsages))
 		for i, k := range extKeyUsages {
