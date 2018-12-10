@@ -197,7 +197,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // CertValidationOpts contains various parameters for certificate chain validation
 type CertValidationOpts struct {
-	// trustedRoots is a pool of certificates that defines the roots the CT log will accept
+	// TrustedRoots is a pool of certificates that defines the roots the CT log will accept
 	trustedRoots *PEMCertPool
 	// currentTime is the time used for checking a certificate's validity period
 	// against. If it's zero then time.Now() is used. Only for testing.
@@ -217,6 +217,31 @@ type CertValidationOpts struct {
 	acceptOnlyCA bool
 	// extKeyUsages contains the list of EKUs to use during chain verification
 	extKeyUsages []x509.ExtKeyUsage
+}
+
+// NewCertValidationOpts can be used for struct creation outside of ctfe package.
+func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rejectExpired bool, rejectUnexpired bool, notAfterStart *time.Time, notAfterLimit *time.Time, acceptOnlyCA bool, extKeyUsages []x509.ExtKeyUsage) CertValidationOpts {
+	var vOpts CertValidationOpts
+	vOpts.trustedRoots = trustedRoots
+	vOpts.currentTime = currentTime
+	if rejectExpired != nil {
+		vOpts.rejectExpired = rejectExpired
+	}
+	if rejectUnexpired != nil {
+		vOpts.rejectUnexpired = rejectUnexpired
+	}
+	vOpts.notAfterStart = notAfterStart
+	vOpts.notAfterLimit = notAfterLimit
+	if acceptOnlyCA != nil {
+		vOpts.acceptOnlyCA = acceptOnlyCA
+	}
+	if extKeyUsages != nil {
+		vOpts.extKeyUsages = make([]x509.ExtKeyUsage, len(extKeyUsages))
+		for i, k := range extKeyUsages {
+			vOpts.extKeyUsages[i] = k
+		}
+	}
+	return vOpts
 }
 
 // logInfo holds information for a specific log instance.
