@@ -248,5 +248,11 @@ func hubScannerFromProto(cfg *configpb.HubConfig, hc *http.Client) (*hubScanner,
 	if cl.Verifier == nil {
 		glog.Warningf("No public key provided for CT log %s, signature checks will be skipped", cfg.Name)
 	}
-	return &hubScanner{Name: cfg.Name, URL: cfg.Url, MinInterval: interval, Log: cl}, nil
+	return &hubScanner{
+		Name:        cfg.Name,
+		URL:         cfg.Url,
+		StartIndex:  cfg.StartIndex,
+		MinInterval: interval,
+		Log:         cl,
+	}, nil
 }

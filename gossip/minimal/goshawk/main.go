@@ -33,7 +33,6 @@ var (
 	config        = flag.String("config", "", "File holding log configuration in text proto format")
 	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request per call to get-entries")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
-	startIndex    = flag.Int64("start_index", 0, "Log index to start scanning at")
 )
 
 func main() {
@@ -44,7 +43,6 @@ func main() {
 	fetchOpts := scanner.FetcherOptions{
 		BatchSize:     *batchSize,
 		ParallelFetch: *parallelFetch,
-		StartIndex:    *startIndex,
 	}
 
 	hawk, err := minimal.NewGoshawkFromFile(ctx, *config, nil, fetchOpts)
