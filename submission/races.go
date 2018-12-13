@@ -1,0 +1,284 @@
+// Copyright 2018 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package races
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"strings"
+	"sync"
+	"time"
+
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/ctpolicy"
+)
+
+const (
+	// PostBatchInterval is duration between parallel batch call and subsequent requests to Logs within group.
+	// TODO(Mercurrent): optimize to avoid excessive requests.
+	PostBatchInterval = time.Second
+)
+
+// submissionResult holds outcome of a single-log submission.
+type submissionResult struct {
+	sct *ct.SignedCertificateTimestamp
+	err error
+}
+
+type groupState struct {
+	Name    string
+	Success bool
+}
+
+// safeSubmissionState is a submission state-machine for set of Log-groups. When some group is complete cancels all requests that are not needed by any group.
+type safeSubmissionState struct {
+	logToGroups map[string]map[string]bool
+	groupNeeds  map[string]int
+
+	results map[string]*submissionResult
+	cancels map[string]context.CancelFunc
+	mu      sync.Mutex
+}
+
+func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState {
+	var s safeSubmissionState
+	s.logToGroups = ctpolicy.GroupByLogs(groups)
+	s.groupNeeds = make(map[string]int)
+	for _, g := range groups {
+		s.groupNeeds[g.Name] = g.MinInclusions
+	}
+	s.results = make(map[string]*submissionResult)
+	s.cancels = make(map[string]context.CancelFunc)
+	return &s
+}
+
+// request includes empty submissionResult in the set, returns whether the entry wasn't requested (added) before.
+func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc) bool {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	if sub.results[logURL] != nil {
+		// Already requested.
+		return false
+	}
+	sub.results[logURL] = &submissionResult{}
+	isAwaited := false
+	for g := range sub.logToGroups[logURL] {
+		if sub.groupNeeds[g] > 0 {
+			isAwaited = true
+			break
+		}
+	}
+	if !isAwaited {
+		// No groups expecting result from this Log.
+		return false
+	}
+	sub.cancels[logURL] = cancel
+	return true
+}
+
+// returns whether the Log has already been requested.
+func (sub *safeSubmissionState) has(logURL string) bool {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	return sub.results[logURL] != nil
+}
+
+// Gets SCT-result. Writes it down if it is error or awaited-SCT. Re-calculates group-completion and cancels any running but not-awited-anymore Log-requests.
+func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertificateTimestamp, err error) {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	if sct == nil {
+		sub.results[logURL] = &submissionResult{sct: sct, err: err}
+		return
+	}
+	// If at least one group needs that SCT, result is set. Otherwise dumped.
+	for groupName := range sub.logToGroups[logURL] {
+		if sub.groupNeeds[groupName] > 0 {
+			sub.results[logURL] = &submissionResult{sct: sct, err: err}
+		}
+		sub.groupNeeds[groupName]--
+	}
+
+	// Cancel any pending Log-requests for which there's no more awaiting Log-group.
+	for logURL, groupSet := range sub.logToGroups {
+		isAwaited := false
+		for g := range groupSet {
+			if sub.groupNeeds[g] > 0 {
+				isAwaited = true
+				break
+			}
+		}
+		if !isAwaited && sub.cancels[logURL] != nil {
+			sub.cancels[logURL]()
+			sub.cancels[logURL] = nil
+		}
+	}
+}
+
+// returns whether the group has stopped waiting for more SCTs.
+func (sub *safeSubmissionState) groupComplete(groupName string) bool {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	needs, ok := sub.groupNeeds[groupName]
+	if !ok {
+		return true
+	}
+	return needs <= 0
+}
+
+func (sub *safeSubmissionState) collectSCTs() []*AssignedSCT {
+	sub.mu.Lock()
+	defer sub.mu.Unlock()
+	scts := []*AssignedSCT{}
+	for logURL, r := range sub.results {
+		if r != nil && r.sct != nil {
+			scts = append(scts, &AssignedSCT{LogURL: logURL, SCT: r.sct})
+		}
+	}
+	return scts
+}
+
+// postInterval calculates duration for consequent call. For first parallelStart calls duration is 0, while every next one gets additional dur interval.
+func postInterval(idx int, parallelStart int, dur time.Duration) time.Duration {
+	if idx < parallelStart {
+		return time.Duration(0)
+	}
+	return time.Duration(idx+1-parallelStart) * dur
+}
+
+// Submitter is interface wrapping Log-request-response cycle and any processing.
+type Submitter interface {
+	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+}
+
+// groupRace shuffles logs within the group, submits avoiding duplicate-requests and collects responses.
+func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGroupInfo, parallelStart int,
+	state *safeSubmissionState, submitter Submitter) groupState {
+	groupURLs := make([]string, 0, len(group.LogURLs))
+	for logURL := range group.LogURLs {
+		groupURLs = append(groupURLs, logURL)
+	}
+
+	type count struct{}
+	counter := make(chan count, len(groupURLs))
+
+	// Randomize the order in which we send requests to the logs in a group
+	// so we maximize the distribution of logs we get SCTs from.
+	for i, urlNum := range rand.Perm(len(groupURLs)) {
+		subCtx, cancel := context.WithCancel(ctx)
+		go func(i int, logURL string) {
+			timeoutchan := time.After(postInterval(i, parallelStart, PostBatchInterval))
+			select {
+			case <-subCtx.Done():
+				counter <- count{}
+				return
+			case <-timeoutchan:
+			}
+			if state.groupComplete(group.Name) {
+				cancel()
+				counter <- count{}
+				return
+			}
+			if firstRequested := state.request(logURL, cancel); !firstRequested {
+				counter <- count{}
+				return
+			}
+			sct, err := submitter.SubmitToLog(subCtx, logURL, chain)
+			// TODO(Mercurrent): verify SCT
+			state.setResult(logURL, sct, err)
+			counter <- count{}
+		}(i, groupURLs[urlNum])
+	}
+	// Wait until either all logs within groups are processed or context is cancelled.
+	for i := 0; i < len(groupURLs); i++ {
+		select {
+		case <-ctx.Done():
+			break
+		case <-counter:
+			if state.groupComplete(group.Name) {
+				break
+			}
+		}
+	}
+	return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
+}
+
+func parallelNums(groups ctpolicy.LogPolicyData) map[string]int {
+	nums := make(map[string]int)
+	var subsetSum int
+	for _, g := range groups {
+		nums[g.Name] = g.MinInclusions
+		if !g.IsBase {
+			subsetSum += g.MinInclusions
+		}
+	}
+	if _, hasBase := nums[ctpolicy.BaseName]; hasBase {
+		if nums[ctpolicy.BaseName] >= subsetSum {
+			nums[ctpolicy.BaseName] -= subsetSum
+		} else {
+			nums[ctpolicy.BaseName] = 0
+		}
+	}
+	return nums
+}
+
+// AssignedSCT represents SCT with logURL of log-producer.
+type AssignedSCT struct {
+	LogURL string
+	SCT    *ct.SignedCertificateTimestamp
+}
+
+func completenessError(groupComplete map[string]bool) error {
+	failedGroups := []string{}
+	for name, success := range groupComplete {
+		if !success {
+			failedGroups = append(failedGroups, name)
+		}
+	}
+	if len(failedGroups) > 0 {
+		return fmt.Errorf("log-group(s) %s didn't receive enough SCTs", strings.Join(failedGroups, ", "))
+	}
+	return nil
+}
+
+// GetSCTs picks required number of Logs according to policy-group logic and collects SCTs from them.
+// Emits all collected SCTs even when any error produced.
+func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
+	parallelNums := parallelNums(groups)
+	// channel listening to group-completion (failure) events from each single group-race.
+	groupEvents := make(chan groupState, len(groups))
+	submissions := newSafeSubmissionState(groups)
+	for _, g := range groups {
+		go func(g *ctpolicy.LogGroupInfo) {
+			groupEvents <- groupRace(ctx, chain, g, parallelNums[g.Name], submissions, submitter)
+		}(g)
+	}
+
+	// A group name being present in the map indicates that group has
+	// completed processing, and the bool value indicates whether it
+	// completed successfully.
+	groupComplete := make(map[string]bool)
+	// Terminates upon either all logs available are requested or required number of SCTs is collected or upon context timeout.
+	for i := 0; i < len(groups); i++ {
+		select {
+		case <-ctx.Done():
+			return submissions.collectSCTs(), completenessError(groupComplete)
+		case g := <-groupEvents:
+			groupComplete[g.Name] = g.Success
+		}
+	}
+	return submissions.collectSCTs(), completenessError(groupComplete)
+}
