@@ -748,7 +748,6 @@ func showCTLogSTHInfo(result *bytes.Buffer, cert *x509.Certificate) {
 		appendHexData(result, sthInfo.SHA256RootHash[:], 16, "                    ")
 		result.WriteString("\n")
 		result.WriteString(fmt.Sprintf("              TreeHeadSignature: %s\n", sthInfo.TreeHeadSignature.Algorithm))
-		result.WriteString(fmt.Sprintf("              TreeHeadSignature:\n"))
 		appendHexData(result, sthInfo.TreeHeadSignature.Signature, 16, "                    ")
 		result.WriteString("\n")
 	}
