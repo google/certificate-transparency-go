@@ -49,6 +49,11 @@ message HubConfig {
   google.protobuf.Duration min_req_interval = 4;
   // Whether the hub is a true Gossip Hub.
   bool is_hub = 5;
+  // Start point in a Hub beyond which entries of interest are found.
+  // For example, for a Hub that is a regular CT Log this might be
+  // a known point where the earliest encoded STH is to be found.
+  // Specific to goshawk; not used by gosmin.
+  int64 start_index = 6;
 }
 
 // GossipConfig describes the configuration of a gossiper.
@@ -77,8 +82,8 @@ message GossipConfig {
 message GoshawkConfig {
   // The source logs whose STHs will be checked.
   repeated LogConfig source_log = 1;
-  // The destination hub which will be scanned for minimal-gossip certificates.
-  HubConfig dest_hub = 2;
+  // The destination hubs which will be scanned for minimal-gossip certificates.
+  repeated HubConfig dest_hub = 2;
   // Number of STHs pending verification that can be buffered up for each source log.
   int32 buffer_size = 5;
 }
