@@ -115,6 +115,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 		if _, ok := srcs[base.Name]; ok {
 			return nil, fmt.Errorf("duplicate source logs for name %q", base.Name)
 		}
+		glog.Infof("configured source log %s at %s (%+v)", base.Name, base.URL, base)
 		srcs[base.Name] = &sourceLog{logConfig: *base}
 		knownSourceLogs.Set(1.0, base.Name)
 
@@ -134,6 +135,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 		if _, ok := dests[hub.Name]; ok {
 			return nil, fmt.Errorf("duplicate dest hubs for name %q", hub.Name)
 		}
+		glog.Infof("configured dest Hub %s at %s (%+v)", hub.Name, hub.URL, hub)
 		dests[hub.Name] = hub
 		isHub := 0.0
 		if lc.IsHub {
