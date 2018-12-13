@@ -206,10 +206,10 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 	for i := 0; i < len(groupURLs); i++ {
 		select {
 		case <-ctx.Done():
-			break
+			return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
 		case <-counter:
 			if state.groupComplete(group.Name) {
-				break
+				return groupState{Name: group.Name, Success: true}
 			}
 		}
 	}
