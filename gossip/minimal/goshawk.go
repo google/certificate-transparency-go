@@ -231,6 +231,7 @@ func (dest *hubScanner) foundCert(rawEntry *ct.RawLogEntry) {
 	origin, ok := dest.hawk.origins[url]
 	if !ok {
 		glog.Warningf("Scanner(%s): found STH info for unrecognized log at %q in entry at %d", dest.Name, url, entry.Index)
+		return
 	}
 	origin.sths <- sthInfo
 }
