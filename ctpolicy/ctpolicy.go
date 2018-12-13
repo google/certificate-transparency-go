@@ -59,7 +59,7 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 // LogPolicyData contains info on log-partition and submission requirements for a single cert. Key always matches value Name field.
 type LogPolicyData map[string]*LogGroupInfo
 
-// TotalLogs returns number of logs within set of Log-groups. Taking possible intersection into account.
+// TotalLogs returns number of logs within set of Log-groups. Considering possible intersection, it's not direct sum.
 func (groups LogPolicyData) TotalLogs() int {
 	unifiedLogs := make(map[string]bool)
 	for _, g := range groups {
