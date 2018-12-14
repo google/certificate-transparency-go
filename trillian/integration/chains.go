@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keyspb"
@@ -35,6 +36,9 @@ type ChainGenerator interface {
 	// PreCertChain generates a precertificate chain, and also returns the leaf TBS data
 	PreCertChain() ([]ct.ASN1Cert, []byte, error)
 }
+
+// GeneratorFactory is a method that builds a Log-specific ChainGenerator.
+type GeneratorFactory func(c *configpb.LogConfig) (ChainGenerator, error)
 
 // SyntheticChainGenerator builds synthetic certificate chains based on
 // a template chain and intermediate CA private key.
@@ -242,4 +246,35 @@ func verifyChain(rawChain []ct.ASN1Cert) error {
 	}
 
 	return nil
+}
+
+// SyntheticGeneratorFactory returns a function that creates per-Log ChainGenerator instances
+// that create synthetic certificates (details of which are specified by the arguments).
+func SyntheticGeneratorFactory(testDir, leafNotAfter string) (GeneratorFactory, error) {
+	leafChain, err := GetChain(testDir, "leaf01.chain")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load certificate: %v", err)
+	}
+	signer, err := MakeSigner(testDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
+	}
+	var notAfterOverride time.Time
+	if leafNotAfter != "" {
+		notAfterOverride, err = time.Parse(time.RFC3339, leafNotAfter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse leaf notAfter: %v", err)
+		}
+	}
+	// Build a synthetic generator for each target log.
+	return func(c *configpb.LogConfig) (ChainGenerator, error) {
+		notAfter := notAfterOverride
+		if notAfter.IsZero() {
+			notAfter, err = NotAfterForLog(c)
+			if err != nil {
+				return nil, fmt.Errorf("failed to determine notAfter for %s: %v", c.Prefix, err)
+			}
+		}
+		return NewSyntheticChainGenerator(leafChain, signer, notAfter)
+	}, nil
 }

@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -979,4 +980,34 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 		return err
 	}
 	return nil
+}
+
+// NotAfterForLog returns a NotAfter time to be used for certs submitted
+// to the given log instance, allowing for any temporal shard configuration.
+func NotAfterForLog(c *configpb.LogConfig) (time.Time, error) {
+	if c.NotAfterStart == nil && c.NotAfterLimit == nil {
+		return time.Now().Add(24 * time.Hour), nil
+	}
+
+	if c.NotAfterStart != nil {
+		start, err := ptypes.Timestamp(c.NotAfterStart)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterStart: %v", err)
+		}
+		if c.NotAfterLimit == nil {
+			return start.Add(24 * time.Hour), nil
+		}
+
+		limit, err := ptypes.Timestamp(c.NotAfterLimit)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+		}
+		return time.Unix(0, (limit.UnixNano()-start.UnixNano())/2+start.UnixNano()), nil
+	}
+
+	limit, err := ptypes.Timestamp(c.NotAfterLimit)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+	}
+	return limit.Add(-1 * time.Hour), nil
 }
