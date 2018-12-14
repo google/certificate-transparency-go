@@ -178,7 +178,9 @@ main() {
 
     echo 'running go generate'
     go generate -run="protoc" ./...
-    go generate -run="mockgen" ./...
+    # TODO(daviddrysdale): re-enable mockgen generation once other environments
+    # have caught up with non-back-compatible changes to github.com/golang/mock
+    # go generate -run="mockgen" ./...
   fi
 }
 
