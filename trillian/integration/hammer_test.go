@@ -144,11 +144,21 @@ func TestHammer_NotAfter(t *testing.T) {
 			}
 			got := s.addedCerts[0].NotAfter
 			temporal := startPB != nil || limitPB != nil
-			switch fixed := test.wantNotAfter.UnixNano() > 0; {
-			case fixed && got.Unix() != test.wantNotAfter.Unix(): // second precision is OK
-				t.Errorf("cert has NotAfter = %v, want = %v", got, test.wantNotAfter)
-			case !fixed && temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)):
-				t.Errorf("cert has NotAfter = %v, want %v <= NotAfter <= %v", got, test.notAfterStart, test.notAfterLimit)
+			fixed := test.wantNotAfter.UnixNano() > 0
+			if fixed {
+				// Expect a fixed NotAfter in the generated cert.
+				delta := got.Sub(test.wantNotAfter)
+				if delta < 0 {
+					delta = -delta
+				}
+				if delta > time.Second {
+					t.Errorf("cert has NotAfter = %v, want = %v", got, test.wantNotAfter)
+				}
+			} else {
+				// For a temporal log, expect the NotAfter in the generated cert to be in range.
+				if temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)) {
+					t.Errorf("cert has NotAfter = %v, want %v <= NotAfter <= %v", got, test.notAfterStart, test.notAfterLimit)
+				}
 			}
 		})
 	}
