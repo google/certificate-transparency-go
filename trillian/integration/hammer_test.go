@@ -44,9 +44,9 @@ func TestHammer_NotAfter(t *testing.T) {
 	defer s.close()
 
 	now := time.Now()
-	notAfterStart := now.Add(-24 * time.Hour)
+	notAfterStart := now.Add(-48 * time.Hour)
 	notAfterOverride := now.Add(23 * time.Hour)
-	notAfterLimit := now.Add(24 * time.Hour)
+	notAfterLimit := now.Add(48 * time.Hour)
 
 	ctx := context.Background()
 	addChain := func(hs *hammerState) error { return hs.addChain(ctx) }
