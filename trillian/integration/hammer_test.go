@@ -139,17 +139,16 @@ func TestHammer_NotAfter(t *testing.T) {
 			if err := test.fn(hs); err != nil {
 				t.Fatalf("addChain() returned err = %v", err)
 			}
-			if got, want := len(s.addedCerts), 1; got != want {
-				t.Fatalf("unexpected number of certs added to server, got = %v, want = %v", got, want)
+			if got := len(s.addedCerts); got != 1 {
+				t.Fatalf("unexpected number of certs (%d) added to server", got)
 			}
+			got := s.addedCerts[0].NotAfter
 			temporal := startPB != nil || limitPB != nil
-			for i, cert := range s.addedCerts {
-				switch got, fixed := cert.NotAfter, test.wantNotAfter.UnixNano() > 0; {
-				case fixed && got.Unix() != test.wantNotAfter.Unix(): // second precision is OK
-					t.Errorf("cert #%v has NotAfter = %v, want = %v", i, got, test.wantNotAfter)
-				case !fixed && temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)):
-					t.Errorf("cert #%v has NotAfter = %v, want %v <= NotAfter <= %v", i, got, test.notAfterStart, test.notAfterLimit)
-				}
+			switch fixed := test.wantNotAfter.UnixNano() > 0; {
+			case fixed && got.Unix() != test.wantNotAfter.Unix(): // second precision is OK
+				t.Errorf("cert has NotAfter = %v, want = %v", got, test.wantNotAfter)
+			case !fixed && temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)):
+				t.Errorf("cert has NotAfter = %v, want %v <= NotAfter <= %v", got, test.notAfterStart, test.notAfterLimit)
 			}
 		})
 	}
