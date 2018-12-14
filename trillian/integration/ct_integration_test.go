@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
@@ -181,4 +183,79 @@ func loadPublicKey(path string) ([]byte, error) {
 	}
 
 	return block.Bytes, nil
+}
+
+func TestNotAfterForLog(t *testing.T) {
+	tests := []struct {
+		desc    string
+		cfg     configpb.LogConfig
+		want    time.Time
+		wantErr string
+	}{
+		{
+			desc: "no-limits",
+			cfg:  configpb.LogConfig{},
+			want: time.Now().Add(24 * time.Hour),
+		},
+		{
+			desc: "malformed-start",
+			cfg: configpb.LogConfig{
+				NotAfterStart: &timestamp.Timestamp{Seconds: 1000, Nanos: -1},
+			},
+			wantErr: "failed to parse NotAfterStart",
+		},
+		{
+			desc: "malformed-limit",
+			cfg: configpb.LogConfig{
+				NotAfterLimit: &timestamp.Timestamp{Seconds: 1000, Nanos: -1},
+			},
+			wantErr: "failed to parse NotAfterLimit",
+		},
+		{
+			desc: "start-no-limit",
+			cfg: configpb.LogConfig{
+				NotAfterStart: &timestamp.Timestamp{Seconds: 1230000000},
+			},
+			want: time.Date(2008, 12, 23, 2, 40, 0, 0, time.UTC).Add(24 * time.Hour),
+		},
+		{
+			desc: "limit-no-start",
+			cfg: configpb.LogConfig{
+				NotAfterLimit: &timestamp.Timestamp{Seconds: 1230000000},
+			},
+			want: time.Date(2008, 12, 23, 2, 40, 0, 0, time.UTC).Add(-1 * time.Hour),
+		},
+		{
+			desc: "mid-range",
+			cfg: configpb.LogConfig{
+				NotAfterStart: &timestamp.Timestamp{Seconds: 1230000000},
+				NotAfterLimit: &timestamp.Timestamp{Seconds: 1230000000 + 86400},
+			},
+			want: time.Date(2008, 12, 23, 2, 40, 0, 0, time.UTC).Add(43200 * time.Second),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			got, err := NotAfterForLog(&test.cfg)
+			if err != nil {
+				if len(test.wantErr) == 0 {
+					t.Errorf("NotAfterForLog()=nil,%v, want _,nil", err)
+				} else if !strings.Contains(err.Error(), test.wantErr) {
+					t.Errorf("NotAfterForLog()=nil,%v, want _,err containing %q", err, test.wantErr)
+				}
+				return
+			}
+			if len(test.wantErr) > 0 {
+				t.Errorf("NotAfterForLog()=%v, nil, want nil,err containing %q", got, test.wantErr)
+			}
+			delta := got.Sub(test.want)
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta > time.Second {
+				t.Errorf("NotAfterForLog()=%v, want %v (delta %v)", got, test.want, delta)
+			}
+		})
+
+	}
 }

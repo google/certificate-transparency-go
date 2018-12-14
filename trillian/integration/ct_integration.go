@@ -1002,7 +1002,8 @@ func NotAfterForLog(c *configpb.LogConfig) (time.Time, error) {
 		if err != nil {
 			return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
 		}
-		return time.Unix(0, (limit.UnixNano()-start.UnixNano())/2+start.UnixNano()), nil
+		midDelta := limit.Sub(start) / 2
+		return start.Add(midDelta), nil
 	}
 
 	limit, err := ptypes.Timestamp(c.NotAfterLimit)
