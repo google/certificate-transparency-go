@@ -33,7 +33,8 @@ func testdataSCT() *ct.SignedCertificateTimestamp {
 	return &sct
 }
 
-// mockSubmitter keeps track of number of requests per log-group. Logs split into groups based on logURL first letter.
+// mockSubmitter keeps track of number of requests per log-group.
+// Logs split into groups based on logURL first letter.
 type mockSubmitter struct {
 	firstLetterURLReqNumber map[byte]int
 	mu                      sync.Mutex
@@ -63,8 +64,6 @@ func evaluateSCTs(t *testing.T, got []*AssignedSCT, trail map[string]int) {
 		}
 	}
 	for groupName, count := range trail {
-		// It's possible to get more SCTs for Log-group than minimally-required.
-		// If group completion happened in-between Log-request and response. Or in case of group-intersection.
 		if count > 0 {
 			for _, s := range got {
 				t.Errorf("%v\n", s.LogURL)
