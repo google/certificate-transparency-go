@@ -56,10 +56,13 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 	}
 }
 
+// LogPolicyData contains info on log-partition and submission requirements for a single cert. Key always matches value Name field.
+type LogPolicyData map[string]*LogGroupInfo
+
 // CTPolicy interface describes requirements determined for logs in terms of per-group-submit.
 type CTPolicy interface {
 	// Provides info on Log-grouping. Returns an error if loglist provided is not sufficient to satisfy policy. The data output is formed even when error returned.
-	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (map[string]*LogGroupInfo, error)
+	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
 }
 
 // baseGroupFor creates and propagates all-log group.
@@ -82,13 +85,16 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 	return lifetimeInMonths
 }
 
+// GroupSet is set of Log-group names.
+type GroupSet map[string]bool
+
 // GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names that contain the log.
-func GroupByLogs(lg map[string]*LogGroupInfo) map[string]map[string]bool {
-	result := make(map[string]map[string]bool)
+func GroupByLogs(lg LogPolicyData) map[string]GroupSet {
+	result := make(map[string]GroupSet)
 	for groupname, g := range lg {
 		for logURL := range g.LogURLs {
 			if _, seen := result[logURL]; !seen {
-				result[logURL] = make(map[string]bool)
+				result[logURL] = make(GroupSet)
 			}
 			result[logURL][groupname] = true
 		}

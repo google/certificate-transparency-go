@@ -20,8 +20,8 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-func wantedGroups(goog int, nonGoog int, base int, minusBob bool) map[string]*LogGroupInfo {
-	gi := map[string]*LogGroupInfo{
+func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
+	gi := LogPolicyData{
 		"Google-operated": {
 			Name: "Google-operated",
 			LogURLs: map[string]bool{
@@ -65,7 +65,7 @@ func TestCheckChromePolicy(t *testing.T) {
 	tests := []struct {
 		name string
 		cert *x509.Certificate
-		want map[string]*LogGroupInfo
+		want LogPolicyData
 	}{
 		{
 			name: "Short",
@@ -109,7 +109,7 @@ func TestCheckChromePolicyWarnings(t *testing.T) {
 	tests := []struct {
 		name    string
 		cert    *x509.Certificate
-		want    map[string]*LogGroupInfo
+		want    LogPolicyData
 		warning string
 	}{
 		{
