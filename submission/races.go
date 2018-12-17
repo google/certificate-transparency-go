@@ -47,7 +47,7 @@ type groupState struct {
 // safeSubmissionState is a submission state-machine for set of Log-groups.
 // When some group is complete cancels all requests that are not needed by any group.
 type safeSubmissionState struct {
-	logToGroups map[string]map[string]bool
+	logToGroups map[string]ctpolicy.GroupSet
 	groupNeeds  map[string]int
 
 	results map[string]*submissionResult
@@ -189,26 +189,26 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 	for i, urlNum := range rand.Perm(len(groupURLs)) {
 		subCtx, cancel := context.WithCancel(ctx)
 		go func(i int, logURL string) {
+			countCall := func() {
+				counter <- count{}
+			}
+			defer countCall()
 			timeoutchan := time.After(submitInterval(i, parallelStart, SubmitBatchInterval))
 			select {
 			case <-subCtx.Done():
-				counter <- count{}
 				return
 			case <-timeoutchan:
 			}
 			if state.groupComplete(group.Name) {
 				cancel()
-				counter <- count{}
 				return
 			}
 			if firstRequested := state.request(logURL, cancel); !firstRequested {
-				counter <- count{}
 				return
 			}
 			sct, err := submitter.SubmitToLog(subCtx, logURL, chain)
 			// TODO(Mercurrent): verify SCT
 			state.handleResult(logURL, sct, err)
-			counter <- count{}
 		}(i, groupURLs[urlNum])
 	}
 	// Wait until either all logs within groups are processed or context is cancelled.
