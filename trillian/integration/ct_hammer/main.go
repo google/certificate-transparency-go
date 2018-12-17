@@ -61,6 +61,8 @@ var (
 	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection to source log")
 	chainBufSize    = flag.Int("buffered_chains", 100, "Number of buffered certificate chains to hold")
 	startIndex      = flag.Int64("start_index", 0, "Index of start point in source log to scan from (-1 for random start index)")
+	batchSize       = flag.Int("batch_size", 500, "Max number of entries to request at per call to get-entries")
+	parallelFetch   = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 
 	metricsEndpoint     = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
 	seed                = flag.Int64("seed", -1, "Seed for random number generation")
@@ -103,7 +105,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
 	}
 	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 60 * time.Second,
 		Transport: &http.Transport{
 			TLSHandshakeTimeout:   30 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
@@ -156,10 +158,17 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 		glog.Exitf("Failed to create client for %q: %v", uri, err)
 	}
 	glog.Infof("Testing with certs copied from log at %s starting at index %d", uri, *startIndex)
+	genOpts := integration.CopyChainOptions{
+		StartIndex:    *startIndex,
+		BufSize:       *chainBufSize,
+		BatchSize:     *batchSize,
+		ParallelFetch: *parallelFetch,
+	}
 	return func(c *configpb.LogConfig) (integration.ChainGenerator, error) {
-		return integration.NewCopyChainGenerator(ctx, logClient, c, *startIndex, *chainBufSize)
+		return integration.NewCopyChainGeneratorFromOpts(ctx, logClient, c, genOpts)
 	}
 }
+
 func main() {
 	flag.Parse()
 	if *logConfig == "" {
