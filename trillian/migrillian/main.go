@@ -38,7 +38,8 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
 	"github.com/google/trillian/util/election2"
-	"github.com/google/trillian/util/election2/etcd"
+	etcdelect "github.com/google/trillian/util/election2/etcd"
+	"github.com/google/trillian/util/etcd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -211,7 +212,7 @@ func getElectionFactory() (election2.Factory, func()) {
 
 	hostname, _ := os.Hostname()
 	instanceID := fmt.Sprintf("%s.%d", hostname, os.Getpid())
-	factory := etcd.NewFactory(instanceID, cli, *lockDir)
+	factory := etcdelect.NewFactory(instanceID, cli, *lockDir)
 
 	return factory, closeFn
 }
