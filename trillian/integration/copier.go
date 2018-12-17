@@ -41,6 +41,18 @@ type CopyChainGenerator struct {
 	certs, precerts          chan []ct.ASN1Cert
 }
 
+// CopyChainOptions describes the parameters for a CopyChainGenerator instance.
+type CopyChainOptions struct {
+	// StartIndex indicates where to start scanning; negative value implies starting from a random position.
+	StartIndex int64
+	// BufSize is the number of buffered chains to hold.
+	BufSize int
+	// BatchSize indicates how many entries should be requested from the source log at a time.
+	BatchSize int
+	// ParallelFetch indicates how many parallel entry fetchers to run.
+	ParallelFetch int
+}
+
 // NewCopyChainGenerator builds a certificate chain generator that sources
 // chains from another source log, starting at startIndex (or a random index in
 // the current tree size if startIndex is negative).  This function starts
@@ -48,6 +60,22 @@ type CopyChainGenerator struct {
 // terminate these goroutines (after that the [Pre]CertChain() entrypoints will
 // permanently fail).
 func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *configpb.LogConfig, startIndex int64, bufSize int) (ChainGenerator, error) {
+	opts := CopyChainOptions{
+		StartIndex:    startIndex,
+		BufSize:       bufSize,
+		BatchSize:     500,
+		ParallelFetch: 2,
+	}
+	return NewCopyChainGeneratorFromOpts(ctx, client, cfg, opts)
+}
+
+// NewCopyChainGeneratorFromOpts builds a certificate chain generator that
+// sources chains from another source log, starting at opts.StartIndex (or a
+// random index in the current tree size if this is negative).  This function
+// starts background goroutines that scan the log; cancelling the context will
+// terminate these goroutines (after that the [Pre]CertChain() entrypoints
+// will permanently fail).
+func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient, cfg *configpb.LogConfig, opts CopyChainOptions) (ChainGenerator, error) {
 	var start, limit time.Time
 	var err error
 	if cfg.NotAfterStart != nil {
@@ -98,6 +126,7 @@ func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *c
 		return nil, fmt.Errorf("failed to find any overlap in accepted roots for target %s", cfg.Prefix)
 	}
 
+	startIndex := opts.StartIndex
 	if startIndex < 0 {
 		// Pick a random start point in the source log's tree.
 		sth, err := client.GetSTH(ctx)
@@ -113,14 +142,14 @@ func NewCopyChainGenerator(ctx context.Context, client *client.LogClient, cfg *c
 		limit:       limit,
 		targetRoots: targetPool,
 		sourceRoots: sourcePool,
-		certs:       make(chan []ct.ASN1Cert, bufSize),
-		precerts:    make(chan []ct.ASN1Cert, bufSize),
+		certs:       make(chan []ct.ASN1Cert, opts.BufSize),
+		precerts:    make(chan []ct.ASN1Cert, opts.BufSize),
 	}
 
 	// Start two goroutines to scan the source log for certs and precerts respectively.
 	fetchOpts := scanner.FetcherOptions{
-		BatchSize:     bufSize,
-		ParallelFetch: 1,
+		BatchSize:     opts.BatchSize,
+		ParallelFetch: opts.ParallelFetch,
 		Continuous:    true,
 		StartIndex:    startIndex,
 	}
@@ -149,7 +178,7 @@ func (g *CopyChainGenerator) processBatch(batch scanner.EntryBatch, chains chan 
 			continue
 		}
 		if entry.Leaf.TimestampedEntry.EntryType != eType {
-			glog.V(3).Infof("skip entry %d as EntryType=%d not %d", index, entry.Leaf.TimestampedEntry.EntryType, eType)
+			glog.V(4).Infof("skip entry %d as EntryType=%d not %d", index, entry.Leaf.TimestampedEntry.EntryType, eType)
 			continue
 		}
 		root, err := x509.ParseCertificate(entry.Chain[len(entry.Chain)-1].Data)
