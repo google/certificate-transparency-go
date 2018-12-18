@@ -107,14 +107,14 @@ func TestLifetimeInMonths(t *testing.T) {
 func TestGroupByLogs(t *testing.T) {
 	tests := []struct {
 		name      string
-		logGroups map[string]*LogGroupInfo
-		want      map[string]map[string]bool
+		logGroups LogPolicyData
+		want      map[string]GroupSet
 	}{
 		{
 			name: "BaseGroup",
-			logGroups: map[string]*LogGroupInfo{
+			logGroups: LogPolicyData{
 				BaseName: {
-					name: BaseName,
+					Name: BaseName,
 					LogURLs: map[string]bool{
 						"ct.googleapis.com/aviator/":   true,
 						"ct.googleapis.com/icarus/":    true,
@@ -122,11 +122,11 @@ func TestGroupByLogs(t *testing.T) {
 						"ct.googleapis.com/racketeer/": true,
 						"log.bob.io":                   true,
 					},
-					minInclusions: 2,
-					isBase:        true,
+					MinInclusions: 2,
+					IsBase:        true,
 				},
 			},
-			want: map[string]map[string]bool{
+			want: map[string]GroupSet{
 				"ct.googleapis.com/aviator/": {
 					BaseName: true,
 				},
@@ -146,28 +146,28 @@ func TestGroupByLogs(t *testing.T) {
 		},
 		{
 			name: "ChromeLikeGroups",
-			logGroups: map[string]*LogGroupInfo{
+			logGroups: LogPolicyData{
 				"Google-operated": {
-					name: "Google-operated",
+					Name: "Google-operated",
 					LogURLs: map[string]bool{
 						"ct.googleapis.com/aviator/":   true,
 						"ct.googleapis.com/icarus/":    true,
 						"ct.googleapis.com/rocketeer/": true,
 						"ct.googleapis.com/racketeer/": true,
 					},
-					minInclusions: 2,
-					isBase:        false,
+					MinInclusions: 2,
+					IsBase:        false,
 				},
 				"Non-Google-operated": {
-					name: "Non-Google-operated",
+					Name: "Non-Google-operated",
 					LogURLs: map[string]bool{
 						"log.bob.io": true,
 					},
-					minInclusions: 1,
-					isBase:        false,
+					MinInclusions: 1,
+					IsBase:        false,
 				},
 				BaseName: {
-					name: BaseName,
+					Name: BaseName,
 					LogURLs: map[string]bool{
 						"ct.googleapis.com/aviator/":   true,
 						"ct.googleapis.com/icarus/":    true,
@@ -175,11 +175,11 @@ func TestGroupByLogs(t *testing.T) {
 						"ct.googleapis.com/racketeer/": true,
 						"log.bob.io":                   true,
 					},
-					minInclusions: 2,
-					isBase:        true,
+					MinInclusions: 2,
+					IsBase:        true,
 				},
 			},
-			want: map[string]map[string]bool{
+			want: map[string]GroupSet{
 				"ct.googleapis.com/aviator/": {
 					BaseName:          true,
 					"Google-operated": true,

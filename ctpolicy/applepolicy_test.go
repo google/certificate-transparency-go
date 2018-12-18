@@ -20,10 +20,10 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-func wantedAppleGroups(count int) map[string]*LogGroupInfo {
-	gi := map[string]*LogGroupInfo{
+func wantedAppleGroups(count int) LogPolicyData {
+	gi := LogPolicyData{
 		BaseName: {
-			name: BaseName,
+			Name: BaseName,
 			LogURLs: map[string]bool{
 				"ct.googleapis.com/aviator/":   true,
 				"ct.googleapis.com/icarus/":    true,
@@ -31,8 +31,8 @@ func wantedAppleGroups(count int) map[string]*LogGroupInfo {
 				"ct.googleapis.com/racketeer/": true,
 				"log.bob.io":                   true,
 			},
-			minInclusions: count,
-			isBase:        true,
+			MinInclusions: count,
+			IsBase:        true,
 		},
 	}
 	return gi
@@ -42,7 +42,7 @@ func TestCheckApplePolicy(t *testing.T) {
 	tests := []struct {
 		name string
 		cert *x509.Certificate
-		want map[string]*LogGroupInfo
+		want LogPolicyData
 	}{
 		{
 			name: "Short",

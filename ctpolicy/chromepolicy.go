@@ -24,14 +24,14 @@ type ChromeCTPolicy struct {
 }
 
 // LogsByGroup describes submission requirements for embedded SCTs according to https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
-func (chromeP *ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (map[string]*LogGroupInfo, error) {
+func (chromeP *ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var outerror error
-	googGroup := LogGroupInfo{name: "Google-operated", isBase: false}
+	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
 	googGroup.populate(approved, func(log *loglist.Log) bool { return log.GoogleOperated() })
 	if err := googGroup.setMinInclusions(1); err != nil {
 		outerror = err
 	}
-	nonGoogGroup := LogGroupInfo{name: "Non-Google-operated", isBase: false}
+	nonGoogGroup := LogGroupInfo{Name: "Non-Google-operated", IsBase: false}
 	nonGoogGroup.populate(approved, func(log *loglist.Log) bool { return !log.GoogleOperated() })
 	if err := nonGoogGroup.setMinInclusions(1); err != nil {
 		outerror = err
@@ -52,10 +52,10 @@ func (chromeP *ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *log
 	if err != nil {
 		outerror = err
 	}
-	groups := map[string]*LogGroupInfo{
-		googGroup.name:    &googGroup,
-		nonGoogGroup.name: &nonGoogGroup,
-		baseGroup.name:    &baseGroup,
+	groups := LogPolicyData{
+		googGroup.Name:    &googGroup,
+		nonGoogGroup.Name: &nonGoogGroup,
+		baseGroup.Name:    &baseGroup,
 	}
 	return groups, outerror
 }

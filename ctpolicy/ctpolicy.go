@@ -29,10 +29,10 @@ const (
 
 // LogGroupInfo holds information on a single group of logs specified by Policy.
 type LogGroupInfo struct {
-	name          string
+	Name          string
 	LogURLs       map[string]bool // set of members
-	minInclusions int             // Required number of submissions.
-	isBase        bool            // True only for Log-group covering all logs.
+	MinInclusions int             // Required number of submissions.
+	IsBase        bool            // True only for Log-group covering all logs.
 }
 
 func (group *LogGroupInfo) setMinInclusions(i int) error {
@@ -40,9 +40,9 @@ func (group *LogGroupInfo) setMinInclusions(i int) error {
 		return fmt.Errorf("cannot assign negative minimal inclusions number")
 	}
 	// Assign given number even if it's bigger than group size.
-	group.minInclusions = i
+	group.MinInclusions = i
 	if i > len(group.LogURLs) {
-		return fmt.Errorf("trying to assign %d minimal inclusion number while only %d logs are part of group %q", i, len(group.LogURLs), group.name)
+		return fmt.Errorf("trying to assign %d minimal inclusion number while only %d logs are part of group %q", i, len(group.LogURLs), group.Name)
 	}
 	return nil
 }
@@ -56,15 +56,18 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 	}
 }
 
+// LogPolicyData contains info on log-partition and submission requirements for a single cert. Key always matches value Name field.
+type LogPolicyData map[string]*LogGroupInfo
+
 // CTPolicy interface describes requirements determined for logs in terms of per-group-submit.
 type CTPolicy interface {
 	// Provides info on Log-grouping. Returns an error if loglist provided is not sufficient to satisfy policy. The data output is formed even when error returned.
-	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (map[string]*LogGroupInfo, error)
+	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
 }
 
 // baseGroupFor creates and propagates all-log group.
 func baseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
-	baseGroup := LogGroupInfo{name: BaseName, isBase: true}
+	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
 	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return baseGroup, err
@@ -82,13 +85,16 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 	return lifetimeInMonths
 }
 
+// GroupSet is set of Log-group names.
+type GroupSet map[string]bool
+
 // GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names that contain the log.
-func GroupByLogs(lg map[string]*LogGroupInfo) map[string]map[string]bool {
-	result := make(map[string]map[string]bool)
+func GroupByLogs(lg LogPolicyData) map[string]GroupSet {
+	result := make(map[string]GroupSet)
 	for groupname, g := range lg {
 		for logURL := range g.LogURLs {
 			if _, seen := result[logURL]; !seen {
-				result[logURL] = make(map[string]bool)
+				result[logURL] = make(GroupSet)
 			}
 			result[logURL][groupname] = true
 		}
