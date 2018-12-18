@@ -57,8 +57,8 @@ import (
 )
 
 const (
-	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} (\d+)$`
-	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
+	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} ([.\d]+)$`
+	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>[.\d]+)$`
 )
 
 // DefaultTransport is a http Transport more suited for use in the hammer
@@ -912,9 +912,9 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 			m := reqsRE.FindStringSubmatch(line)
 			if m != nil {
 				if m[2] == strconv.FormatInt(ls.logID, 10) {
-					if val, err := strconv.Atoi(m[3]); err == nil {
+					if val, err := strconv.ParseFloat(m[3], 64); err == nil {
 						ep := m[1]
-						got.reqs[ep] += val
+						got.reqs[ep] += int(val)
 					}
 				}
 				continue
@@ -922,10 +922,10 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 			m = rspsRE.FindStringSubmatch(line)
 			if m != nil {
 				if m[2] == strconv.FormatInt(ls.logID, 10) {
-					if val, err := strconv.Atoi(m[4]); err == nil {
+					if val, err := strconv.ParseFloat(m[4], 64); err == nil {
 						ep := m[1]
 						rc := m[3]
-						got.rsps[ep][rc] += val
+						got.rsps[ep][rc] += int(val)
 					}
 				}
 				continue
