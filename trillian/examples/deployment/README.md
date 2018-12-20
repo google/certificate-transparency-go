@@ -43,6 +43,17 @@ replacing the existing value of `log_id`. The following command will do this:
 sed -i -r "s/log_id: [[:digit:]]+/log_id: ${LOG_ID}/" ct_server.cfg
 ```
 
+#### Keys
+
+The [private key](../../testdata/ct-http-server.privkey.pem) to be used for
+signing STHs and SCTs, and the corresponding
+[public key](../../testdata/ct-http-server.pubkey.pem), are also present in
+[ct_server.cfg](ct_server.cfg). If the CT log is to be used for anything other
+than local testing, the example keys should be replaced with keys you generate
+yourself.
+
+#### Start the CTFE
+
 Now you can start the CTFE:
 
 ```shell
@@ -50,6 +61,20 @@ docker-compose -f docker-compose.yml up
 ```
 
 By default, the only CT log will be called "test" and will be accessible at
-https://localhost:6962/test/ct/v1/. Its only trusted roots are those found in
-the [testdata directory](../../testdata). You can change this by modifying the
+http://localhost:6962/test/ct/v1/. Its only trusted roots are those found in the
+[testdata directory](../../testdata). You can change this by modifying the
 [roots.pem](roots.pem) file and restarting the CTFE.
+
+#### Testing the CTFE
+
+Assuming you didn't remove the test root from [roots.pem](roots.pem) or change
+the keys in [ct_server.cfg](ct_server.cfg), the following command should succeed
+in adding the very first certificate to your new CT log:
+
+```shell
+go run github.com/google/certificate-transparency-go/client/ctclient \
+   --log_uri "http://localhost:6962/test" \
+   --pub_key "../../testdata/ct-http-server.pubkey.pem" \
+   --cert_chain "../../testdata/leaf01.chain" \
+   upload
+```
