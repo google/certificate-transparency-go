@@ -34,6 +34,7 @@ var (
 	intermediate             = flag.String("intermediate", "", "Intermediate CA certificate file")
 	useSystemRoots           = flag.Bool("system_roots", false, "Use system roots")
 	verbose                  = flag.Bool("verbose", false, "Verbose output")
+	strict                   = flag.Bool("strict", true, "Set non-zero exit code for non-fatal errors in parsing")
 	validate                 = flag.Bool("validate", false, "Validate certificate signatures")
 	checkTime                = flag.Bool("check_time", false, "Check current validity of certificate")
 	checkName                = flag.Bool("check_name", true, "Check certificate name validity")
@@ -76,8 +77,12 @@ func main() {
 		}
 		if err != nil {
 			glog.Errorf("%v", err)
+		}
+		if x509.IsFatal(err) {
 			failed = true
 			continue
+		} else if err != nil && *strict {
+			failed = true
 		}
 		for _, cert := range chain {
 			if *verbose {
@@ -110,6 +115,9 @@ func main() {
 	}
 }
 
+// chainFromSite retrieves the certificate chain from an https: URL.
+// Note that both a chain and an error can be returned (in which case
+// the error will be of type x509.NonFatalErrors).
 func chainFromSite(target string) ([]*x509.Certificate, error) {
 	u, err := url.Parse(target)
 	if err != nil {
@@ -131,33 +139,49 @@ func chainFromSite(target string) ([]*x509.Certificate, error) {
 
 	// Convert base crypto/x509.Certificates to our forked x509.Certificate type.
 	goChain := conn.ConnectionState().PeerCertificates
+	var nfe *x509.NonFatalErrors
 	chain := make([]*x509.Certificate, len(goChain))
 	for i, goCert := range goChain {
 		cert, err := x509.ParseCertificate(goCert.Raw)
-		if err != nil {
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("%s: failed to convert Go Certificate [%d]: %v", target, i, err)
+		} else if errs, ok := err.(x509.NonFatalErrors); ok {
+			nfe = nfe.Append(&errs)
+		} else if err != nil {
 			return nil, fmt.Errorf("%s: failed to convert Go Certificate [%d]: %v", target, i, err)
 		}
 		chain[i] = cert
 	}
 
+	if nfe.HasError() {
+		return chain, *nfe
+	}
 	return chain, nil
 }
 
+// chainFromSite retrieves a certificate chain from a PEM file.
+// Note that both a chain and an error can be returned (in which case
+// the error will be of type x509.NonFatalErrors).
 func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
 	}
+	var nfe *x509.NonFatalErrors
 	var chain []*x509.Certificate
 	for _, data := range dataList {
 		certs, err := x509.ParseCertificates(data)
 		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
-		}
-		if err != nil {
-			glog.Errorf("%s: non-fatal error parsing: %v", filename, err)
+		} else if errs, ok := err.(x509.NonFatalErrors); ok {
+			nfe = nfe.Append(&errs)
+		} else if err != nil {
+			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
 		}
 		chain = append(chain, certs...)
+	}
+	if nfe.HasError() {
+		return chain, *nfe
 	}
 	return chain, nil
 }
