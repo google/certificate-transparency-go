@@ -1368,7 +1368,23 @@ func (e NonFatalErrors) Error() string {
 
 // HasError returns true if |e| contains at least one error
 func (e *NonFatalErrors) HasError() bool {
+	if e == nil {
+		return false
+	}
 	return len(e.Errors) > 0
+}
+
+func (e *NonFatalErrors) Append(more *NonFatalErrors) *NonFatalErrors {
+	if e == nil {
+		return more
+	}
+	if more == nil {
+		return e
+	}
+	combined := NonFatalErrors{Errors: make([]error, 0, len(e.Errors)+len(more.Errors))}
+	combined.Errors = append(combined.Errors, e.Errors...)
+	combined.Errors = append(combined.Errors, more.Errors...)
+	return &combined
 }
 
 // IsFatal indicates whether an error is fatal.
@@ -3049,7 +3065,7 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
 	out := &CertificateRequest{
-		Raw:                      in.Raw,
+		Raw: in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,
 		RawSubjectPublicKeyInfo:  in.TBSCSR.PublicKey.Raw,
 		RawSubject:               in.TBSCSR.Subject.FullBytes,
