@@ -1374,6 +1374,7 @@ func (e *NonFatalErrors) HasError() bool {
 	return len(e.Errors) > 0
 }
 
+// Append combines the contents of two NonFatalErrors instances.
 func (e *NonFatalErrors) Append(more *NonFatalErrors) *NonFatalErrors {
 	if e == nil {
 		return more
