@@ -33,7 +33,7 @@ one using the following commands:
 
 ```shell
 go get github.com/google/trillian/cmd/createtree
-LOG_ID=$(createtree --admin-server=localhost:8090)
+LOG_ID=$(createtree --admin_server=localhost:8090)
 ```
 
 Now, copy the value of `$LOG_ID` into the
