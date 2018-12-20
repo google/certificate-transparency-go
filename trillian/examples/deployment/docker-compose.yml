@@ -22,6 +22,6 @@ services:
     - "6963:6963"
 secrets:
   ctfe_config:
-    file: ct_server.cfg
+    file: ct_server.cfg.example
   ctfe_roots:
     file: roots.pem

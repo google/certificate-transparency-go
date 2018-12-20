@@ -36,11 +36,12 @@ go get github.com/google/trillian/cmd/createtree
 LOG_ID=$(createtree --admin-server=localhost:8090)
 ```
 
-Now, copy the value of `$LOG_ID` into the [ct_server.cfg](ct_server.cfg) file,
-replacing the existing value of `log_id`. The following command will do this:
+Now, copy the value of `$LOG_ID` into the
+[ct_server.cfg.example](ct_server.cfg.example) file, replacing the existing
+value of `log_id`. The following command will do this:
 
 ```shell
-sed -i -r "s/log_id: [[:digit:]]+/log_id: ${LOG_ID}/" ct_server.cfg
+sed -i -r "s/log_id: [[:digit:]]+/log_id: ${LOG_ID}/" ct_server.cfg.example
 ```
 
 #### Keys
@@ -48,9 +49,9 @@ sed -i -r "s/log_id: [[:digit:]]+/log_id: ${LOG_ID}/" ct_server.cfg
 The [private key](../../testdata/ct-http-server.privkey.pem) to be used for
 signing STHs and SCTs, and the corresponding
 [public key](../../testdata/ct-http-server.pubkey.pem), are also present in
-[ct_server.cfg](ct_server.cfg). If the CT log is to be used for anything other
-than local testing, the example keys should be replaced with keys you generate
-yourself.
+[ct_server.cfg.example](ct_server.cfg.example). If the CT log is to be used for
+anything other than local testing, the example keys should be replaced with keys
+you generate yourself.
 
 #### Start the CTFE
 
@@ -68,8 +69,8 @@ http://localhost:6962/test/ct/v1/. Its only trusted roots are those found in the
 #### Testing the CTFE
 
 Assuming you didn't remove the test root from [roots.pem](roots.pem) or change
-the keys in [ct_server.cfg](ct_server.cfg), the following command should succeed
-in adding the very first certificate to your new CT log:
+the keys in [ct_server.cfg.example](ct_server.cfg.example), the following
+command should succeed in adding the very first certificate to your new CT log:
 
 ```shell
 go run github.com/google/certificate-transparency-go/client/ctclient \
