@@ -45,7 +45,7 @@ type groupState struct {
 
 // safeSubmissionState is a submission state-machine for set of Log-groups. When some group is complete cancels all requests that are not needed by any group.
 type safeSubmissionState struct {
-	logToGroups map[string]map[string]bool
+	logToGroups map[string]ctpolicy.GroupSet
 	groupNeeds  map[string]int
 
 	results map[string]*submissionResult
