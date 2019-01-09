@@ -42,7 +42,17 @@ import (
 type Goshawk struct {
 	dests     map[string]*hubScanner // name => scanner
 	origins   map[string]*originLog  // URL => log
-	fetchOpts scanner.FetcherOptions
+	fetchOpts FetchOptions
+}
+
+// FetchOptions governs the overall hub retrieval behaviour.
+type FetchOptions struct {
+	// Number of entries to request in one batch from the Log.
+	BatchSize int
+	// Number of concurrent fetcher workers to run.
+	ParallelFetch int
+	// StartIndex is the first entry from the hub to fetch.
+	StartIndex int64
 }
 
 type originLog struct {
@@ -66,7 +76,7 @@ type hubScanner struct {
 // NewGoshawkFromFile creates a Goshawk from the given filename, which should
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
-func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, fetchOpts scanner.FetcherOptions) (*Goshawk, error) {
+func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -84,7 +94,7 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, f
 }
 
 // NewGoshawk creates a gossiper from the given configuration protobuf and optional http client.
-func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, fetchOpts scanner.FetcherOptions) (*Goshawk, error) {
+func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")
 	}
@@ -94,8 +104,6 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 	if cfg.BufferSize < 0 {
 		return nil, fmt.Errorf("negative STH buffer size (%d) specified", cfg.BufferSize)
 	}
-
-	fetchOpts.Continuous = true
 	hawk := Goshawk{
 		dests:     make(map[string]*hubScanner),
 		origins:   make(map[string]*originLog),
@@ -189,9 +197,15 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 }
 
 // Scanner runs a continuous scan of the destination hub.
-func (dest *hubScanner) Scanner(ctx context.Context, fetchOpts scanner.FetcherOptions) error {
-	fetchOpts.StartIndex = dest.StartIndex
-	fetcher := scanner.NewFetcher(dest.Log, &fetchOpts)
+func (dest *hubScanner) Scanner(ctx context.Context, fetchOpts FetchOptions) error {
+	fetcherOpts := scanner.FetcherOptions{
+		StartIndex:    dest.StartIndex,
+		EndIndex:      0, // Scan up to current STH size.
+		ParallelFetch: fetchOpts.ParallelFetch,
+		BatchSize:     fetchOpts.BatchSize,
+		Continuous:    true,
+	}
+	fetcher := scanner.NewFetcher(dest.Log, &fetcherOpts)
 	return fetcher.Run(ctx, func(batch scanner.EntryBatch) {
 		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
 		for i, entry := range batch.Entries {

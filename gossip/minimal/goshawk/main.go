@@ -26,7 +26,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/gossip/minimal"
-	"github.com/google/certificate-transparency-go/scanner"
 )
 
 var (
@@ -40,7 +39,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	fetchOpts := scanner.FetcherOptions{
+	fetchOpts := minimal.FetchOptions{
 		BatchSize:     *batchSize,
 		ParallelFetch: *parallelFetch,
 	}
