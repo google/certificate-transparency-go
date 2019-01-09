@@ -110,9 +110,9 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		if _, exists := hawk.dests[dest.Name]; exists {
 			return nil, fmt.Errorf("duplicate dest hubs for name %q", dest.Name)
 		}
-		glog.Infof("configured dest Hub %s to scan at %s (%+v)", dest.Name, dest.URL, dest)
 		dest.hawk = &hawk
 		hawk.dests[dest.Name] = dest
+		glog.Infof("configured dest Hub %s to scan at %s (%+v)", dest.Name, dest.URL, dest)
 	}
 	seenNames := make(map[string]bool)
 	for _, lc := range cfg.SourceLog {
@@ -128,11 +128,11 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		if _, exists := hawk.origins[base.URL]; exists {
 			return nil, fmt.Errorf("duplicate source logs for url %s", base.URL)
 		}
-		glog.Infof("configured source log %s at %s (%+v)", base.Name, base.URL, base)
 		hawk.origins[base.URL] = &originLog{
 			logConfig: *base,
 			sths:      make(chan *x509ext.LogSTHInfo, cfg.BufferSize),
 		}
+		glog.Infof("configured source log %s at %s (%+v)", base.Name, base.URL, base)
 	}
 	return &hawk, nil
 }
