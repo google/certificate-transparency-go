@@ -241,16 +241,24 @@ func hubScannerFromProto(cfg *configpb.HubConfig, hc *http.Client) (*hubScanner,
 
 	var fetcher hubFetcher
 	if cfg.IsHub {
-		return nil, errors.New("Pure Gossip Hubs not yet supported")
+		cl, err := hubclient.New(cfg.Url, hc, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hub client for Gossip Hub %q: %v", cfg.Name, err)
+		}
+		if cl.Verifier == nil {
+			glog.Warningf("No public key provided for Gossip Hub %s, signature checks will be skipped", cfg.Name)
+		}
+		fetcher = &gossipHubFetcher{Hub: cl}
+	} else {
+		cl, err := logclient.New(cfg.Url, hc, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hub client for CT log %q: %v", cfg.Name, err)
+		}
+		if cl.Verifier == nil {
+			glog.Warningf("No public key provided for CT log %s, signature checks will be skipped", cfg.Name)
+		}
+		fetcher = &ctHubFetcher{Log: cl}
 	}
-	cl, err := logclient.New(cfg.Url, hc, opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create hub client for %q: %v", cfg.Name, err)
-	}
-	if cl.Verifier == nil {
-		glog.Warningf("No public key provided for CT log %s, signature checks will be skipped", cfg.Name)
-	}
-	fetcher = &ctHubFetcher{Log: cl}
 	return &hubScanner{
 		Name:        cfg.Name,
 		URL:         cfg.Url,
