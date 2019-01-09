@@ -26,7 +26,6 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/tls"
 )
 
@@ -48,7 +47,7 @@ func TestNewGoshawkFromFile(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := NewGoshawkFromFile(ctx, test.filename, nil, scanner.FetcherOptions{})
+			got, err := NewGoshawkFromFile(ctx, test.filename, nil, FetchOptions{})
 			if err != nil {
 				if test.wantErr == "" {
 					t.Errorf("NewGoshawkFromFile(%v)=nil,%v; want _,nil", test.filename, err)
