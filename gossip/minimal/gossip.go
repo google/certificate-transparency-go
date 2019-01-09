@@ -35,6 +35,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 
 	logclient "github.com/google/certificate-transparency-go/client"
@@ -130,10 +131,17 @@ func (c *ctLogSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *c
 	chain := []ct.ASN1Cert{*cert, {Data: g.root.Raw}}
 	sct, err := c.Log.AddChain(ctx, chain)
 	if err != nil {
-		return fmt.Errorf("failed to AddChain(%s): %v", c.Log.BaseURI(), err)
+		return fmt.Errorf("failed to AddChain(%s): %v", c.Log.BaseURI(), expandRspError(err))
 	}
 	glog.V(1).Infof("SCT from %s for STH(size=%d) from %s: {ts=%d, sig=%x} ", c.Log.BaseURI(), sth.TreeSize, name, sct.Timestamp, sct.Signature.Signature)
 	return nil
+}
+
+func expandRspError(err error) string {
+	if e, ok := err.(jsonclient.RspError); ok {
+		return fmt.Sprintf("%d: %s (body: %s)", e.StatusCode, e.Err.Error(), e.Body)
+	}
+	return err.Error()
 }
 
 // pureHubSubmitter is an implementation of hubSubmitter that submits to
