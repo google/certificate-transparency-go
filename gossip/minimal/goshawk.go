@@ -70,7 +70,58 @@ type hubScanner struct {
 	StartIndex  int64
 	MinInterval time.Duration
 	// TODO(drysdale): implement Goshawk for a true Gossip Hub.
+	fetcher hubFetcher
+}
+
+// hubFetcher retrieves entries from a destination hub of some sort.
+type hubFetcher interface {
+	fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error
+}
+
+// ctHubFetcher retrieves entries from destination hub that is a CT Log with
+// synthetic certs in it which contain STHs.
+type ctHubFetcher struct {
 	Log *logclient.LogClient
+}
+
+func (f *ctHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error {
+	fetcherOpts := scanner.FetcherOptions{
+		StartIndex:    dest.StartIndex,
+		EndIndex:      0, // Scan up to current STH size.
+		BatchSize:     dest.hawk.fetchOpts.BatchSize,
+		ParallelFetch: dest.hawk.fetchOpts.ParallelFetch,
+		Continuous:    true,
+	}
+	fetcher := scanner.NewFetcher(f.Log, &fetcherOpts)
+	return fetcher.Run(ctx, func(batch scanner.EntryBatch) {
+		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
+		for i, entry := range batch.Entries {
+			index := batch.Start + int64(i)
+			rawLogEntry, err := ct.RawLogEntryFromLeaf(index, &entry)
+			if err != nil || rawLogEntry == nil {
+				glog.Errorf("Scanner(%s): failed to build raw log entry %d: %v", dest.Name, index, err)
+				continue
+			}
+			if rawLogEntry.Leaf.TimestampedEntry.EntryType != ct.X509LogEntryType {
+				continue
+			}
+			entry, err := rawLogEntry.ToLogEntry()
+			if x509.IsFatal(err) {
+				glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", dest.Name, rawLogEntry.Index, err)
+				continue
+			}
+			if entry.X509Cert == nil {
+				glog.Errorf("Internal error: no X509Cert entry in %+v", entry)
+				continue
+			}
+			sthInfo, err := x509ext.LogSTHInfoFromCert(entry.X509Cert)
+			if err != nil {
+				continue
+			}
+			glog.Infof("Scanner(%s): process STHInfo for %s from synthetic cert at index %d", dest.Name, sthInfo.LogURL, entry.Index)
+			fn(sthInfo)
+		}
+	})
 }
 
 // NewGoshawkFromFile creates a Goshawk from the given filename, which should
@@ -160,7 +211,7 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 		go func(dest *hubScanner) {
 			defer wg.Done()
 			glog.Infof("starting Scanner(%s)", dest.Name)
-			err := dest.Scanner(ctx, hawk.fetchOpts)
+			err := dest.Scanner(ctx)
 			cancel()
 			glog.Infof("finished Scanner(%s): %v", dest.Name, err)
 		}(dest)
@@ -197,57 +248,17 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 }
 
 // Scanner runs a continuous scan of the destination hub.
-func (dest *hubScanner) Scanner(ctx context.Context, fetchOpts FetchOptions) error {
-	fetcherOpts := scanner.FetcherOptions{
-		StartIndex:    dest.StartIndex,
-		EndIndex:      0, // Scan up to current STH size.
-		ParallelFetch: fetchOpts.ParallelFetch,
-		BatchSize:     fetchOpts.BatchSize,
-		Continuous:    true,
-	}
-	fetcher := scanner.NewFetcher(dest.Log, &fetcherOpts)
-	return fetcher.Run(ctx, func(batch scanner.EntryBatch) {
-		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
-		for i, entry := range batch.Entries {
-			index := batch.Start + int64(i)
-			rawLogEntry, err := ct.RawLogEntryFromLeaf(index, &entry)
-			if err != nil || rawLogEntry == nil {
-				glog.Errorf("Scanner(%s): failed to build raw log entry %d: %v", dest.Name, index, err)
-				continue
-			}
-			if rawLogEntry.Leaf.TimestampedEntry.EntryType != ct.X509LogEntryType {
-				continue
-			}
-			dest.foundCert(rawLogEntry)
+func (dest *hubScanner) Scanner(ctx context.Context) error {
+	return dest.fetcher.fetcher(ctx, dest, func(sthInfo *x509ext.LogSTHInfo) {
+		// Consult the owning Goshawk instance to find the channel that this STH should go down.
+		url := string(sthInfo.LogURL)
+		origin, ok := dest.hawk.origins[url]
+		if !ok {
+			glog.Warningf("Scanner(%s): found STH info for unrecognized log at %q", dest.Name, url)
+			return
 		}
+		origin.sths <- sthInfo
 	})
-}
-
-func (dest *hubScanner) foundCert(rawEntry *ct.RawLogEntry) {
-	entry, err := rawEntry.ToLogEntry()
-	if x509.IsFatal(err) {
-		glog.Errorf("Scanner(%s): failed to parse cert from entry at %d: %v", dest.Name, rawEntry.Index, err)
-		return
-	}
-	if entry.X509Cert == nil {
-		glog.Errorf("Internal error: no X509Cert entry in %+v", entry)
-		return
-	}
-
-	sthInfo, err := x509ext.LogSTHInfoFromCert(entry.X509Cert)
-	if err != nil {
-		return
-	}
-	url := string(sthInfo.LogURL)
-	glog.Infof("Scanner(%s): process STHInfo for %s at index %d", dest.Name, url, entry.Index)
-
-	// Consult the owning Goshawk instance to find the channel that this STH should go down.
-	origin, ok := dest.hawk.origins[url]
-	if !ok {
-		glog.Warningf("Scanner(%s): found STH info for unrecognized log at %q in entry at %d", dest.Name, url, entry.Index)
-		return
-	}
-	origin.sths <- sthInfo
 }
 
 // Checker processes retrieved STH information, checking against the source log
