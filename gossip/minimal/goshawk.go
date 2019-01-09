@@ -16,6 +16,8 @@ package minimal
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -28,12 +30,15 @@ import (
 	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/gossip/minimal/configpb"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
-	"github.com/google/certificate-transparency-go/scanner"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
 
 	logclient "github.com/google/certificate-transparency-go/client"
+	logscanner "github.com/google/certificate-transparency-go/scanner"
+	hubclient "github.com/google/trillian-examples/gossip/client"
+	hubscanner "github.com/google/trillian-examples/gossip/scanner"
 )
 
 // Goshawk is an agent that retrieves STHs from a Gossip Hub, either in
@@ -57,6 +62,7 @@ type FetchOptions struct {
 
 type originLog struct {
 	logConfig
+	sigAlgo tls.SignatureAlgorithm
 
 	sths       chan *x509ext.LogSTHInfo
 	mu         sync.RWMutex
@@ -69,8 +75,7 @@ type hubScanner struct {
 	URL         string
 	StartIndex  int64
 	MinInterval time.Duration
-	// TODO(drysdale): implement Goshawk for a true Gossip Hub.
-	fetcher hubFetcher
+	fetcher     hubFetcher
 }
 
 // hubFetcher retrieves entries from a destination hub of some sort.
@@ -85,15 +90,15 @@ type ctHubFetcher struct {
 }
 
 func (f *ctHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error {
-	fetcherOpts := scanner.FetcherOptions{
+	fetcherOpts := logscanner.FetcherOptions{
 		StartIndex:    dest.StartIndex,
 		EndIndex:      0, // Scan up to current STH size.
 		BatchSize:     dest.hawk.fetchOpts.BatchSize,
 		ParallelFetch: dest.hawk.fetchOpts.ParallelFetch,
 		Continuous:    true,
 	}
-	fetcher := scanner.NewFetcher(f.Log, &fetcherOpts)
-	return fetcher.Run(ctx, func(batch scanner.EntryBatch) {
+	fetcher := logscanner.NewFetcher(f.Log, &fetcherOpts)
+	return fetcher.Run(ctx, func(batch logscanner.EntryBatch) {
 		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
 		for i, entry := range batch.Entries {
 			index := batch.Start + int64(i)
@@ -120,6 +125,53 @@ func (f *ctHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(st
 			}
 			glog.Infof("Scanner(%s): process STHInfo for %s from synthetic cert at index %d", dest.Name, sthInfo.LogURL, entry.Index)
 			fn(sthInfo)
+		}
+	})
+}
+
+type gossipHubFetcher struct {
+	Hub *hubclient.HubClient
+}
+
+// gossipHubFetcher retrieves entries from destination pure Gossip hub.
+func (f *gossipHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error {
+	fetcherOpts := hubscanner.FetcherOptions{
+		StartIndex:    dest.StartIndex,
+		EndIndex:      0, // Scan up to current STH size.
+		BatchSize:     dest.hawk.fetchOpts.BatchSize,
+		ParallelFetch: dest.hawk.fetchOpts.ParallelFetch,
+		Continuous:    true,
+	}
+	fetcher := hubscanner.NewFetcher(f.Hub, &fetcherOpts)
+	return fetcher.Run(ctx, func(batch hubscanner.EntryBatch) {
+		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
+		for i, entry := range batch.Entries {
+			index := batch.Start + int64(i)
+			var th ct.TreeHeadSignature
+			if rest, err := tls.Unmarshal(entry.BlobData, &th); err != nil {
+				glog.Warningf("Scanner(%s): failed to unmarshal BlobData at index %d: %v", dest.Name, index, err)
+				continue
+			} else if len(rest) > 0 {
+				glog.Warningf("Scanner(%s): trailing data (%d bytes) after tree head in BlobData at index %d", dest.Name, len(rest), index)
+				continue
+			}
+			sthInfo := x509ext.LogSTHInfo{
+				LogURL:         entry.SourceID,
+				Version:        tls.Enum(th.Version),
+				TreeSize:       th.TreeSize,
+				Timestamp:      th.Timestamp,
+				SHA256RootHash: th.SHA256RootHash,
+				TreeHeadSignature: ct.DigitallySigned{
+					Algorithm: tls.SignatureAndHashAlgorithm{
+						Hash:      tls.SHA256,    // Mandated by RFC 6962 s2.1
+						Signature: tls.Anonymous, // Signature algorithm is Log-specific so set later.
+					},
+					Signature: entry.SourceSignature,
+				},
+			}
+
+			glog.Infof("Scanner(%s): process STHInfo for %s from Gossip hub entry at index %d", dest.Name, sthInfo.LogURL, index)
+			fn(&sthInfo)
 		}
 	})
 }
@@ -187,8 +239,22 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 		if _, exists := hawk.origins[base.URL]; exists {
 			return nil, fmt.Errorf("duplicate source logs for url %s", base.URL)
 		}
+
+		// Record the expected signature algorithm for the CT log
+		// (either DSA or ECDSA P-256 according to RFC 6962 s2.1.4)
+		var sigAlgo tls.SignatureAlgorithm
+		switch pkType := base.Log.Verifier.PubKey.(type) {
+		case *rsa.PublicKey:
+			sigAlgo = tls.RSA
+		case *ecdsa.PublicKey:
+			sigAlgo = tls.ECDSA
+		default:
+			return nil, fmt.Errorf("unable to determine public key type %v for name %s", pkType, base.Name)
+		}
+
 		hawk.origins[base.URL] = &originLog{
 			logConfig: *base,
+			sigAlgo:   sigAlgo,
 			sths:      make(chan *x509ext.LogSTHInfo, cfg.BufferSize),
 		}
 		glog.Infof("configured source log %s at %s (%+v)", base.Name, base.URL, base)
@@ -280,6 +346,11 @@ func (o *originLog) Checker(ctx context.Context) {
 }
 
 func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo) error {
+	// Fill in the signature algorithm if it was not present.
+	if sthInfo.TreeHeadSignature.Algorithm.Signature == tls.Anonymous {
+		sthInfo.TreeHeadSignature.Algorithm.Signature = o.sigAlgo
+	}
+
 	// Validate the signature in sthInfo
 	sth := ct.SignedTreeHead{
 		Version:           ct.Version(sthInfo.Version),
