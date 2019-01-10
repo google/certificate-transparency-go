@@ -44,6 +44,25 @@ type DNSClient struct {
 // top-level domain name; opts can be used to provide a custom logger
 // interface and a public key for signature verification.
 func New(base string, opts jsonclient.Options) (*DNSClient, error) {
+	return newWithResolver(base, opts, func(ctx context.Context, name string) ([]string, error) { return net.LookupTXT(name) })
+}
+
+// NewForNameServer constructs a DNSClient instance that uses a specific
+// nameserver.
+func NewForNameServer(base string, opts jsonclient.Options, ns string) (*DNSClient, error) {
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{}
+			return d.DialContext(ctx, "udp", net.JoinHostPort(ns, "53"))
+		},
+	}
+	return newWithResolver(base, opts, func(ctx context.Context, name string) ([]string, error) {
+		return resolver.LookupTXT(ctx, name)
+	})
+}
+
+func newWithResolver(base string, opts jsonclient.Options, resolve func(ctx context.Context, name string) ([]string, error)) (*DNSClient, error) {
 	pubkey, err := opts.ParsePublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("invalid public key: %v", err)
@@ -63,7 +82,7 @@ func New(base string, opts jsonclient.Options) (*DNSClient, error) {
 	return &DNSClient{
 		base:     base,
 		Verifier: verifier,
-		resolve:  func(ctx context.Context, name string) ([]string, error) { return net.LookupTXT(name) },
+		resolve:  resolve,
 	}, nil
 }
 
