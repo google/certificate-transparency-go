@@ -33,12 +33,6 @@ spec:
             httpGet:
               path: /metrics
               port: metrics
-          readinessProbe:
-            exec:
-              command:
-              - curl
-              - -f
-              - http://localhost:6963/metrics
             failureThreshold: 3
             periodSeconds: 30
             timeoutSeconds: 30
