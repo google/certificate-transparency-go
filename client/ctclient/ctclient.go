@@ -47,6 +47,7 @@ var (
 	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection")
 	dnsBase         = flag.String("dns_base", "", "Base DNS name for queries; if non-empty, DNS queries rather than HTTP will be used")
 	useDNS          = flag.Bool("dns", false, "Use DNS access points for inclusion checking (requires --log_name or --dns_base)")
+	dnsServer       = flag.String("dns_server", "", "DNS server to direct queries to (system resolver by default)")
 	logName         = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
 	logList         = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
 	logURI          = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
@@ -456,6 +457,9 @@ func main() {
 		}
 		opts.PublicKey = string(pubkey)
 	}
+	if len(*dnsServer) > 0 {
+		*useDNS = true
+	}
 
 	uri := *logURI
 	dns := *dnsBase
@@ -496,8 +500,15 @@ func main() {
 	var logClient *client.LogClient
 	var checkClient client.CheckLogClient
 	if dns != "" {
-		checkClient, err = dnsclient.New(dns, opts)
+		if *dnsServer != "" {
+			glog.V(1).Infof("Use DNS server at %s for basename %s", *dnsServer, dns)
+			checkClient, err = dnsclient.NewForNameServer(dns, opts, *dnsServer)
+		} else {
+			glog.V(1).Infof("Use system DNS resolver for basename %s", dns)
+			checkClient, err = dnsclient.New(dns, opts)
+		}
 	} else {
+		glog.V(1).Infof("Use CT log at %s", uri)
 		logClient, err = client.New(uri, httpClient, opts)
 		checkClient = logClient
 	}
