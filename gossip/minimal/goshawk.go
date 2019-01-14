@@ -180,6 +180,13 @@ func (f *gossipHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn fun
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
 func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
+	return NewBoundaryGoshawkFromFile(ctx, filename, hc, hc, fetchOpts)
+}
+
+// NewBoundaryGoshawkFromFile creates a Goshawk that uses different
+// http.Client instances for source logs and destination hubs, for example to
+// allow gossip checking across (some kinds of) network boundaries.
+func NewBoundaryGoshawkFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -189,15 +196,23 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, f
 	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
 		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
 	}
-	cfg, err := NewGoshawk(ctx, &cfgProto, hc, fetchOpts)
+	cfg, err := NewBoundaryGoshawk(ctx, &cfgProto, hcLog, hcHub, fetchOpts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)
 	}
 	return cfg, nil
 }
 
-// NewGoshawk creates a gossiper from the given configuration protobuf and optional http client.
+// NewGoshawk creates a Goshawk from the given configuration protobuf and
+// optional http client.
 func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
+	return NewBoundaryGoshawk(ctx, cfg, hc, hc, fetchOpts)
+}
+
+// NewBoundaryGoshawk creates a Goshawk from the given configuration protobuf
+// and a pair of http.Client instances for source logs and destination hubs,
+// to allow (for example) gossip checking across (some kinds of) network boundaries.
+func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")
 	}
@@ -214,7 +229,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 	}
 
 	for _, destHub := range cfg.DestHub {
-		dest, err := hubScannerFromProto(destHub, hc)
+		dest, err := hubScannerFromProto(destHub, hcHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse dest hub config: %v", err)
 		}
@@ -227,7 +242,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 	}
 	seenNames := make(map[string]bool)
 	for _, lc := range cfg.SourceLog {
-		base, err := logConfigFromProto(lc, hc)
+		base, err := logConfigFromProto(lc, hcLog)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse source log config: %v", err)
 		}
