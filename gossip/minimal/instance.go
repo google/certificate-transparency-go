@@ -46,6 +46,13 @@ const (
 // contain text-protobuf encoded configuration data, together with an optional
 // http Client.
 func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
+	return NewBoundaryGossiperFromFile(ctx, filename, hc, hc, mf)
+}
+
+// NewBoundaryGossiperFromFile creates a gossiper that uses different
+// http.Client instances for source logs and destination hubs, allowing
+// gossiping across (some kinds of) network boundaries.
+func NewBoundaryGossiperFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -55,7 +62,7 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, 
 	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
 		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
 	}
-	cfg, err := NewGossiper(ctx, &cfgProto, hc, mf)
+	cfg, err := NewBoundaryGossiper(ctx, &cfgProto, hcLog, hcHub, mf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)
 	}
@@ -65,6 +72,13 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, 
 // NewGossiper creates a gossiper from the given configuration protobuf and optional
 // http client.
 func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
+	return NewBoundaryGossiper(ctx, cfg, hc, hc, mf)
+}
+
+// NewBoundaryGossiper creates a gossiper from the given configuration protobuf
+// and a pair of http.Client instances (for source logs and destination hubs),
+// to allow gossiping across (some kinds of) network boundaries.
+func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog, hcHub *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
 	once.Do(func() { setupMetrics(mf) })
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no dest hub config found")
@@ -108,7 +122,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	allSTHsRate := 0.0
 	srcs := make(map[string]*sourceLog)
 	for _, lc := range cfg.SourceLog {
-		base, err := logConfigFromProto(lc, hc)
+		base, err := logConfigFromProto(lc, hcLog)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse source log config for %q: %v", lc.Name, err)
 		}
@@ -128,7 +142,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	}
 	dests := make(map[string]*destHub)
 	for _, lc := range cfg.DestHub {
-		hub, err := hubFromProto(lc, hc)
+		hub, err := hubFromProto(lc, hcHub)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse dest hub config for %q: %v", lc.Name, err)
 		}
