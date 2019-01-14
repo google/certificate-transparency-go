@@ -183,9 +183,9 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, f
 	return NewBoundaryGoshawkFromFile(ctx, filename, hc, hc, fetchOpts)
 }
 
-// NewBoundaryGoshawkFromFile creates a Goshawk from the given filename and a
-// pair of http.Client instances for source logs and destination hubs, which
-// allows gossip checking across (some kinds of) network boundaries.
+// NewBoundaryGoshawkFromFile creates a Goshawk that uses different
+// http.Client instances for source logs and destination hubs, for example to
+// allow gossip checking across (some kinds of) network boundaries.
 func NewBoundaryGoshawkFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -203,14 +203,15 @@ func NewBoundaryGoshawkFromFile(ctx context.Context, filename string, hcLog, hcH
 	return cfg, nil
 }
 
-// NewGoshawk creates a Goshawk from the given configuration protobuf and optional http client.
+// NewGoshawk creates a Goshawk from the given configuration protobuf and
+// optional http client.
 func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	return NewBoundaryGoshawk(ctx, cfg, hc, hc, fetchOpts)
 }
 
 // NewBoundaryGoshawk creates a Goshawk from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
-// which allows gossip checking across (some kinds of) network boundaries.
+// to allow (for example) gossip checking across (some kinds of) network boundaries.
 func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")

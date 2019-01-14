@@ -50,8 +50,8 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, 
 }
 
 // NewBoundaryGossiperFromFile creates a gossiper that uses different
-// http.Client instances for source logs and destination hubs, allowing
-// gossiping across (some kinds of) network boundaries.
+// http.Client instances for source logs and destination hubs, for example to
+// allow gossiping across (some kinds of) network boundaries.
 func NewBoundaryGossiperFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
 	cfgText, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -76,8 +76,8 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 }
 
 // NewBoundaryGossiper creates a gossiper from the given configuration protobuf
-// and a pair of http.Client instances (for source logs and destination hubs),
-// to allow gossiping across (some kinds of) network boundaries.
+// and a pair of http.Client instances for source logs and destination hubs,
+// to allow (for example) gossiping across (some kinds of) network boundaries.
 func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog, hcHub *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
 	once.Do(func() { setupMetrics(mf) })
 	if len(cfg.DestHub) == 0 {
