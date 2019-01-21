@@ -45,12 +45,12 @@ type groupState struct {
 
 // safeSubmissionState is a submission state-machine for set of Log-groups. When some group is complete cancels all requests that are not needed by any group.
 type safeSubmissionState struct {
+	mu          sync.Mutex
 	logToGroups map[string]ctpolicy.GroupSet
 	groupNeeds  map[string]int
 
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
-	mu      sync.Mutex
 }
 
 func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState {
@@ -65,7 +65,7 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 	return &s
 }
 
-// request includes empty submissionResult in the set, returns whether the entry wasn't requested (added) before.
+// request includes empty submissionResult in the set, returns whether the entry is requested for the first time.
 func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc) bool {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
@@ -89,14 +89,8 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 	return true
 }
 
-// returns whether the Log has already been requested.
-func (sub *safeSubmissionState) has(logURL string) bool {
-	sub.mu.Lock()
-	defer sub.mu.Unlock()
-	return sub.results[logURL] != nil
-}
-
-// Gets SCT-result. Writes it down if it is error or awaited-SCT. Re-calculates group-completion and cancels any running but not-awited-anymore Log-requests.
+// setResult processes SCT-result. Writes it down if it is error or awaited-SCT.
+// Re-calculates group-completion and cancels any running but not-awaited-anymore Log-requests.
 func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertificateTimestamp, err error) {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
@@ -112,7 +106,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		sub.groupNeeds[groupName]--
 	}
 
-	// Cancel any pending Log-requests for which there's no more awaiting Log-group.
+	// Cancel any pending Log-requests for which there're no more awaiting Log-groups.
 	for logURL, groupSet := range sub.logToGroups {
 		isAwaited := false
 		for g := range groupSet {
@@ -128,7 +122,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	}
 }
 
-// returns whether the group has stopped waiting for more SCTs.
+// groupComplete returns true iff the specified group has all the SCTs it needs.
 func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
