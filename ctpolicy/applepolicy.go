@@ -23,7 +23,7 @@ import (
 type AppleCTPolicy struct{}
 
 // LogsByGroup describes submission requirements for embedded SCTs according to https://support.apple.com/en-us/HT205280. Returns data even when error emitted.
-func (appleP *AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
+func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
 	case m < 15:
