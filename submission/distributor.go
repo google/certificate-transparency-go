@@ -62,10 +62,8 @@ func (d *Distributor) run() {
 }
 
 // refreshRoots requests roots from Logs and updates local copy if necessary.
-func (d *Distributor) refreshRoots(ctx context.Context) []error {
+func (d *Distributor) refreshRoots(ctx context.Context) {
 	// TODO(Mercurrent) add implementation.
-	var errors []error
-	return errors
 }
 
 // SubmitToLog is Submitter interface.
@@ -116,13 +114,11 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		d.logClients[log.URL] = lc
 	}
 	// Collect Log-roots.
-	errs := d.refreshRoots(context.Background())
+	go func() {
+		d.refreshRoots(context.Background())
+	}()
 
-	// Set up regular roots updates.
+	// Set up regular Log-roots updates.
 	d.run()
-
-	if len(errs) > 0 {
-		return &d, fmt.Errorf("not all log-roots collected: %v", errs)
-	}
 	return &d, nil
 }

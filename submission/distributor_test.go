@@ -15,11 +15,13 @@
 package submission
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"regexp"
 	"testing"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
@@ -29,6 +31,27 @@ import (
 // buildNoLogClient is LogClientBuilder that always fails.
 func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad client builder")
+}
+
+// Mock for AddLogCLient interface
+type emptyLogClient struct {
+}
+
+func (e emptyLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+	return nil, nil
+}
+
+func (e emptyLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+	return nil, nil
+}
+
+func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
+	return nil, nil
+}
+
+// buildEmptyLogClient produces empty mock Log clients.
+func buildEmptyLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return emptyLogClient{}, nil
 }
 
 func sampleLogList(t *testing.T) *loglist.LogList {
@@ -58,21 +81,14 @@ func TestNewDistributorLogClients(t *testing.T) {
 		errRegexp *regexp.Regexp
 	}{
 		{
-			name:      "BadLog",
-			ll:        sampleLogList(t),
-			lcBuilder: buildLogClient,
-			errRegexp: regexp.MustCompile("Failed to create log client for .*racketeer.*"),
-		},
-
-		{
 			name:      "ValidLogClients",
 			ll:        sampleValidLogList(t),
-			lcBuilder: buildLogClient,
+			lcBuilder: buildEmptyLogClient,
 		},
 		{
 			name:      "NoLogClients",
-			lcBuilder: buildNoLogClient,
 			ll:        sampleValidLogList(t),
+			lcBuilder: buildNoLogClient,
 			errRegexp: regexp.MustCompile("Failed to create log client.*"),
 		},
 		{
