@@ -1015,7 +1015,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		start := time.Now()
 		reqs.Inc(s.label(), string(ep))
 		status, err = s.performOp(ctx, ep)
-		period := time.Now().Sub(start)
+		period := time.Since(start)
 
 		switch err.(type) {
 		case nil:
@@ -1029,7 +1029,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		default:
 			errs.Inc(s.label(), string(ep))
 			if s.cfg.IgnoreErrors {
-				left := deadline.Sub(time.Now())
+				left := time.Until(deadline)
 				glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
 			} else {
 				done = true
