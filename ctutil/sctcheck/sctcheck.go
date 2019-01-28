@@ -243,7 +243,7 @@ func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, mer
 		glog.Infof("Check %s inclusion against log %q...", subject, log.Description)
 		index, err := logInfo.VerifyInclusion(ctx, *merkleLeaf, sct.Timestamp)
 		if err != nil {
-			age := time.Now().Sub(ct.TimestampToTime(sct.Timestamp))
+			age := time.Since(ct.TimestampToTime(sct.Timestamp))
 			if age < logInfo.MMD {
 				glog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
 			} else {
