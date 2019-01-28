@@ -93,17 +93,6 @@ func logStringErrors(wg *sync.WaitGroup, errors chan *fixchain.FixError, baseDir
 	}
 }
 
-func logJSONErrors(wg *sync.WaitGroup, errors chan *fixchain.FixError, baseDir string) {
-	defer wg.Done()
-	for err := range errors {
-		b, err2 := err.MarshalJSON()
-		if err2 != nil {
-			log.Fatalf("JSON encode failed: %s", err2)
-		}
-		contentStore(baseDir, err.TypeString(), b)
-	}
-}
-
 func main() {
 	ctx := context.Background()
 	logURL := os.Args[1]

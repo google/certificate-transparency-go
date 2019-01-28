@@ -30,7 +30,6 @@ import (
 type nilLimiter struct{}
 
 func (l *nilLimiter) Wait() {
-	return
 }
 
 func newNilLimiter() *nilLimiter {
