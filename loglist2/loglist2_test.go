@@ -379,6 +379,94 @@ func TestStripInternalSpace(t *testing.T) {
 	}
 }
 
+func TestLogStatesString(t *testing.T) {
+	var tests = []struct {
+		name   string
+		logURL string
+		want   string
+	}{
+		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "Frozen"},
+		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "Empty"},
+		{name: "Retired", logURL: "log.bob.io", want: "Retired"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := sampleLogList.FindLogByURL(test.logURL)
+			got := log.State.String()
+			if got != test.want {
+				t.Errorf("Log.State.String() for %s = %s, want %s", test.logURL, got, test.want)
+			}
+		})
+	}
+}
+
+func TestLogStatesActive(t *testing.T) {
+	a := &LogState{Timestamp: time.Unix(1460678400, 0).UTC()}
+	f := &FrozenLogState{
+		LogState: LogState{Timestamp: time.Unix(1480512258, 330000000).UTC()},
+		FinalTreeHead: TreeHead{
+			TreeSize:       46466472,
+			SHA256RootHash: []byte{},
+		},
+	}
+	var tests = []struct {
+		name       string
+		in         *LogStates
+		wantState  *LogState
+		wantFState *FrozenLogState
+		wantErr    bool
+	}{
+		{
+			name: "Retired",
+			in: &LogStates{
+				Retired: a,
+			},
+			wantState:  a,
+			wantFState: nil,
+			wantErr:    false,
+		},
+		{
+			name: "Frozen",
+			in: &LogStates{
+				Frozen: f,
+			},
+			wantState:  nil,
+			wantFState: f,
+			wantErr:    false,
+		},
+		{
+			name: "MultiBad",
+			in: &LogStates{
+				Retired: a,
+				Frozen:  f,
+			},
+			wantState:  nil,
+			wantFState: nil,
+			wantErr:    true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gotState, gotFState, gotErr := test.in.Active()
+			fmt.Printf("%v\n", test.in == nil)
+			fmt.Printf("%v\n", gotState)
+			fmt.Printf("%v\n", test.wantState)
+			if gotState != test.wantState {
+				t.Errorf("Log-state from Active() = %q, want %q", gotState, test.wantState)
+			}
+			if gotFState != test.wantFState {
+				t.Errorf("Frozen Log-state from Active() = %q, want %q", gotFState, test.wantFState)
+			}
+			if (gotErr == nil) == test.wantErr {
+				t.Errorf("Error from Active() = %v, want error = %v", !(gotErr == nil), test.wantErr)
+			}
+
+		})
+	}
+}
+
 func deb64(b string) []byte {
 	data, err := base64.StdEncoding.DecodeString(b)
 	if err != nil {

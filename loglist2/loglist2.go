@@ -136,6 +136,76 @@ type TreeHead struct {
 	TreeSize int64 `json:"tree_size"`
 }
 
+// String method returns printable name of the state.
+func (ls *LogStates) String() string {
+	names := [...]string{
+		"Pending",
+		"Qualified",
+		"Usable",
+		"Frozen",
+		"Retired",
+		"Rejected",
+		"Empty"}
+	if ls == nil {
+		return names[6]
+	}
+	if ls.Pending != nil {
+		return names[0]
+	} else if ls.Qualified != nil {
+		return names[1]
+	} else if ls.Usable != nil {
+		return names[2]
+	} else if ls.Frozen != nil {
+		return names[3]
+	} else if ls.Retired != nil {
+		return names[4]
+	} else if ls.Rejected != nil {
+		return names[5]
+	}
+	return names[6]
+}
+
+// Active picks the set-up state. Returns error if multiple states set.
+func (ls *LogStates) Active() (*LogState, *FrozenLogState, error) {
+	var active *LogState
+	var activeF *FrozenLogState
+	var activeNum int
+
+	if ls == nil {
+		return nil, nil, nil
+	}
+
+	if ls.Pending != nil {
+		activeNum++
+		active = ls.Pending
+	}
+	if ls.Qualified != nil {
+		activeNum++
+		active = ls.Qualified
+	}
+	if ls.Usable != nil {
+		activeNum++
+		active = ls.Usable
+	}
+	if ls.Frozen != nil {
+		activeNum++
+		activeF = ls.Frozen
+	}
+	if ls.Retired != nil {
+		activeNum++
+		active = ls.Retired
+	}
+	if ls.Rejected != nil {
+		activeNum++
+		active = ls.Rejected
+	}
+	if activeNum > 1 {
+		fmt.Printf("Too many\n")
+		return nil, nil, fmt.Errorf("multiple states set at LogStates instance while at most 1 is allowed")
+	}
+	return active, activeF, nil
+}
+
 // NewFromJSON creates a LogList from JSON encoded data.
 func NewFromJSON(llData []byte) (*LogList, error) {
 	var ll LogList
