@@ -15,23 +15,11 @@
 package loglist
 
 import (
-	"encoding/json"
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/mohae/deepcopy"
 )
-
-func pprint(stringList []string) string {
-	var pretty string
-	if buf, err := json.MarshalIndent(stringList, "", "  "); err == nil {
-		pretty = string(buf)
-	} else {
-		pretty = fmt.Sprintf("%v", stringList)
-	}
-	return pretty
-}
 
 func TestCheckOperatorsDiff(t *testing.T) {
 	tests := []struct {
