@@ -300,7 +300,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 						b := time.Duration(seconds) * time.Second
 						backoff = &b
 					} else if date, err := time.Parse(time.RFC1123, retryAfter); err == nil {
-						b := date.Sub(time.Now())
+						b := time.Until(date)
 						backoff = &b
 					}
 				}
