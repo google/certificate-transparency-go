@@ -104,12 +104,10 @@ const caAndIntermediateCertsPEM string = "-----BEGIN CERTIFICATE-----\n" +
 const remoteQuotaUser = "Moneybags"
 
 type handlerTestInfo struct {
-	mockCtrl      *gomock.Controller
-	roots         *PEMCertPool
-	notAfterStart time.Time
-	notAfterEnd   time.Time
-	client        *mockclient.MockTrillianLogClient
-	li            *logInfo
+	mockCtrl *gomock.Controller
+	roots    *PEMCertPool
+	client   *mockclient.MockTrillianLogClient
+	li       *logInfo
 }
 
 const certQuotaPrefix = "CERT:"
