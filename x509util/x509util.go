@@ -405,7 +405,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	result.WriteString(fmt.Sprintf("Certificate:\n"))
 	result.WriteString(fmt.Sprintf("    Data:\n"))
 	result.WriteString(fmt.Sprintf("        Version: %d (%#x)\n", cert.Version, cert.Version-1))
-	result.WriteString(fmt.Sprintf("        Serial Number: %d (%#[1]x)\n", cert.SerialNumber))
+	result.WriteString(fmt.Sprintf("        Serial Number: %s (0x%s)\n", cert.SerialNumber.Text(10), cert.SerialNumber.Text(16)))
 	result.WriteString(fmt.Sprintf("    Signature Algorithm: %v\n", cert.SignatureAlgorithm))
 	result.WriteString(fmt.Sprintf("        Issuer: %v\n", NameToString(cert.Issuer)))
 	result.WriteString(fmt.Sprintf("        Validity:\n"))
