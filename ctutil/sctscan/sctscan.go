@@ -52,7 +52,7 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 
 	hc := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: *deadline,
 		Transport: &http.Transport{
 			TLSHandshakeTimeout:   30 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
