@@ -821,7 +821,6 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 
 	if !s.cfg.OversizedGetEntries && last >= int(s.sth[0].TreeSize) {
 		last = int(s.sth[0].TreeSize) - 1
-		count = last - first + 1
 	}
 
 	entries, err := s.client().GetEntries(ctx, int64(first), int64(last))
@@ -1004,10 +1003,10 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	}
 
 	glog.V(3).Infof("perform %s operation", ep)
-	status := http.StatusOK
 	deadline := time.Now().Add(s.cfg.MaxRetryDuration)
 
 	var err error
+	var status int
 	done := false
 	for !done {
 		s.mu.Lock()
@@ -1022,7 +1021,6 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 			rsps.Inc(s.label(), string(ep), strconv.Itoa(status))
 			done = true
 		case errSkip:
-			status = http.StatusFailedDependency
 			glog.V(2).Infof("operation %s was skipped", ep)
 			err = nil
 			done = true
