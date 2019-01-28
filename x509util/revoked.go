@@ -140,7 +140,7 @@ func CRLToString(crl *x509.CertificateList) string {
 	result.WriteString("\n")
 	result.WriteString("Revoked Certificates:\n")
 	for _, c := range crl.TBSCertList.RevokedCertificates {
-		result.WriteString(fmt.Sprintf("    Serial Number: %d (%#[1]x)\n", c.SerialNumber))
+		result.WriteString(fmt.Sprintf("    Serial Number: %s (0x%s)\n", c.SerialNumber.Text(10), c.SerialNumber.Text(16)))
 		result.WriteString(fmt.Sprintf("        Revocation Date : %v\n", c.RevocationTime))
 		count, critical = OIDInExtensions(x509.OIDExtensionCRLReasons, c.Extensions)
 		if count > 0 {
