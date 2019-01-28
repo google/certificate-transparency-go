@@ -24,18 +24,12 @@ const testLeeway = 25 * time.Millisecond
 
 func fuzzyTimeEquals(a, b time.Time, leeway time.Duration) bool {
 	diff := math.Abs(float64(a.Sub(b).Nanoseconds()))
-	if diff < float64(leeway.Nanoseconds()) {
-		return true
-	}
-	return false
+	return diff < float64(leeway.Nanoseconds())
 }
 
 func fuzzyDurationEquals(a, b time.Duration, leeway time.Duration) bool {
 	diff := math.Abs(float64(a.Nanoseconds() - b.Nanoseconds()))
-	if diff < float64(leeway.Nanoseconds()) {
-		return true
-	}
-	return false
+	return diff < float64(leeway.Nanoseconds())
 }
 
 func TestBackoff(t *testing.T) {

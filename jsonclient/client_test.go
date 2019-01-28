@@ -455,6 +455,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 	}
 }
 
+// nolint:staticcheck
 func TestContextRequired(t *testing.T) {
 	ts := MockServer(t, -1, 0)
 	defer ts.Close()
