@@ -102,7 +102,7 @@ func (d *Diff) checkUpdate() {
 	}
 }
 
-func (d *Diff) sync() {
+func (d *Diff) sync() { // nolint:unused
 	d.mu.Lock()
 	d.synced = d.latest
 	d.diffs = []diffmatchpatch.Diff{}
