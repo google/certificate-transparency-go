@@ -120,7 +120,7 @@ func serveHandlerAt(t *testing.T, path string, handler func(http.ResponseWriter,
 func serveRspAt(t *testing.T, path, rsp string) *httptest.Server {
 	t.Helper()
 	return serveHandlerAt(t, path, func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, rsp)
+		fmt.Fprint(w, rsp)
 	})
 }
 
@@ -290,7 +290,7 @@ func TestGetSTH(t *testing.T) {
 	if sth.TreeHeadSignature.Algorithm.Signature != wantDS.Algorithm.Signature {
 		t.Errorf("GetSTH().TreeHeadSignature.Algorithm.Signature=%v; want %v", wantDS.Algorithm.Signature, sth.TreeHeadSignature.Algorithm.Signature)
 	}
-	if bytes.Compare(sth.TreeHeadSignature.Signature, wantDS.Signature) != 0 {
+	if !bytes.Equal(sth.TreeHeadSignature.Signature, wantDS.Signature) {
 		t.Errorf("GetSTH().TreeHeadSignature.Signature=%v; want %v", wantDS.Signature, sth.TreeHeadSignature.Signature)
 	}
 }
