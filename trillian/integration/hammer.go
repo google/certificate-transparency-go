@@ -451,14 +451,14 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
 	case NoChainToRoot:
-		chain, err := s.cfg.ChainGenerator.CertChain()
+		chain, err = s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
 		// Drop the intermediate (chain[1]).
 		chain = append(chain[:1], chain[2:]...)
 	case UnparsableCert:
-		chain, err := s.cfg.ChainGenerator.CertChain()
+		chain, err = s.cfg.ChainGenerator.CertChain()
 		if err != nil {
 			return fmt.Errorf("failed to make chain(%s): %v", choice, err)
 		}
