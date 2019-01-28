@@ -12,37 +12,6 @@
 #   GO_TEST_TIMEOUT: timeout for 'go test'. Optional (defaults to 5m).
 set -eu
 
-
-# Retries running a command N times whenever the command returns X, with
-# exponential backoff between failures.
-#
-# Usage:
-#   retry N X command ...args
-retry() {
-  local retries=$1
-  shift
-  local retry_rc=$1
-  shift
-
-  local count=0
-  until "$@"; do
-    local exit=$?
-    local wait=$((2 ** $count))
-    local count=$(($count + 1))
-    if [ $exit -ne $retry_rc ]; then
-      return $exit
-    fi
-    if [ $count -lt $retries ]; then
-      echo "Attempt $count/$retries: $1 exited $exit, retrying in $wait seconds..."
-      sleep $wait
-    else
-      echo "Attempt $count/$retries: $1 exited $exit, no more retries left."
-      return $exit
-    fi
-  done
-  return 0
-}
-
 check_pkg() {
   local cmd="$1"
   local pkg="$2"
@@ -100,16 +69,16 @@ main() {
   cd "$(dirname "$0")"  # at scripts/
   cd ..  # at top level
 
+  go_srcs="$(find . -name '*.go' | \
+    grep -v vendor/ | \
+    grep -v mock_ | \
+    grep -v .pb.go | \
+    grep -v x509/ | \
+    grep -v asn1/ | \
+    tr '\n' ' ')"
+
   if [[ "$fix" -eq 1 ]]; then
     check_pkg goimports golang.org/x/tools/cmd/goimports || exit 1
-
-    local go_srcs="$(find . -name '*.go' | \
-      grep -v vendor/ | \
-      grep -v mock_ | \
-      grep -v .pb.go | \
-      grep -v x509/ | \
-      grep -v asn1/ | \
-      tr '\n' ' ')"
 
     echo 'running gofmt'
     gofmt -s -w ${go_srcs}
@@ -164,12 +133,13 @@ main() {
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then
-    check_cmd gometalinter \
-      'have you installed github.com/alecthomas/gometalinter?' || exit 1
+    check_cmd golangci-lint \
+      'have you installed github.com/golangci/golangci-lint?' || exit 1
 
-    echo 'running gometalinter'
-    # gometalinter returns rc=2 for a linter timeout
-    retry 5 2 gometalinter --config=gometalinter.json --deadline=2m ./...
+    echo 'running golangci-lint'
+    golangci-lint run
+    echo 'checking license headers'
+    ./scripts/check_license.sh ${go_srcs}
   fi
 
   if [[ "${run_generate}" -eq 1 ]]; then
