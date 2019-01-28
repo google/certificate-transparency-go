@@ -85,7 +85,7 @@ func OIDInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) (in
 }
 
 // String formatting for various X.509/ASN.1 types
-func bitStringToString(b asn1.BitString) string {
+func bitStringToString(b asn1.BitString) string { // nolint:deadcode,unused
 	result := hex.EncodeToString(b.Bytes)
 	bitsLeft := b.BitLength % 8
 	if bitsLeft != 0 {
@@ -252,7 +252,7 @@ func extKeyUsageToString(u x509.ExtKeyUsage) string {
 	}
 }
 
-func attributeOIDToString(oid asn1.ObjectIdentifier) string {
+func attributeOIDToString(oid asn1.ObjectIdentifier) string { // nolint:deadcode,unused
 	switch {
 	case oid.Equal(pkix.OIDCountry):
 		return "Country"
