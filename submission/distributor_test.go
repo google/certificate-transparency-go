@@ -33,7 +33,7 @@ func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad client builder")
 }
 
-// Mock for AddLogCLient interface
+// Mock for AddLogClient interface
 type emptyLogClient struct {
 }
 
@@ -89,7 +89,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 			name:      "NoLogClients",
 			ll:        sampleValidLogList(t),
 			lcBuilder: buildNoLogClient,
-			errRegexp: regexp.MustCompile("Failed to create log client.*"),
+			errRegexp: regexp.MustCompile("failed to create log client.*"),
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",

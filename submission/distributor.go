@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
@@ -31,11 +31,11 @@ import (
 )
 
 const (
-	// RootsRefreshInterval is roots refresh interval.
-	RootsRefreshInterval = time.Hour * 24
+	// RootsRefreshInterval is interval between consequent get-roots calls.
+	rootsRefreshInterval = time.Hour * 24
 )
 
-// Distributor class operates policy-based submission across Logs.
+// Distributor operates policy-based submission across Logs.
 type Distributor struct {
 	ll *loglist.LogList
 
@@ -52,11 +52,14 @@ type Distributor struct {
 }
 
 // Run starts regular roots updates.
-func (d *Distributor) run() {
-	d.rootsRefreshTicker = time.NewTicker(RootsRefreshInterval)
+func (d *Distributor) run(ctx context.Context) {
+	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 	go func() {
-		for range d.rootsRefreshTicker.C {
-			d.refreshRoots(context.Background())
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.rootsRefreshTicker.C:
+			d.refreshRoots(ctx)
 		}
 	}()
 }
@@ -66,7 +69,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 	// TODO(Mercurrent) add implementation.
 }
 
-// SubmitToLog is Submitter interface.
+// SubmitToLog is races-Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	// TODO(Mercurrent) add implementation.
 	return nil, nil
@@ -85,17 +88,18 @@ type LogClientBuilder func(*loglist.Log) (client.AddLogClient, error)
 
 // BuildLogClient is default (non-mock) LogClientBuilder.
 func buildLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	url := log.URL
-	if !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
+	url, err := url.Parse(log.URL)
+	if err != nil {
+		return nil, err
+	}
+	if url.Scheme == "" {
+		url.Scheme = "https"
 	}
 	hc := &http.Client{Timeout: time.Second * 10}
-	return client.New(url, hc, jsonclient.Options{PublicKeyDER: log.Key})
+	return client.New(url.String(), hc, jsonclient.Options{PublicKeyDER: log.Key})
 }
 
-// NewDistributor creates and inits a Distributor instance. May return both
-// the instance and errors when any of logs were unable to response on
-// the first root-collection phase.
+// NewDistributor creates and inits a Distributor instance.
 // Fails iff any Log couldn't get its client built.
 func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
 	var d Distributor
@@ -109,7 +113,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	for _, log := range ll.Logs {
 		lc, err := lcBuilder(&log)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to create log client for %s: %v", log.URL, err)
+			return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
 		}
 		d.logClients[log.URL] = lc
 	}
@@ -119,6 +123,6 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	}()
 
 	// Set up regular Log-roots updates.
-	d.run()
+	d.run(context.Background())
 	return &d, nil
 }
