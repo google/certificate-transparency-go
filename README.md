@@ -84,9 +84,11 @@ and tests over the codebase; please ensure this script passes before sending
 pull requests for review.
 
 ```bash
-# Install gometalinter and all linters
-go get -u github.com/alecthomas/gometalinter
-gometalinter --install
+# Install golangci-lint
+go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+cd $GOPATH/src/github.com/golangci/golangci-lint/cmd/golangci-lint
+go install -ldflags "-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse --short HEAD)' -X 'main.date=$(date)'"
+cd -
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh
@@ -95,7 +97,7 @@ gometalinter --install
 ./scripts/presubmit.sh  --no-generate
 
 # Or just run the linters alone:
-gometalinter --config=gometalinter.json ./...
+golangci-lint run
 ```
 
 ### Rebuilding Generated Code
