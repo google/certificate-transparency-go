@@ -24,13 +24,14 @@ import (
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/certificate-transparency-go/x509util"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 // CertForSTH creates an X.509 certificate with the given STH embedded in it.

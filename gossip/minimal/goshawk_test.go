@@ -22,11 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 func TestNewGoshawkFromFile(t *testing.T) {

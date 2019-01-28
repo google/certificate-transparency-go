@@ -34,10 +34,10 @@ import (
 	"github.com/google/trillian/monitoring"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 
+	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
 )

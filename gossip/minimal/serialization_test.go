@@ -22,11 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 func TestCertForSTH(t *testing.T) {

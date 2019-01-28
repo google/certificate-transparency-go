@@ -27,7 +27,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/gossip/minimal/configpb"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/tls"
@@ -35,6 +34,7 @@ import (
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
 
+	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	logscanner "github.com/google/certificate-transparency-go/scanner"
 	hubclient "github.com/google/trillian-examples/gossip/client"
