@@ -203,12 +203,10 @@ func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile
 
 	if !useSystemRoots && len(rootsFile) == 0 {
 		// No root CA certs provided, so assume the chain is self-contained.
-		count := len(chain)
 		if len(chain) > 1 {
 			last := chain[len(chain)-1]
 			if bytes.Equal(last.RawSubject, last.RawIssuer) {
 				opts.Roots.AddCert(last)
-				count--
 			}
 		}
 	}
