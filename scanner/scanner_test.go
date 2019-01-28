@@ -29,18 +29,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-func CertMatchesRegex(r *regexp.Regexp, cert *x509.Certificate) bool {
-	if r.FindStringIndex(cert.Subject.CommonName) != nil {
-		return true
-	}
-	for _, alt := range cert.DNSNames {
-		if r.FindStringIndex(alt) != nil {
-			return true
-		}
-	}
-	return false
-}
-
 func TestScannerMatchAll(t *testing.T) {
 	var cert x509.Certificate
 	m := &MatchAll{}
@@ -201,7 +189,7 @@ func TestScannerEndToEnd(t *testing.T) {
 			ParallelFetch: 1,
 			StartIndex:    0,
 		},
-		Matcher:    &MatchSubjectRegex{regexp.MustCompile(".*\\.google\\.com"), nil},
+		Matcher:    &MatchSubjectRegex{regexp.MustCompile(`.*\.google\.com`), nil},
 		NumWorkers: 1,
 	}
 	scanner := NewScanner(logClient, opts)
