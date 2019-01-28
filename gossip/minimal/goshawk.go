@@ -56,8 +56,6 @@ type FetchOptions struct {
 	BatchSize int
 	// Number of concurrent fetcher workers to run.
 	ParallelFetch int
-	// StartIndex is the first entry from the hub to fetch.
-	StartIndex int64
 }
 
 type originLog struct {
