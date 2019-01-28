@@ -48,6 +48,7 @@ func TestFixedBackendsResolver(t *testing.T) {
 	}
 }
 
+// nolint:staticcheck
 func TestFixedBackends(t *testing.T) {
 	var tests = []struct {
 		fb   *fixedBackends

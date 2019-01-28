@@ -68,6 +68,7 @@ var (
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
 )
 
+// nolint:staticcheck
 func main() {
 	flag.Parse()
 	ctx := context.Background()
