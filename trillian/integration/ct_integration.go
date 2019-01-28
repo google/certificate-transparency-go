@@ -855,12 +855,9 @@ func MakeSigner(testdir string) (crypto.Signer, error) {
 
 // Track HTTP requests/responses so we can check the stats exported by the log.
 type logStats struct {
-	logID            int64
-	lastSCTTimestamp int
-	lastSTHTimestamp int
-	lastSTHTreesize  int
-	reqs             map[string]int            // entrypoint =>count
-	rsps             map[string]map[string]int // entrypoint => status => count
+	logID int64
+	reqs  map[string]int            // entrypoint =>count
+	rsps  map[string]map[string]int // entrypoint => status => count
 
 }
 
