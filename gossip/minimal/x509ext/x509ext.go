@@ -19,10 +19,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 // OIDExtensionCTSTH is the OID value for an X.509 extension that holds
