@@ -925,6 +925,10 @@ func (s *hammerState) String() string {
 
 func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
 	s.cfg.Limiter.Wait()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	status := http.StatusOK
 	var err error
 	switch ep {
@@ -1005,43 +1009,33 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	glog.V(3).Infof("perform %s operation", ep)
 	deadline := time.Now().Add(s.cfg.MaxRetryDuration)
 
-	var err error
-	var status int
-	done := false
-	for !done {
-		s.mu.Lock()
-
+	for {
 		start := time.Now()
 		reqs.Inc(s.label(), string(ep))
-		status, err = s.performOp(ctx, ep)
+		status, err := s.performOp(ctx, ep)
 		period := time.Since(start)
 
 		switch err.(type) {
 		case nil:
 			rsps.Inc(s.label(), string(ep), strconv.Itoa(status))
-			done = true
+			return nil
 		case errSkip:
 			glog.V(2).Infof("operation %s was skipped", ep)
-			err = nil
-			done = true
+			return nil
 		default:
 			errs.Inc(s.label(), string(ep))
 			if s.cfg.IgnoreErrors {
 				left := time.Until(deadline)
+				if left < 0 {
+					glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err: %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
+					return err
+				}
 				glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
 			} else {
-				done = true
+				return err
 			}
 		}
-
-		s.mu.Unlock()
-
-		if err != nil && time.Now().After(deadline) {
-			glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err: %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
-			done = true
-		}
 	}
-	return err
 }
 
 // HammerCTLog performs load/stress operations according to given config.
