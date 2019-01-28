@@ -39,7 +39,6 @@ const (
 	defaultSCTTimestamp            uint64 = 1234
 	defaultSCTSignatureString      string = "\x04\x03\x00\x09signature"
 	defaultCertifictateString      string = "certificate"
-	defaultPrecertString           string = "precert"
 	defaultPrecertIssuerHashString string = "iamapublickeyshatwofivesixdigest"
 	defaultPrecertTBSString        string = "tbs"
 
@@ -109,8 +108,6 @@ const (
 		"0009" +
 		// signature, 9 bytes
 		"7369676e6174757265"
-
-	defaultSCTListHexString string = "0476007400380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e617475726500380069616d617075626c69636b657973686174776f6669766573697864696765737400000000000004d20000040300097369676e6174757265"
 )
 
 func defaultSCTLogID() LogID {
@@ -138,10 +135,6 @@ func defaultSCT() SignedCertificateTimestamp {
 
 func defaultCertificate() []byte {
 	return []byte(defaultCertifictateString)
-}
-
-func defaultExtensions() []byte {
-	return []byte{}
 }
 
 func defaultCertificateSCTSignatureInput(t *testing.T) []byte {
@@ -230,7 +223,7 @@ func TestSerializeV1SCTSignatureInputForCertificateKAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT for signing: %v", err)
 	}
-	if bytes.Compare(serialized, defaultCertificateSCTSignatureInput(t)) != 0 {
+	if !bytes.Equal(serialized, defaultCertificateSCTSignatureInput(t)) {
 		t.Fatalf("Serialized certificate signature input doesn't match expected answer:\n%v\n%v", serialized, defaultCertificateSCTSignatureInput(t))
 	}
 }
@@ -240,7 +233,7 @@ func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to serialize SCT for signing: %v", err)
 	}
-	if bytes.Compare(serialized, defaultPrecertSCTSignatureInput(t)) != 0 {
+	if !bytes.Equal(serialized, defaultPrecertSCTSignatureInput(t)) {
 		t.Fatalf("Serialized precertificate signature input doesn't match expected answer:\n%v\n%v", serialized, defaultPrecertSCTSignatureInput(t))
 	}
 }
@@ -278,7 +271,7 @@ func TestSerializeV1STHSignatureKAT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to serialize defaultSTH: %v", err)
 	}
-	if bytes.Compare(b, mustDehex(t, defaultSTHSignedHexString)) != 0 {
+	if !bytes.Equal(b, mustDehex(t, defaultSTHSignedHexString)) {
 		t.Fatalf("defaultSTH incorrectly serialized, expected:\n%v\ngot:\n%v", mustDehex(t, defaultSTHSignedHexString), b)
 	}
 }
