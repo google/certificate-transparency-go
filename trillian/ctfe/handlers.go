@@ -493,6 +493,7 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 // PingTreeHead retrieves a tree head for the given log, and updates the STH
 // timestamp metrics correspondingly.
 // TODO(pavelkalinnikov): Should we cache the resulting STH?
+// nolint:staticcheck
 func PingTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) error {
 	slr, err := getSignedLogRoot(ctx, client, logID, prefix)
 	if err != nil {
@@ -552,6 +553,7 @@ func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 	return nil
 }
 
+// nolint:staticcheck
 func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	first, second, err := parseGetSTHConsistencyRange(r)
 	if err != nil {
@@ -609,6 +611,7 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 	return http.StatusOK, nil
 }
 
+// nolint:staticcheck
 func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Accept any non empty hash that decodes from base64 and let the backend validate it further
 	hash := r.FormValue(getProofParamHash)
@@ -683,6 +686,7 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	return http.StatusOK, nil
 }
 
+// nolint:staticcheck
 func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
@@ -794,6 +798,7 @@ func getRoots(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.R
 }
 
 // See RFC 6962 Section 4.8.
+// nolint:staticcheck
 func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Ensure both numeric params are present and look reasonable.
 	leafIndex, treeSize, err := parseGetEntryAndProofParams(r)

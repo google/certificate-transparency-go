@@ -63,6 +63,7 @@ type LogSTHGetter struct {
 }
 
 // GetSTH retrieves and builds a tree head structure for the given log.
+// nolint:staticcheck
 func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 	slr, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
 	if err != nil {
@@ -105,7 +106,7 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 		return nil, err
 	}
 
-	sth, err := sg.st.GetMirrorSTH(ctx, slr.TreeSize)
+	sth, err := sg.st.GetMirrorSTH(ctx, slr.TreeSize) // nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +116,7 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 }
 
 // getSignedLogRoot obtains the latest SignedLogRoot from Trillian log.
+// nolint:staticcheck
 func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*trillian.SignedLogRoot, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
 	if q := ctx.Value(remoteQuotaCtxKey); q != nil {
