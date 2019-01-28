@@ -15,6 +15,7 @@
 package minimal
 
 import (
+	"bufio"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -22,6 +23,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +60,135 @@ type FetchOptions struct {
 	BatchSize int
 	// Number of concurrent fetcher workers to run.
 	ParallelFetch int
+	// Manage hub retrieval state persistence.
+	State         ScanStateManager
+	FlushInterval time.Duration
+}
+
+// ScanStateManager controls hub scanning state, with the intention of allowing
+// scanning to resume where it was left off across restarts etc.
+type ScanStateManager interface {
+	// GetHubIndex returns the index at which scanning should commence for the given hub URL.
+	GetHubIndex(hubURL string) int64
+	// UpdateHubIndex indicates that future scanning of the given hub should start from at least nextIndex.
+	UpdateHubIndex(hubURL string, nextIndex int64)
+	// Flush ensures state is stored.
+	Flush(ctx context.Context) error
+}
+
+// ScanState holds a (mutex-protected) map of hub URL to next index to scan from.
+type ScanState struct {
+	Mu   sync.Mutex
+	Next map[string]int64
+}
+
+// GetHubIndex returns the index at which scanning should commence for the given hub URL.
+func (s *ScanState) GetHubIndex(hubURL string) int64 {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	return s.Next[hubURL]
+}
+
+// UpdateHubIndex indicates that future scanning of the given hub should start from at least nextIndex.
+func (s *ScanState) UpdateHubIndex(hubURL string, nextIndex int64) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	cur := s.Next[hubURL]
+	if nextIndex > cur {
+		s.Next[hubURL] = nextIndex
+	}
+}
+
+// memoryStateManager is an implementation of the ScanStateManager interface
+// that does not persist any data; it is intended for use as a fallback and in
+// testing.
+type memoryStateManager struct {
+	ScanState
+}
+
+// Flush does nothing for a memoryStateManager.
+func (m *memoryStateManager) Flush(ctx context.Context) error {
+	// No persistent storage.
+	return nil
+}
+
+// FileStateManager is an implementation of the ScanStateManager interface
+// that stores the scan state in a writable flat file.
+type FileStateManager struct {
+	ScanState
+	filename string
+}
+
+// NewFileStateManager creates a FileStateManager from the contents of the given
+// filename, which can be be empty but should be over-writable.
+func NewFileStateManager(filename string) (*FileStateManager, error) {
+	f := FileStateManager{
+		ScanState: ScanState{Next: make(map[string]int64)},
+		filename:  filename,
+	}
+
+	if err := f.read(); err != nil {
+		return nil, err
+	}
+
+	// Check we can immediately write the same contents back.
+	if err := f.flush(); err != nil {
+		return nil, fmt.Errorf("%s: failed to write contents: %v", filename, err)
+	}
+
+	return &f, nil
+}
+
+// read restores state from file, and assumes the caller has ensured serialization.
+func (f *FileStateManager) read() error {
+	file, err := os.Open(f.filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to open file for read: %v", err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	line := 0
+	for scanner.Scan() {
+		line++
+		fields := strings.Split(scanner.Text(), "\t")
+		if len(fields) != 2 {
+			return fmt.Errorf("%s:%d: found unexpected number of fields", f.filename, line)
+		}
+		index, err := strconv.ParseInt(fields[1], 10, 64)
+		if err != nil {
+			return fmt.Errorf("%s:%d: failed to parse index: %v", f.filename, line, err)
+		}
+		f.ScanState.Next[fields[0]] = index
+	}
+	return nil
+}
+
+// flush stores state to file, and assumes the caller has ensured serialization.
+func (f *FileStateManager) flush() error {
+	out, err := os.Create(f.filename)
+	if err != nil {
+		return fmt.Errorf("failed to create state file: %v", err)
+	}
+	defer out.Close()
+	glog.Infof("Flushing scan state to %s", f.filename)
+	for key, next := range f.ScanState.Next {
+		glog.Infof("  scanState[%q]=%d", key, next)
+		fmt.Fprintf(out, "%s\t%d\n", key, next)
+	}
+	return nil
+}
+
+// Flush stores the current contents to disk.
+func (f *FileStateManager) Flush(ctx context.Context) error {
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	if err := f.flush(); err != nil {
+		return fmt.Errorf("failed to flush state: %v", err)
+	}
+	return nil
 }
 
 type originLog struct {
@@ -71,9 +204,10 @@ type hubScanner struct {
 	hawk        *Goshawk
 	Name        string
 	URL         string
-	StartIndex  int64
 	MinInterval time.Duration
-	fetcher     hubFetcher
+	// Hard-configured start index; may be overridden by current scan state.
+	cfgStartIndex int64
+	fetcher       hubFetcher
 }
 
 // hubFetcher retrieves entries from a destination hub of some sort.
@@ -89,17 +223,19 @@ type ctHubFetcher struct {
 
 func (f *ctHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error {
 	fetcherOpts := logscanner.FetcherOptions{
-		StartIndex:    dest.StartIndex,
+		StartIndex:    dest.hawk.fetchOpts.State.GetHubIndex(dest.URL),
 		EndIndex:      0, // Scan up to current STH size.
 		BatchSize:     dest.hawk.fetchOpts.BatchSize,
 		ParallelFetch: dest.hawk.fetchOpts.ParallelFetch,
 		Continuous:    true,
 	}
+	glog.Infof("Scanning CT Log destination hub %s from %d", dest.Name, fetcherOpts.StartIndex)
 	fetcher := logscanner.NewFetcher(f.Log, &fetcherOpts)
 	return fetcher.Run(ctx, func(batch logscanner.EntryBatch) {
 		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
 		for i, entry := range batch.Entries {
 			index := batch.Start + int64(i)
+			dest.hawk.fetchOpts.State.UpdateHubIndex(dest.URL, index+1)
 			rawLogEntry, err := ct.RawLogEntryFromLeaf(index, &entry)
 			if err != nil || rawLogEntry == nil {
 				glog.Errorf("Scanner(%s): failed to build raw log entry %d: %v", dest.Name, index, err)
@@ -134,17 +270,19 @@ type gossipHubFetcher struct {
 // gossipHubFetcher retrieves entries from destination pure Gossip hub.
 func (f *gossipHubFetcher) fetcher(ctx context.Context, dest *hubScanner, fn func(sthInfo *x509ext.LogSTHInfo)) error {
 	fetcherOpts := hubscanner.FetcherOptions{
-		StartIndex:    dest.StartIndex,
+		StartIndex:    dest.hawk.fetchOpts.State.GetHubIndex(dest.URL),
 		EndIndex:      0, // Scan up to current STH size.
 		BatchSize:     dest.hawk.fetchOpts.BatchSize,
 		ParallelFetch: dest.hawk.fetchOpts.ParallelFetch,
 		Continuous:    true,
 	}
+	glog.Infof("Scanning destination Gossip hub %s from %d", dest.Name, fetcherOpts.StartIndex)
 	fetcher := hubscanner.NewFetcher(f.Hub, &fetcherOpts)
 	return fetcher.Run(ctx, func(batch hubscanner.EntryBatch) {
 		glog.V(2).Infof("Scanner(%s): examine batch [%d, %d)", dest.Name, batch.Start, int(batch.Start)+len(batch.Entries))
 		for i, entry := range batch.Entries {
 			index := batch.Start + int64(i)
+			dest.hawk.fetchOpts.State.UpdateHubIndex(dest.URL, index+1)
 			var th ct.TreeHeadSignature
 			if rest, err := tls.Unmarshal(entry.BlobData, &th); err != nil {
 				glog.Warningf("Scanner(%s): failed to unmarshal BlobData at index %d: %v", dest.Name, index, err)
@@ -220,6 +358,13 @@ func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog,
 	if cfg.BufferSize < 0 {
 		return nil, fmt.Errorf("negative STH buffer size (%d) specified", cfg.BufferSize)
 	}
+	if fetchOpts.State == nil {
+		fetchOpts.State = &memoryStateManager{ScanState{Next: make(map[string]int64)}}
+	}
+	if fetchOpts.FlushInterval == 0 {
+		fetchOpts.FlushInterval = 10 * time.Minute
+	}
+
 	hawk := Goshawk{
 		dests:     make(map[string]*hubScanner),
 		origins:   make(map[string]*originLog),
@@ -235,8 +380,9 @@ func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog,
 			return nil, fmt.Errorf("duplicate dest hubs for name %q", dest.Name)
 		}
 		dest.hawk = &hawk
+		fetchOpts.State.UpdateHubIndex(dest.URL, dest.cfgStartIndex)
 		hawk.dests[dest.Name] = dest
-		glog.Infof("configured dest Hub %s to scan at %s (%+v)", dest.Name, dest.URL, dest)
+		glog.Infof("configured dest Hub %s to scan at %s starting from %d (%+v)", dest.Name, dest.URL, fetchOpts.State.GetHubIndex(dest.URL), dest)
 	}
 	seenNames := make(map[string]bool)
 	for _, lc := range cfg.SourceLog {
@@ -304,6 +450,24 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 		}(origin)
 	}
 
+	// Flush scan state occasionally in case of abrupt termination.
+	ticker := time.NewTicker(hawk.fetchOpts.FlushInterval)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := hawk.fetchOpts.State.Flush(ctx); err != nil {
+					// Keep going even if we failed to save current state; it
+					// just means that the next run will repeat checks that have
+					// already been done.
+					glog.Errorf("State flush failed: %v", err)
+				}
+			}
+		}
+	}()
+
 	// The Checkers are consumers at the end of a chain of channels and goroutines,
 	// so they need to shut down last to prevent the producers getting blocked.
 	var checkerWG sync.WaitGroup
@@ -318,6 +482,9 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 	}
 
 	wg.Wait()
+	if err := hawk.fetchOpts.State.Flush(context.Background()); err != nil {
+		glog.Errorf("Final state flush failed: %v", err)
+	}
 	glog.Info("Scanner and STHRetrievers finished, now terminate Checkers")
 	for _, origin := range hawk.origins {
 		close(origin.sths)

@@ -274,10 +274,10 @@ func hubScannerFromProto(cfg *configpb.HubConfig, hc *http.Client) (*hubScanner,
 		fetcher = &ctHubFetcher{Log: cl}
 	}
 	return &hubScanner{
-		Name:        cfg.Name,
-		URL:         cfg.Url,
-		StartIndex:  cfg.StartIndex,
-		MinInterval: interval,
-		fetcher:     fetcher,
+		Name:          cfg.Name,
+		URL:           cfg.Url,
+		MinInterval:   interval,
+		cfgStartIndex: cfg.StartIndex,
+		fetcher:       fetcher,
 	}, nil
 }

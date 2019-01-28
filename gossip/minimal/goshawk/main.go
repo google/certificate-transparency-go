@@ -32,6 +32,8 @@ var (
 	config        = flag.String("config", "", "File holding log configuration in text proto format")
 	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request per call to get-entries")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+	stateFile     = flag.String("state", "", "Writable file to hold persistent state")
+	stateFlush    = flag.Duration("flush_state", 10*time.Minute, "Interval between persistent state flushes")
 )
 
 func main() {
@@ -42,6 +44,14 @@ func main() {
 	fetchOpts := minimal.FetchOptions{
 		BatchSize:     *batchSize,
 		ParallelFetch: *parallelFetch,
+		FlushInterval: *stateFlush,
+	}
+	if len(*stateFile) > 0 {
+		var err error
+		fetchOpts.State, err = minimal.NewFileStateManager(*stateFile)
+		if err != nil {
+			glog.Exitf("failed to create file-based state manager: %v", err)
+		}
 	}
 
 	hawk, err := minimal.NewGoshawkFromFile(ctx, *config, nil, fetchOpts)
