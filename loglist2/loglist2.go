@@ -166,45 +166,27 @@ func (ls *LogStates) String() string {
 	}
 }
 
-// Active picks the set-up state. Returns error if multiple states set.
-func (ls *LogStates) Active() (*LogState, *FrozenLogState, error) {
-	var active *LogState
-	var activeF *FrozenLogState
-	var activeNum int
-
+// Active picks the set-up state. If multiple states are set (not expected) picks one of them.
+func (ls *LogStates) Active() (*LogState, *FrozenLogState) {
 	if ls == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
-
-	if ls.Pending != nil {
-		activeNum++
-		active = ls.Pending
+	switch {
+	case ls.Pending != nil:
+		return ls.Pending, nil
+	case ls.Qualified != nil:
+		return ls.Qualified, nil
+	case ls.Usable != nil:
+		return ls.Usable, nil
+	case ls.Frozen != nil:
+		return nil, ls.Frozen
+	case ls.Retired != nil:
+		return ls.Retired, nil
+	case ls.Rejected != nil:
+		return ls.Rejected, nil
+	default:
+		return nil, nil
 	}
-	if ls.Qualified != nil {
-		activeNum++
-		active = ls.Qualified
-	}
-	if ls.Usable != nil {
-		activeNum++
-		active = ls.Usable
-	}
-	if ls.Frozen != nil {
-		activeNum++
-		activeF = ls.Frozen
-	}
-	if ls.Retired != nil {
-		activeNum++
-		active = ls.Retired
-	}
-	if ls.Rejected != nil {
-		activeNum++
-		active = ls.Rejected
-	}
-	if activeNum > 1 {
-		fmt.Printf("Too many\n")
-		return nil, nil, fmt.Errorf("multiple states set at LogStates instance while at most 1 is allowed")
-	}
-	return active, activeF, nil
 }
 
 // NewFromJSON creates a LogList from JSON encoded data.

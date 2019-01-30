@@ -415,7 +415,6 @@ func TestLogStatesActive(t *testing.T) {
 		in         *LogStates
 		wantState  *LogState
 		wantFState *FrozenLogState
-		wantErr    bool
 	}{
 		{
 			name: "Retired",
@@ -424,7 +423,6 @@ func TestLogStatesActive(t *testing.T) {
 			},
 			wantState:  a,
 			wantFState: nil,
-			wantErr:    false,
 		},
 		{
 			name: "Frozen",
@@ -433,36 +431,26 @@ func TestLogStatesActive(t *testing.T) {
 			},
 			wantState:  nil,
 			wantFState: f,
-			wantErr:    false,
 		},
 		{
-			name: "MultiBad",
+			name: "Qualified",
 			in: &LogStates{
-				Retired: a,
-				Frozen:  f,
+				Qualified: a,
 			},
-			wantState:  nil,
+			wantState:  a,
 			wantFState: nil,
-			wantErr:    true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotState, gotFState, gotErr := test.in.Active()
-			fmt.Printf("%v\n", test.in == nil)
-			fmt.Printf("%v\n", gotState)
-			fmt.Printf("%v\n", test.wantState)
+			gotState, gotFState := test.in.Active()
 			if gotState != test.wantState {
 				t.Errorf("Log-state from Active() = %q, want %q", gotState, test.wantState)
 			}
 			if gotFState != test.wantFState {
 				t.Errorf("Frozen Log-state from Active() = %q, want %q", gotFState, test.wantFState)
 			}
-			if (gotErr == nil) == test.wantErr {
-				t.Errorf("Error from Active() = %v, want error = %v", !(gotErr == nil), test.wantErr)
-			}
-
 		})
 	}
 }
