@@ -139,30 +139,31 @@ type TreeHead struct {
 // String method returns printable name of the state.
 func (ls *LogStates) String() string {
 	names := [...]string{
+		"Empty",
 		"Pending",
 		"Qualified",
 		"Usable",
 		"Frozen",
 		"Retired",
-		"Rejected",
-		"Empty"}
-	if ls == nil {
-		return names[6]
-	}
-	if ls.Pending != nil {
+		"Rejected"}
+	switch {
+	case ls == nil:
 		return names[0]
-	} else if ls.Qualified != nil {
+	case ls.Pending != nil:
 		return names[1]
-	} else if ls.Usable != nil {
+	case ls.Qualified != nil:
 		return names[2]
-	} else if ls.Frozen != nil {
+	case ls.Usable != nil:
 		return names[3]
-	} else if ls.Retired != nil {
+	case ls.Frozen != nil:
 		return names[4]
-	} else if ls.Rejected != nil {
+	case ls.Retired != nil:
 		return names[5]
+	case ls.Rejected != nil:
+		return names[6]
+	default:
+		return names[0]
 	}
-	return names[6]
 }
 
 // Active picks the set-up state. Returns error if multiple states set.
