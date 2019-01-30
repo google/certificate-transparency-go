@@ -138,31 +138,23 @@ type TreeHead struct {
 
 // String method returns printable name of the state.
 func (ls *LogStates) String() string {
-	names := [...]string{
-		"Empty",
-		"Pending",
-		"Qualified",
-		"Usable",
-		"Frozen",
-		"Retired",
-		"Rejected"}
 	switch {
 	case ls == nil:
-		return names[0]
+		return "Empty"
 	case ls.Pending != nil:
-		return names[1]
+		return "Pending"
 	case ls.Qualified != nil:
-		return names[2]
+		return "Qualified"
 	case ls.Usable != nil:
-		return names[3]
+		return "Usable"
 	case ls.Frozen != nil:
-		return names[4]
+		return "Frozen"
 	case ls.Retired != nil:
-		return names[5]
+		return "Retired"
 	case ls.Rejected != nil:
-		return names[6]
+		return "Rejected"
 	default:
-		return names[0]
+		return "Empty"
 	}
 }
 

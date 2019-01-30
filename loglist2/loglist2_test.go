@@ -393,9 +393,8 @@ func TestLogStatesString(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			log := sampleLogList.FindLogByURL(test.logURL)
-			got := log.State.String()
-			if got != test.want {
-				t.Errorf("Log.State.String() for %s = %s, want %s", test.logURL, got, test.want)
+			if got := log.State.String(); got != test.want {
+				t.Errorf("%q:  Log.State.String() = %s, want %s", test.logURL, got, test.want)
 			}
 		})
 	}
