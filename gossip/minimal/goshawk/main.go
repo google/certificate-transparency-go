@@ -29,17 +29,20 @@ import (
 	"github.com/google/certificate-transparency-go/gossip/minimal"
 	"github.com/google/certificate-transparency-go/gossip/minimal/mysql"
 
+	incidentmysql "github.com/google/monologue/incident/mysql"
+
 	// Load MySQL driver
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
-	config        = flag.String("config", "", "File holding log configuration in text proto format")
-	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request per call to get-entries")
-	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
-	mySQLURI      = flag.String("mysql_uri", "cttest:beeblebrox@tcp(127.0.0.1:3306)/cttest", "Connection URI for MySQL database used to hold persistent state")
-	stateFile     = flag.String("state", "", "Writable file to hold persistent state")
-	stateFlush    = flag.Duration("flush_state", 10*time.Minute, "Interval between persistent state flushes")
+	config           = flag.String("config", "", "File holding log configuration in text proto format")
+	batchSize        = flag.Int("batch_size", 1000, "Max number of entries to request per call to get-entries")
+	parallelFetch    = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+	mySQLIncidentURI = flag.String("incident_mysql_uri", "monologuetest:soliloquy@tcp(127.0.0.1:3306)/monologuetest", "Connection URI for MySQL database used to hold incident details")
+	mySQLStateURI    = flag.String("state_mysql_uri", "cttest:beeblebrox@tcp(127.0.0.1:3306)/cttest", "Connection URI for MySQL database used to hold persistent state")
+	stateFile        = flag.String("state", "", "Writable file to hold persistent state")
+	stateFlush       = flag.Duration("flush_state", 10*time.Minute, "Interval between persistent state flushes")
 )
 
 func main() {
@@ -53,15 +56,17 @@ func main() {
 		FlushInterval: *stateFlush,
 	}
 	if len(*stateFile) > 0 {
+		glog.Infof("State will be persisted to %s", *stateFile)
 		var err error
 		fetchOpts.State, err = minimal.NewFileStateManager(*stateFile)
 		if err != nil {
 			glog.Exitf("failed to create file-based state manager: %v", err)
 		}
-	} else if len(*mySQLURI) > 0 {
-		db, err := sql.Open("mysql", *mySQLURI)
+	} else if len(*mySQLStateURI) > 0 {
+		glog.Infof("State will be persisted to %s", *mySQLStateURI)
+		db, err := sql.Open("mysql", *mySQLStateURI)
 		if err != nil {
-			glog.Exitf("failed to open MySQL database: %v", err)
+			glog.Exitf("failed to open MySQL state database: %v", err)
 		}
 		if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
 			glog.Warningf("Failed to set strict mode on MySQL db: %s", err)
@@ -69,6 +74,21 @@ func main() {
 		fetchOpts.State, err = mysql.NewStateManager(ctx, db)
 		if err != nil {
 			glog.Exitf("failed to create MySQL-based state manager: %v", err)
+		}
+	}
+	if len(*mySQLIncidentURI) > 0 {
+		glog.Infof("Incidents will be stored in %s", *mySQLIncidentURI)
+		db, err := sql.Open("mysql", *mySQLIncidentURI)
+		if err != nil {
+			glog.Exitf("failed to open MySQL incident database: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
+			glog.Warningf("Failed to set strict mode on MySQL incident db: %s", err)
+		}
+
+		fetchOpts.Reporter, err = incidentmysql.NewMySQLReporter(ctx, db, "goshawk")
+		if err != nil {
+			glog.Exitf("failed to create MySQL-based incident reporter: %v", err)
 		}
 	}
 

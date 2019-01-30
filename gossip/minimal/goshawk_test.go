@@ -26,6 +26,7 @@ import (
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/monologue/incident"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -136,11 +137,14 @@ func TestValidateSTH(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-	o := originLog{logConfig: logConfig{
-		Name: "argon2018",
-		URL:  "http://ct.googleapis.com/logs/argon2018",
-		Log:  client,
-	}}
+	o := originLog{
+		reporter: &incident.LoggingReporter{},
+		logConfig: logConfig{
+			Name: "argon2018",
+			URL:  "http://ct.googleapis.com/logs/argon2018",
+			Log:  client,
+		},
+	}
 	sthInfo1 := x509ext.LogSTHInfo{
 		LogURL:            []byte(o.URL),
 		Version:           tls.Enum(argonSTH1.Version),
@@ -198,7 +202,10 @@ func TestValidateSTH(t *testing.T) {
 
 func TestUpdateAndGetLastSTH(t *testing.T) {
 	var nilp *ct.SignedTreeHead
-	o := originLog{logConfig: logConfig{Name: "argon2018", URL: "http://ct.googleapis.com/logs/argon2018"}}
+	o := originLog{
+		reporter:  &incident.LoggingReporter{},
+		logConfig: logConfig{Name: "argon2018", URL: "http://ct.googleapis.com/logs/argon2018"},
+	}
 
 	if got, want := o.getLastSTH(), nilp; got != want {
 		t.Errorf("o.getLastSTH()=%v; want %v", got, want)
