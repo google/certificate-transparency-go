@@ -105,7 +105,9 @@ func buildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 }
 
 // NewDistributor creates and inits a Distributor instance.
-// To get active, Distributor is expected to call its Run() method.
+// The Distributor will asynchronously fetch the latest roots from all of the
+// logs. Call Run() to init regular updates to keep the local copy of the roots
+// up-to-date.
 func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
 	var d Distributor
 	active := ll.ActiveLogs()
@@ -115,7 +117,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	d.logRoots = make(loglist.LogRoots)
 
 	// Build clients for each of the Logs.
-	for _, log := range ll.Logs {
+	for _, log := range d.ll.Logs {
 		lc, err := lcBuilder(&log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
