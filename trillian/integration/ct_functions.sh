@@ -7,6 +7,7 @@ CT_CFG=
 CT_LIFECYCLE_CFG=
 CT_COMBINED_CFG=
 PROMETHEUS_CFGDIR=
+readonly CT_GO_PATH=$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
@@ -28,6 +29,10 @@ ct_prep_test() {
   local rpc_server_count=${1:-1}
   local log_signer_count=${2:-1}
   local http_server_count=${3:-1}
+
+  # Wipe the cttest database
+  echo "Wiping and re-creating cttest database"
+  "${CT_GO_PATH}/scripts/resetctdb.sh" --force
 
   echo "Launching core Trillian log components"
   log_prep_test "${rpc_server_count}" "${log_signer_count}"
@@ -209,7 +214,7 @@ ct_goshawk_config() {
 #   - GOSHAWK_PID : pid for gosmin instance.
 ct_start_goshawk() {
   go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/goshawk
-  ./goshawk --config="${GOSHAWK_CFG}" --logtostderr &
+  ./goshawk --config="${GOSHAWK_CFG}" --logtostderr --flush_state=10s &
   GOSHAWK_PID=$!
 }
 

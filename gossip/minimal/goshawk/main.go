@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"os"
 	"os/signal"
@@ -26,12 +27,17 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/gossip/minimal"
+	"github.com/google/certificate-transparency-go/gossip/minimal/mysql"
+
+	// Load MySQL driver
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
 	config        = flag.String("config", "", "File holding log configuration in text proto format")
 	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request per call to get-entries")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
+	mySQLURI      = flag.String("mysql_uri", "cttest:beeblebrox@tcp(127.0.0.1:3306)/cttest", "Connection URI for MySQL database used to hold persistent state")
 	stateFile     = flag.String("state", "", "Writable file to hold persistent state")
 	stateFlush    = flag.Duration("flush_state", 10*time.Minute, "Interval between persistent state flushes")
 )
@@ -51,6 +57,18 @@ func main() {
 		fetchOpts.State, err = minimal.NewFileStateManager(*stateFile)
 		if err != nil {
 			glog.Exitf("failed to create file-based state manager: %v", err)
+		}
+	} else if len(*mySQLURI) > 0 {
+		db, err := sql.Open("mysql", *mySQLURI)
+		if err != nil {
+			glog.Exitf("failed to open MySQL database: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
+			glog.Warningf("Failed to set strict mode on MySQL db: %s", err)
+		}
+		fetchOpts.State, err = mysql.NewStateManager(ctx, db)
+		if err != nil {
+			glog.Exitf("failed to create MySQL-based state manager: %v", err)
 		}
 	}
 
