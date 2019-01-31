@@ -379,6 +379,81 @@ func TestStripInternalSpace(t *testing.T) {
 	}
 }
 
+func TestLogStatesString(t *testing.T) {
+	var tests = []struct {
+		name   string
+		logURL string
+		want   string
+	}{
+		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "Frozen"},
+		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "Empty"},
+		{name: "Retired", logURL: "log.bob.io", want: "Retired"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := sampleLogList.FindLogByURL(test.logURL)
+			if got := log.State.String(); got != test.want {
+				t.Errorf("%q:  Log.State.String() = %s, want %s", test.logURL, got, test.want)
+			}
+		})
+	}
+}
+
+func TestLogStatesActive(t *testing.T) {
+	a := &LogState{Timestamp: time.Unix(1460678400, 0).UTC()}
+	f := &FrozenLogState{
+		LogState: LogState{Timestamp: time.Unix(1480512258, 330000000).UTC()},
+		FinalTreeHead: TreeHead{
+			TreeSize:       46466472,
+			SHA256RootHash: []byte{},
+		},
+	}
+	var tests = []struct {
+		name       string
+		in         *LogStates
+		wantState  *LogState
+		wantFState *FrozenLogState
+	}{
+		{
+			name: "Retired",
+			in: &LogStates{
+				Retired: a,
+			},
+			wantState:  a,
+			wantFState: nil,
+		},
+		{
+			name: "Frozen",
+			in: &LogStates{
+				Frozen: f,
+			},
+			wantState:  nil,
+			wantFState: f,
+		},
+		{
+			name: "Qualified",
+			in: &LogStates{
+				Qualified: a,
+			},
+			wantState:  a,
+			wantFState: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gotState, gotFState := test.in.Active()
+			if gotState != test.wantState {
+				t.Errorf("Log-state from Active() = %q, want %q", gotState, test.wantState)
+			}
+			if gotFState != test.wantFState {
+				t.Errorf("Frozen Log-state from Active() = %q, want %q", gotFState, test.wantFState)
+			}
+		})
+	}
+}
+
 func deb64(b string) []byte {
 	data, err := base64.StdEncoding.DecodeString(b)
 	if err != nil {

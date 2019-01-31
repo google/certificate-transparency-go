@@ -136,6 +136,51 @@ type TreeHead struct {
 	TreeSize int64 `json:"tree_size"`
 }
 
+// String method returns printable name of the state.
+func (ls *LogStates) String() string {
+	switch {
+	case ls == nil:
+		return "Empty"
+	case ls.Pending != nil:
+		return "Pending"
+	case ls.Qualified != nil:
+		return "Qualified"
+	case ls.Usable != nil:
+		return "Usable"
+	case ls.Frozen != nil:
+		return "Frozen"
+	case ls.Retired != nil:
+		return "Retired"
+	case ls.Rejected != nil:
+		return "Rejected"
+	default:
+		return "Empty"
+	}
+}
+
+// Active picks the set-up state. If multiple states are set (not expected) picks one of them.
+func (ls *LogStates) Active() (*LogState, *FrozenLogState) {
+	if ls == nil {
+		return nil, nil
+	}
+	switch {
+	case ls.Pending != nil:
+		return ls.Pending, nil
+	case ls.Qualified != nil:
+		return ls.Qualified, nil
+	case ls.Usable != nil:
+		return ls.Usable, nil
+	case ls.Frozen != nil:
+		return nil, ls.Frozen
+	case ls.Retired != nil:
+		return ls.Retired, nil
+	case ls.Rejected != nil:
+		return ls.Rejected, nil
+	default:
+		return nil, nil
+	}
+}
+
 // NewFromJSON creates a LogList from JSON encoded data.
 func NewFromJSON(llData []byte) (*LogList, error) {
 	var ll LogList
