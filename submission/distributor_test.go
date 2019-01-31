@@ -33,7 +33,7 @@ func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad client builder")
 }
 
-// Mock for AddLogClient interface
+// Stub for AddLogClient interface
 type emptyLogClient struct {
 }
 
@@ -49,7 +49,7 @@ func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, er
 	return nil, nil
 }
 
-// buildEmptyLogClient produces empty mock Log clients.
+// buildEmptyLogClient produces empty stub Log clients.
 func buildEmptyLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return emptyLogClient{}, nil
 }
@@ -89,7 +89,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 			name:      "NoLogClients",
 			ll:        sampleValidLogList(t),
 			lcBuilder: buildNoLogClient,
-			errRegexp: regexp.MustCompile("failed to create log client.*"),
+			errRegexp: regexp.MustCompile("failed to create log client"),
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",
@@ -101,12 +101,10 @@ func TestNewDistributorLogClients(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, tc.lcBuilder)
-			if (tc.errRegexp == nil) != (err == nil) {
+			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Errorf("Expected error state does not match produced one.")
-			} else if tc.errRegexp != nil {
-				if !tc.errRegexp.MatchString(err.Error()) {
-					t.Errorf("Error %q did not match expected regexp %q", err, tc.errRegexp)
-				}
+			} else if tc.errRegexp != nil && !tc.errRegexp.MatchString(err.Error()) {
+				t.Errorf("Error %q did not match expected regexp %q", err, tc.errRegexp)
 			}
 		})
 	}

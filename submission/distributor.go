@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	// RootsRefreshInterval is interval between consequent get-roots calls.
+	// RootsRefreshInterval is interval between consecutive get-roots calls.
 	rootsRefreshInterval = time.Hour * 24
 )
 
@@ -52,14 +52,19 @@ type Distributor struct {
 }
 
 // Run starts regular roots updates.
-func (d *Distributor) run(ctx context.Context) {
+func (d *Distributor) Run(ctx context.Context) {
+	if d.rootsRefreshTicker != nil {
+		return
+	}
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-d.rootsRefreshTicker.C:
-			d.refreshRoots(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-d.rootsRefreshTicker.C:
+				d.refreshRoots(ctx)
+			}
 		}
 	}()
 }
@@ -100,7 +105,7 @@ func buildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 }
 
 // NewDistributor creates and inits a Distributor instance.
-// Fails iff any Log couldn't get its client built.
+// To get active, Distributor is expected to call its Run() method.
 func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
 	var d Distributor
 	active := ll.ActiveLogs()
@@ -121,8 +126,5 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	go func() {
 		d.refreshRoots(context.Background())
 	}()
-
-	// Set up regular Log-roots updates.
-	d.run(context.Background())
 	return &d, nil
 }
