@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -39,8 +38,6 @@ const (
 type Distributor struct {
 	ll *loglist.LogList
 
-	mu sync.RWMutex
-
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
@@ -56,11 +53,17 @@ func (d *Distributor) Run(ctx context.Context) {
 	if d.rootsRefreshTicker != nil {
 		return
 	}
+	// Collect Log-roots first time.
+	go func() {
+		d.refreshRoots(ctx)
+	}()
+
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
+				d.rootsRefreshTicker = nil
 				return
 			case <-d.rootsRefreshTicker.C:
 				d.refreshRoots(ctx)
@@ -106,8 +109,8 @@ func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 
 // NewDistributor creates and inits a Distributor instance.
 // The Distributor will asynchronously fetch the latest roots from all of the
-// logs. Call Run() to init regular updates to keep the local copy of the roots
-// up-to-date.
+// logs when active. Call Run() to fetch roots and init regular updates to keep
+// the local copy of the roots up-to-date.
 func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
 	var d Distributor
 	active := ll.ActiveLogs()
@@ -124,9 +127,5 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		}
 		d.logClients[log.URL] = lc
 	}
-	// Collect Log-roots.
-	go func() {
-		d.refreshRoots(context.Background())
-	}()
 	return &d, nil
 }

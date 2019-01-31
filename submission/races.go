@@ -32,6 +32,11 @@ const (
 	PostBatchInterval = time.Second
 )
 
+// Submitter is interface wrapping Log-request-response cycle and any processing.
+type Submitter interface {
+	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+}
+
 // submissionResult holds outcome of a single-log submission.
 type submissionResult struct {
 	sct *ct.SignedCertificateTimestamp
@@ -151,11 +156,6 @@ func postInterval(idx int, parallelStart int, dur time.Duration) time.Duration {
 		return time.Duration(0)
 	}
 	return time.Duration(idx+1-parallelStart) * dur
-}
-
-// Submitter is interface wrapping Log-request-response cycle and any processing.
-type Submitter interface {
-	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
 }
 
 // groupRace shuffles logs within the group, submits avoiding duplicate-requests and collects responses.
