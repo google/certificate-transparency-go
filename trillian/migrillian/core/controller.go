@@ -83,6 +83,7 @@ func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
 			StartIndex:    cfg.StartIndex,
 			EndIndex:      cfg.EndIndex,
 			Continuous:    cfg.IsContinuous,
+			EnableRetries: true,
 		},
 		Submitters:  int(cfg.NumSubmitters),
 		ChannelSize: int(cfg.ChannelSize),

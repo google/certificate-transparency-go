@@ -41,6 +41,9 @@ type FetcherOptions struct {
 	// Continuous determines whether Fetcher should run indefinitely after
 	// reaching EndIndex.
 	Continuous bool
+
+	// EnableRetries allows retrying failed fetches with exponential backoff.
+	EnableRetries bool
 }
 
 // DefaultFetcherOptions returns new FetcherOptions with sensible defaults.
@@ -51,6 +54,7 @@ func DefaultFetcherOptions() *FetcherOptions {
 		StartIndex:    0,
 		EndIndex:      0,
 		Continuous:    false,
+		EnableRetries: false,
 	}
 }
 
@@ -255,14 +259,33 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 				glog.Warningf("Worker context closed: %v", err)
 				return
 			}
-			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
-			if err != nil {
-				glog.Errorf("GetRawEntries() failed: %v", err)
-				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
-				continue
+
+			transfer := func() error {
+				resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
+				if err != nil {
+					err = backoff.RetriableErrorf("GetRawEntries(%d,%d) failed: %v", r.start, r.end, err)
+					glog.Error(err)
+					return err
+				}
+				fn(EntryBatch{Start: r.start, Entries: resp.Entries})
+				r.start += int64(len(resp.Entries))
+				return nil
 			}
-			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
-			r.start += int64(len(resp.Entries))
+
+			if f.opts.EnableRetries {
+				bo := &backoff.Backoff{
+					Min:    1 * time.Second,
+					Max:    30 * time.Second,
+					Factor: 2,
+					Jitter: true,
+				}
+				if err := bo.Retry(ctx, transfer); err != nil {
+					glog.Errorf("GetRawEntries(%d,%d) fails consistently: %v", r.start, r.end, err)
+					continue // Enter the retries loop again.
+				}
+			} else if err := transfer(); err != nil { // Note: err is already logged.
+				continue // Skip the failed fetches when retries are not requested.
+			}
 		}
 	}
 }
