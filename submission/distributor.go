@@ -26,7 +26,6 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
 const (
@@ -41,7 +40,6 @@ type Distributor struct {
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
-	rootPool   *ctfe.PEMCertPool
 
 	rootsRefreshTicker *time.Ticker
 
