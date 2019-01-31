@@ -92,7 +92,7 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 type LogClientBuilder func(*loglist.Log) (client.AddLogClient, error)
 
 // BuildLogClient is default (non-mock) LogClientBuilder.
-func buildLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	url, err := url.Parse(log.URL)
 	if err != nil {
 		return nil, err
