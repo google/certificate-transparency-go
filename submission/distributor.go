@@ -51,23 +51,21 @@ func (d *Distributor) Run(ctx context.Context) {
 	if d.rootsRefreshTicker != nil {
 		return
 	}
-	// Collect Log-roots first time.
-	go func() {
-		d.refreshRoots(ctx)
-	}()
 
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				d.rootsRefreshTicker = nil
-				return
-			case <-d.rootsRefreshTicker.C:
-				d.refreshRoots(ctx)
-			}
+
+	// Collect Log-roots first time.
+	d.refreshRoots(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			d.rootsRefreshTicker.Stop()
+			d.rootsRefreshTicker = nil
+			return
+		case <-d.rootsRefreshTicker.C:
+			d.refreshRoots(ctx)
 		}
-	}()
+	}
 }
 
 // refreshRoots requests roots from Logs and updates local copy if necessary.
