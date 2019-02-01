@@ -17,8 +17,10 @@ package submission
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -26,6 +28,8 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (
@@ -33,13 +37,16 @@ const (
 	rootsRefreshInterval = time.Hour * 24
 )
 
-// Distributor operates policy-based submission across Logs.
+// Distributor class operates policy-based submission across Logs.
 type Distributor struct {
 	ll *loglist.LogList
+
+	mu sync.RWMutex
 
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
+	rootPool   *ctfe.PEMCertPool
 
 	rootsRefreshTicker *time.Ticker
 
@@ -51,7 +58,6 @@ func (d *Distributor) Run(ctx context.Context) {
 	if d.rootsRefreshTicker != nil {
 		return
 	}
-
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 
 	// Collect Log-roots first time.
@@ -68,12 +74,68 @@ func (d *Distributor) Run(ctx context.Context) {
 	}
 }
 
-// refreshRoots requests roots from Logs and updates local copy if necessary.
+// refreshRoots requests roots from Logs and updates local copy.
 func (d *Distributor) refreshRoots(ctx context.Context) {
-	// TODO(Mercurrent) add implementation.
+	type RootsResult struct {
+		LogURL string
+		Roots  []*x509.Certificate
+		Err    error
+	}
+	ch := make(chan RootsResult, len(d.logClients))
+
+	rctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for logURL, lc := range d.logClients {
+		go func(logURL string, lc client.AddLogClient) {
+			res := RootsResult{LogURL: logURL}
+
+			roots, err := lc.GetAcceptedRoots(rctx)
+			if err != nil {
+				res.Err = fmt.Errorf("%s: couldn't collect roots. %s", logURL, err)
+				ch <- res
+				return
+			}
+			for _, r := range roots {
+				parsed, err := x509.ParseCertificate(r.Data)
+				if err != nil {
+					res.Err = fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
+					continue
+				}
+				res.Roots = append(res.Roots, parsed)
+			}
+			ch <- res
+		}(logURL, lc)
+	}
+
+	// Collect get-roots results for every Log-client.
+	freshRoots := make(map[string][]*x509.Certificate)
+	for range d.logClients {
+		r := <-ch
+		// update roots for successful Log-requests only.
+		if r.Err != nil {
+			log.Println(r.Err)
+		} else {
+			freshRoots[r.LogURL] = r.Roots
+		}
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for logURL, r := range freshRoots {
+		d.logRoots[logURL] = r
+	}
+
+	d.rootPool = ctfe.NewPEMCertPool()
+	for _, certs := range d.logRoots {
+		for _, cert := range certs {
+			d.rootPool.AddCert(cert)
+		}
+	}
 }
 
-// SubmitToLog is races-Submitter interface.
+// SubmitToLog is Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	// TODO(Mercurrent) add implementation.
 	return nil, nil
