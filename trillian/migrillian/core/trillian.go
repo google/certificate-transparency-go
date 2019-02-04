@@ -104,7 +104,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 	leaves := make([]*trillian.LogLeaf, len(b.Entries))
 	for i, e := range b.Entries {
 		var err error
-		if leaves[i], err = buildLogLeaf(c.prefix, b.Start+int64(i), &e); err != nil {
+		if leaves[i], err = c.buildLogLeaf(b.Start+int64(i), &e); err != nil {
 			return err
 		}
 	}
@@ -142,7 +142,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 	return err
 }
 
-func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
+func (c *PreorderedLogClient) buildLogLeaf(index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
 	rle, err := ct.RawLogEntryFromLeaf(index, entry)
 	if err != nil {
 		return nil, err
@@ -151,13 +151,13 @@ func buildLogLeaf(logPrefix string, index int64, entry *ct.LeafEntry) (*trillian
 	// Don't return on x509 parsing errors because we want to migrate this log
 	// entry as is. But log the error so that it can be flagged by monitoring.
 	if _, err = rle.ToLogEntry(); x509.IsFatal(err) {
-		glog.Errorf("%s: index=%d: x509 fatal error: %v", logPrefix, index, err)
+		glog.Errorf("%s: index=%d: x509 fatal error: %v", c.prefix, index, err)
 	} else if err != nil {
-		glog.Infof("%s: index=%d: x509 non-fatal error: %v", logPrefix, index, err)
+		glog.Infof("%s: index=%d: x509 non-fatal error: %v", c.prefix, index, err)
 	}
 	// TODO(pavelkalinnikov): Verify cert chain if error is nil or non-fatal.
 
-	leafIDHash := sha256.Sum256(rle.Cert.Data)
+	leafIDHash := c.idFunc(index, rle)
 	return &trillian.LogLeaf{
 		LeafValue:        entry.LeafInput,
 		ExtraData:        entry.ExtraData,
