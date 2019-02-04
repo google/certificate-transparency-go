@@ -70,9 +70,9 @@ func initMetrics(mf monitoring.MetricFactory) {
 // Options holds configuration for a Controller.
 type Options struct {
 	scanner.FetcherOptions
-	Submitters       int
-	ChannelSize      int
-	ConsistencyCheck bool
+	Submitters         int
+	ChannelSize        int
+	NoConsistencyCheck bool
 }
 
 // OptionsFromConfig returns Options created from the passed in config.
@@ -85,9 +85,9 @@ func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
 			EndIndex:      cfg.EndIndex,
 			Continuous:    cfg.IsContinuous,
 		},
-		Submitters:       int(cfg.NumSubmitters),
-		ChannelSize:      int(cfg.ChannelSize),
-		ConsistencyCheck: !cfg.NoConsistencyCheck,
+		Submitters:         int(cfg.NumSubmitters),
+		ChannelSize:        int(cfg.ChannelSize),
+		NoConsistencyCheck: cfg.NoConsistencyCheck,
 	}
 	if cfg.NumFetchers == 0 {
 		opts.ParallelFetch = 1
@@ -250,7 +250,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 		}
 		return nil
 	}
-	if !c.opts.ConsistencyCheck {
+	if c.opts.NoConsistencyCheck {
 		glog.Warningf("%s: skipping consistency check", c.label)
 		return nil
 	}

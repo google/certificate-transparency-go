@@ -84,11 +84,12 @@ message MigrationConfig {
   IdentityFunction identity_function = 12;
 
   // This flag is used in continuous mode to work around logs that don't expose
-  // the get-entry-and-proof endpoint (section 4.8 of RFC 6962). If set to false
-  // (by default), then when Migrillian restarts it verifies that the tree as
-  // seen by Trillian is consistent with the current STH of the source CT log.
-  // It does so by requesting an inclusion proof corresponding to the current
-  // tree size, and computing the expected root hash using it.
+  // the get-entry-and-proof endpoint (even though section 4.8 of RFC 6962
+  // doesn't define it as optional). If set to false (by default), then when
+  // Migrillian restarts it verifies that the tree as seen by Trillian is
+  // consistent with the current STH of the source CT log. It does so by
+  // requesting an inclusion proof corresponding to the current tree size, and
+  // computing the expected root hash using it.
   bool no_consistency_check = 13;
 
   // TODO(pavelkalinnikov): Fetch and push quotas, priorities, etc.

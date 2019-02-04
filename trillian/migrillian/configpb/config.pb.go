@@ -102,11 +102,12 @@ type MigrationConfig struct {
 	// The function that computes LeafIdentityHash for Trillian log entries.
 	IdentityFunction IdentityFunction `protobuf:"varint,12,opt,name=identity_function,json=identityFunction,proto3,enum=configpb.IdentityFunction" json:"identity_function,omitempty"`
 	// This flag is used in continuous mode to work around logs that don't expose
-	// the get-entry-and-proof endpoint (section 4.8 of RFC 6962). If set to false
-	// (by default), then when Migrillian restarts it verifies that the tree as
-	// seen by Trillian is consistent with the current STH of the source CT log.
-	// It does so by requesting an inclusion proof corresponding to the current
-	// tree size, and computing the expected root hash using it.
+	// the get-entry-and-proof endpoint (even though section 4.8 of RFC 6962
+	// doesn't define it as optional). If set to false (by default), then when
+	// Migrillian restarts it verifies that the tree as seen by Trillian is
+	// consistent with the current STH of the source CT log. It does so by
+	// requesting an inclusion proof corresponding to the current tree size, and
+	// computing the expected root hash using it.
 	NoConsistencyCheck   bool     `protobuf:"varint,13,opt,name=no_consistency_check,json=noConsistencyCheck,proto3" json:"no_consistency_check,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
