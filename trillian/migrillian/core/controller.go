@@ -232,7 +232,10 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
-		c.batches <- b
+		select {
+		case c.batches <- b:
+		case <-cctx.Done(): // Avoid deadlock when shutting down.
+		}
 	}
 	result := fetcher.Run(cctx, handler)
 	close(c.batches)
