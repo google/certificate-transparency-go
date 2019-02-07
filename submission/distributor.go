@@ -17,12 +17,12 @@ package submission
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
@@ -35,9 +35,12 @@ import (
 const (
 	// RootsRefreshInterval is interval between consecutive get-roots calls.
 	rootsRefreshInterval = time.Hour * 24
+
+	// GetRootsTimeout timeout used for external requests within root-updates.
+	getRootsTimeout = time.Second * 10
 )
 
-// Distributor class operates policy-based submission across Logs.
+// Distributor operates policy-based submission across Logs.
 type Distributor struct {
 	ll *loglist.LogList
 
@@ -61,21 +64,36 @@ func (d *Distributor) Run(ctx context.Context) {
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 
 	// Collect Log-roots first time.
-	d.refreshRoots(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			d.rootsRefreshTicker.Stop()
-			d.rootsRefreshTicker = nil
-			return
-		case <-d.rootsRefreshTicker.C:
-			d.refreshRoots(ctx)
+	errs := d.refreshRoots(ctx)
+	printErrs(errs)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				d.rootsRefreshTicker.Stop()
+				d.rootsRefreshTicker = nil
+				return
+			case <-d.rootsRefreshTicker.C:
+				errs := d.refreshRoots(ctx)
+				printErrs(errs)
+			}
 		}
+	}()
+}
+
+// PrintErrs writes errors to corresponding stream.
+func printErrs(errs map[string]error) {
+	for _, e := range errs {
+		glog.Errorln(e)
 	}
 }
 
 // refreshRoots requests roots from Logs and updates local copy.
-func (d *Distributor) refreshRoots(ctx context.Context) {
+// Returns errors for any Log experiencing roots retrieval problems.
+// If at least one root was successfully parsed for a log, log roots set gets
+// the update.
+func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	type RootsResult struct {
 		LogURL string
 		Roots  []*x509.Certificate
@@ -83,7 +101,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 	}
 	ch := make(chan RootsResult, len(d.logClients))
 
-	rctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	rctx, cancel := context.WithTimeout(ctx, getRootsTimeout)
 	defer cancel()
 
 	for logURL, lc := range d.logClients {
@@ -99,7 +117,12 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
 				if err != nil {
-					res.Err = fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
+					errS := fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
+					if res.Err != nil {
+						res.Err = fmt.Errorf("%s\n%s", res.Err, errS)
+					} else {
+						res.Err = errS
+					}
 					continue
 				}
 				res.Roots = append(res.Roots, parsed)
@@ -110,12 +133,14 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 
 	// Collect get-roots results for every Log-client.
 	freshRoots := make(map[string][]*x509.Certificate)
+	errors := make(map[string]error)
 	for range d.logClients {
 		r := <-ch
 		// update roots for successful Log-requests only.
 		if r.Err != nil {
-			log.Println(r.Err)
-		} else {
+			errors[r.LogURL] = r.Err
+		}
+		if r.Roots != nil {
 			freshRoots[r.LogURL] = r.Roots
 		}
 	}
@@ -123,9 +148,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	for logURL, r := range freshRoots {
-		d.logRoots[logURL] = r
-	}
+	d.logRoots = freshRoots
 
 	d.rootPool = ctfe.NewPEMCertPool()
 	for _, certs := range d.logRoots {
@@ -133,9 +156,10 @@ func (d *Distributor) refreshRoots(ctx context.Context) {
 			d.rootPool.AddCert(cert)
 		}
 	}
+	return errors
 }
 
-// SubmitToLog is Submitter interface.
+// SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	// TODO(Mercurrent) add implementation.
 	return nil, nil
