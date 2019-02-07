@@ -111,6 +111,29 @@ distclean: clean
 	rm -f $(SERVER_PUBKEYS) fake-ca.cert int-ca.cert int-ca.csr.pem
 	rm -f $(LEAF_CERTS) $(LEAF_CSRS) $(LEAF_CHAINS)
 
+
+# We also use a second fake CA as a trust root for CT tests. This is its private key.
+CA_1_PRIVKEY=fake-ca1.privkey.pem
+CA_1_PWD=ahenny
+
+# Corresponding Leaf certificates.
+LEAF_1_PRIVKEY=leaf-1.privkey.pem
+LEAF_1_PWD=louth
+
+# Fake Root CA 1
+fake-ca-1.cert: $(CA_1_PRIVKEY) fake-ca.cfg
+	openssl req -new -x509 -config fake-ca.cfg -set_serial 0x0406efac -days 3650 -extensions v3_ca1 -inform pem -key $(CA_1_PRIVKEY) -passin pass:$(CA_1_PWD) -out $@
+
+subleaf-1.csr.pem: $(LEAF_1_PRIVKEY)
+	openssl req -new -sha256 -key $(LEAF_1_PRIVKEY) -passin pass:$(LEAF_1_PWD) -subj "/C=GB/ST=London/O=Google/OU=Eng/CN=$@" -out $@
+subleaf-1.cert: subleaf-1.csr.pem fake-ca-1.cert
+	openssl x509 -req -in $< -sha256 -extfile fake-ca.cfg -extensions v3_user -CA fake-ca-1.cert -CAkey $(CA_1_PRIVKEY) -passin pass:$(CA_1_PWD) -set_serial 0xdeadbeaf -days 2600 -out $@
+
+# Short chain on CA 1
+subleaf1.chain: subleaf-1.cert fake-ca-1.cert
+	cat $^ > $@	
+
+
 # The newkey target creates a fresh private key; should never be needed.
 newkey: fresh.privkey.pem
 fresh.privkey.pem:
