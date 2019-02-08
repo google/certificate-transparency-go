@@ -116,7 +116,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 			}
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
-				if err != nil {
+				if x509.IsFatal(err) {
 					errS := fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
 					if res.Err != nil {
 						res.Err = fmt.Errorf("%s\n%s", res.Err, errS)
