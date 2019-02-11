@@ -82,7 +82,6 @@ func (d *Distributor) Run(ctx context.Context) {
 	}()
 }
 
-// PrintErrs writes errors to corresponding stream.
 func printErrs(errs map[string]error) {
 	for _, e := range errs {
 		glog.Errorln(e)
@@ -136,10 +135,11 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	errors := make(map[string]error)
 	for range d.logClients {
 		r := <-ch
-		// update roots for successful Log-requests only.
+		// update roots
 		if r.Err != nil {
 			errors[r.LogURL] = r.Err
 		}
+		// Roots get update even if some returned roots couldn't get parsed.
 		if r.Roots != nil {
 			freshRoots[r.LogURL] = r.Roots
 		}

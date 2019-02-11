@@ -122,7 +122,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				var unwantedErr string
 				if gotErr {
-					unwantedErr = fmt.Sprintf(" %q ", err)
+					unwantedErr = fmt.Sprintf(" (%q)", err)
 				}
 				t.Errorf("Got error = %v%s, expected error = %v", gotErr, unwantedErr, wantErr)
 			} else if tc.errRegexp != nil && !tc.errRegexp.MatchString(err.Error()) {
@@ -159,7 +159,7 @@ func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, err
 	return roots, nil
 }
 
-func buildstubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL}, nil
 }
 
@@ -191,7 +191,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 			RootsCerts[logToFail] = append(RootsCerts[logToFail], "invalidData")
 		}
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildstubLogClient)
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
