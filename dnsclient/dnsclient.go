@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
@@ -107,6 +108,7 @@ func (c *DNSClient) BaseURI() string {
 // GetSTH retrieves the current STH from the log.
 func (c *DNSClient) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 	name := "sth." + c.base
+	glog.V(2).Infof("sth: query %s TXT", name)
 	results, err := c.resolve(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("lookup for %q failed: %v", name, err)
@@ -177,6 +179,7 @@ func (c *DNSClient) GetProofByHash(ctx context.Context, hash []byte, treeSize ui
 	// Drop any trailing padding.
 	hash32 = strings.TrimRight(hash32, "=")
 	name := fmt.Sprintf("%s.hash.%s", hash32, c.base)
+	glog.V(2).Infof("hash: query %s TXT", name)
 	results, err := c.resolve(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("lookup failed for %q: %v", name, err)
@@ -204,6 +207,7 @@ func (c *DNSClient) getProof(ctx context.Context, base string) ([][]byte, error)
 	var proof [][]byte
 	for index := 0; index <= 255; {
 		name := fmt.Sprintf("%d.%s", index, base)
+		glog.V(2).Infof("proof: query %s TXT", name)
 		results, err := c.resolve(ctx, name)
 		if err != nil {
 			if index == 0 {
