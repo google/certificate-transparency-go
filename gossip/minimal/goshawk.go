@@ -45,6 +45,8 @@ import (
 	hubscanner "github.com/google/trillian-examples/gossip/scanner"
 )
 
+var verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
+
 // Goshawk is an agent that retrieves STHs from a Gossip Hub, either in
 // the form of synthetic certificates or more directly as signed blobs. Each
 // STH is then checked for consistency against the source log.
@@ -559,8 +561,8 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	if err != nil {
 		return err
 	}
+	glog.V(2).Infof("Checker(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 
-	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
 		return fmt.Errorf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
 	}
@@ -571,11 +573,11 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 func (o *originLog) STHRetriever(ctx context.Context) {
 	ticker := time.NewTicker(o.MinInterval)
 	for {
-		sth, err := o.Log.GetSTH(ctx)
-		if err != nil {
+		if sth, err := o.Log.GetSTH(ctx); err != nil {
 			glog.Errorf("STHRetriever(%s): failed to get-sth: %v", o.Name, err)
 		} else {
-			o.updateSTH(sth)
+			glog.V(2).Infof("STHRetriever(%s): got STH size=%d timestamp=%d", o.Name, sth.TreeSize, sth.Timestamp)
+			o.updateSTHIfConsistent(ctx, sth)
 		}
 
 		// Wait before retrieving another STH.
@@ -589,12 +591,38 @@ func (o *originLog) STHRetriever(ctx context.Context) {
 	}
 }
 
-func (o *originLog) updateSTH(sth *ct.SignedTreeHead) {
+func (o *originLog) updateSTHIfConsistent(ctx context.Context, sth *ct.SignedTreeHead) {
+	currentSTH := o.getLastSTH()
+	if currentSTH != nil {
+		first, firstHash := currentSTH.TreeSize, currentSTH.SHA256RootHash[:]
+		second, secondHash := sth.TreeSize, sth.SHA256RootHash[:]
+		proof, err := o.Log.GetSTHConsistency(ctx, first, second)
+		if err != nil {
+			glog.Errorf("STHRetriever(%s): failed to get-sth-consistency(%d, %d): %v", o.Name, first, second, err)
+			return
+		}
+		glog.V(2).Infof("STHRetriever(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
+		if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
+			glog.Errorf("STHRetriever(%s): failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", o.Name, firstHash, first, secondHash, second, err)
+			return
+		}
+	}
+	// We have a consistency proof from currentSTH -> sth, so update to the latter.
+	o.updateSTH(currentSTH, sth)
+}
+
+func (o *originLog) updateSTH(fromSTH, toSTH *ct.SignedTreeHead) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if o.currentSTH == nil || sth.TreeSize > o.currentSTH.TreeSize {
-		glog.V(1).Infof("STHRetriever(%s): update tip STH to size=%d timestamp=%d", o.Name, sth.TreeSize, sth.Timestamp)
-		o.currentSTH = sth
+	if fromSTH != o.currentSTH {
+		// The current STH has changed along the way, so this fromSTH -> toSTH update shouldn't
+		// be applied.
+		glog.Infof("STHRetriever(%s): skip STH update size=%d=>size=%d as current STH doesn't match (size=%d)", o.Name, fromSTH.TreeSize, toSTH.TreeSize, o.currentSTH.TreeSize)
+		return
+	}
+	if o.currentSTH == nil || toSTH.TreeSize > o.currentSTH.TreeSize {
+		glog.V(1).Infof("STHRetriever(%s): update tip STH to size=%d timestamp=%d", o.Name, toSTH.TreeSize, toSTH.Timestamp)
+		o.currentSTH = toSTH
 	}
 }
 

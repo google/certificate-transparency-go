@@ -163,12 +163,12 @@ func TestValidateSTH(t *testing.T) {
 		t.Errorf("validateSTH(no-current-sth)=%v; want nil", err)
 	}
 	// Back-to-front.
-	o.updateSTH(argonSTH1)
+	o.updateSTH(nil, argonSTH1)
 	if err := o.validateSTH(ctx, &sthInfo2); err != nil {
 		t.Errorf("validateSTH(reversed)=%v; want nil", err)
 	}
 	// Valid proof between STHs.
-	o.updateSTH(argonSTH2)
+	o.updateSTH(argonSTH1, argonSTH2)
 	if err := o.validateSTH(ctx, &sthInfo1); err != nil {
 		t.Errorf("validateSTH(valid)=%v; want nil", err)
 	}
@@ -203,15 +203,15 @@ func TestUpdateAndGetLastSTH(t *testing.T) {
 	if got, want := o.getLastSTH(), nilp; got != want {
 		t.Errorf("o.getLastSTH()=%v; want %v", got, want)
 	}
-	o.updateSTH(argonSTH1)
+	o.updateSTH(nil, argonSTH1)
 	if got, want := o.getLastSTH(), argonSTH1; got != want {
 		t.Errorf("o.getLastSTH()=%v; want %v", got, want)
 	}
-	o.updateSTH(argonSTH2)
+	o.updateSTH(argonSTH1, argonSTH2)
 	if got, want := o.getLastSTH(), argonSTH2; got != want {
 		t.Errorf("o.getLastSTH()=%v; want %v", got, want)
 	}
-	o.updateSTH(argonSTH1) // Ignored as backwards
+	o.updateSTH(argonSTH2, argonSTH1) // Ignored as backwards
 	if got, want := o.getLastSTH(), argonSTH2; got != want {
 		t.Errorf("o.getLastSTH()=%v; want %v", got, want)
 	}
