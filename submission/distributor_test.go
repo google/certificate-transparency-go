@@ -43,6 +43,9 @@ var (
 			"aW52YWxpZDAwMA==", // encoded 'invalid000'
 			"MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMTDkRTVCBSb290IENBIFgzMB4XDTAwMDkzMDIxMTIxOVoXDTIxMDkzMDE0MDExNVowPzEkMCIGA1UEChMbRGlnaXRhbCBTaWduYXR1cmUgVHJ1c3QgQ28uMRcwFQYDVQQDEw5EU1QgUm9vdCBDQSBYMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAN+v6ZdQCINXtMxiZfaQguzH0yxrMMpb7NnDfcdAwRgUi+DoM3ZJKuM/IUmTrE4Orz5Iy2Xu/NMhD2XSKtkyj4zl93ewEnu1lcCJo6m67XMuegwGMoOifooUMM0RoOEqOLl5CjH9UL2AZd+3UWODyOKIYepLYYHsUmu5ouJLGiifSKOeDNoJjj4XLh7dIN9bxiqKqy69cK3FCxolkHRyxXtqqzTWMIn/5WgTe1QLyNau7Fqckh49ZLOMxt+/yUFw7BZy1SbsOFU5Q9D8/RhcQPGX69Wam40dutolucbY38EVAjqr2m7xPi71XAicPNaDaeQQmxkqtilX4+U9m5/wAl0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFMSnsaR7LHH62+FLkHX/xBVghYkQMA0GCSqGSIb3DQEBBQUAA4IBAQCjGiybFwBcqR7uKGY3Or+Dxz9LwwmglSBd49lZRNI+DT69ikugdB/OEIKcdBodfpga3csTS7MgROSR6cz8faXbauX+5v3gTt23ADq1cEmv8uXrAvHRAosZy5Q6XkjEGB5YGV8eAlrwDPGxrancWYaLbumR9YbK+rlmM6pZW87ipxZzR8srzJmwN0jP41ZL9c8PDHIyh8bwRLtTcm1D9SZImlJnt1ir/md2cXjbDaJWFBM5JDGFoqgCWjBH4d1QB7wCCZAA62RjYJsWvIjJEubSfZGL+T0yjWW06XyxV3bqxbYoOb8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ",
 		},
+		"uncollectable-roots/log/": {
+			"invalid",
+		},
 	}
 )
 
@@ -84,11 +87,24 @@ func sampleLogList(t *testing.T) *loglist.LogList {
 
 func sampleValidLogList(t *testing.T) *loglist.LogList {
 	t.Helper()
-	loglist := sampleLogList(t)
+	ll := sampleLogList(t)
 	// Id of invalid Log description Racketeer
 	inval := 3
-	loglist.Logs = append(loglist.Logs[:inval], loglist.Logs[inval+1:]...)
-	return loglist
+	ll.Logs = append(ll.Logs[:inval], ll.Logs[inval+1:]...)
+	return ll
+}
+
+func sampleUncollectableLogList(t *testing.T) *loglist.LogList {
+	t.Helper()
+	ll := sampleValidLogList(t)
+	// Append loglist that is unable to provide roots on request.
+	ll.Logs = append(ll.Logs, loglist.Log{
+		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
+		MaximumMergeDelay: 123, OperatedBy: []int{0},
+		URL:            "uncollectable-roots/log/",
+		DNSAPIEndpoint: "uncollectavle.ct.googleapis.com",
+	})
+	return ll
 }
 
 func TestNewDistributorLogClients(t *testing.T) {
@@ -165,10 +181,9 @@ func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
-		name         string
-		ll           *loglist.LogList
-		failGetRoots bool
-		rootNum      map[string]int
+		name    string
+		ll      *loglist.LogList
+		rootNum map[string]int
 	}{
 		{
 			name:    "InactiveZeroRoots",
@@ -176,20 +191,13 @@ func TestNewDistributorRootPools(t *testing.T) {
 			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 2, "ct.googleapis.com/icarus/": 1}, // aviator is not active; 1 of 2 icarus roots is not x509 struct
 		},
 		{
-			name:         "CouldNotCollect",
-			ll:           sampleValidLogList(t),
-			failGetRoots: true,
-			rootNum:      map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 2, "ct.googleapis.com/icarus/": 0}, // aviator is not active; icarus client cannot provide roots
+			name:    "CouldNotCollect",
+			ll:      sampleUncollectableLogList(t),
+			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 2, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0}, // aviator is not active; uncollectable client cannot provide roots
 		},
 	}
 
 	for _, tc := range testCases {
-		// Append invalid data to one of Log-stubs that makes GetAcceptedRoots call
-		// return an error.
-		logToFail := "ct.googleapis.com/icarus/"
-		if tc.failGetRoots {
-			RootsCerts[logToFail] = append(RootsCerts[logToFail], "invalidData")
-		}
 		t.Run(tc.name, func(t *testing.T) {
 			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -206,8 +214,5 @@ func TestNewDistributorRootPools(t *testing.T) {
 				}
 			}
 		})
-		if tc.failGetRoots {
-			RootsCerts[logToFail] = RootsCerts[logToFail][:len(RootsCerts[logToFail])-1]
-		}
 	}
 }
