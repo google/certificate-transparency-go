@@ -45,6 +45,7 @@ var (
 type treeMetrics struct {
 	masterRuns     monitoring.Counter
 	masterCancels  monitoring.Counter
+	runStarts      monitoring.Counter
 	isMaster       monitoring.Gauge
 	entriesFetched monitoring.Counter
 	entriesSeen    monitoring.Counter
@@ -59,6 +60,7 @@ func initMetrics(mf monitoring.MetricFactory) {
 		metrics = treeMetrics{
 			masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
 			masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
+			runStarts:      mf.NewCounter("run_starts", "Number of Controller (re-)starts", treeID),
 			isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
 			entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
 			entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
@@ -128,6 +130,28 @@ func NewController(
 	initMetrics(mf)
 	l := strconv.FormatInt(plClient.tree.TreeId, 10)
 	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l}
+}
+
+// RunWhenMasterWithRestarts calls RunWhenMaster, and, if the migration is
+// configured with continuous mode, restarts it whenever it returns.
+//
+// TODO(pavelkalinnikov):
+// - Start with random delay to prevent one instance (e.g. the one that has
+//   started first) capturing mastership over all logs at once. This is
+//   particularly important for mirroring.
+// - Add voluntary mastership resignations.
+func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
+	uri := c.ctClient.BaseURI()
+	treeID := c.plClient.tree.TreeId
+	for run := true; run; run = c.opts.Continuous {
+		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
+		metrics.runStarts.Inc(c.label)
+		if err := c.RunWhenMaster(ctx); err != nil {
+			glog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
+			continue
+		}
+		glog.Infof("Controller stopped (%d<-%q)", treeID, uri)
+	}
 }
 
 // RunWhenMaster is a master-elected version of Run method. It executes Run
