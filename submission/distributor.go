@@ -67,19 +67,17 @@ func (d *Distributor) Run(ctx context.Context) {
 	errs := d.refreshRoots(ctx)
 	printErrs(errs)
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				d.rootsRefreshTicker.Stop()
-				d.rootsRefreshTicker = nil
-				return
-			case <-d.rootsRefreshTicker.C:
-				errs := d.refreshRoots(ctx)
-				printErrs(errs)
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			d.rootsRefreshTicker.Stop()
+			d.rootsRefreshTicker = nil
+			return
+		case <-d.rootsRefreshTicker.C:
+			errs := d.refreshRoots(ctx)
+			printErrs(errs)
 		}
-	}()
+	}
 }
 
 func printErrs(errs map[string]error) {

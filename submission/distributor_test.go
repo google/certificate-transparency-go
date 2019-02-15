@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"testing"
+	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
@@ -203,7 +204,11 @@ func TestNewDistributorRootPools(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			dist.Run(ctx)
+			go func() {
+				dist.Run(ctx)
+			}()
+			// First Log refresh expected.
+			time.Sleep(time.Second)
 			for logURL, wantNum := range tc.rootNum {
 				gotNum := 0
 				if roots, ok := dist.logRoots[logURL]; ok {
