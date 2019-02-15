@@ -23,7 +23,8 @@ import (
 type ChromeCTPolicy struct {
 }
 
-// LogsByGroup describes submission requirements for embedded SCTs according to https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
+// LogsByGroup describes submission requirements for embedded SCTs according to
+// https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
 func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var outerror error
 	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
@@ -48,7 +49,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	default:
 		incCount = 5
 	}
-	baseGroup, err := baseGroupFor(approved, incCount)
+	baseGroup, err := BaseGroupFor(approved, incCount)
 	if err != nil {
 		outerror = err
 	}
