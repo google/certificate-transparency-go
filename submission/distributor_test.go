@@ -209,6 +209,8 @@ func TestNewDistributorRootPools(t *testing.T) {
 			}()
 			// First Log refresh expected.
 			time.Sleep(time.Second)
+			dist.mu.Lock()
+			defer dist.mu.Unlock()
 			for logURL, wantNum := range tc.rootNum {
 				gotNum := 0
 				if roots, ok := dist.logRoots[logURL]; ok {
