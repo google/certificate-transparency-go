@@ -20,10 +20,12 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// LogRoots maps Log-URLs (stated at LogList) to the list of their accepted root-certificates.
+// LogRoots maps Log-URLs (stated at LogList) to the list of their accepted
+// root-certificates.
 type LogRoots map[string][]*x509.Certificate
 
-// ActiveLogs creates a new LogList containing only non-disqualified non-frozen logs from the original.
+// ActiveLogs creates a new LogList containing only non-disqualified non-frozen
+// logs from the original.
 func (ll *LogList) ActiveLogs() LogList {
 	var active LogList
 	// Keep all the operators.
@@ -36,7 +38,9 @@ func (ll *LogList) ActiveLogs() LogList {
 	return active
 }
 
-// Compatible creates a new LogList containing only logs of original LogList compatible with cert-chain provided. Cert-chain is expected to be full: ending with CA-cert.
+// Compatible creates a new LogList containing only logs of original LogList
+// compatible with cert-chain provided.
+// Cert-chain is expected to be full: ending with CA-cert.
 func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) LogList {
 	var compatible LogList
 	// Keep all the operators.
@@ -45,6 +49,12 @@ func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) L
 		return compatible
 	}
 	for _, l := range ll.Logs {
+		// If root set is not set, we treat Log as compatible assuming no
+		// knowledge on its roots.
+		if _, ok := roots[l.URL]; !ok {
+			compatible.Logs = append(compatible.Logs, l)
+			continue
+		}
 		// Check root is accepted.
 		for _, r := range roots[l.URL] {
 			if r.Equal(rootedChain[len(rootedChain)-1]) {

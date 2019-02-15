@@ -70,7 +70,12 @@ func singleCert() []*x509.Certificate {
 
 func artificialRoots(source string) LogRoots {
 	rootCert, _ := x509util.CertificateFromPEM([]byte(source))
-	return LogRoots{"log.bob.io": []*x509.Certificate{rootCert}}
+	return LogRoots{
+		"log.bob.io":                   []*x509.Certificate{rootCert},
+		"ct.googleapis.com/racketeer/": []*x509.Certificate{},
+		"ct.googleapis.com/rocketeer/": []*x509.Certificate{},
+		"ct.googleapis.com/aviator/":   []*x509.Certificate{},
+	}
 }
 
 func TestCompatible(t *testing.T) {
@@ -86,14 +91,14 @@ func TestCompatible(t *testing.T) {
 			in:    sampleLogList,
 			chain: certChain(),
 			roots: artificialRoots(testdata.CACertPEM),
-			want:  subLogList(map[string]bool{"log.bob.io": true}),
+			want:  subLogList(map[string]bool{"log.bob.io": true, "ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
 			name:  "RootedChainNoRootAccepted",
 			in:    sampleLogList,
 			chain: certChain(),
 			roots: artificialRoots(testdata.TestPreCertPEM),
-			want:  subLogList(map[string]bool{}),
+			want:  subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
 			name:  "UnRootedChain",
