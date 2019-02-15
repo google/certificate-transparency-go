@@ -56,10 +56,12 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 	}
 }
 
-// LogPolicyData contains info on log-partition and submission requirements for a single cert. Key always matches value Name field.
+// LogPolicyData contains info on log-partition and submission requirements
+// for a single cert. Key always matches value Name field.
 type LogPolicyData map[string]*LogGroupInfo
 
-// TotalLogs returns number of logs within set of Log-groups. Taking possible intersection into account.
+// TotalLogs returns number of logs within set of Log-groups.
+// Taking possible intersection into account.
 func (groups LogPolicyData) TotalLogs() int {
 	unifiedLogs := make(map[string]bool)
 	for _, g := range groups {
@@ -73,21 +75,25 @@ func (groups LogPolicyData) TotalLogs() int {
 	return len(unifiedLogs)
 }
 
-// CTPolicy interface describes requirements determined for logs in terms of per-group-submit.
+// CTPolicy interface describes requirements determined for logs in terms of
+// per-group-submit.
 type CTPolicy interface {
-	// Provides info on Log-grouping. Returns an error if loglist provided is not sufficient to satisfy policy. The data output is formed even when error returned.
+	// Provides info on Log-grouping. Returns an error if loglist provided is
+	// not sufficient to satisfy policy.
+	// The data output is formed even when error returned.
 	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
 }
 
-// baseGroupFor creates and propagates all-log group.
-func baseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
+// BaseGroupFor creates and propagates all-log group.
+func BaseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
 	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
 	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return baseGroup, err
 }
 
-// lifetimeInMonths calculates and returns cert lifetime expressed in months flooring incomplete month.
+// lifetimeInMonths calculates and returns cert lifetime expressed in months
+// flooring incomplete month.
 func lifetimeInMonths(cert *x509.Certificate) int {
 	startYear, startMonth, startDay := cert.NotBefore.Date()
 	endYear, endMonth, endDay := cert.NotAfter.Date()
@@ -102,7 +108,8 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 // GroupSet is set of Log-group names.
 type GroupSet map[string]bool
 
-// GroupByLogs reverses match-map between Logs and Groups. Returns map from log-URLs to set of Group-names that contain the log.
+// GroupByLogs reverses match-map between Logs and Groups.
+// Returns map from log-URLs to set of Group-names that contain the log.
 func GroupByLogs(lg LogPolicyData) map[string]GroupSet {
 	result := make(map[string]GroupSet)
 	for groupname, g := range lg {
