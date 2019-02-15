@@ -50,7 +50,7 @@ func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) L
 	}
 	for _, l := range ll.Logs {
 		// If root set is not set, we treat Log as compatible assuming no
-		// knowledge on its roots.
+		// knowledge of its roots.
 		if _, ok := roots[l.URL]; !ok {
 			compatible.Logs = append(compatible.Logs, l)
 			continue
