@@ -19,8 +19,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -33,6 +35,7 @@ import (
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
+	"github.com/google/trillian/util/clock"
 	"github.com/google/trillian/util/election2"
 )
 
@@ -75,6 +78,7 @@ type Options struct {
 	Submitters         int
 	ChannelSize        int
 	NoConsistencyCheck bool
+	StartDelay         time.Duration
 }
 
 // OptionsFromConfig returns Options created from the passed in config.
@@ -134,16 +138,10 @@ func NewController(
 
 // RunWhenMasterWithRestarts calls RunWhenMaster, and, if the migration is
 // configured with continuous mode, restarts it whenever it returns.
-//
-// TODO(pavelkalinnikov):
-// - Start with random delay to prevent one instance (e.g. the one that has
-//   started first) capturing mastership over all logs at once. This is
-//   particularly important for mirroring.
-// - Add voluntary mastership resignations.
 func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 	uri := c.ctClient.BaseURI()
 	treeID := c.plClient.tree.TreeId
-	for run := true; run; run = c.opts.Continuous {
+	for run := true; run; run = c.opts.Continuous && ctx.Err() == nil {
 		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
 		if err := c.RunWhenMaster(ctx); err != nil {
 			glog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
@@ -158,7 +156,14 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 // instance stops being the master, Run is canceled. The method returns if a
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
+//
+// TODO(pavelkalinnikov): Add voluntary mastership resignations.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
+	// Avoid thundering herd when starting multiple tasks on the same tree.
+	if err := sleepRandom(ctx, c.opts.StartDelay); err != nil {
+		return err // The context has been canceled.
+	}
+
 	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
 	metrics.controllerStarts.Inc(treeID)
 
@@ -327,4 +332,13 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 		metrics.entriesStored.Add(entries, c.label)
 	}
 	return nil
+}
+
+// sleepRandom sleeps for rand(0, d) duration, unless canceled.
+func sleepRandom(ctx context.Context, d time.Duration) error {
+	if d == 0 {
+		return nil
+	}
+	d = time.Duration(rand.Int63n(int64(d)))
+	return clock.SleepContext(ctx, d)
 }

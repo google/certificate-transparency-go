@@ -46,9 +46,10 @@ import (
 var (
 	cfgPath = flag.String("config", "", "Path to migration config file")
 
-	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
-	etcdServers = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
-	lockDir     = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
+	forceMaster   = flag.Bool("force_master", false, "If true, assume master for all logs")
+	etcdServers   = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
+	lockDir       = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
+	electionDelay = flag.Duration("election_delay", 0, "Max random pause before participating in master election")
 
 	metricsEndpoint = flag.String("metrics_endpoint", "localhost:8099", "Endpoint for serving metrics")
 
@@ -138,6 +139,7 @@ func getController(
 	}
 
 	opts := core.OptionsFromConfig(cfg)
+	opts.StartDelay = *electionDelay
 	return core.NewController(opts, ctClient, plClient, ef, mf), nil
 }
 
