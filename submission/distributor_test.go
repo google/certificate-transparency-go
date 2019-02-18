@@ -201,14 +201,13 @@ func TestNewDistributorRootPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			go func() {
-				dist.Run(ctx)
-			}()
+			go dist.Run(ctx)
 			// First Log refresh expected.
-			time.Sleep(time.Second)
+			<-ctx.Done()
+
 			dist.mu.Lock()
 			defer dist.mu.Unlock()
 			for logURL, wantNum := range tc.rootNum {
