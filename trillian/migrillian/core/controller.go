@@ -43,13 +43,13 @@ var (
 
 // treeMetrics holds metrics keyed by Tree ID.
 type treeMetrics struct {
-	masterRuns     monitoring.Counter
-	masterCancels  monitoring.Counter
-	runStarts      monitoring.Counter
-	isMaster       monitoring.Gauge
-	entriesFetched monitoring.Counter
-	entriesSeen    monitoring.Counter
-	entriesStored  monitoring.Counter
+	masterRuns       monitoring.Counter
+	masterCancels    monitoring.Counter
+	controllerStarts monitoring.Counter
+	isMaster         monitoring.Gauge
+	entriesFetched   monitoring.Counter
+	entriesSeen      monitoring.Counter
+	entriesStored    monitoring.Counter
 	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
 }
 
@@ -58,13 +58,13 @@ func initMetrics(mf monitoring.MetricFactory) {
 	const treeID = "tree_id"
 	metricsOnce.Do(func() {
 		metrics = treeMetrics{
-			masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
-			masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
-			runStarts:      mf.NewCounter("run_starts", "Number of Controller (re-)starts", treeID),
-			isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
-			entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
-			entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
-			entriesStored:  mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+			masterRuns:       mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
+			masterCancels:    mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
+			controllerStarts: mf.NewCounter("controller_starts", "Number of Controller (re-)starts", treeID),
+			isMaster:         mf.NewGauge("is_master", "The instance is currently the master.", treeID),
+			entriesFetched:   mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
+			entriesSeen:      mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
+			entriesStored:    mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
 		}
 	})
 }
@@ -145,7 +145,6 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 	treeID := c.plClient.tree.TreeId
 	for run := true; run; run = c.opts.Continuous {
 		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
-		metrics.runStarts.Inc(c.label)
 		if err := c.RunWhenMaster(ctx); err != nil {
 			glog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
 			continue
@@ -161,6 +160,7 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 // completed (in non-Continuous mode). Releases mastership when terminates.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
+	metrics.controllerStarts.Inc(treeID)
 
 	el, err := c.ef.NewElection(ctx, treeID)
 	if err != nil {
