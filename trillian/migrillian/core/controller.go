@@ -63,7 +63,7 @@ func initMetrics(mf monitoring.MetricFactory) {
 		metrics = treeMetrics{
 			masterRuns:       mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
 			masterCancels:    mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
-			controllerStarts: mf.NewCounter("controller_starts", "Number of Controller (re-)starts", treeID),
+			controllerStarts: mf.NewCounter("controller_starts", "Number of Controller (re-)starts.", treeID),
 			isMaster:         mf.NewGauge("is_master", "The instance is currently the master.", treeID),
 			entriesFetched:   mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
 			entriesSeen:      mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
