@@ -19,8 +19,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -33,6 +35,7 @@ import (
 	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
+	"github.com/google/trillian/util/clock"
 	"github.com/google/trillian/util/election2"
 )
 
@@ -43,12 +46,13 @@ var (
 
 // treeMetrics holds metrics keyed by Tree ID.
 type treeMetrics struct {
-	masterRuns     monitoring.Counter
-	masterCancels  monitoring.Counter
-	isMaster       monitoring.Gauge
-	entriesFetched monitoring.Counter
-	entriesSeen    monitoring.Counter
-	entriesStored  monitoring.Counter
+	masterRuns       monitoring.Counter
+	masterCancels    monitoring.Counter
+	controllerStarts monitoring.Counter
+	isMaster         monitoring.Gauge
+	entriesFetched   monitoring.Counter
+	entriesSeen      monitoring.Counter
+	entriesStored    monitoring.Counter
 	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
 }
 
@@ -57,12 +61,13 @@ func initMetrics(mf monitoring.MetricFactory) {
 	const treeID = "tree_id"
 	metricsOnce.Do(func() {
 		metrics = treeMetrics{
-			masterRuns:     mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
-			masterCancels:  mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
-			isMaster:       mf.NewGauge("is_master", "The instance is currently the master.", treeID),
-			entriesFetched: mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
-			entriesSeen:    mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
-			entriesStored:  mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+			masterRuns:       mf.NewCounter("master_runs", "Number of mastership runs.", treeID),
+			masterCancels:    mf.NewCounter("master_cancels", "Number of unexpected mastership cancelations.", treeID),
+			controllerStarts: mf.NewCounter("controller_starts", "Number of Controller (re-)starts.", treeID),
+			isMaster:         mf.NewGauge("is_master", "The instance is currently the master.", treeID),
+			entriesFetched:   mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
+			entriesSeen:      mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
+			entriesStored:    mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
 		}
 	})
 }
@@ -73,6 +78,7 @@ type Options struct {
 	Submitters         int
 	ChannelSize        int
 	NoConsistencyCheck bool
+	StartDelay         time.Duration
 }
 
 // OptionsFromConfig returns Options created from the passed in config.
@@ -130,13 +136,36 @@ func NewController(
 	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l}
 }
 
+// RunWhenMasterWithRestarts calls RunWhenMaster, and, if the migration is
+// configured with continuous mode, restarts it whenever it returns.
+func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
+	uri := c.ctClient.BaseURI()
+	treeID := c.plClient.tree.TreeId
+	for run := true; run; run = c.opts.Continuous && ctx.Err() == nil {
+		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
+		if err := c.RunWhenMaster(ctx); err != nil {
+			glog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
+			continue
+		}
+		glog.Infof("Controller stopped (%d<-%q)", treeID, uri)
+	}
+}
+
 // RunWhenMaster is a master-elected version of Run method. It executes Run
 // whenever this instance captures mastership of the tree ID. As soon as the
 // instance stops being the master, Run is canceled. The method returns if a
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
+//
+// TODO(pavelkalinnikov): Add voluntary mastership resignations.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
+	// Avoid thundering herd when starting multiple tasks on the same tree.
+	if err := sleepRandom(ctx, c.opts.StartDelay); err != nil {
+		return err // The context has been canceled.
+	}
+
 	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
+	metrics.controllerStarts.Inc(treeID)
 
 	el, err := c.ef.NewElection(ctx, treeID)
 	if err != nil {
@@ -295,12 +324,19 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 			// addSequencedLeaves failed to submit entries despite retries. At this
 			// point there is not much we can do. Seemingly the best strategy is to
 			// shut down the Controller.
-			// TODO(pavelkalinnikov): Restart Controller and/or expose some metrics
-			// allowing a log operator to set up alerts and react accordingly.
 			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
 		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
 		metrics.entriesStored.Add(entries, c.label)
 	}
 	return nil
+}
+
+// sleepRandom sleeps for rand(0, d) duration, unless canceled.
+func sleepRandom(ctx context.Context, d time.Duration) error {
+	if d == 0 {
+		return nil
+	}
+	d = time.Duration(rand.Int63n(int64(d)))
+	return clock.SleepContext(ctx, d)
 }
