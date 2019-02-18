@@ -39,22 +39,35 @@ func (ll *LogList) ActiveLogs() LogList {
 }
 
 // Compatible creates a new LogList containing only logs of original LogList
-// compatible with cert-chain provided.
-// Cert-chain is expected to be full: ending with CA-cert.
+// compatible with cert-chain provided. Treat Logs as compatible when their
+// root info is missing.
+// Cert-chain is expected to be full or empty: ending with CA-cert or have
+// len 0.
 func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) LogList {
 	var compatible LogList
 	// Keep all the operators.
 	compatible.Operators = ll.Operators
-	if len(rootedChain) == 0 || !rootedChain[len(rootedChain)-1].IsCA {
+
+	// When chain info is not available, collect Logs with no root info as
+	// compatible.
+	chainIsEmpty := len(rootedChain) == 0
+
+	// Check whether chain is ending with CA-cert.
+	if !chainIsEmpty && !rootedChain[len(rootedChain)-1].IsCA {
 		return compatible
 	}
+
 	for _, l := range ll.Logs {
-		// If root set is not set, we treat Log as compatible assuming no
+		// If root set is not defined, we treat Log as compatible assuming no
 		// knowledge of its roots.
 		if _, ok := roots[l.URL]; !ok {
 			compatible.Logs = append(compatible.Logs, l)
 			continue
 		}
+		if chainIsEmpty {
+			continue
+		}
+
 		// Check root is accepted.
 		for _, r := range roots[l.URL] {
 			if r.Equal(rootedChain[len(rootedChain)-1]) {
