@@ -111,6 +111,8 @@ const (
 	RejectedLogStatus
 )
 
+//go:generate stringer -type=LogStatus
+
 // LogStates are the states that a CT log can be in, from the perspective of a
 // user agent. Only one should be set - this is the current state.
 type LogStates struct {
@@ -150,8 +152,8 @@ type TreeHead struct {
 	TreeSize int64 `json:"tree_size"`
 }
 
-// Which method returns Log-status for descriptive struct.
-func (ls *LogStates) Which() LogStatus {
+// LogStatus method returns Log-status enum value for descriptive struct.
+func (ls *LogStates) LogStatus() LogStatus {
 	switch {
 	case ls == nil:
 		return UndefinedLogStatus
@@ -172,14 +174,9 @@ func (ls *LogStates) Which() LogStatus {
 	}
 }
 
-// String returns printable name for log-state.
-func (ls LogStatus) String() string {
-	return [...]string{"Unknown", "Pending", "Qualified", "Usable", "Frozen", "Retired", "Rejected"}[ls]
-}
-
 // String method returns printable name of the state.
 func (ls *LogStates) String() string {
-	return ls.Which().String()
+	return ls.LogStatus().String()
 }
 
 // Active picks the set-up state. If multiple states are set (not expected) picks one of them.
