@@ -324,8 +324,6 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 			// addSequencedLeaves failed to submit entries despite retries. At this
 			// point there is not much we can do. Seemingly the best strategy is to
 			// shut down the Controller.
-			// TODO(pavelkalinnikov): Restart Controller and/or expose some metrics
-			// allowing a log operator to set up alerts and react accordingly.
 			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
 		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
