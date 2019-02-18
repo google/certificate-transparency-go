@@ -97,6 +97,20 @@ type TemporalInterval struct {
 	EndExclusive time.Time `json:"end_exclusive"`
 }
 
+// LogStatus indicates Log status.
+type LogStatus int
+
+// LogStatus values
+const (
+	UndefinedLogStatus LogStatus = iota
+	PendingLogStatus
+	QualifiedLogStatus
+	UsableLogStatus
+	FrozenLogStatus
+	RetiredLogStatus
+	RejectedLogStatus
+)
+
 // LogStates are the states that a CT log can be in, from the perspective of a
 // user agent. Only one should be set - this is the current state.
 type LogStates struct {
@@ -136,26 +150,36 @@ type TreeHead struct {
 	TreeSize int64 `json:"tree_size"`
 }
 
-// String method returns printable name of the state.
-func (ls *LogStates) String() string {
+// Which method returns Log-status for descriptive struct.
+func (ls *LogStates) Which() LogStatus {
 	switch {
 	case ls == nil:
-		return "Empty"
+		return UndefinedLogStatus
 	case ls.Pending != nil:
-		return "Pending"
+		return PendingLogStatus
 	case ls.Qualified != nil:
-		return "Qualified"
+		return QualifiedLogStatus
 	case ls.Usable != nil:
-		return "Usable"
+		return UsableLogStatus
 	case ls.Frozen != nil:
-		return "Frozen"
+		return FrozenLogStatus
 	case ls.Retired != nil:
-		return "Retired"
+		return RetiredLogStatus
 	case ls.Rejected != nil:
-		return "Rejected"
+		return RejectedLogStatus
 	default:
-		return "Empty"
+		return UndefinedLogStatus
 	}
+}
+
+// String returns printable name for log-state.
+func (ls LogStatus) String() string {
+	return [...]string{"Unknown", "Pending", "Qualified", "Usable", "Frozen", "Retired", "Rejected"}[ls]
+}
+
+// String method returns printable name of the state.
+func (ls *LogStates) String() string {
+	return ls.Which().String()
 }
 
 // Active picks the set-up state. If multiple states are set (not expected) picks one of them.

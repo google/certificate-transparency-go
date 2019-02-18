@@ -386,7 +386,7 @@ func TestLogStatesString(t *testing.T) {
 		want   string
 	}{
 		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "Frozen"},
-		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "Empty"},
+		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "Unknown"},
 		{name: "Retired", logURL: "log.bob.io", want: "Retired"},
 	}
 
