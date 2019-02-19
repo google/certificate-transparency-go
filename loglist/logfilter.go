@@ -56,7 +56,7 @@ func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) L
 
 	// Check whether chain is ending with CA-cert.
 	if !chainIsEmpty && !rootedChain[len(rootedChain)-1].IsCA {
-		glog.Warningf("Compatibale method expects fully rooted chain, while last cert of the chain provided is not root")
+		glog.Warningf("Compatible method expects fully rooted chain, while last cert of the chain provided is not root")
 		return compatible
 	}
 
