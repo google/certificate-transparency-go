@@ -385,9 +385,9 @@ func TestLogStatesString(t *testing.T) {
 		logURL string
 		want   string
 	}{
-		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "Frozen"},
-		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "Empty"},
-		{name: "Retired", logURL: "log.bob.io", want: "Retired"},
+		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "FrozenLogStatus"},
+		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "UndefinedLogStatus"},
+		{name: "Retired", logURL: "log.bob.io", want: "RetiredLogStatus"},
 	}
 
 	for _, test := range tests {
