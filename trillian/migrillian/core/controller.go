@@ -79,6 +79,7 @@ type Options struct {
 	ChannelSize        int
 	NoConsistencyCheck bool
 	StartDelay         time.Duration
+	StopAfter          time.Duration
 }
 
 // OptionsFromConfig returns Options created from the passed in config.
@@ -156,11 +157,9 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 // instance stops being the master, Run is canceled. The method returns if a
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
-//
-// TODO(pavelkalinnikov): Add voluntary mastership resignations.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	// Avoid thundering herd when starting multiple tasks on the same tree.
-	if err := sleepRandom(ctx, c.opts.StartDelay); err != nil {
+	if err := sleepRandom(ctx, 0, c.opts.StartDelay); err != nil {
 		return err // The context has been canceled.
 	}
 
@@ -201,7 +200,10 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			// could be nil or a cancelation-related error).
 			return err
 		} else if mctx.Err() == nil {
-			// We are still the master, so emit the real error.
+			// We are still the master, so try to resign and emit the real error.
+			if rerr := el.Resign(ctx); rerr != nil {
+				glog.Errorf("%s: Election.Resign(): %v", treeID, rerr)
+			}
 			return err
 		}
 
@@ -259,6 +261,15 @@ func (c *Controller) Run(ctx context.Context) error {
 		}()
 	}
 
+	if c.opts.StopAfter != 0 { // Configured with max running time.
+		go func() {
+			// Sleep for random duration in [StopAfter, 2*StopAfter).
+			if err := sleepRandom(cctx, c.opts.StopAfter, c.opts.StopAfter); err == nil {
+				fetcher.Stop() // Trigger graceful stop if not yet canceled.
+			}
+		}()
+	}
+
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		select {
@@ -266,6 +277,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		case <-cctx.Done(): // Avoid deadlock when shutting down.
 		}
 	}
+
 	result := fetcher.Run(cctx, handler)
 	close(c.batches)
 	wg.Wait()
@@ -332,11 +344,14 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 	return nil
 }
 
-// sleepRandom sleeps for rand(0, d) duration, unless canceled.
-func sleepRandom(ctx context.Context, d time.Duration) error {
+// sleepRandom sleeps for random duration in [base, base+spread).
+func sleepRandom(ctx context.Context, base, spread time.Duration) error {
+	d := base
+	if spread != 0 {
+		d += time.Duration(rand.Int63n(int64(spread)))
+	}
 	if d == 0 {
 		return nil
 	}
-	d = time.Duration(rand.Int63n(int64(d)))
 	return clock.SleepContext(ctx, d)
 }
