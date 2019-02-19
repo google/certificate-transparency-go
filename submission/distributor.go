@@ -50,6 +50,8 @@ type Distributor struct {
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
 
+	rootDataFull bool
+
 	rootsRefreshTicker *time.Ticker
 
 	policy ctpolicy.CTPolicy
@@ -86,7 +88,8 @@ func printErrs(errs map[string]error) {
 }
 
 // refreshRoots requests roots from Logs and updates local copy.
-// Returns errors for any Log experiencing roots retrieval problems.
+// Returns error map keyed by log-URL for any Log experiencing roots retrieval
+// problems
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
 func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
@@ -147,22 +150,71 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	defer d.mu.Unlock()
 
 	d.logRoots = freshRoots
+	d.rootDataFull = len(d.logRoots) == len(d.logClients)
 
 	return errors
 }
 
+// IsRootDataFull returns whether each registered Log has root-info.
+func (d *Distributor) isRootDataFull() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.rootDataFull
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	// TODO(Mercurrent) add implementation.
-	return nil, nil
+	d.mu.RLock()
+	lc, ok := d.logClients[logURL]
+	d.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("No client registered for Log with URL %q", logURL)
+	}
+	return lc.AddPreChain(ctx, chain)
 }
 
 // AddPreChain runs add-pre-chain calls across subset of logs according to
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
 func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
-	// TODO(Mercurrent) add implementation.
-	return []*AssignedSCT{}, nil
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if d.rootsRefreshTicker == nil {
+		return nil, fmt.Errorf("Distributor instance is not active. Run init has not been requested")
+	}
+	if len(rawChain) == 0 {
+		return nil, fmt.Errorf("Distributor unable to process empty chain")
+	}
+
+	// Validate and root the chain.
+	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
+	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
+
+	if err != nil && d.isRootDataFull() {
+		return nil, fmt.Errorf("Distributor unable to process cert-chain: %v", err)
+	}
+	compatibleLogs := d.ll.Compatible(rootedChain, d.logRoots)
+
+	// Set-up policy structs.
+	var cert *x509.Certificate
+	if len(rootedChain) != 0 {
+		cert = rootedChain[0]
+	} else {
+		cert, err = x509.ParseCertificate(rawChain[0])
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("Distributor unable to parse cert-chainL %v", err)
+		}
+	}
+
+	groups, err := d.policy.LogsByGroup(cert, &compatibleLogs)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+	}
+	chain := make([]ct.ASN1Cert, len(rootedChain))
+	for i, c := range rootedChain {
+		chain[i] = ct.ASN1Cert{Data: c.Raw}
+	}
+	return GetSCTs(ctx, d, chain, groups)
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.
