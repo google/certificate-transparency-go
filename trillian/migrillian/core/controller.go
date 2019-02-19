@@ -79,7 +79,7 @@ type Options struct {
 	ChannelSize        int
 	NoConsistencyCheck bool
 	StartDelay         time.Duration
-	ResignDelay        time.Duration
+	StopAfter          time.Duration
 }
 
 // OptionsFromConfig returns Options created from the passed in config.
@@ -157,8 +157,6 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 // instance stops being the master, Run is canceled. The method returns if a
 // severe error occurs, the passed in context is canceled, or fetching is
 // completed (in non-Continuous mode). Releases mastership when terminates.
-//
-// TODO(pavelkalinnikov): Add voluntary mastership resignations.
 func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	// Avoid thundering herd when starting multiple tasks on the same tree.
 	if err := sleepRandom(ctx, 0, c.opts.StartDelay); err != nil {
@@ -202,7 +200,10 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			// could be nil or a cancelation-related error).
 			return err
 		} else if mctx.Err() == nil {
-			// We are still the master, so emit the real error.
+			// We are still the master, so try to resign and emit the real error.
+			if rerr := el.Resign(ctx); rerr != nil {
+				glog.Errorf("%s: Election.Resign(): %v", treeID, rerr)
+			}
 			return err
 		}
 
@@ -260,10 +261,10 @@ func (c *Controller) Run(ctx context.Context) error {
 		}()
 	}
 
-	if c.opts.ResignDelay != 0 { // Configured with mastership resignation.
+	if c.opts.StopAfter != 0 { // Configured with max running time.
 		go func() {
-			// Sleep for random duration in [ResignDelay, 2*ResignDelay).
-			if err := sleepRandom(cctx, c.opts.ResignDelay, c.opts.ResignDelay); err == nil {
+			// Sleep for random duration in [StopAfter, 2*StopAfter).
+			if err := sleepRandom(cctx, c.opts.StopAfter, c.opts.StopAfter); err == nil {
 				fetcher.Stop() // Trigger graceful stop if not yet canceled.
 			}
 		}()
