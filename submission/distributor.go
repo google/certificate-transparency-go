@@ -19,27 +19,37 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (
 	// RootsRefreshInterval is interval between consecutive get-roots calls.
 	rootsRefreshInterval = time.Hour * 24
+
+	// GetRootsTimeout timeout used for external requests within root-updates.
+	getRootsTimeout = time.Second * 10
 )
 
 // Distributor operates policy-based submission across Logs.
 type Distributor struct {
 	ll *loglist.LogList
 
+	mu sync.RWMutex
+
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
+	rootPool   *ctfe.PEMCertPool
 
 	rootsRefreshTicker *time.Ticker
 
@@ -51,11 +61,12 @@ func (d *Distributor) Run(ctx context.Context) {
 	if d.rootsRefreshTicker != nil {
 		return
 	}
-
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
 
 	// Collect Log-roots first time.
-	d.refreshRoots(ctx)
+	errs := d.refreshRoots(ctx)
+	printErrs(errs)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -63,17 +74,90 @@ func (d *Distributor) Run(ctx context.Context) {
 			d.rootsRefreshTicker = nil
 			return
 		case <-d.rootsRefreshTicker.C:
-			d.refreshRoots(ctx)
+			errs := d.refreshRoots(ctx)
+			printErrs(errs)
 		}
 	}
 }
 
-// refreshRoots requests roots from Logs and updates local copy if necessary.
-func (d *Distributor) refreshRoots(ctx context.Context) {
-	// TODO(Mercurrent) add implementation.
+func printErrs(errs map[string]error) {
+	for _, e := range errs {
+		glog.Errorln(e)
+	}
 }
 
-// SubmitToLog is races-Submitter interface.
+// refreshRoots requests roots from Logs and updates local copy.
+// Returns errors for any Log experiencing roots retrieval problems.
+// If at least one root was successfully parsed for a log, log roots set gets
+// the update.
+func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
+	type RootsResult struct {
+		LogURL string
+		Roots  []*x509.Certificate
+		Err    error
+	}
+	ch := make(chan RootsResult, len(d.logClients))
+
+	rctx, cancel := context.WithTimeout(ctx, getRootsTimeout)
+	defer cancel()
+
+	for logURL, lc := range d.logClients {
+		go func(logURL string, lc client.AddLogClient) {
+			res := RootsResult{LogURL: logURL}
+
+			roots, err := lc.GetAcceptedRoots(rctx)
+			if err != nil {
+				res.Err = fmt.Errorf("%s: couldn't collect roots. %s", logURL, err)
+				ch <- res
+				return
+			}
+			for _, r := range roots {
+				parsed, err := x509.ParseCertificate(r.Data)
+				if x509.IsFatal(err) {
+					errS := fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
+					if res.Err != nil {
+						res.Err = fmt.Errorf("%s\n%s", res.Err, errS)
+					} else {
+						res.Err = errS
+					}
+					continue
+				}
+				res.Roots = append(res.Roots, parsed)
+			}
+			ch <- res
+		}(logURL, lc)
+	}
+
+	// Collect get-roots results for every Log-client.
+	freshRoots := make(map[string][]*x509.Certificate)
+	errors := make(map[string]error)
+	for range d.logClients {
+		r := <-ch
+		// update roots
+		if r.Err != nil {
+			errors[r.LogURL] = r.Err
+		}
+		// Roots get update even if some returned roots couldn't get parsed.
+		if r.Roots != nil {
+			freshRoots[r.LogURL] = r.Roots
+		}
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.logRoots = freshRoots
+
+	d.rootPool = ctfe.NewPEMCertPool()
+	for _, certs := range d.logRoots {
+		for _, cert := range certs {
+			d.rootPool.AddCert(cert)
+		}
+	}
+	return errors
+}
+
+// SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	// TODO(Mercurrent) add implementation.
 	return nil, nil
