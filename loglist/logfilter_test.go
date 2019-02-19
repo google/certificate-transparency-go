@@ -107,6 +107,13 @@ func TestCompatible(t *testing.T) {
 			roots: artificialRoots(testdata.CACertPEM),
 			want:  subLogList(map[string]bool{}),
 		},
+		{
+			name:  "EmptyChain",
+			in:    sampleLogList,
+			chain: []*x509.Certificate{},
+			roots: artificialRoots(testdata.CACertPEM),
+			want:  subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
+		},
 	}
 
 	for _, test := range tests {
