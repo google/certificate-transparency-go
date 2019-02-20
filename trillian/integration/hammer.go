@@ -49,10 +49,11 @@ var (
 	// Metrics are all per-log (label "logid"), but may also be
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
 	once        sync.Once
-	reqs        monitoring.Counter // logid, ep => value
-	errs        monitoring.Counter // logid, ep => value
-	rsps        monitoring.Counter // logid, ep, rc => value
-	invalidReqs monitoring.Counter // logid, ep => value
+	reqs        monitoring.Counter   // logid, ep => value
+	errs        monitoring.Counter   // logid, ep => value
+	rsps        monitoring.Counter   // logid, ep, rc => value
+	rspLatency  monitoring.Histogram // logid, ep, rc => values
+	invalidReqs monitoring.Counter   // logid, ep => value
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -60,6 +61,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	reqs = mf.NewCounter("reqs", "Number of valid requests sent", "logid", "ep")
 	errs = mf.NewCounter("errs", "Number of error responses received for valid requests", "logid", "ep")
 	rsps = mf.NewCounter("rsps", "Number of responses received for valid requests", "logid", "ep", "rc")
+	rspLatency = mf.NewHistogram("rsp_latency", "Latency of valid responses in seconds", "logid", "ep", "rc")
 	invalidReqs = mf.NewCounter("invalid_reqs", "Number of deliberately-invalid requests sent", "logid", "ep")
 }
 
@@ -1022,6 +1024,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 		reqs.Inc(s.label(), string(ep))
 		status, err := s.performOp(ctx, ep)
 		period := time.Since(start)
+		rspLatency.Observe(period.Seconds(), s.label(), string(ep), strconv.Itoa(status))
 
 		switch err.(type) {
 		case nil:
