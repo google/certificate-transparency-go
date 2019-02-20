@@ -28,8 +28,7 @@ func subLogList(logURLs map[string]bool) LogList {
 	var ll LogList
 	ll.Operators = make(map[string]*Operator)
 	for opName, op := range sampleLogList.Operators {
-		ll.Operators[opName] = &Operator{Logs: map[string]*Log{}}
-		ll.Operators[opName].Email = op.Email
+		ll.Operators[opName] = &Operator{Email: op.Email, Logs: map[string]*Log{}}
 		for logName, l := range op.Logs {
 			if logURLs[l.URL] {
 				ll.Operators[opName].Logs[logName] = l

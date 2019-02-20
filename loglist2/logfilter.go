@@ -31,8 +31,7 @@ func (ll *LogList) SelectUsable() LogList {
 	active.Operators = make(map[string]*Operator)
 	// Keep all the operators but filter Logs.
 	for opName, op := range ll.Operators {
-		active.Operators[opName] = &Operator{Logs: make(map[string]*Log)}
-		active.Operators[opName].Email = op.Email
+		active.Operators[opName] = &Operator{Email: op.Email, Logs: make(map[string]*Log)}
 		for logName, l := range op.Logs {
 			if l.State.LogStatus() != UsableLogStatus {
 				continue
@@ -54,8 +53,7 @@ func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoot
 	// Keep all the operators.
 	compatible.Operators = make(map[string]*Operator)
 	for opName, op := range ll.Operators {
-		compatible.Operators[opName] = &Operator{Logs: make(map[string]*Log)}
-		compatible.Operators[opName].Email = op.Email
+		compatible.Operators[opName] = &Operator{Email: op.Email, Logs: make(map[string]*Log)}
 	}
 
 	// When chain info is not available, collect Logs with no root info as
