@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc. All Rights Reserved.
+// Copyright 2018 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,24 +16,25 @@ package loglist2
 
 import (
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// LogRoots maps Log-URLs (stated at LogList) to the list of their accepted
+// LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
 // root-certificates.
-type LogRoots map[string][]*x509.Certificate
+type LogRoots map[string]*ctfe.PEMCertPool
 
-// SelectQualified creates a new LogList containing only qualified logs from
+// SelectUsable creates a new LogList containing only usable logs from
 // the original.
-func (ll *LogList) SelectQualified() LogList {
+func (ll *LogList) SelectUsable() LogList {
 	var active LogList
 	active.Operators = make(map[string]*Operator)
 	// Keep all the operators but filter Logs.
 	for opName, op := range ll.Operators {
-		active.Operators[opName] = &Operator{Email: make([]string, len(op.Email)), Logs: make(map[string]*Log)}
-		copy(active.Operators[opName].Email, op.Email)
+		active.Operators[opName] = &Operator{Logs: make(map[string]*Log)}
+		active.Operators[opName].Email = op.Email
 		for logName, l := range op.Logs {
-			if l.State.String() != "Qualified" {
+			if l.State.LogStatus() != UsableLogStatus {
 				continue
 			}
 			active.Operators[opName].Logs[logName] = l
@@ -42,7 +43,7 @@ func (ll *LogList) SelectQualified() LogList {
 	return active
 }
 
-// Compatible creates a new LogList containing only the logs of original
+// RootCompatible creates a new LogList containing only the logs of original
 // LogList that are compatible with the provided cert-chain, according to
 // the passed in collection of per-log roots. Logs that are missing from
 // the collection are treated as always compatible and included, even if
@@ -53,8 +54,8 @@ func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoot
 	// Keep all the operators.
 	compatible.Operators = make(map[string]*Operator)
 	for opName, op := range ll.Operators {
-		compatible.Operators[opName] = &Operator{Email: make([]string, len(op.Email)), Logs: make(map[string]*Log)}
-		copy(compatible.Operators[opName].Email, op.Email)
+		compatible.Operators[opName] = &Operator{Logs: make(map[string]*Log)}
+		compatible.Operators[opName].Email = op.Email
 	}
 
 	// When chain info is not available, collect Logs with no root info as
@@ -81,11 +82,8 @@ func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoot
 			}
 
 			// Check root is accepted.
-			for _, r := range roots[l.URL] {
-				if r.Equal(rootedChain[len(rootedChain)-1]) {
-					compatible.Operators[opName].Logs[logName] = l
-					break
-				}
+			if roots[l.URL].Included(rootedChain[len(rootedChain)-1]) {
+				compatible.Operators[opName].Logs[logName] = l
 			}
 		}
 	}

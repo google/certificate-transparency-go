@@ -1,4 +1,4 @@
-// Copyright 2019 Google Inc. All Rights Reserved.
+// Copyright 2018 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 
@@ -27,8 +28,8 @@ func subLogList(logURLs map[string]bool) LogList {
 	var ll LogList
 	ll.Operators = make(map[string]*Operator)
 	for opName, op := range sampleLogList.Operators {
-		ll.Operators[opName] = &Operator{Email: make([]string, len(op.Email)), Logs: map[string]*Log{}}
-		copy(ll.Operators[opName].Email, op.Email)
+		ll.Operators[opName] = &Operator{Logs: map[string]*Log{}}
+		ll.Operators[opName].Email = op.Email
 		for logName, l := range op.Logs {
 			if logURLs[l.URL] {
 				ll.Operators[opName].Logs[logName] = l
@@ -38,7 +39,7 @@ func subLogList(logURLs map[string]bool) LogList {
 	return ll
 }
 
-func TestSelectQualified(t *testing.T) {
+func TestSelectUsable(t *testing.T) {
 	tests := []struct {
 		name string
 		in   LogList
@@ -53,7 +54,7 @@ func TestSelectQualified(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.SelectQualified()
+			got := test.in.SelectUsable()
 			if diff := pretty.Compare(got, test.want); diff != "" {
 				t.Errorf("Extracting active logs out of %v diff: (-got + want)\n%s", test.in, diff)
 			}
@@ -73,13 +74,14 @@ func singleCert() []*x509.Certificate {
 }
 
 func artificialRoots(source string) LogRoots {
-	rootCert, _ := x509util.CertificateFromPEM([]byte(source))
-	return LogRoots{
-		"log.bob.io":                           []*x509.Certificate{rootCert},
-		"https://ct.googleapis.com/racketeer/": []*x509.Certificate{},
-		"https://ct.googleapis.com/rocketeer/": []*x509.Certificate{},
-		"https://ct.googleapis.com/aviator/":   []*x509.Certificate{},
+	roots := LogRoots{
+		"log.bob.io":                           ctfe.NewPEMCertPool(),
+		"https://ct.googleapis.com/racketeer/": ctfe.NewPEMCertPool(),
+		"https://ct.googleapis.com/rocketeer/": ctfe.NewPEMCertPool(),
+		"https://ct.googleapis.com/aviator/":   ctfe.NewPEMCertPool(),
 	}
+	roots["log.bob.io"].AppendCertsFromPEM([]byte(source))
+	return roots
 }
 
 func TestRootCompatible(t *testing.T) {
@@ -110,6 +112,13 @@ func TestRootCompatible(t *testing.T) {
 			chain: singleCert(),
 			roots: artificialRoots(testdata.CACertPEM),
 			want:  subLogList(map[string]bool{}),
+		},
+		{
+			name:  "EmptyChain",
+			in:    sampleLogList,
+			chain: []*x509.Certificate{},
+			roots: artificialRoots(testdata.CACertPEM),
+			want:  subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}),
 		},
 	}
 
