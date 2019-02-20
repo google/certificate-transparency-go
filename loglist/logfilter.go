@@ -18,12 +18,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// LogRoots maps Log-URLs (stated at LogList) to the list of their accepted
+// LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
 // root-certificates.
-type LogRoots map[string][]*x509.Certificate
+type LogRoots map[string]*ctfe.PEMCertPool
 
 // ActiveLogs creates a new LogList containing only non-disqualified non-frozen
 // logs from the original.
@@ -72,11 +73,8 @@ func (ll *LogList) Compatible(rootedChain []*x509.Certificate, roots LogRoots) L
 		}
 
 		// Check root is accepted.
-		for _, r := range roots[l.URL] {
-			if r.Equal(rootedChain[len(rootedChain)-1]) {
-				compatible.Logs = append(compatible.Logs, l)
-				break
-			}
+		if roots[l.URL].Included(rootedChain[len(rootedChain)-1]) {
+			compatible.Logs = append(compatible.Logs, l)
 		}
 	}
 	return compatible
