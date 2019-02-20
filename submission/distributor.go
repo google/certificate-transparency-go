@@ -49,7 +49,6 @@ type Distributor struct {
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
-	rootPool   *ctfe.PEMCertPool
 
 	rootsRefreshTicker *time.Ticker
 
@@ -93,7 +92,7 @@ func printErrs(errs map[string]error) {
 func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	type RootsResult struct {
 		LogURL string
-		Roots  []*x509.Certificate
+		Roots  *ctfe.PEMCertPool
 		Err    error
 	}
 	ch := make(chan RootsResult, len(d.logClients))
@@ -111,6 +110,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 				ch <- res
 				return
 			}
+			res.Roots = ctfe.NewPEMCertPool()
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
 				if x509.IsFatal(err) {
@@ -122,14 +122,14 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 					}
 					continue
 				}
-				res.Roots = append(res.Roots, parsed)
+				res.Roots.AddCert(parsed)
 			}
 			ch <- res
 		}(logURL, lc)
 	}
 
 	// Collect get-roots results for every Log-client.
-	freshRoots := make(map[string][]*x509.Certificate)
+	freshRoots := make(loglist.LogRoots)
 	errors := make(map[string]error)
 	for range d.logClients {
 		r := <-ch
@@ -148,12 +148,6 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 
 	d.logRoots = freshRoots
 
-	d.rootPool = ctfe.NewPEMCertPool()
-	for _, certs := range d.logRoots {
-		for _, cert := range certs {
-			d.rootPool.AddCert(cert)
-		}
-	}
 	return errors
 }
 

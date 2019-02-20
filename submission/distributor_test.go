@@ -213,7 +213,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 			for logURL, wantNum := range tc.rootNum {
 				gotNum := 0
 				if roots, ok := dist.logRoots[logURL]; ok {
-					gotNum = len(roots)
+					gotNum = len(roots.RawCertificates())
 				}
 				if wantNum != gotNum {
 					t.Errorf("Expected %d root(s) for Log %s, got %d", wantNum, logURL, gotNum)
