@@ -49,6 +49,7 @@ type Distributor struct {
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
+	rootPool   *ctfe.PEMCertPool
 
 	rootDataFull bool
 
@@ -161,6 +162,13 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 
 	d.logRoots = freshRoots
 	d.rootDataFull = len(d.logRoots) == len(d.logClients)
+	// Merge individual root-pools into a unified one
+	d.rootPool = ctfe.NewPEMCertPool()
+	for _, pool := range d.logRoots {
+		for _, c := range pool.RawCertificates() {
+			d.rootPool.AddCert(c)
+		}
+	}
 
 	return errors
 }
@@ -250,6 +258,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist.LogRoots)
+	d.rootPool = ctfe.NewPEMCertPool()
 
 	// Build clients for each of the Logs.
 	for _, log := range d.ll.Logs {
