@@ -59,10 +59,16 @@ type Distributor struct {
 
 // Run starts regular roots updates.
 func (d *Distributor) Run(ctx context.Context) {
+	d.mu.RLock()
 	if d.rootsRefreshTicker != nil {
+		d.mu.RUnlock()
 		return
 	}
+	d.mu.RUnlock()
+
+	d.mu.Lock()
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
+	d.mu.Unlock()
 
 	// Collect Log-roots first time.
 	errs := d.refreshRoots(ctx)
@@ -71,6 +77,8 @@ func (d *Distributor) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			d.mu.Lock()
+			defer d.mu.Unlock()
 			d.rootsRefreshTicker.Stop()
 			d.rootsRefreshTicker = nil
 			return
@@ -164,9 +172,7 @@ func (d *Distributor) isRootDataFull() bool {
 
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	d.mu.RLock()
 	lc, ok := d.logClients[logURL]
-	d.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("No client registered for Log with URL %q", logURL)
 	}
@@ -178,11 +184,12 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 // collected do not satisfy the policy.
 func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
 	if d.rootsRefreshTicker == nil {
+		d.mu.RUnlock()
 		return nil, fmt.Errorf("Distributor instance is not active. Run init has not been requested")
 	}
 	if len(rawChain) == 0 {
+		d.mu.RUnlock()
 		return nil, fmt.Errorf("Distributor unable to process empty chain")
 	}
 
@@ -191,9 +198,11 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
 
 	if err != nil && d.isRootDataFull() {
+		d.mu.RUnlock()
 		return nil, fmt.Errorf("Distributor unable to process cert-chain: %v", err)
 	}
 	compatibleLogs := d.ll.Compatible(rootedChain, d.logRoots)
+	d.mu.RUnlock()
 
 	// Set-up policy structs.
 	var cert *x509.Certificate
