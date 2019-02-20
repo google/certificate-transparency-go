@@ -76,6 +76,7 @@ var (
 	limit               = flag.Int("rate_limit", 0, "Maximum rate of requests to an individual log; 0 for no rate limit")
 	ignoreErrors        = flag.Bool("ignore_errors", false, "Whether to ignore errors and retry the operation")
 	maxRetry            = flag.Duration("max_retry", 60*time.Second, "How long to keep retrying when ignore_errors is set")
+	reqDeadline         = flag.Duration("req_deadline", 10*time.Second, "Deadline to set on individual requests")
 )
 var (
 	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
@@ -302,6 +303,7 @@ func main() {
 			MaxParallelChains:   *maxParallelChains,
 			IgnoreErrors:        *ignoreErrors,
 			MaxRetryDuration:    *maxRetry,
+			RequestDeadline:     *reqDeadline,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()
