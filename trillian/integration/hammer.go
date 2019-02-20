@@ -134,6 +134,8 @@ type HammerConfig struct {
 	IgnoreErrors bool
 	// MaxRetryDuration governs how long to keep retrying when IgnoreErrors is true.
 	MaxRetryDuration time.Duration
+	// RequestDeadline indicates the deadline to set on each request to the log.
+	RequestDeadline time.Duration
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -929,6 +931,12 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.cfg.RequestDeadline > 0 {
+		cctx, cancel := context.WithTimeout(ctx, s.cfg.RequestDeadline)
+		defer cancel()
+		ctx = cctx
+	}
+
 	status := http.StatusOK
 	var err error
 	switch ep {
@@ -1045,8 +1053,8 @@ func HammerCTLog(cfg HammerConfig) error {
 		return err
 	}
 	ctx := context.Background()
-	ticker := time.NewTicker(cfg.EmitInterval)
 
+	ticker := time.NewTicker(cfg.EmitInterval)
 	go func(c <-chan time.Time) {
 		for range c {
 			glog.Info(s.String())
