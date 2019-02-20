@@ -26,15 +26,17 @@ TO_KILL+=(${ETCDISCOVER_PID})
 TO_DELETE="${TO_DELETE} ${CT_CFG}"
 TO_KILL+=(${CT_SERVER_PIDS[@]})
 
-# Start a gosmin instance
-ct_start_gosmin
-TO_DELETE="${TO_DELETE} ${GOSMIN_CFG}"
-TO_KILL+=(${GOSMIN_PID})
+if [[ "${HAMMER_GOSSIP}" != "off" ]]; then
+  # Start a gosmin instance
+  ct_start_gosmin
+  TO_DELETE="${TO_DELETE} ${GOSMIN_CFG}"
+  TO_KILL+=(${GOSMIN_PID})
 
-# Start a goshawk instance
-ct_start_goshawk
-TO_DELETE="${TO_DELETE} ${GOSHAWK_CFG}"
-TO_KILL+=(${GOSHAWK_PID})
+  # Start a goshawk instance
+  ct_start_goshawk
+  TO_DELETE="${TO_DELETE} ${GOSHAWK_CFG}"
+  TO_KILL+=(${GOSHAWK_PID})
+fi
 
 metrics_port=$(pick_unused_port)
 echo "Running test(s) with metrics at localhost:${metrics_port}"
@@ -43,8 +45,10 @@ set +e
 RESULT=$?
 set -e
 
-ct_stop_goshawk
-ct_stop_gosmin
+if [[ "${HAMMER_GOSSIP}" != "off" ]]; then
+  ct_stop_goshawk
+  ct_stop_gosmin
+fi
 ct_stop_test
 TO_KILL=()
 
