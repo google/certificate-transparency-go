@@ -52,6 +52,8 @@ type Distributor struct {
 
 	rootDataFull bool
 
+	// Guards ticker.
+	tmu                sync.RWMutex
 	rootsRefreshTicker *time.Ticker
 
 	policy ctpolicy.CTPolicy
@@ -59,16 +61,16 @@ type Distributor struct {
 
 // Run starts regular roots updates.
 func (d *Distributor) Run(ctx context.Context) {
-	d.mu.RLock()
+	d.tmu.RLock()
 	if d.rootsRefreshTicker != nil {
-		d.mu.RUnlock()
+		d.tmu.RUnlock()
 		return
 	}
-	d.mu.RUnlock()
+	d.tmu.RUnlock()
 
-	d.mu.Lock()
+	d.tmu.Lock()
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
-	d.mu.Unlock()
+	d.tmu.Unlock()
 
 	// Collect Log-roots first time.
 	errs := d.refreshRoots(ctx)
@@ -77,8 +79,8 @@ func (d *Distributor) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			d.mu.Lock()
-			defer d.mu.Unlock()
+			d.tmu.Lock()
+			defer d.tmu.Unlock()
 			d.rootsRefreshTicker.Stop()
 			d.rootsRefreshTicker = nil
 			return
@@ -183,17 +185,12 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
 func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
-	d.mu.RLock()
-	if d.rootsRefreshTicker == nil {
-		d.mu.RUnlock()
-		return nil, fmt.Errorf("Distributor instance is not active. Run init has not been requested")
-	}
 	if len(rawChain) == 0 {
-		d.mu.RUnlock()
 		return nil, fmt.Errorf("Distributor unable to process empty chain")
 	}
 
 	// Validate and root the chain.
+	d.mu.RLock()
 	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
 	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
 
