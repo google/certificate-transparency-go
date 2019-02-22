@@ -57,8 +57,8 @@ func TestSelectUsable(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in.SelectUsable()
-			if diff := pretty.Compare(got, test.want); diff != "" {
-				t.Errorf("Extracting active logs out of %v diff: (-got + want)\n%s", test.in, diff)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("Extracting active logs out of %v diff: (-want +got)\n%s", test.in, diff)
 			}
 		})
 	}
@@ -127,8 +127,8 @@ func TestRootCompatible(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := test.in.RootCompatible(test.chain, test.roots)
-			if diff := pretty.Compare(got, test.want); diff != "" {
-				t.Errorf("Getting compatible logs diff: (-got +want)\n%s", diff)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("Getting compatible logs diff: (-want +got)\n%s", diff)
 			}
 		})
 	}
