@@ -47,27 +47,26 @@ const (
 
 // LogList holds a collection of CT logs, grouped by operator.
 type LogList struct {
-	// Operators maps operator names to more information about them, e.g.
-	// contact details and which logs they operate.
-	Operators map[string]*Operator `json:"operators"`
+	// Operators is a list of CT log operators and and the logs they operate.
+	Operators []*Operator `json:"operators"`
 }
 
 // Operator holds a collection of CT logs run by the same organisation.
 // It also provides information about that organisation, e.g. contact details.
 type Operator struct {
+	// Name is the name of the CT log operator.
+	Name string `json:"name"`
 	// Email lists the email addresses that can be used to contact this log
 	// operator.
 	Email []string `json:"email"`
-	// Logs is a map of unique names to CT logs run by this operator.
-	Logs map[string]*Log `json:"logs"`
+	// Logs is a list of CT logs run by this operator.
+	Logs []*Log `json:"logs"`
 }
 
 // Log describes a single CT log.
 type Log struct {
-	// Description is a list of human-readable strings that describe the
-	// log. These may include its name, unusual attributes of the log, or
-	// URLs where further information can be found.
-	Description []string `json:"description,omitempty"`
+	// Description is a human-readable string that describes the log.
+	Description string `json:"description,omitempty"`
 	// LogID is the SHA-256 hash of the log's public key.
 	LogID []byte `json:"log_id"`
 	// Key is the public key with which signatures can be verified.
@@ -242,8 +241,8 @@ func (ll *LogList) FindLogByName(name string) []*Log {
 	name = strings.ToLower(name)
 	var results []*Log
 	for _, op := range ll.Operators {
-		for logName, log := range op.Logs {
-			if strings.Contains(strings.ToLower(logName), name) {
+		for _, log := range op.Logs {
+			if strings.Contains(strings.ToLower(log.Description), name) {
 				results = append(results, log)
 			}
 		}
