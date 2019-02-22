@@ -87,7 +87,7 @@ var sampleLogList = LogList{
 					Description: "Bob's Dubious Log",
 					LogID:       deb64("zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA="),
 					Key:         deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA=="),
-					URL:         "log.bob.io",
+					URL:         "https://log.bob.io",
 					MMD:         86400,
 					State: &LogStates{
 						Retired: &LogState{
@@ -117,7 +117,7 @@ func TestJSONMarshal(t *testing.T) {
 				`{"description":"Google 'Racketeer' log","log_id":"7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g=","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","url":"https://ct.googleapis.com/racketeer/","dns":"racketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Rocketeer' log","log_id":"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","url":"https://ct.googleapis.com/rocketeer/","dns":"rocketeer.ct.googleapis.com","mmd":86400}]},` +
 				`{"name":"Bob's CT Log Shop","email":["bob@example.com"],"logs":[` +
-				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}}}]}]}`,
+				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"https://log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}}}]}]}`,
 		},
 	}
 
@@ -178,8 +178,8 @@ func TestFindLogByURL(t *testing.T) {
 		{name: "NotFound", in: "nowhere.com"},
 		{name: "Found//", in: "https://ct.googleapis.com/icarus/", want: "Google 'Icarus' log"},
 		{name: "Found./", in: "https://ct.googleapis.com/icarus", want: "Google 'Icarus' log"},
-		{name: "Found/.", in: "log.bob.io/", want: "Bob's Dubious Log"},
-		{name: "Found..", in: "log.bob.io", want: "Bob's Dubious Log"},
+		{name: "Found/.", in: "https://log.bob.io/", want: "Bob's Dubious Log"},
+		{name: "Found..", in: "https://log.bob.io", want: "Bob's Dubious Log"},
 	}
 
 	for _, test := range tests {
@@ -399,7 +399,7 @@ func TestLogStatesString(t *testing.T) {
 	}{
 		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "FrozenLogStatus"},
 		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "UndefinedLogStatus"},
-		{name: "Retired", logURL: "log.bob.io", want: "RetiredLogStatus"},
+		{name: "Retired", logURL: "https://log.bob.io", want: "RetiredLogStatus"},
 	}
 
 	for _, test := range tests {
