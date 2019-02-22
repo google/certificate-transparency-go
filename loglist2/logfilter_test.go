@@ -77,12 +77,12 @@ func singleCert() []*x509.Certificate {
 
 func artificialRoots(source string) LogRoots {
 	roots := LogRoots{
-		"log.bob.io":                           ctfe.NewPEMCertPool(),
+		"https://log.bob.io":                   ctfe.NewPEMCertPool(),
 		"https://ct.googleapis.com/racketeer/": ctfe.NewPEMCertPool(),
 		"https://ct.googleapis.com/rocketeer/": ctfe.NewPEMCertPool(),
 		"https://ct.googleapis.com/aviator/":   ctfe.NewPEMCertPool(),
 	}
-	roots["log.bob.io"].AppendCertsFromPEM([]byte(source))
+	roots["https://log.bob.io"].AppendCertsFromPEM([]byte(source))
 	return roots
 }
 
@@ -99,7 +99,7 @@ func TestRootCompatible(t *testing.T) {
 			in:    sampleLogList,
 			chain: certChain(),
 			roots: artificialRoots(testdata.CACertPEM),
-			want:  subLogList(map[string]bool{"log.bob.io": true, "https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
+			want:  subLogList(map[string]bool{"https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
 			name:  "RootedChainNoRootAccepted",
