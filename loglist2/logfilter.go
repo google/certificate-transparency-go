@@ -28,15 +28,16 @@ type LogRoots map[string]*ctfe.PEMCertPool
 // the original.
 func (ll *LogList) SelectUsable() LogList {
 	var active LogList
-	active.Operators = make(map[string]*Operator)
-	// Keep all the operators but filter Logs.
-	for opName, op := range ll.Operators {
-		active.Operators[opName] = &Operator{Email: op.Email, Logs: make(map[string]*Log)}
-		for logName, l := range op.Logs {
-			if l.State.LogStatus() != UsableLogStatus {
-				continue
+	for _, op := range ll.Operators {
+		activeOp := *op
+		activeOp.Logs = []*Log{}
+		for _, l := range op.Logs {
+			if l.State != nil && l.State.Usable != nil {
+				activeOp.Logs = append(activeOp.Logs, l)
 			}
-			active.Operators[opName].Logs[logName] = l
+		}
+		if len(activeOp.Logs) > 0 {
+			active.Operators = append(active.Operators, &activeOp)
 		}
 	}
 	return active
@@ -50,11 +51,6 @@ func (ll *LogList) SelectUsable() LogList {
 // Cert-chain when provided is expected to be full: ending with CA-cert.
 func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoots) LogList {
 	var compatible LogList
-	// Keep all the operators.
-	compatible.Operators = make(map[string]*Operator)
-	for opName, op := range ll.Operators {
-		compatible.Operators[opName] = &Operator{Email: op.Email, Logs: make(map[string]*Log)}
-	}
 
 	// When chain info is not available, collect Logs with no root info as
 	// compatible.
@@ -66,12 +62,14 @@ func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoot
 		return compatible
 	}
 
-	for opName, op := range ll.Operators {
-		for logName, l := range op.Logs {
+	for _, op := range ll.Operators {
+		compatibleOp := *op
+		compatibleOp.Logs = []*Log{}
+		for _, l := range op.Logs {
 			// If root set is not defined, we treat Log as compatible assuming no
 			// knowledge of its roots.
 			if _, ok := roots[l.URL]; !ok {
-				compatible.Operators[opName].Logs[logName] = l
+				compatibleOp.Logs = append(compatibleOp.Logs, l)
 				continue
 			}
 
@@ -81,8 +79,11 @@ func (ll *LogList) RootCompatible(rootedChain []*x509.Certificate, roots LogRoot
 
 			// Check root is accepted.
 			if roots[l.URL].Included(rootedChain[len(rootedChain)-1]) {
-				compatible.Operators[opName].Logs[logName] = l
+				compatibleOp.Logs = append(compatibleOp.Logs, l)
 			}
+		}
+		if len(compatibleOp.Logs) > 0 {
+			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
 	return compatible
