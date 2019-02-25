@@ -59,10 +59,8 @@ func DefaultScannerOptions() *ScannerOptions {
 
 // Scanner is a tool to scan all the entries in a CT Log.
 type Scanner struct {
-	fetcher *Fetcher
-
-	// Configuration options for this Scanner instance.
-	opts ScannerOptions
+	// N.B. 64-bit fields must be first due to
+	// https://golang.org/pkg/sync/atomic/#pkg-note-BUG
 
 	// Counters of the number of certificates scanned and matched.
 	certsProcessed int64
@@ -73,6 +71,11 @@ type Scanner struct {
 
 	unparsableEntries         int64
 	entriesWithNonFatalErrors int64
+
+	fetcher *Fetcher
+
+	// Configuration options for this Scanner instance.
+	opts ScannerOptions
 }
 
 // entryInfo represents information about a log entry.
