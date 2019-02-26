@@ -123,7 +123,7 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		}
 		publicKeyAlgorithm.Algorithm = OIDPublicKeyRSA
 		// This is a NULL parameters value which is required by
-		// https://tools.ietf.org/html/rfc3279#section-2.3.1.
+		// RFC 3279, Section 2.3.1.
 		publicKeyAlgorithm.Parameters = asn1.NullRawValue
 	case *ecdsa.PublicKey:
 		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
@@ -383,7 +383,7 @@ var signatureAlgorithmDetails = []struct {
 }
 
 // pssParameters reflects the parameters in an AlgorithmIdentifier that
-// specifies RSA PSS. See https://tools.ietf.org/html/rfc3447#appendix-A.2.3
+// specifies RSA PSS. See RFC 3447, Appendix A.2.3.
 type pssParameters struct {
 	// The following three fields are not marked as
 	// optional because the default values specify SHA-1,
@@ -464,13 +464,11 @@ func SignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 		return UnknownSignatureAlgorithm
 	}
 
-	// PSS is greatly overburdened with options. This code forces
-	// them into three buckets by requiring that the MGF1 hash
-	// function always match the message hash function (as
-	// recommended in
-	// https://tools.ietf.org/html/rfc3447#section-8.1), that the
-	// salt length matches the hash length, and that the trailer
-	// field has the default value.
+	// PSS is greatly overburdened with options. This code forces them into
+	// three buckets by requiring that the MGF1 hash function always match the
+	// message hash function (as recommended in RFC 3447, Section 8.1), that the
+	// salt length matches the hash length, and that the trailer field has the
+	// default value.
 	if (len(params.Hash.Parameters.FullBytes) != 0 && !bytes.Equal(params.Hash.Parameters.FullBytes, asn1.NullBytes)) ||
 		!params.MGF.Algorithm.Equal(oidMGF1) ||
 		!mgf1HashFunc.Algorithm.Equal(params.Hash.Algorithm) ||
@@ -1247,8 +1245,8 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 	asn1Data := keyData.PublicKey.RightAlign()
 	switch algo {
 	case RSA:
-		// RSA public keys must have a NULL in the parameters
-		// (https://tools.ietf.org/html/rfc3279#section-2.3.1).
+		// RSA public keys must have a NULL in the parameters.
+		// See RFC 3279, Section 2.3.1.
 		if !bytes.Equal(keyData.Algorithm.Parameters.FullBytes, asn1.NullBytes) {
 			nfe.AddError(errors.New("x509: RSA key missing NULL parameters"))
 		}
@@ -1513,7 +1511,7 @@ func parseSANExtension(value []byte, nfe *NonFatalErrors) (dnsNames, emailAddres
 	return
 }
 
-// isValidIPMask returns true iff mask consists of zero or more 1 bits, followed by zero bits.
+// isValidIPMask reports whether mask consists of zero or more 1 bits, followed by zero bits.
 func isValidIPMask(mask []byte) bool {
 	seenZero := false
 
@@ -1566,7 +1564,7 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension, nfe *NonF
 	}
 
 	if !havePermitted && !haveExcluded || len(permitted) == 0 && len(excluded) == 0 {
-		// https://tools.ietf.org/html/rfc5280#section-4.2.1.10:
+		// From RFC 5280, Section 4.2.1.10:
 		//   “either the permittedSubtrees field
 		//   or the excludedSubtrees MUST be
 		//   present”
@@ -2097,7 +2095,7 @@ var (
 	OIDAnyPolicy                  = asn1.ObjectIdentifier{2, 5, 29, 32, 0}
 )
 
-// oidInExtensions returns whether an extension with the given oid exists in
+// oidInExtensions reports whether an extension with the given oid exists in
 // extensions.
 func oidInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) bool {
 	for _, e := range extensions {
@@ -2274,7 +2272,7 @@ func buildExtensions(template *Certificate, subjectIsEmpty bool, authorityKeyId 
 	if (len(template.DNSNames) > 0 || len(template.EmailAddresses) > 0 || len(template.IPAddresses) > 0 || len(template.URIs) > 0) &&
 		!oidInExtensions(OIDExtensionSubjectAltName, template.ExtraExtensions) {
 		ret[n].Id = OIDExtensionSubjectAltName
-		// https://tools.ietf.org/html/rfc5280#section-4.2.1.6
+		// From RFC 5280, Section 4.2.1.6:
 		// “If the subject field contains an empty sequence ... then
 		// subjectAltName extension ... is marked as critical”
 		ret[n].Critical = subjectIsEmpty
@@ -2754,21 +2752,25 @@ type CertificateRequest struct {
 
 	Subject pkix.Name
 
-	// Attributes is the dried husk of a bug and shouldn't be used.
+	// Attributes contains the CSR attributes that can parse as
+	// pkix.AttributeTypeAndValueSET.
+	//
+	// Deprecated: use Extensions and ExtraExtensions instead for parsing and
+	// generating the requestedExtensions attribute.
 	Attributes []pkix.AttributeTypeAndValueSET
 
-	// Extensions contains raw X.509 extensions. When parsing CSRs, this
-	// can be used to extract extensions that are not parsed by this
+	// Extensions contains all requested extensions, in raw form. When parsing
+	// CSRs, this can be used to extract extensions that are not parsed by this
 	// package.
 	Extensions []pkix.Extension
 
-	// ExtraExtensions contains extensions to be copied, raw, into any
-	// marshaled CSR. Values override any extensions that would otherwise
-	// be produced based on the other fields but are overridden by any
-	// extensions specified in Attributes.
+	// ExtraExtensions contains extensions to be copied, raw, into any CSR
+	// marshaled by CreateCertificateRequest. Values override any extensions
+	// that would otherwise be produced based on the other fields but are
+	// overridden by any extensions specified in Attributes.
 	//
-	// The ExtraExtensions field is not populated when parsing CSRs, see
-	// Extensions.
+	// The ExtraExtensions field is not populated by ParseCertificateRequest,
+	// see Extensions instead.
 	ExtraExtensions []pkix.Extension
 
 	// Subject Alternate Name values.
@@ -2836,8 +2838,7 @@ func parseRawAttributes(rawAttributes []asn1.RawValue) []pkix.AttributeTypeAndVa
 // parseCSRExtensions parses the attributes from a CSR and extracts any
 // requested extensions.
 func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error) {
-	// pkcs10Attribute reflects the Attribute structure from section 4.1 of
-	// https://tools.ietf.org/html/rfc2986.
+	// pkcs10Attribute reflects the Attribute structure from RFC 2986, Section 4.1.
 	type pkcs10Attribute struct {
 		Id     asn1.ObjectIdentifier
 		Values []asn1.RawValue `asn1:"set"`
@@ -2868,21 +2869,21 @@ func parseCSRExtensions(rawAttributes []asn1.RawValue) ([]pkix.Extension, error)
 // CreateCertificateRequest creates a new certificate request based on a
 // template. The following members of template are used:
 //
-//  - Attributes
-//  - DNSNames
-//  - EmailAddresses
-//  - ExtraExtensions
-//  - IPAddresses
-//  - URIs
 //  - SignatureAlgorithm
 //  - Subject
+//  - DNSNames
+//  - EmailAddresses
+//  - IPAddresses
+//  - URIs
+//  - ExtraExtensions
+//  - Attributes (deprecated)
 //
-// The private key is the private key of the signer.
+// priv is the private key to sign the CSR with, and the corresponding public
+// key will be included in the CSR. It must implement crypto.Signer and its
+// Public() method must return a *rsa.PublicKey or a *ecdsa.PublicKey. (A
+// *rsa.PrivateKey or *ecdsa.PrivateKey satisfies this.)
 //
 // The returned slice is the certificate request in DER encoding.
-//
-// All keys types that are implemented via crypto.Signer are supported (This
-// includes *rsa.PublicKey and *ecdsa.PublicKey.)
 func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv interface{}) (csr []byte, err error) {
 	key, ok := priv.(crypto.Signer)
 	if !ok {
@@ -3066,7 +3067,7 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
 	out := &CertificateRequest{
-		Raw: in.Raw,
+		Raw:                      in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,
 		RawSubjectPublicKeyInfo:  in.TBSCSR.PublicKey.Raw,
 		RawSubject:               in.TBSCSR.Subject.FullBytes,
