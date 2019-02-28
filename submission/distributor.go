@@ -173,7 +173,7 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	return errors
 }
 
-// IsRootDataFull returns whether each registered Log has root-info.
+// IsRootDataFull returns true if root certificates have been obtained for all Logs.
 func (d *Distributor) isRootDataFull() bool {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -184,7 +184,7 @@ func (d *Distributor) isRootDataFull() bool {
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
 	if !ok {
-		return nil, fmt.Errorf("No client registered for Log with URL %q", logURL)
+		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
 	return lc.AddPreChain(ctx, chain)
 }
@@ -194,7 +194,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 // collected do not satisfy the policy.
 func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
-		return nil, fmt.Errorf("Distributor unable to process empty chain")
+		return nil, fmt.Errorf("distributor unable to process empty chain")
 	}
 
 	// Validate and root the chain.
@@ -204,7 +204,7 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 
 	if err != nil && d.isRootDataFull() {
 		d.mu.RUnlock()
-		return nil, fmt.Errorf("Distributor unable to process cert-chain: %v", err)
+		return nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
 	}
 	compatibleLogs := d.ll.Compatible(rootedChain, d.logRoots)
 	d.mu.RUnlock()
@@ -216,7 +216,7 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 	} else {
 		cert, err = x509.ParseCertificate(rawChain[0])
 		if x509.IsFatal(err) {
-			return nil, fmt.Errorf("Distributor unable to parse cert-chainL %v", err)
+			return nil, fmt.Errorf("distributor unable to parse cert-chain %v", err)
 		}
 	}
 
