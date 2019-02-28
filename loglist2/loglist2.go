@@ -47,7 +47,7 @@ const (
 
 // LogList holds a collection of CT logs, grouped by operator.
 type LogList struct {
-	// Operators is a list of CT log operators and and the logs they operate.
+	// Operators is a list of CT log operators and the logs they operate.
 	Operators []*Operator `json:"operators"`
 }
 
