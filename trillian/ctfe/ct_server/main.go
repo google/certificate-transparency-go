@@ -67,6 +67,8 @@ var (
 	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
+
+	badLog = flag.Bool("aim_to_misbehave", false, "Whether to deliberately perform invalid actions")
 )
 
 // nolint:staticcheck
@@ -267,6 +269,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		MetricFactory:      prometheus.MetricFactory{},
 		RequestLog:         new(ctfe.DefaultRequestLog),
 		MaskInternalErrors: maskInternalErrors,
+		Misbehave:          *badLog,
 	}
 	if *quotaRemote {
 		glog.Info("Enabling quota for requesting IP")

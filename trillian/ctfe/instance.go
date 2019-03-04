@@ -65,6 +65,10 @@ type InstanceOptions struct {
 	// MaskInternalErrors indicates if internal server errors should be masked
 	// or returned to the user containing the full error message.
 	MaskInternalErrors bool
+	// Misbehave indicates whether the CT personality should deliberately
+	// introduce errors in its processing.  This flag is only intended for
+	// testing (particularly of monitors, mirrors and auditors).
+	Misbehave bool
 }
 
 // Instance is a set up log/mirror instance. It must be created with the

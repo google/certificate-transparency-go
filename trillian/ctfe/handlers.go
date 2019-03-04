@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
@@ -261,12 +262,7 @@ type logInfo struct {
 }
 
 // newLogInfo creates a new instance of logInfo.
-func newLogInfo(
-	instanceOpts InstanceOptions,
-	validationOpts CertValidationOpts,
-	signer crypto.Signer,
-	timeSource util.TimeSource,
-) *logInfo {
+func newLogInfo(instanceOpts InstanceOptions, validationOpts CertValidationOpts, signer crypto.Signer, timeSource util.TimeSource) *logInfo {
 	vCfg := instanceOpts.Validated
 	cfg := vCfg.Config
 
@@ -437,11 +433,17 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
 	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano)
+	if li.misbehave("use old timestamp for added leaf") {
+		timeMillis -= 48 * 60 * 60 * 1000 // -48h
+	}
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
 	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %s", err)
+	}
+	if li.misbehave("flip leaf type") {
+		isPrecert = !isPrecert
 	}
 	leaf, err := buildLogLeafForAddChain(li, *merkleLeaf, chain, isPrecert)
 	if err != nil {
@@ -482,12 +484,34 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	} else if len(rest) > 0 {
 		return http.StatusInternalServerError, fmt.Errorf("extra data (%d bytes) on reconstructing MerkleTreeLeaf", len(rest))
 	}
+	sctVersion := ct.V1
+	if li.misbehave("use submitted leaf not already-logged leaf (if present) in SCT") {
+		loggedLeaf = *merkleLeaf
+	} else if li.misbehave("change SCT timestamp of logged leaf") {
+		loggedLeaf.TimestampedEntry.Timestamp -= 1000 // 1s earlier timestampe
+	} else if li.misbehave("add an SCT extension") {
+		loggedLeaf.TimestampedEntry.Extensions = []byte{0x42, 0x41, 0x44} // "bad"
+	} else if li.misbehave("wrong SCT version") {
+		sctVersion = 6
+	}
 
 	// As the Log server has definitely got the Merkle tree leaf, we can
 	// generate an SCT and respond with it.
-	sct, err := buildV1SCT(li.signer, &loggedLeaf)
+	sct, err := buildSCT(li.signer, &loggedLeaf, sctVersion)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to generate SCT: %s", err)
+	}
+	if li.misbehave("wrong SCT log ID") {
+		sct.LogID.KeyID[0]++
+	} else if li.misbehave("wrong SCT signature hash") {
+		sct.Signature.Algorithm.Hash = tls.MD5
+	} else if li.misbehave("wrong SCT signature algorithm") {
+		sct.Signature.Algorithm.Signature = tls.DSA
+	} else if li.misbehave("malformed SCT signature") {
+		sig := sct.Signature.Signature
+		sct.Signature.Signature = sig[:len(sig)-3]
+	} else if li.misbehave("invalid SCT signature") {
+		sct.Signature.Signature[len(sct.Signature.Signature)-1] ^= 0x01 // flip last bit
 	}
 	sctBytes, err := tls.Marshal(*sct)
 	if err != nil {
@@ -525,6 +549,17 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 	sth, err := li.getSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
+	}
+
+	if li.misbehave("wrong STH signature hash") {
+		sth.TreeHeadSignature.Algorithm.Hash = tls.MD5
+	} else if li.misbehave("wrong STH signature algorithm") {
+		sth.TreeHeadSignature.Algorithm.Signature = tls.DSA
+	} else if li.misbehave("malformed STH signature") {
+		sig := sth.TreeHeadSignature.Signature
+		sth.TreeHeadSignature.Signature = sig[:len(sig)-3]
+	} else if li.misbehave("invalid STH signature") {
+		sth.TreeHeadSignature.Signature[len(sth.TreeHeadSignature.Signature)-1] ^= 0x01 // flip last bit
 	}
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
@@ -603,9 +638,17 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 		if jsonRsp.Consistency == nil {
 			jsonRsp.Consistency = emptyProof
 		}
+		if li.misbehave("truncated consistency proof") && len(jsonRsp.Consistency) > 1 {
+			jsonRsp.Consistency = jsonRsp.Consistency[:len(jsonRsp.Consistency)-2]
+		} else if li.misbehave("truncated hash in consistency proof") && len(jsonRsp.Consistency) > 0 {
+			jsonRsp.Consistency[0] = jsonRsp.Consistency[0][:10]
+		}
 	} else {
 		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) starts from 0 so return empty proof", li.LogPrefix, first, second)
 		jsonRsp.Consistency = emptyProof
+		if li.misbehave("non-empty consistency proof for start=0") {
+			jsonRsp.Consistency = [][]byte{{0x01, 0x02}}
+		}
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
@@ -684,6 +727,14 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	}
 	if proofRsp.AuditPath == nil {
 		proofRsp.AuditPath = emptyProof
+		if li.misbehave("non-empty inclusion proof when it should be empty") {
+			proofRsp.AuditPath = [][]byte{{0x01, 0x02}}
+		}
+	}
+	if li.misbehave("truncated inclusion proof") && len(proofRsp.AuditPath) > 1 {
+		proofRsp.AuditPath = proofRsp.AuditPath[:len(proofRsp.AuditPath)-2]
+	} else if li.misbehave("truncated hash in inclusion proof") && len(proofRsp.AuditPath) > 0 {
+		proofRsp.AuditPath[0] = proofRsp.AuditPath[0][:10]
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
@@ -786,6 +837,13 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %s", err)
 	}
+	if li.misbehave("skip first entry in get-entries") && len(jsonRsp.Entries) > 0 {
+		jsonRsp.Entries = jsonRsp.Entries[1:]
+	} else if li.misbehave("invalid extra data for leaf in get-entries response") && len(jsonRsp.Entries) > 0 {
+		jsonRsp.Entries[0].ExtraData = []byte{0x01, 0x02}
+	} else if li.misbehave("missing extra data for leaf in get-entries response") && len(jsonRsp.Entries) > 0 {
+		jsonRsp.Entries[0].ExtraData = nil
+	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
@@ -807,6 +865,12 @@ func getRoots(_ context.Context, li *logInfo, w http.ResponseWriter, _ *http.Req
 	rawCerts := make([][]byte, 0, len(li.validationOpts.trustedRoots.RawCertificates()))
 	for _, cert := range li.validationOpts.trustedRoots.RawCertificates() {
 		rawCerts = append(rawCerts, cert.Raw)
+	}
+
+	if li.misbehave("drop half of the roots") && len(rawCerts) > 2 {
+		rawCerts = rawCerts[:len(rawCerts)/2]
+	} else if li.misbehave("corrupt a root certificate") && len(rawCerts) > 1 {
+		rawCerts[0] = []byte{0x01, 0x02}
 	}
 
 	jsonMap := make(map[string]interface{})
@@ -886,6 +950,9 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
 func getRPCDeadlineTime(li *logInfo) time.Time {
+	if li.misbehave("infeasibly short RPC deadline") {
+		return li.TimeSource.Now().Add(time.Millisecond)
+	}
 	return li.TimeSource.Now().Add(li.instanceOpts.Deadline)
 }
 
@@ -930,9 +997,7 @@ func extractRawCerts(chain []*x509.Certificate) []ct.ASN1Cert {
 
 // buildLogLeafForAddChain does the hashing to build a LogLeaf that will be
 // sent to the backend by add-chain and add-pre-chain endpoints.
-func buildLogLeafForAddChain(li *logInfo,
-	merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate, isPrecert bool,
-) (trillian.LogLeaf, error) {
+func buildLogLeafForAddChain(li *logInfo, merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate, isPrecert bool) (trillian.LogLeaf, error) {
 	raw := extractRawCerts(chain)
 	return util.BuildLogLeaf(li.LogPrefix, merkleLeaf, 0, raw[0], raw[1:], isPrecert)
 }
@@ -1168,4 +1233,18 @@ func (li *logInfo) toHTTPStatus(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func (li *logInfo) misbehave(msg string) bool {
+	if !li.instanceOpts.Misbehave {
+		return false
+	}
+
+	// 1% chance of any specific misbehaviour.
+	if rand.Intn(100) != 0 {
+		return false
+	}
+
+	glog.Errorf("DELIBERATE ERROR: %s", msg)
+	return true
 }

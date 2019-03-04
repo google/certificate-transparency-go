@@ -79,6 +79,15 @@ func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) 
 	}
 	// Note: The size was checked in getSignedLogRoot.
 	copy(sth.SHA256RootHash[:], currentRoot.RootHash)
+	if sg.li.misbehave("STH time goes backward") {
+		sth.Timestamp -= 120 * 1000 // 120s earlier
+	} else if sg.li.misbehave("STH size goes backward (or wraps)") {
+		sth.TreeSize -= 100
+	} else if sg.li.misbehave("incorrect STH root hash") {
+		sth.SHA256RootHash[12] ^= 0x01
+	} else if sg.li.misbehave("wrong STH version field") {
+		sth.Version = 6
+	}
 
 	// Add the signature over the STH contents.
 	err = signV1TreeHead(sg.li.signer, sth, &sg.cache)

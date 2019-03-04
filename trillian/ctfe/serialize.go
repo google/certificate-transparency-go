@@ -86,9 +86,13 @@ func signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead, cache *Signatu
 }
 
 func buildV1SCT(signer crypto.Signer, leaf *ct.MerkleTreeLeaf) (*ct.SignedCertificateTimestamp, error) {
+	return buildSCT(signer, leaf, ct.V1)
+}
+
+func buildSCT(signer crypto.Signer, leaf *ct.MerkleTreeLeaf, ver ct.Version) (*ct.SignedCertificateTimestamp, error) {
 	// Serialize SCT signature input to get the bytes that need to be signed
 	sctInput := ct.SignedCertificateTimestamp{
-		SCTVersion: ct.V1,
+		SCTVersion: ver,
 		Timestamp:  leaf.TimestampedEntry.Timestamp,
 		Extensions: leaf.TimestampedEntry.Extensions,
 	}
