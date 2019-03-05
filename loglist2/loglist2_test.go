@@ -42,7 +42,7 @@ var sampleLogList = LogList{
 					URL:         "https://ct.googleapis.com/aviator/",
 					MMD:         86400,
 					State: &LogStates{
-						Frozen: &FrozenLogState{
+						ReadOnly: &ReadOnlyLogState{
 							LogState: LogState{Timestamp: time.Unix(1480512258, 330000000).UTC()},
 							FinalTreeHead: TreeHead{
 								TreeSize:       46466472,
@@ -112,7 +112,7 @@ func TestJSONMarshal(t *testing.T) {
 			in:   sampleLogList,
 			want: `{"operators":[` +
 				`{"name":"Google","email":["google-ct-logs@googlegroups.com"],"logs":[` +
-				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"frozen":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}}},` +
+				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"readonly":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}}},` +
 				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Racketeer' log","log_id":"7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g=","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","url":"https://ct.googleapis.com/racketeer/","dns":"racketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Rocketeer' log","log_id":"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","url":"https://ct.googleapis.com/rocketeer/","dns":"rocketeer.ct.googleapis.com","mmd":86400}]},` +
@@ -397,7 +397,7 @@ func TestLogStatesString(t *testing.T) {
 		logURL string
 		want   string
 	}{
-		{name: "Frozen", logURL: "https://ct.googleapis.com/aviator/", want: "FrozenLogStatus"},
+		{name: "ReadOnly", logURL: "https://ct.googleapis.com/aviator/", want: "ReadOnlyLogStatus"},
 		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "UndefinedLogStatus"},
 		{name: "Retired", logURL: "https://log.bob.io", want: "RetiredLogStatus"},
 	}
@@ -414,7 +414,7 @@ func TestLogStatesString(t *testing.T) {
 
 func TestLogStatesActive(t *testing.T) {
 	a := &LogState{Timestamp: time.Unix(1460678400, 0).UTC()}
-	f := &FrozenLogState{
+	f := &ReadOnlyLogState{
 		LogState: LogState{Timestamp: time.Unix(1480512258, 330000000).UTC()},
 		FinalTreeHead: TreeHead{
 			TreeSize:       46466472,
@@ -425,7 +425,7 @@ func TestLogStatesActive(t *testing.T) {
 		name       string
 		in         *LogStates
 		wantState  *LogState
-		wantFState *FrozenLogState
+		wantFState *ReadOnlyLogState
 	}{
 		{
 			name: "Retired",
@@ -436,9 +436,9 @@ func TestLogStatesActive(t *testing.T) {
 			wantFState: nil,
 		},
 		{
-			name: "Frozen",
+			name: "ReadOnly",
 			in: &LogStates{
-				Frozen: f,
+				ReadOnly: f,
 			},
 			wantState:  nil,
 			wantFState: f,
@@ -460,7 +460,7 @@ func TestLogStatesActive(t *testing.T) {
 				t.Errorf("Log-state from Active() = %q, want %q", gotState, test.wantState)
 			}
 			if gotFState != test.wantFState {
-				t.Errorf("Frozen Log-state from Active() = %q, want %q", gotFState, test.wantFState)
+				t.Errorf("ReadOnly Log-state from Active() = %q, want %q", gotFState, test.wantFState)
 			}
 		})
 	}

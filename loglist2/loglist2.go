@@ -105,7 +105,7 @@ const (
 	PendingLogStatus
 	QualifiedLogStatus
 	UsableLogStatus
-	FrozenLogStatus
+	ReadOnlyLogStatus
 	RetiredLogStatus
 	RejectedLogStatus
 )
@@ -121,8 +121,8 @@ type LogStates struct {
 	Qualified *LogState `json:"qualified,omitempty"`
 	// Usable indicates that the log is in the "usable" state.
 	Usable *LogState `json:"usable,omitempty"`
-	// Frozen indicates that the log is in the "frozen" state.
-	Frozen *FrozenLogState `json:"frozen,omitempty"`
+	// ReadOnly indicates that the log is in the "readonly" state.
+	ReadOnly *ReadOnlyLogState `json:"readonly,omitempty"`
 	// Retired indicates that the log is in the "retired" state.
 	Retired *LogState `json:"retired,omitempty"`
 	// Rejected indicates that the log is in the "rejected" state.
@@ -135,11 +135,11 @@ type LogState struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// FrozenLogState contains details on the current state of a frozen CT log.
-type FrozenLogState struct {
+// ReadOnlyLogState contains details on the current state of a read-only CT log.
+type ReadOnlyLogState struct {
 	LogState
-	// FinalTreeHead is the root hash and tree size that the CT log was
-	// frozen at. This should never change while the log is frozen.
+	// FinalTreeHead is the root hash and tree size at which the CT log was
+	// made read-only. This should never change while the log is read-only.
 	FinalTreeHead TreeHead `json:"final_tree_head"`
 }
 
@@ -162,8 +162,8 @@ func (ls *LogStates) LogStatus() LogStatus {
 		return QualifiedLogStatus
 	case ls.Usable != nil:
 		return UsableLogStatus
-	case ls.Frozen != nil:
-		return FrozenLogStatus
+	case ls.ReadOnly != nil:
+		return ReadOnlyLogStatus
 	case ls.Retired != nil:
 		return RetiredLogStatus
 	case ls.Rejected != nil:
@@ -179,7 +179,7 @@ func (ls *LogStates) String() string {
 }
 
 // Active picks the set-up state. If multiple states are set (not expected) picks one of them.
-func (ls *LogStates) Active() (*LogState, *FrozenLogState) {
+func (ls *LogStates) Active() (*LogState, *ReadOnlyLogState) {
 	if ls == nil {
 		return nil, nil
 	}
@@ -190,8 +190,8 @@ func (ls *LogStates) Active() (*LogState, *FrozenLogState) {
 		return ls.Qualified, nil
 	case ls.Usable != nil:
 		return ls.Usable, nil
-	case ls.Frozen != nil:
-		return nil, ls.Frozen
+	case ls.ReadOnly != nil:
+		return nil, ls.ReadOnly
 	case ls.Retired != nil:
 		return ls.Retired, nil
 	case ls.Rejected != nil:
