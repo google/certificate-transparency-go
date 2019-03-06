@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -35,8 +35,8 @@ import (
 )
 
 var (
-	logURI        = flag.String("log_uri", "http://ct.googleapis.com/pilot", "CT log base URI")
-	logList       = flag.String("log_list", loglist.LogListURL, "Location of master CT log list (URL or filename)")
+	logURI        = flag.String("log_uri", "https://ct.googleapis.com/pilot", "CT log base URI")
+	logList       = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
 	useDNS        = flag.Bool("dns", true, "Use DNS access points for inclusion checking")
 	inclusion     = flag.Bool("inclusion", false, "Whether to do inclusion checking")
 	deadline      = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
@@ -44,7 +44,6 @@ var (
 	numWorkers    = flag.Int("num_workers", 2, "Number of concurrent matchers")
 	parallelFetch = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 	startIndex    = flag.Int64("start_index", 0, "Log index to start scanning at")
-	quiet         = flag.Bool("quiet", false, "Don't print out extra logging messages, only matches.")
 )
 
 func main() {
@@ -53,7 +52,7 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 
 	hc := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: *deadline,
 		Transport: &http.Transport{
 			TLSHandshakeTimeout:   30 * time.Second,
 			ResponseHeaderTimeout: 30 * time.Second,
@@ -64,7 +63,7 @@ func main() {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	logClient, err := client.New(*logURI, hc, jsonclient.Options{})
+	logClient, err := client.New(*logURI, hc, jsonclient.Options{UserAgent: "ct-go-sctscan/1.0"})
 	if err != nil {
 		glog.Exitf("Failed to create log client: %v", err)
 	}
@@ -89,20 +88,21 @@ func main() {
 	}
 
 	scanOpts := scanner.ScannerOptions{
-		Matcher:       EmbeddedSCTMatcher{},
-		BatchSize:     *batchSize,
-		NumWorkers:    *numWorkers,
-		ParallelFetch: *parallelFetch,
-		StartIndex:    *startIndex,
-		Quiet:         *quiet,
+		FetcherOptions: scanner.FetcherOptions{
+			BatchSize:     *batchSize,
+			ParallelFetch: *parallelFetch,
+			StartIndex:    *startIndex,
+		},
+		Matcher:    EmbeddedSCTMatcher{},
+		NumWorkers: *numWorkers,
 	}
 	s := scanner.NewScanner(logClient, scanOpts)
 
 	s.Scan(ctx,
-		func(entry *ct.LogEntry) {
+		func(entry *ct.RawLogEntry) {
 			checkCertWithEmbeddedSCT(ctx, logsByHash, *inclusion, entry)
 		},
-		func(entry *ct.LogEntry) {
+		func(entry *ct.RawLogEntry) {
 			glog.Errorf("Internal error: found pre-cert! %+v", entry)
 		})
 
@@ -125,7 +125,13 @@ func (e EmbeddedSCTMatcher) PrecertificateMatches(*ct.Precertificate) bool {
 
 // checkCertWithEmbeddedSCT is the callback that the scanner invokes for each cert found by the matcher.
 // Here, we only expect to get certificates that have embedded SCT lists.
-func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]byte]*ctutil.LogInfo, checkInclusion bool, entry *ct.LogEntry) {
+func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]byte]*ctutil.LogInfo, checkInclusion bool, rawEntry *ct.RawLogEntry) {
+	entry, err := rawEntry.ToLogEntry()
+	if x509.IsFatal(err) {
+		glog.Errorf("[%d] Internal error: failed to parse cert in entry: %v", rawEntry.Index, err)
+		return
+	}
+
 	leaf := entry.X509Cert
 	if leaf == nil {
 		glog.Errorf("[%d] Internal error: no cert in entry", entry.Index)

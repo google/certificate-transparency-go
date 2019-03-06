@@ -39,6 +39,7 @@ func newFixedBackends(servers []string) *fixedBackends {
 // Next returns a set of updates describing changes to available servers;
 // it will return the original set on first invocation, and block forever
 // thereafter.
+// nolint:staticcheck
 func (fb *fixedBackends) Next() ([]*naming.Update, error) {
 	if len(fb.pendingServers) == 0 {
 		// Block until there is an update.  There will never be an update, so
@@ -65,7 +66,7 @@ func (fb *fixedBackends) Close() {
 type FixedBackendResolver struct{}
 
 // Resolve returns a fixedBackends object for the given target.
-func (f FixedBackendResolver) Resolve(target string) (naming.Watcher, error) {
+func (f FixedBackendResolver) Resolve(target string) (naming.Watcher, error) { // nolint:staticcheck
 	backends := strings.Split(target, ",")
 	if len(backends) == 0 || (len(backends) == 1 && backends[0] == "") {
 		return nil, fmt.Errorf("no backends found in %v", target)

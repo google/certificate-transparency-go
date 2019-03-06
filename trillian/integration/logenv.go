@@ -77,9 +77,19 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
 		client := trillian.NewTrillianLogClient(env.ClientConn)
-		opts := ctfe.InstanceOptions{Deadline: 10 * time.Second, MetricFactory: prometheus.MetricFactory{}, RequestLog: new(ctfe.DefaultRequestLog)}
 		for _, cfg := range cfgs {
-			handlers, err := ctfe.SetUpInstance(ctx, client, cfg, opts)
+			vCfg, err := ctfe.ValidateLogConfig(cfg)
+			if err != nil {
+				glog.Fatalf("ValidateLogConfig failed: %+v: %v", cfg, err)
+			}
+			opts := ctfe.InstanceOptions{
+				Validated:     vCfg,
+				Client:        client,
+				Deadline:      10 * time.Second,
+				MetricFactory: prometheus.MetricFactory{},
+				RequestLog:    new(ctfe.DefaultRequestLog),
+			}
+			handlers, err := ctfe.SetUpInstance(ctx, opts)
 			if err != nil {
 				glog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
 			}

@@ -31,8 +31,6 @@ import (
 )
 
 const (
-	logIDB64 = `aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=`
-
 	pubKey = "-----BEGIN PUBLIC KEY-----\n" +
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1J\n" +
 		"YP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==\n" +

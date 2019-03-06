@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/certificate-transparency-go/testdata"
 )
 
 var sampleLogList = LogList{
@@ -61,14 +63,22 @@ var sampleLogList = LogList{
 			DNSAPIEndpoint:    "rocketeer.ct.googleapis.com",
 		},
 		{
+			Description: "Google 'Racketeer' log",
+			// Key value chosed to have a hash that starts ee4... (specifically ee412fe25948348961e2f3e08c682e813ec0ff770b6d75171763af3014ff9768)
+			Key:               deb64("Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg=="),
+			URL:               "ct.googleapis.com/racketeer/",
+			MaximumMergeDelay: 86400,
+			OperatedBy:        []int{0},
+			DNSAPIEndpoint:    "racketeer.ct.googleapis.com",
+		},
+		{
 			Description:       "Bob's Dubious Log",
 			Key:               deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA=="),
 			URL:               "log.bob.io",
 			MaximumMergeDelay: 86400,
 			OperatedBy:        []int{1},
-
-			DisqualifiedAt: 1460678400,
-			DNSAPIEndpoint: "dubious-bob.ct.googleapis.com",
+			DisqualifiedAt:    1460678400,
+			DNSAPIEndpoint:    "dubious-bob.ct.googleapis.com",
 		},
 	},
 }
@@ -82,7 +92,7 @@ func TestJSONMarshal(t *testing.T) {
 		{
 			name: "MultiValid",
 			in:   sampleLogList,
-			want: `{"logs":[{"description":"Google 'Aviator' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/aviator/","final_sth":{"tree_size":46466472,"timestamp":1480512258330,"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_head_signature":"BAMASDBGAiEA/M0Nvt77aNe+9eYbKsv6rRpTzFTKa5CGqb56ea4hnt8CIQCJDE7pL6xgAewMd5i3G1lrBWgFooT2kd3+zliEz5Rw8w=="},"dns_api_endpoint":"aviator.ct.googleapis.com"},{"description":"Google 'Icarus' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/icarus/","dns_api_endpoint":"icarus.ct.googleapis.com"},{"description":"Google 'Rocketeer' log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","maximum_merge_delay":86400,"operated_by":[0],"url":"ct.googleapis.com/rocketeer/","dns_api_endpoint":"rocketeer.ct.googleapis.com"},{"description":"Bob's Dubious Log","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","maximum_merge_delay":86400,"operated_by":[1],"url":"log.bob.io","disqualified_at":1460678400,"dns_api_endpoint":"dubious-bob.ct.googleapis.com"}],"operators":[{"id":0,"name":"Google"},{"id":1,"name":"Bob's CT Log Shop"}]}`,
+			want: testdata.SampleLogList,
 		},
 	}
 
@@ -114,7 +124,7 @@ func TestFindLogByName(t *testing.T) {
 	}{
 		{name: "Single", in: "Dubious", want: 1},
 		{name: "SingleDifferentCase", in: "DUBious", want: 1},
-		{name: "Multiple", in: "Google", want: 3},
+		{name: "Multiple", in: "Google", want: 4},
 		{name: "None", in: "Llamalog", want: 0},
 	}
 
@@ -189,6 +199,47 @@ func TestFindLogByKeyhash(t *testing.T) {
 	}
 }
 
+func TestFindLogByKeyhashPrefix(t *testing.T) {
+	var tests = []struct {
+		name, in string
+		want     []string
+	}{
+		{
+			name: "NotFound",
+			in:   "aabbcc",
+			want: []string{},
+		},
+		{
+			name: "FoundRocketeer",
+			in:   "ee4b",
+			want: []string{"Google 'Rocketeer' log"},
+		},
+		{
+			name: "FoundRocketeerOdd",
+			in:   "ee4bb",
+			want: []string{"Google 'Rocketeer' log"},
+		},
+		{
+			name: "FoundMultiple",
+			in:   "ee4",
+			want: []string{"Google 'Rocketeer' log", "Google 'Racketeer' log"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logs := sampleLogList.FindLogByKeyHashPrefix(test.in)
+			got := make([]string, len(logs))
+			for i, log := range logs {
+				got[i] = log.Description
+			}
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
+			}
+		})
+	}
+}
+
 func TestFindLogByKey(t *testing.T) {
 	var tests = []struct {
 		name string
@@ -246,6 +297,11 @@ func TestFuzzyFindLog(t *testing.T) {
 			want: []string{"Google 'Rocketeer' log"},
 		},
 		{
+			name: "FoundByKeyHashHexPrefix",
+			in:   "ee4bbdb7",
+			want: []string{"Google 'Rocketeer' log"},
+		},
+		{
 			name: "FoundByKeyHash64",
 			in:   "7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=",
 			want: []string{"Google 'Rocketeer' log"},
@@ -297,6 +353,32 @@ func TestStripInternalSpace(t *testing.T) {
 		got := stripInternalSpace(test.in)
 		if got != test.want {
 			t.Errorf("stripInternalSpace(%q)=%q, want %q", test.in, got, test.want)
+		}
+	}
+}
+
+func changeLogDesc(log Log, desc string) Log {
+	log.Description = desc
+	return log
+}
+
+func TestGoogleOperated(t *testing.T) {
+	var tests = []struct {
+		in  Log
+		out bool
+	}{
+		{in: sampleLogList.Logs[0], out: true},
+		{in: sampleLogList.Logs[1], out: true},
+		{in: sampleLogList.Logs[2], out: true},
+		{in: sampleLogList.Logs[3], out: true},
+		{in: sampleLogList.Logs[4], out: false},
+		{in: changeLogDesc(sampleLogList.Logs[1], "Gogle 'Aviator' log"), out: false},
+		{in: changeLogDesc(sampleLogList.Logs[4], "Bob's Dubious Log is non-Google"), out: true},
+	}
+	for _, test := range tests {
+		isGoog := test.in.GoogleOperated()
+		if isGoog != test.out {
+			t.Errorf("GoogleOperated status for %s is %t, want %t", test.in.Description, isGoog, test.out)
 		}
 	}
 }

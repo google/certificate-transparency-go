@@ -126,10 +126,7 @@ func (l *Logger) getRoots() (*x509.CertPool, error) {
 	ret := x509.NewCertPool()
 	for _, root := range roots {
 		r, err := x509.ParseCertificate(root.Data)
-		switch err.(type) {
-		case nil, x509.NonFatalErrors:
-			// ignore
-		default:
+		if x509.IsFatal(err) {
 			return nil, fmt.Errorf("can't parse certificate: %s %#v", err, root.Data)
 		}
 		ret.AddCert(r)
@@ -141,49 +138,17 @@ type toPost struct {
 	chain []*x509.Certificate
 }
 
-// postToLog(), rather than its asynchronous couterpart asyncPostToLog(), is
-// used during the initial queueing of chains to avoid spinning up an excessive
-// number of goroutines, and unecessarily using up memory. If asyncPostToLog()
-// was called instead, then every time a new chain was queued, a new goroutine
-// would be created, each holding their own chain - regardless of whether there
-// were postServers available to process them or not.  If a large number of
-// chains were queued in a short period of time, this could lead to a large
-// number of these additional goroutines being created, resulting in excessive
-// memory usage.
+// postToLog() is used during the initial queueing of chains to avoid spinning
+// up an excessive number of goroutines, and unecessarily using up memory. If
+// asyncPostToLog() was called instead, then every time a new chain was queued,
+// a new goroutine would be created, each holding their own chain - regardless
+// of whether there were postServers available to process them or not.  If a
+// large number of chains were queued in a short period of time, this could
+// lead to a large number of these additional goroutines being created,
+// resulting in excessive memory usage.
 func (l *Logger) postToLog(p *toPost) {
 	l.wg.Add(1) // Add to the wg as we are adding a new active request to the logger queue.
 	l.toPost <- p
-}
-
-// asyncPostToLog(), rather than its synchronous couterpart postToLog(), is used
-// during retries to avoid deadlock. Without the separate goroutine created in
-// asyncPostToLog(), deadlock can occur in the following situation:
-//
-// Suppose there is only one postServer() goroutine running, and it is blocked
-// waiting for a toPost on the toPost chan.  A toPost gets added to the chan,
-// which causes the following to happen:
-// - the postServer takes the toPost from the chan.
-// - the postServer calls l.postChain(toPost), and waits for
-//   l.postChain() to return before going back to the toPost
-//   chan for another toPost.
-// - l.postChain() begins execution.  Suppose the first post
-//   attempt of the toPost fails for some network-related
-//   reason.
-// - l.postChain retries and calls l.postToLog() to queue up the
-//   toPost to try to post it again.
-// - l.postToLog() tries to put the toPost on the toPost chan,
-//   and blocks until a postServer takes it off the chan.
-// But the one and only postServer is still waiting for l.postChain (and
-// therefore l.postToLog) to return, and will not go to take another toPost off
-// the toPost chan until that happens.
-// Thus, deadlock.
-//
-// Similar situations with multiple postServers can easily be imagined.
-func (l *Logger) asyncPostToLog(p *toPost) {
-	l.wg.Add(1) // Add to the wg as we are adding a new active request to the logger queue.
-	go func() {
-		l.toPost <- p
-	}()
 }
 
 func (l *Logger) postChain(p *toPost) {

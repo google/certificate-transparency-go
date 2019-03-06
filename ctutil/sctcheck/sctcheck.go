@@ -31,17 +31,19 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 var (
-	logList  = flag.String("log_list", loglist.LogListURL, "Location of master CT log list (URL or filename)")
-	deadline = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
-	useDNS   = flag.Bool("dns", false, "Use DNS access points for inclusion checking")
+	logList        = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
+	deadline       = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
+	checkInclusion = flag.Bool("check_inclusion", true, "Whether to check SCT inclusion in issuing CT log")
+	useDNS         = flag.Bool("dns", false, "Use DNS access points for inclusion checking")
 )
 
 type logInfoFactory func(*loglist.Log, *http.Client) (*ctutil.LogInfo, error)
@@ -214,9 +216,10 @@ func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, mer
 	sct, err := x509util.ExtractSCT(sctData)
 	if err != nil {
 		glog.Errorf("Failed to deserialize %s data: %v", subject, err)
+		glog.Errorf("Data: %x", sctData.Val)
 		return false
 	}
-	glog.Infof("Examine %s with timestamp: %d from logID: %x", subject, sct.Timestamp, sct.LogID.KeyID[:])
+	glog.Infof("Examine %s with timestamp: %d (%v) from logID: %x", subject, sct.Timestamp, ct.TimestampToTime(sct.Timestamp), sct.LogID.KeyID[:])
 	log := ll.FindLogByKeyHash(sct.LogID.KeyID)
 	if log == nil {
 		glog.Warningf("Unknown logID: %x, cannot validate %s", sct.LogID, subject)
@@ -228,24 +231,28 @@ func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, mer
 		return false
 	}
 
+	result := true
 	glog.Infof("Validate %s against log %q...", subject, logInfo.Description)
 	if err := logInfo.VerifySCTSignature(*sct, *merkleLeaf); err != nil {
 		glog.Errorf("Failed to verify %s signature from log %q: %v", subject, log.Description, err)
+		result = false
 	} else {
 		glog.Infof("Validate %s against log %q... validated", subject, log.Description)
 	}
 
-	glog.Infof("Check %s inclusion against log %q...", subject, log.Description)
-	index, err := logInfo.VerifyInclusion(ctx, *merkleLeaf, sct.Timestamp)
-	if err != nil {
-		age := time.Now().Sub(ct.TimestampToTime(sct.Timestamp))
-		if age < logInfo.MMD {
-			glog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
-		} else {
-			glog.Errorf("Failed to verify inclusion proof for %s: %v", subject, err)
+	if *checkInclusion {
+		glog.Infof("Check %s inclusion against log %q...", subject, log.Description)
+		index, err := logInfo.VerifyInclusion(ctx, *merkleLeaf, sct.Timestamp)
+		if err != nil {
+			age := time.Since(ct.TimestampToTime(sct.Timestamp))
+			if age < logInfo.MMD {
+				glog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
+			} else {
+				glog.Errorf("Failed to verify inclusion proof for %s: %v", subject, err)
+			}
+			return false
 		}
-		return false
+		glog.Infof("Check %s inclusion against log %q... included at %d", subject, log.Description, index)
 	}
-	glog.Infof("Check %s inclusion against log %q... included at %d", subject, log.Description, index)
-	return true
+	return result
 }

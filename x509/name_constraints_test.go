@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -43,19 +44,23 @@ type nameConstraintsTest struct {
 	roots         []constraintsSpec
 	intermediates [][]constraintsSpec
 	leaf          leafSpec
+	requestedEKUs []ExtKeyUsage
 	expectedError string
 	noOpenSSL     bool
+	ignoreCN      bool
 }
 
 type constraintsSpec struct {
 	ok   []string
 	bad  []string
 	ekus []string
+	cn   string
 }
 
 type leafSpec struct {
 	sans []string
 	ekus []string
+	cn   string
 }
 
 var nameConstraintsTests = []nameConstraintsTest{
@@ -632,7 +637,7 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 	},
 
-	// #30: without SANs, a certificate is rejected in a constrained chain.
+	// #30: without SANs, a certificate with a CN is rejected in a constrained chain.
 	nameConstraintsTest{
 		roots: []constraintsSpec{
 			constraintsSpec{
@@ -646,9 +651,9 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 		leaf: leafSpec{
 			sans: []string{},
+			cn:   "foo.com",
 		},
 		expectedError: "leaf doesn't have a SAN extension",
-		noOpenSSL:     true, // OpenSSL doesn't require SANs in this case.
 	},
 
 	// #31: IPv6 addresses work in constraints: roots can permit them as
@@ -1221,8 +1226,9 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 	},
 
-	// #63: A specified key usage in an intermediate forbids other usages
-	// in the leaf.
+	// #63: An intermediate with enumerated EKUs causes a failure if we
+	// test for an EKU not in that set. (ServerAuth is required by
+	// default.)
 	nameConstraintsTest{
 		roots: []constraintsSpec{
 			constraintsSpec{},
@@ -1238,11 +1244,11 @@ var nameConstraintsTests = []nameConstraintsTest{
 			sans: []string{"dns:example.com"},
 			ekus: []string{"serverAuth"},
 		},
-		expectedError: "EKU not permitted",
+		expectedError: "incompatible key usage",
 	},
 
-	// #64: A specified key usage in an intermediate forbids other usages
-	// in the leaf, even if we don't recognise them.
+	// #64: an unknown EKU in the leaf doesn't break anything, even if it's not
+	// correctly nested.
 	nameConstraintsTest{
 		roots: []constraintsSpec{
 			constraintsSpec{},
@@ -1258,7 +1264,7 @@ var nameConstraintsTests = []nameConstraintsTest{
 			sans: []string{"dns:example.com"},
 			ekus: []string{"other"},
 		},
-		expectedError: "EKU not permitted",
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageAny},
 	},
 
 	// #65: trying to add extra permitted key usages in an intermediate
@@ -1283,24 +1289,25 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 	},
 
-	// #66: EKUs in roots are ignored.
+	// #66: EKUs in roots are not ignored.
 	nameConstraintsTest{
 		roots: []constraintsSpec{
 			constraintsSpec{
-				ekus: []string{"serverAuth"},
+				ekus: []string{"email"},
 			},
 		},
 		intermediates: [][]constraintsSpec{
 			[]constraintsSpec{
 				constraintsSpec{
-					ekus: []string{"serverAuth", "email"},
+					ekus: []string{"serverAuth"},
 				},
 			},
 		},
 		leaf: leafSpec{
 			sans: []string{"dns:example.com"},
-			ekus: []string{"serverAuth", "email"},
+			ekus: []string{"serverAuth"},
 		},
+		expectedError: "incompatible key usage",
 	},
 
 	// #67: in order to support COMODO chains, SGC key usages permit
@@ -1445,6 +1452,212 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 		expectedError: "\"https://example.com/test\" is excluded",
 	},
+
+	// #75: serverAuth in a leaf shouldn't permit clientAuth when requested in
+	// VerifyOptions.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			ekus: []string{"serverAuth"},
+		},
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageClientAuth},
+		expectedError: "incompatible key usage",
+	},
+
+	// #76: However, MSSGC in a leaf should match a request for serverAuth.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			ekus: []string{"msSGC"},
+		},
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+	},
+
+	// An invalid DNS SAN should be detected only at validation time so
+	// that we can process CA certificates in the wild that have invalid SANs.
+	// See https://github.com/golang/go/issues/23995
+
+	// #77: an invalid DNS or mail SAN will not be detected if name constaint
+	// checking is not triggered.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:this is invalid", "email:this @ is invalid"},
+		},
+	},
+
+	// #78: an invalid DNS SAN will be detected if any name constraint checking
+	// is triggered.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				bad: []string{"uri:"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:this is invalid"},
+		},
+		expectedError: "cannot parse dnsName",
+	},
+
+	// #79: an invalid email SAN will be detected if any name constraint
+	// checking is triggered.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				bad: []string{"uri:"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"email:this @ is invalid"},
+		},
+		expectedError: "cannot parse rfc822Name",
+	},
+
+	// #80: if several EKUs are requested, satisfying any of them is sufficient.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			ekus: []string{"email"},
+		},
+		requestedEKUs: []ExtKeyUsage{ExtKeyUsageClientAuth, ExtKeyUsageEmailProtection},
+	},
+
+	// #81: EKUs that are not asserted in VerifyOpts are not required to be
+	// nested.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{
+					ekus: []string{"serverAuth"},
+				},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:example.com"},
+			// There's no email EKU in the intermediate. This would be rejected if
+			// full nesting was required.
+			ekus: []string{"email", "serverAuth"},
+		},
+	},
+
+	// #82: a certificate without SANs and CN is accepted in a constrained chain.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				ok: []string{"dns:foo.com", "dns:.foo.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{},
+		},
+	},
+
+	// #83: a certificate without SANs and with a CN that does not parse as a
+	// hostname is accepted in a constrained chain.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				ok: []string{"dns:foo.com", "dns:.foo.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{},
+			cn:   "foo,bar",
+		},
+	},
+
+	// #84: a certificate with SANs and CN is accepted in a constrained chain.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				ok: []string{"dns:foo.com", "dns:.foo.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:foo.com"},
+			cn:   "foo.bar",
+		},
+	},
+
+	// #85: without SANs, a certificate with a valid CN is accepted in a
+	// constrained chain if x509ignoreCN is set.
+	nameConstraintsTest{
+		roots: []constraintsSpec{
+			constraintsSpec{
+				ok: []string{"dns:foo.com", "dns:.foo.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			[]constraintsSpec{
+				constraintsSpec{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{},
+			cn:   "foo.com",
+		},
+		ignoreCN: true,
+	},
 }
 
 func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
@@ -1475,12 +1688,7 @@ func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.
 		return nil, err
 	}
 
-	caCert, err := ParseCertificate(derBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return caCert, nil
+	return ParseCertificate(derBytes)
 }
 
 func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
@@ -1490,9 +1698,8 @@ func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certi
 	template := &Certificate{
 		SerialNumber: new(big.Int).SetBytes(serialBytes[:]),
 		Subject: pkix.Name{
-			// Don't set a CommonName because OpenSSL (at least) will try to
-			// match it against name constraints.
 			OrganizationalUnit: []string{"Leaf"},
+			CommonName:         leaf.cn,
 		},
 		NotBefore:             time.Unix(1000, 0),
 		NotAfter:              time.Unix(2000, 0),
@@ -1512,6 +1719,13 @@ func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certi
 				return nil, fmt.Errorf("cannot parse IP %q", name[3:])
 			}
 			template.IPAddresses = append(template.IPAddresses, ip)
+
+		case strings.HasPrefix(name, "invalidip:"):
+			ipBytes, err := hex.DecodeString(name[10:])
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse invalid IP: %s", err)
+			}
+			template.IPAddresses = append(template.IPAddresses, net.IP(ipBytes))
 
 		case strings.HasPrefix(name, "email:"):
 			template.EmailAddresses = append(template.EmailAddresses, name[6:])
@@ -1689,6 +1903,10 @@ func parseEKUs(ekuStrs []string) (ekus []ExtKeyUsage, unknowns []asn1.ObjectIden
 }
 
 func TestConstraintCases(t *testing.T) {
+	defer func(savedIgnoreCN bool) {
+		ignoreCN = savedIgnoreCN
+	}(ignoreCN)
+
 	privateKeys := sync.Pool{
 		New: func() interface{} {
 			priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -1719,7 +1937,7 @@ func TestConstraintCases(t *testing.T) {
 
 		for _, root := range test.roots {
 			rootCert, err := makeConstraintsCACert(root, rootName, rootKey, nil, rootKey)
-			if err != nil {
+			if IsFatal(err) {
 				t.Fatalf("#%d: failed to create root: %s", i, err)
 			}
 
@@ -1737,7 +1955,7 @@ func TestConstraintCases(t *testing.T) {
 
 			for _, intermediate := range intermediates {
 				caCert, err := makeConstraintsCACert(intermediate, levelName, levelKey, parent, parentKey)
-				if err != nil {
+				if IsFatal(err) {
 					t.Fatalf("#%d: failed to create %q: %s", i, levelName, err)
 				}
 
@@ -1757,7 +1975,9 @@ func TestConstraintCases(t *testing.T) {
 			t.Fatalf("#%d: cannot create leaf: %s", i, err)
 		}
 
-		if !test.noOpenSSL && testNameConstraintsAgainstOpenSSL {
+		// Skip tests with CommonName set because OpenSSL will try to match it
+		// against name constraints, while we ignore it when it's not hostname-looking.
+		if !test.noOpenSSL && testNameConstraintsAgainstOpenSSL && test.leaf.cn == "" {
 			output, err := testChainAgainstOpenSSL(leafCert, intermediatePool, rootPool)
 			if err == nil && len(test.expectedError) > 0 {
 				t.Errorf("#%d: unexpectedly succeeded against OpenSSL", i)
@@ -1770,7 +1990,7 @@ func TestConstraintCases(t *testing.T) {
 				if _, ok := err.(*exec.ExitError); !ok {
 					t.Errorf("#%d: OpenSSL failed to run: %s", i, err)
 				} else if len(test.expectedError) == 0 {
-					t.Errorf("#%d: OpenSSL unexpectedly failed: %q", i, output)
+					t.Errorf("#%d: OpenSSL unexpectedly failed: %v", i, output)
 					if debugOpenSSLFailure {
 						return
 					}
@@ -1778,10 +1998,12 @@ func TestConstraintCases(t *testing.T) {
 			}
 		}
 
+		ignoreCN = test.ignoreCN
 		verifyOpts := VerifyOptions{
 			Roots:         rootPool,
 			Intermediates: intermediatePool,
 			CurrentTime:   time.Unix(1500, 0),
+			KeyUsages:     test.requestedEKUs,
 		}
 		_, err = leafCert.Verify(verifyOpts)
 
@@ -1806,7 +2028,7 @@ func TestConstraintCases(t *testing.T) {
 			certAsPEM := func(cert *Certificate) string {
 				var buf bytes.Buffer
 				pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-				return string(buf.Bytes())
+				return buf.String()
 			}
 			t.Errorf("#%d: root:\n%s", i, certAsPEM(rootPool.certs[0]))
 			t.Errorf("#%d: leaf:\n%s", i, certAsPEM(leafCert))
@@ -1869,7 +2091,7 @@ func testChainAgainstOpenSSL(leaf *Certificate, intermediates, roots *CertPool) 
 	cmd.Stderr = &output
 
 	err := cmd.Run()
-	return string(output.Bytes()), err
+	return output.String(), err
 }
 
 var rfc2821Tests = []struct {
@@ -1973,12 +2195,13 @@ func TestBadNamesInConstraints(t *testing.T) {
 }
 
 func TestBadNamesInSANs(t *testing.T) {
-	// Bad names in SANs should not parse.
+	// Bad names in URI and IP SANs should not parse. Bad DNS and email SANs
+	// will parse and are tested in name constraint tests at the top of this
+	// file.
 	badNames := []string{
-		"dns:foo.com.",
-		"email:abc@foo.com.",
-		"email:foo.com.",
 		"uri:https://example.com./dsf",
+		"invalidip:0102",
+		"invalidip:0102030405",
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

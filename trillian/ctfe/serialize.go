@@ -15,24 +15,54 @@
 package ctfe
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"sync"
 
 	"github.com/google/certificate-transparency-go/tls"
 
 	ct "github.com/google/certificate-transparency-go"
 )
 
-// signV1TreeHead signs a tree head for CT. The input STH should have been built from a
-// backend response and already checked for validity.
-func (c *LogContext) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead) error {
+// SignatureCache is a one-entry cache that stores the last generated signature
+// for a given bytes input. It helps to reduce the number of signing
+// operations, and the number of distinct signatures produced for the same
+// input (some signing methods are non-deterministic).
+type SignatureCache struct {
+	mu    sync.RWMutex
+	input []byte
+	sig   ct.DigitallySigned
+}
+
+// GetSignature returns the latest signature for the given bytes input. If the
+// input is not in the cache, it returns (_, false).
+func (sc *SignatureCache) GetSignature(input []byte) (ct.DigitallySigned, bool) {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	if !bytes.Equal(input, sc.input) {
+		return ct.DigitallySigned{}, false
+	}
+	return sc.sig, true
+}
+
+// SetSignature associates the signature with the given bytes input.
+func (sc *SignatureCache) SetSignature(input []byte, sig ct.DigitallySigned) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.input, sc.sig = input, sig
+}
+
+// signV1TreeHead signs a tree head for CT. The input STH should have been
+// built from a backend response and already checked for validity.
+func signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead, cache *SignatureCache) error {
 	sthBytes, err := ct.SerializeSTHSignatureInput(*sth)
 	if err != nil {
 		return err
 	}
-	if sig, ok := c.getLastSTHSignature(sthBytes); ok {
+	if sig, ok := cache.GetSignature(sthBytes); ok {
 		sth.TreeHeadSignature = sig
 		return nil
 	}
@@ -51,7 +81,7 @@ func (c *LogContext) signV1TreeHead(signer crypto.Signer, sth *ct.SignedTreeHead
 		},
 		Signature: signature,
 	}
-	c.setLastSTHSignature(sthBytes, sth.TreeHeadSignature)
+	cache.SetSignature(sthBytes, sth.TreeHeadSignature)
 	return nil
 }
 

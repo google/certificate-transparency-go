@@ -17,9 +17,11 @@ package ctfe
 import (
 	"encoding/base64"
 	"encoding/pem"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
@@ -33,13 +35,13 @@ func wipeExtensions(cert *x509.Certificate) *x509.Certificate {
 
 func makePoisonNonCritical(cert *x509.Certificate) *x509.Certificate {
 	// Invalid as a pre-cert because poison extension needs to be marked as critical.
-	cert.Extensions = []pkix.Extension{{Id: ctPoisonExtensionOID, Critical: false, Value: asn1NullBytes}}
+	cert.Extensions = []pkix.Extension{{Id: x509.OIDExtensionCTPoison, Critical: false, Value: asn1.NullBytes}}
 	return cert
 }
 
 func makePoisonNonNull(cert *x509.Certificate) *x509.Certificate {
 	// Invalid as a pre-cert because poison extension is not ASN.1 NULL value.
-	cert.Extensions = []pkix.Extension{{Id: ctPoisonExtensionOID, Critical: false, Value: []byte{0x42, 0x42, 0x42}}}
+	cert.Extensions = []pkix.Extension{{Id: x509.OIDExtensionCTPoison, Critical: false, Value: []byte{0x42, 0x42, 0x42}}}
 	return cert
 }
 
@@ -158,9 +160,9 @@ func TestValidateChain(t *testing.T) {
 			wantPathLen: 3,
 		},
 		{
-			desc:    "chain-with-invalid-nameconstraints",
-			chain:   pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
-			wantErr: true,
+			desc:        "chain-with-invalid-nameconstraints",
+			chain:       pemsToDERChain(t, []string{testonly.LeafCertPEM, testonly.FakeIntermediateWithInvalidNameConstraintsCertPEM}),
+			wantPathLen: 3,
 		},
 		{
 			desc:        "chain-of-len-4",
@@ -184,6 +186,7 @@ func TestValidateChain(t *testing.T) {
 			}
 			if test.wantErr {
 				t.Errorf("ValidateChain()=%v,%v; want _,non-nil", gotPath, err)
+				return
 			}
 			if len(gotPath) != test.wantPathLen {
 				t.Errorf("|ValidateChain()|=%d; want %d", len(gotPath), test.wantPathLen)
@@ -206,7 +209,7 @@ func TestCA(t *testing.T) {
 	}
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
 	leaf, err := x509.ParseCertificate(chain[0])
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Fatalf("Failed to parse golden certificate DER: %v", err)
 	}
 	t.Logf("Cert expiry date: %v", leaf.NotAfter)
@@ -319,6 +322,79 @@ func TestNotAfterRange(t *testing.T) {
 	}
 }
 
+func TestRejectExpiredUnexpired(t *testing.T) {
+	fakeCARoots := NewPEMCertPool()
+	// Validity period: Jul 11, 2016 - Jul 11, 2017.
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
+		t.Fatal("failed to load fake root")
+	}
+	// Validity period: May 13, 2016 - Jul 12, 2019.
+	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
+	validateOpts := CertValidationOpts{
+		trustedRoots: fakeCARoots,
+		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	for _, tc := range []struct {
+		desc            string
+		rejectExpired   bool
+		rejectUnexpired bool
+		now             time.Time
+		wantErr         string
+	}{
+		{desc: "no-reject"},
+		{
+			desc:          "reject-expired-pass",
+			rejectExpired: true,
+			now:           time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:          "reject-expired-after",
+			rejectExpired: true,
+			now:           time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       "expired or is not yet valid",
+		},
+		{
+			desc:          "reject-expired-before",
+			rejectExpired: true,
+			now:           time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:       "expired or is not yet valid",
+		},
+		{
+			desc:            "reject-non-expired-pass-after",
+			rejectUnexpired: true,
+			now:             time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:            "reject-non-expired-pass-before",
+			rejectUnexpired: true,
+			now:             time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			desc:            "reject-non-expired",
+			rejectUnexpired: true,
+			now:             time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			wantErr:         "only expired certificates",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			validateOpts.currentTime = tc.now
+			validateOpts.rejectExpired = tc.rejectExpired
+			validateOpts.rejectUnexpired = tc.rejectUnexpired
+			_, err := ValidateChain(chain, validateOpts)
+			if err != nil {
+				if len(tc.wantErr) == 0 {
+					t.Errorf("ValidateChain()=_,%v; want _,nil", err)
+				} else if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("ValidateChain()=_,%v; want err containing %q", err, tc.wantErr)
+				}
+			} else if len(tc.wantErr) != 0 {
+				t.Errorf("ValidateChain()=_,nil; want err containing %q", tc.wantErr)
+			}
+		})
+	}
+}
+
 // Builds a chain of DER-encoded certs.
 // Note: ordering is important
 func pemsToDERChain(t *testing.T, pemCerts []string) [][]byte {
@@ -340,12 +416,8 @@ func pemToCert(t *testing.T, pemData string) *x509.Certificate {
 	}
 
 	cert, err := x509.ParseCertificate(bytes.Bytes)
-	if err != nil {
-		_, ok := err.(x509.NonFatalErrors)
-		if !ok {
-			t.Fatal(err)
-			return nil
-		}
+	if x509.IsFatal(err) {
+		t.Fatal(err)
 	}
 
 	return cert

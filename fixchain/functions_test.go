@@ -30,7 +30,6 @@ import (
 type nilLimiter struct{}
 
 func (l *nilLimiter) Wait() {
-	return
 }
 
 func newNilLimiter() *nilLimiter {
@@ -50,7 +49,7 @@ func (rc bytesReadCloser) Close() error {
 // reported to the testing framework.
 func GetTestCertificateFromPEM(t *testing.T, pemBytes string) *x509.Certificate {
 	cert, err := x509util.CertificateFromPEM([]byte(pemBytes))
-	if err != nil {
+	if x509.IsFatal(err) {
 		t.Errorf("Failed to parse leaf: %s", err)
 	}
 	return cert

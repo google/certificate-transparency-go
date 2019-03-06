@@ -12,7 +12,6 @@
 #   GO_TEST_TIMEOUT: timeout for 'go test'. Optional (defaults to 5m).
 set -eu
 
-
 check_pkg() {
   local cmd="$1"
   local pkg="$2"
@@ -70,16 +69,16 @@ main() {
   cd "$(dirname "$0")"  # at scripts/
   cd ..  # at top level
 
+  go_srcs="$(find . -name '*.go' | \
+    grep -v vendor/ | \
+    grep -v mock_ | \
+    grep -v .pb.go | \
+    grep -v x509/ | \
+    grep -v asn1/ | \
+    tr '\n' ' ')"
+
   if [[ "$fix" -eq 1 ]]; then
     check_pkg goimports golang.org/x/tools/cmd/goimports || exit 1
-
-    local go_srcs="$(find . -name '*.go' | \
-      grep -v vendor/ | \
-      grep -v mock_ | \
-      grep -v .pb.go | \
-      grep -v x509/ | \
-      grep -v asn1/ | \
-      tr '\n' ' ')"
 
     echo 'running gofmt'
     gofmt -s -w ${go_srcs}
@@ -134,11 +133,13 @@ main() {
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then
-    check_cmd gometalinter \
-      'have you installed github.com/alecthomas/gometalinter?' || exit 1
+    check_cmd golangci-lint \
+      'have you installed github.com/golangci/golangci-lint?' || exit 1
 
-    echo 'running gometalinter'
-    gometalinter --config=gometalinter.json ./...
+    echo 'running golangci-lint'
+    golangci-lint run
+    echo 'checking license headers'
+    ./scripts/check_license.sh ${go_srcs}
   fi
 
   if [[ "${run_generate}" -eq 1 ]]; then
@@ -147,7 +148,9 @@ main() {
 
     echo 'running go generate'
     go generate -run="protoc" ./...
-    go generate -run="mockgen" ./...
+    # TODO(daviddrysdale): re-enable mockgen generation once other environments
+    # have caught up with non-back-compatible changes to github.com/golang/mock
+    # go generate -run="mockgen" ./...
   fi
 }
 

@@ -6,7 +6,7 @@ metadata:
     io.kompose.service: trillian-ctfe
   name: trillian-ctfe-deployment
 spec:
-  replicas: 3
+  replicas: 4
   strategy: {}
   template:
     metadata:
@@ -15,30 +15,24 @@ spec:
     spec:
       containers:
         - name: trillian-ctfe
-          command: ["/go/bin/ct_server",
-          "--http_endpoint=0.0.0.0:6962",
-          "--metrics_endpoint=0.0.0.0:6963",
-          "--log_rpc_server=trillian-log-service:8090",
-          "--log_config=/ctfe-config/ct_server.cfg",
-          "--alsologtostderr"
+          args: [
+            "--http_endpoint=0.0.0.0:6962",
+            "--metrics_endpoint=0.0.0.0:6963",
+            "--log_rpc_server=dns:///trillian-log-service:8090",
+            "--log_config=/ctfe-config/ct_server.cfg",
+            "--alsologtostderr"
           ]
-          image: gcr.io/trillian-opensource-ci/ctfe:latest
+          image: gcr.io/${PROJECT_ID}/ctfe:${IMAGE_TAG}
           imagePullPolicy: Always
           resources:
             limits:
-              cpu: "1.8"
+              cpu: 1.8
             requests:
-              cpu: "1"
+              cpu: 300m
           livenessProbe:
             httpGet:
               path: /metrics
               port: metrics
-          readinessProbe:
-            exec:
-              command:
-              - curl
-              - -f
-              - http://localhost:6963/metrics
             failureThreshold: 3
             periodSeconds: 30
             timeoutSeconds: 30
@@ -57,7 +51,7 @@ spec:
           - name: ctfe-config-volume
             mountPath: /ctfe-config
         - name: prometheus-to-sd
-          image: gcr.io/google-containers/prometheus-to-sd:v0.2.6
+          image: gcr.io/google-containers/prometheus-to-sd:v0.3.2
           ports:
             - name: profiler
               containerPort: 6060
@@ -67,7 +61,8 @@ spec:
             - --source=ctfe:http://localhost:6963/metrics
             - --pod-id=$(POD_NAME)
             - --namespace-id=$(POD_NAMESPACE)
-            - --metrics-resolution=5s
+            - --scrape-interval=5s
+            - --export-interval=60s
           env:
             - name: POD_NAME
               valueFrom:
@@ -77,8 +72,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-      nodeSelector:
-        cloud.google.com/gke-nodepool: ctfe-pool
       volumes:
         - name: ctfe-config-volume
           configMap:

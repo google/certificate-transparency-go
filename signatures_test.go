@@ -56,12 +56,6 @@ const (
 		"3046022100d3f7690e7ee80d9988a54a3821056393e9eb0c686ad67fbae3686c888fb1a3c" +
 		"e022100f9a51c6065bbba7ad7116a31bea1c31dbed6a921e1df02e4b403757fae3254ae"
 
-	sigTestEC256PrivateKeyPEM = "-----BEGIN EC PRIVATE KEY-----\n" +
-		"MHcCAQEEIG8QAquNnarN6Ik2cMIZtPBugh9wNRe0e309MCmDfBGuoAoGCCqGSM49\n" +
-		"AwEHoUQDQgAES0AfBkjr7b8b19p5Gk8plSAN16wWXZyhYsH6FMCEUK60t7pem/ck\n" +
-		"oPX8hupuaiJzJS0ZQ0SEoJGlFxkUFwft5g==\n" +
-		"-----END EC PRIVATE KEY-----\n"
-
 	sigTestEC256PublicKeyPEM = "-----BEGIN PUBLIC KEY-----\n" +
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAES0AfBkjr7b8b19p5Gk8plSAN16wW\n" +
 		"XZyhYsH6FMCEUK60t7pem/ckoPX8hupuaiJzJS0ZQ0SEoJGlFxkUFwft5g==\n" +
@@ -71,34 +65,6 @@ const (
 		"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfahLEimAoz2t01p3uMziiLOl/fHT\n" +
 		"DM0YDOhBRuiBARsV4UvxG2LdNgoIGLrtCzWE0J5APC2em4JlvR8EEEFMoA==\n" +
 		"-----END PUBLIC KEY-----\n"
-
-	sigTestRSAPrivateKeyPEM = "-----BEGIN RSA PRIVATE KEY-----\n" +
-		"MIIEpAIBAAKCAQEAxy7llbig9kL0wo5AyV1FhmJLvWTWxzAMwGdhG1h1CqQpaWut\n" +
-		"XGI9WKRDJSZ/9dr9vgvqdRX2QsnUdJbJ3cz5Z1ie/RdT/mSVO7ZEqvJS93PIHnqu\n" +
-		"FZXxNnIerGnQ7guC+Zm9BlQ2DIhYpnvVRRVyD/D8KT92R7qOu3JACduoMrF1synk\n" +
-		"nL8rb8lZvCej8tbhJ38yibMWTmkxsFS+a29Xqk8pkhgwIwvUZqcMaqZo+4/iCuKL\n" +
-		"bVc85V98SvbcnmsX3gqeQnyRtxlctlclcbvHmJt5U+3yF1UtcuiyZf1gjcAqnOgv\n" +
-		"ZZYzsodXi0KGV7NRQhTPvwH0C8In2qL+v4qWAQIDAQABAoIBAQCdyqsaNw9cx6I6\n" +
-		"1pLAcuF3GjvCKDZ1ybzwV3V4QlVGPtKHr0PBIhpTNJ30ulE4pWnKuoncg695LYbf\n" +
-		"be0xhwY1NuGMwoRJzcjjavtvKVVMry5j5vAuLYDPjwx5rcJUMk5qCb7TWrcOqp0A\n" +
-		"Fq3XcqvPsSsyShIbtNEJ8fKFXLwcm07bGDgOacrXieP/nL2Hh6joeAJLgnKAOtU5\n" +
-		"qw6fdweYGThfhdCwaBq0WSaxj6nMG3Q40bHurvdOAtU1GF2a27BGsnfKFyKlvk8+\n" +
-		"K7tCc4oXo4WWEUuOwu6SmB1kYIZLf258B0PFQJwN8OA3Mbek+F4Bm3DzWe1aLS5L\n" +
-		"wpOYxrq5AoGBAO0sGq+ic+9K81FvBBUYXiFtt9rv3nU9jZhjqpfvdqRs2KXt8ldz\n" +
-		"2M+JCRFHt8rLDEutK/NZuZcq3wAXS3EeMIp33QZ7Yuj5LeG9eD0asX8yq51Toua3\n" +
-		"gRDbiR00Vz/3BINM8JufN/sPLoUiuAV5mlOTktZ8+z7ixO4ravMB1Z9HAoGBANb+\n" +
-		"w+1Hre8+4JEnl3yRh1UNDmbhCc2tRxCD4QJyb9qaOl2IK1QXuDcwD8owdenwOrAi\n" +
-		"I5yKx7y4oKNfdSrP2wlAGS/GAEL5f+JhLtv2cNoKNxMXNRgYfJAQeMKBjINdECia\n" +
-		"G89lbPVCm+F3guzrO70giA4617GFSEA31rRC1BR3AoGBAKcQLiwRrsCcdxChtqp1\n" +
-		"Y7kAZEXgOT80gI0bh4tGrrfbxC/9kHtxqwNlb/GwJxK+PIcCELd2OHj3ReX2grnH\n" +
-		"nkGrdRGf0GhzPZKJuCyypN0IgEJuK42BLXUGb2sW926jPZaPl9zHJtO+OfKmJiIV\n" +
-		"KlQ8224i04fUjQuHoepTHHr5AoGAS8AZ4lmWFCywTRSJEG/qIfJmt6LkpF5AIraE\n" +
-		"qisN9BTRKbFXqtpsoq1BcvjeIt3sn7B3oalYNMtMdiOlEb+Iqlq2RRnbb72e7HFX\n" +
-		"ZFMRchGVVBmiMGo4QT48fjPNAV/h2Jxr3ggbetLMP4WvULCVLM7wgSsEYlzWlyHV\n" +
-		"eU/uj4MCgYADGpY3Q3ueB23eTTnAMtESwmAQvjTBOPKVpaV/ohHb8BdzAjwcgEUA\n" +
-		"wB1be/bHCrLbW09Pi3HVp0I0x0mBAYoUP2NRYKCYlhs28cu+ygB4nsy+YZPg00+E\n" +
-		"ByqqrQ0zuN82ytXzRFHmh2Hb2O+HOj6aJjgVuj/rR7aifIt8scSAhg==\n" +
-		"-----END RSA PRIVATE KEY-----\n"
 
 	sigTestRSAPublicKeyPEM = "-----BEGIN PUBLIC KEY-----\n" +
 		"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxy7llbig9kL0wo5AyV1F\n" +
@@ -133,16 +99,11 @@ const (
 	// *Some* hash that we pretend is a valid root hash.
 	sigTestDefaultRootHash = "18041bd4665083001fba8c5411d2d748e8abbfdcdfd9218cb02b68a78e7d4c23"
 
-	sigTestDefaultSTHSerialized = "000100000139fe354384000000000000002a18041bd4665083001fba8c5411d2d748e8abb" +
-		"fdcdfd9218cb02b68a78e7d4c23"
-
 	sigTestDefaultSTHSignature = "0403" + "0048" +
 		"3046022100befd8060563763a5e49ba53e6443c13f7624fd6403178113736e16012aca983" +
 		"e022100f572568dbfe9a86490eb915c4ee16ad5ecd708fed35ed4e5cd1b2c3f087b4130"
 
 	sigTestKeyIDEC = "b69d879e3f2c4402556dcda2f6b2e02ff6b6df4789c53000e14f4b125ae847aa"
-
-	sigTestKeyIDRSA = "b853f84c71a7aa5f23905ba5340f183af927c330c7ce590ba1524981c4ec4358"
 )
 
 func mustDehex(t *testing.T, h string) []byte {
@@ -471,7 +432,7 @@ func TestNewSignatureVerifierFailsWithBadKeyParametersForRSA(t *testing.T) {
 }
 
 func TestWillAllowNonCompliantECKeyWithOverride(t *testing.T) {
-	*allowVerificationWithNonCompliantKeys = true
+	AllowVerificationWithNonCompliantKeys = true
 	k, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed to generate EC key on P224: %v", err)
@@ -482,7 +443,7 @@ func TestWillAllowNonCompliantECKeyWithOverride(t *testing.T) {
 }
 
 func TestWillAllowNonCompliantRSAKeyWithOverride(t *testing.T) {
-	*allowVerificationWithNonCompliantKeys = true
+	AllowVerificationWithNonCompliantKeys = true
 	k, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Fatalf("Failed to generate 1024 bit RSA key: %v", err)

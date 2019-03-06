@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -36,6 +37,8 @@ const (
 	LogListURL = "https://www.gstatic.com/ct/log_list/log_list.json"
 	// LogListSignatureURL has the URL for the signature over Google Chrome's log list.
 	LogListSignatureURL = "https://www.gstatic.com/ct/log_list/log_list.sig"
+	// AllLogListURL has the URL for the list of all known logs (which isn't signed).
+	AllLogListURL = "https://www.gstatic.com/ct/log_list/all_logs_list.json"
 )
 
 // Manually mapped from https://www.gstatic.com/ct/log_list/log_list_schema.json
@@ -70,6 +73,12 @@ type STH struct {
 	Timestamp         int    `json:"timestamp"`
 	SHA256RootHash    []byte `json:"sha256_root_hash"`
 	TreeHeadSignature []byte `json:"tree_head_signature"`
+}
+
+// GoogleOperated returns whether Log is operated by Google. Rough logic.
+func (l *Log) GoogleOperated() bool {
+	lowerDesc := strings.ToLower(l.Description)
+	return strings.Contains(lowerDesc, "google")
 }
 
 // NewFromJSON creates a LogList from JSON encoded data.
@@ -107,6 +116,15 @@ func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList
 	return NewFromJSON(llData)
 }
 
+// OperatorIDSet is a helper op, creates set of operators for LogList.
+func (ll *LogList) OperatorIDSet() map[int]string {
+	ops := make(map[int]string)
+	for _, op := range ll.Operators {
+		ops[op.ID] = op.Name
+	}
+	return ops
+}
+
 // FindLogByName returns all logs whose names contain the given string.
 func (ll *LogList) FindLogByName(name string) []*Log {
 	name = strings.ToLower(name)
@@ -142,15 +160,31 @@ func (ll *LogList) FindLogByKeyHash(keyhash [sha256.Size]byte) *Log {
 	return nil
 }
 
+// FindLogByKeyHashPrefix finds all logs whose key hash starts with the prefix.
+func (ll *LogList) FindLogByKeyHashPrefix(prefix string) []*Log {
+	var results []*Log
+	for _, log := range ll.Logs {
+		h := sha256.Sum256(log.Key)
+		hh := hex.EncodeToString(h[:])
+		if strings.HasPrefix(hh, prefix) {
+			log := log
+			results = append(results, &log)
+		}
+	}
+	return results
+}
+
 // FindLogByKey finds the log with the given DER-encoded key.
 func (ll *LogList) FindLogByKey(key []byte) *Log {
 	for _, log := range ll.Logs {
-		if bytes.Equal(log.Key[:], key[:]) {
+		if bytes.Equal(log.Key[:], key) {
 			return &log
 		}
 	}
 	return nil
 }
+
+var hexDigits = regexp.MustCompile("^[0-9a-fA-F]+$")
 
 // FuzzyFindLog tries to find logs that match the given unspecified input,
 // whose format is unspecified.  This generally returns a single log, but
@@ -189,6 +223,12 @@ func (ll *LogList) FuzzyFindLog(input string) []*Log {
 		}
 		if log := ll.FindLogByKey(data); log != nil {
 			return []*Log{log}
+		}
+	}
+	// Finally, allow hex strings with an odd number of digits.
+	if hexDigits.MatchString(input) {
+		if logs := ll.FindLogByKeyHashPrefix(input); len(logs) > 0 {
+			return logs
 		}
 	}
 

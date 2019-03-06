@@ -1,7 +1,9 @@
 package x509_test
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -152,7 +154,7 @@ func TestErrors(t *testing.T) {
 	}
 }
 
-func TestErrorsAppend(t *testing.T) {
+func TestErrorsRawAppend(t *testing.T) {
 	var errs x509.Errors
 	if got, want := errs.Error(), ""; got != want {
 		t.Errorf("Errors().Error()=%q; want %q", got, want)
@@ -188,5 +190,52 @@ func TestErrorsFilter(t *testing.T) {
 	errs2 := errs.Filter(filter)
 	if got, want := errs2.Error(), baseErr; got != want {
 		t.Errorf("Errors(%+v).Error=%q; want %q", errs, got, want)
+	}
+}
+
+func TestErrorsAppend(t *testing.T) {
+	errA := errors.New("A")
+	errB := errors.New("B")
+	errC := errors.New("C")
+	errD := errors.New("D")
+	tests := []struct {
+		left, right, want *x509.NonFatalErrors
+	}{
+		{
+			left:  &x509.NonFatalErrors{Errors: []error{errA}},
+			right: &x509.NonFatalErrors{Errors: []error{errB}},
+			want:  &x509.NonFatalErrors{Errors: []error{errA, errB}},
+		},
+		{
+			left:  &x509.NonFatalErrors{Errors: []error{errA, errB}},
+			right: &x509.NonFatalErrors{Errors: []error{errC, errD}},
+			want:  &x509.NonFatalErrors{Errors: []error{errA, errB, errC, errD}},
+		},
+		{
+			left:  nil,
+			right: &x509.NonFatalErrors{Errors: []error{errC, errD}},
+			want:  &x509.NonFatalErrors{Errors: []error{errC, errD}},
+		},
+		{
+			left:  &x509.NonFatalErrors{Errors: []error{errC, errD}},
+			right: nil,
+			want:  &x509.NonFatalErrors{Errors: []error{errC, errD}},
+		},
+		{
+			left:  nil,
+			right: nil,
+			want:  nil,
+		},
+		{
+			left:  &x509.NonFatalErrors{Errors: []error{}},
+			right: nil,
+			want:  &x509.NonFatalErrors{Errors: []error{}},
+		},
+	}
+	for _, test := range tests {
+		got := test.left.Append(test.right)
+		if !reflect.DeepEqual(got, test.want) {
+			t.Errorf("(%+v).Append(%+v)=%v, want %v", test.left, test.right, got, test.want)
+		}
 	}
 }

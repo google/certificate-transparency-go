@@ -27,10 +27,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
@@ -56,6 +58,8 @@ func OIDForStandardExtension(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionFreshestCRL) ||
 		oid.Equal(x509.OIDExtensionSubjectInfoAccess) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionIPPrefixList) ||
+		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
 		oid.Equal(x509.OIDExtensionCTSCT) {
 		return true
@@ -81,7 +85,7 @@ func OIDInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) (in
 }
 
 // String formatting for various X.509/ASN.1 types
-func bitStringToString(b asn1.BitString) string {
+func bitStringToString(b asn1.BitString) string { // nolint:deadcode,unused
 	result := hex.EncodeToString(b.Bytes)
 	bitsLeft := b.BitLength % 8
 	if bitsLeft != 0 {
@@ -129,6 +133,8 @@ func curveOIDToString(oid asn1.ObjectIdentifier) (t string, bitlen int) {
 		return "secp384r1", 384
 	case oid.Equal(x509.OIDNamedCurveP521):
 		return "secp521r1", 521
+	case oid.Equal(x509.OIDNamedCurveP192):
+		return "secp192r1", 192
 	}
 	return fmt.Sprintf("%v", oid), -1
 }
@@ -246,7 +252,7 @@ func extKeyUsageToString(u x509.ExtKeyUsage) string {
 	}
 }
 
-func attributeOIDToString(oid asn1.ObjectIdentifier) string {
+func attributeOIDToString(oid asn1.ObjectIdentifier) string { // nolint:deadcode,unused
 	switch {
 	case oid.Equal(pkix.OIDCountry):
 		return "Country"
@@ -399,7 +405,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	result.WriteString(fmt.Sprintf("Certificate:\n"))
 	result.WriteString(fmt.Sprintf("    Data:\n"))
 	result.WriteString(fmt.Sprintf("        Version: %d (%#x)\n", cert.Version, cert.Version-1))
-	result.WriteString(fmt.Sprintf("        Serial Number: %d (%#[1]x)\n", cert.SerialNumber))
+	result.WriteString(fmt.Sprintf("        Serial Number: %s (0x%s)\n", cert.SerialNumber.Text(10), cert.SerialNumber.Text(16)))
 	result.WriteString(fmt.Sprintf("    Signature Algorithm: %v\n", cert.SignatureAlgorithm))
 	result.WriteString(fmt.Sprintf("        Issuer: %v\n", NameToString(cert.Issuer)))
 	result.WriteString(fmt.Sprintf("        Validity:\n"))
@@ -424,8 +430,12 @@ func CertificateToString(cert *x509.Certificate) string {
 	showCertPolicies(&result, cert)
 	showCRLDPs(&result, cert)
 	showAuthInfoAccess(&result, cert)
+	showSubjectInfoAccess(&result, cert)
+	showRPKIAddressRanges(&result, cert)
+	showRPKIASIdentifiers(&result, cert)
 	showCTPoison(&result, cert)
 	showCTSCT(&result, cert)
+	showCTLogSTHInfo(&result, cert)
 
 	showUnhandledExtensions(&result, cert)
 	showSignature(&result, cert)
@@ -587,6 +597,105 @@ func showAuthInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showSubjectInfoAccess(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionSubjectInfoAccess, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            Subject Information Access:"))
+		showCritical(result, critical)
+		var tsBuf bytes.Buffer
+		for _, ts := range cert.SubjectTimestamps {
+			commaAppend(&tsBuf, "URI:"+ts)
+		}
+		if tsBuf.Len() > 0 {
+			result.WriteString(fmt.Sprintf("                AD Time Stamping - %v\n", tsBuf.String()))
+		}
+		var repoBuf bytes.Buffer
+		for _, repo := range cert.SubjectCARepositories {
+			commaAppend(&repoBuf, "URI:"+repo)
+		}
+		if repoBuf.Len() > 0 {
+			result.WriteString(fmt.Sprintf("                CA repository - %v\n", repoBuf.String()))
+		}
+	}
+}
+
+func showAddressRange(prefix x509.IPAddressPrefix, afi uint16) string {
+	switch afi {
+	case x509.IPv4AddressFamilyIndicator, x509.IPv6AddressFamilyIndicator:
+		size := 4
+		if afi == x509.IPv6AddressFamilyIndicator {
+			size = 16
+		}
+		ip := make([]byte, size)
+		copy(ip, prefix.Bytes)
+		addr := net.IPNet{IP: ip, Mask: net.CIDRMask(prefix.BitLength, 8*size)}
+		return addr.String()
+	default:
+		return fmt.Sprintf("%x/%d", prefix.Bytes, prefix.BitLength)
+	}
+
+}
+
+func showRPKIAddressRanges(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionIPPrefixList, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            sbgp-ipAddrBlock:"))
+		showCritical(result, critical)
+		for _, blocks := range cert.RPKIAddressRanges {
+			afi := blocks.AFI
+			switch afi {
+			case x509.IPv4AddressFamilyIndicator:
+				result.WriteString("                IPv4")
+			case x509.IPv6AddressFamilyIndicator:
+				result.WriteString("                IPv6")
+			default:
+				result.WriteString(fmt.Sprintf("                %d", afi))
+			}
+			if blocks.SAFI != 0 {
+				result.WriteString(fmt.Sprintf(" SAFI=%d", blocks.SAFI))
+			}
+			result.WriteString(":")
+			if blocks.InheritFromIssuer {
+				result.WriteString(" inherit\n")
+				continue
+			}
+			result.WriteString("\n")
+			for _, prefix := range blocks.AddressPrefixes {
+				result.WriteString(fmt.Sprintf("                  %s\n", showAddressRange(prefix, afi)))
+			}
+			for _, ipRange := range blocks.AddressRanges {
+				result.WriteString(fmt.Sprintf("                  [%s, %s]\n", showAddressRange(ipRange.Min, afi), showAddressRange(ipRange.Max, afi)))
+			}
+		}
+	}
+}
+
+func showASIDs(result *bytes.Buffer, asids *x509.ASIdentifiers, label string) {
+	if asids == nil {
+		return
+	}
+	result.WriteString(fmt.Sprintf("                %s:\n", label))
+	if asids.InheritFromIssuer {
+		result.WriteString("                  inherit\n")
+		return
+	}
+	for _, id := range asids.ASIDs {
+		result.WriteString(fmt.Sprintf("                  %d\n", id))
+	}
+	for _, idRange := range asids.ASIDRanges {
+		result.WriteString(fmt.Sprintf("                  %d-%d\n", idRange.Min, idRange.Max))
+	}
+}
+
+func showRPKIASIdentifiers(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509.OIDExtensionASList, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            sbgp-autonomousSysNum:"))
+		showCritical(result, critical)
+		showASIDs(result, cert.RPKIASNumbers, "Autonomous System Numbers")
+		showASIDs(result, cert.RPKIRoutingDomainIDs, "Routing Domain Identifiers")
+	}
+}
 func showCTPoison(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(x509.OIDExtensionCTPoison, cert.Extensions)
 	if count > 0 {
@@ -621,6 +730,29 @@ func showCTSCT(result *bytes.Buffer, cert *x509.Certificate) {
 	}
 }
 
+func showCTLogSTHInfo(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(x509ext.OIDExtensionCTSTH, cert.Extensions)
+	if count > 0 {
+		result.WriteString(fmt.Sprintf("            Certificate Transparency STH:"))
+		showCritical(result, critical)
+		sthInfo, err := x509ext.LogSTHInfoFromCert(cert)
+		if err != nil {
+			result.WriteString(fmt.Sprintf("              Failed to decode STH:\n"))
+			return
+		}
+		result.WriteString(fmt.Sprintf("              LogURL: %s\n", string(sthInfo.LogURL)))
+		result.WriteString(fmt.Sprintf("              Version: %d\n", sthInfo.Version))
+		result.WriteString(fmt.Sprintf("              TreeSize: %d\n", sthInfo.TreeSize))
+		result.WriteString(fmt.Sprintf("              Timestamp: %d\n", sthInfo.Timestamp))
+		result.WriteString(fmt.Sprintf("              RootHash:\n"))
+		appendHexData(result, sthInfo.SHA256RootHash[:], 16, "                    ")
+		result.WriteString("\n")
+		result.WriteString(fmt.Sprintf("              TreeHeadSignature: %s\n", sthInfo.TreeHeadSignature.Algorithm))
+		appendHexData(result, sthInfo.TreeHeadSignature.Signature, 16, "                    ")
+		result.WriteString("\n")
+	}
+}
+
 func showUnhandledExtensions(result *bytes.Buffer, cert *x509.Certificate) {
 	for _, ext := range cert.Extensions {
 		// Skip extensions that are already cracked out
@@ -652,8 +784,12 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionNameConstraints) ||
 		oid.Equal(x509.OIDExtensionCRLDistributionPoints) ||
 		oid.Equal(x509.OIDExtensionAuthorityInfoAccess) ||
+		oid.Equal(x509.OIDExtensionSubjectInfoAccess) ||
+		oid.Equal(x509.OIDExtensionIPPrefixList) ||
+		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
-		oid.Equal(x509.OIDExtensionCTSCT) {
+		oid.Equal(x509.OIDExtensionCTSCT) ||
+		oid.Equal(x509ext.OIDExtensionCTSTH) {
 		return true
 	}
 	return false
@@ -717,8 +853,10 @@ func ExtractSCT(sctData *x509.SerializedSCT) (*ct.SignedCertificateTimestamp, er
 		return nil, errors.New("SCT is nil")
 	}
 	var sct ct.SignedCertificateTimestamp
-	if _, err := tls.Unmarshal(sctData.Val, &sct); err != nil {
+	if rest, err := tls.Unmarshal(sctData.Val, &sct); err != nil {
 		return nil, fmt.Errorf("error parsing SCT: %s", err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("extra data (%d bytes) after serialized SCT", len(rest))
 	}
 	return &sct, nil
 }

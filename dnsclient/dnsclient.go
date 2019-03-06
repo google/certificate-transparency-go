@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
@@ -44,6 +45,25 @@ type DNSClient struct {
 // top-level domain name; opts can be used to provide a custom logger
 // interface and a public key for signature verification.
 func New(base string, opts jsonclient.Options) (*DNSClient, error) {
+	return newWithResolver(base, opts, func(ctx context.Context, name string) ([]string, error) { return net.LookupTXT(name) })
+}
+
+// NewForNameServer constructs a DNSClient instance that uses a specific
+// nameserver.
+func NewForNameServer(base string, opts jsonclient.Options, ns string) (*DNSClient, error) {
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			d := net.Dialer{}
+			return d.DialContext(ctx, "udp", net.JoinHostPort(ns, "53"))
+		},
+	}
+	return newWithResolver(base, opts, func(ctx context.Context, name string) ([]string, error) {
+		return resolver.LookupTXT(ctx, name)
+	})
+}
+
+func newWithResolver(base string, opts jsonclient.Options, resolve func(ctx context.Context, name string) ([]string, error)) (*DNSClient, error) {
 	pubkey, err := opts.ParsePublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("invalid public key: %v", err)
@@ -63,7 +83,7 @@ func New(base string, opts jsonclient.Options) (*DNSClient, error) {
 	return &DNSClient{
 		base:     base,
 		Verifier: verifier,
-		resolve:  func(ctx context.Context, name string) ([]string, error) { return net.LookupTXT(name) },
+		resolve:  resolve,
 	}, nil
 }
 
@@ -80,9 +100,15 @@ var (
 	sthTXT = regexp.MustCompile(`^(\d+)\.(\d+)\.(` + base64RE + `)\.(` + base64RE + `)`)
 )
 
+// BaseURI returns a base dns: URI (cf. RFC 4501) that DNS queries will be built on.
+func (c *DNSClient) BaseURI() string {
+	return fmt.Sprintf("dns:%s", c.base)
+}
+
 // GetSTH retrieves the current STH from the log.
 func (c *DNSClient) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 	name := "sth." + c.base
+	glog.V(2).Infof("sth: query %s TXT", name)
 	results, err := c.resolve(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("lookup for %q failed: %v", name, err)
@@ -153,6 +179,7 @@ func (c *DNSClient) GetProofByHash(ctx context.Context, hash []byte, treeSize ui
 	// Drop any trailing padding.
 	hash32 = strings.TrimRight(hash32, "=")
 	name := fmt.Sprintf("%s.hash.%s", hash32, c.base)
+	glog.V(2).Infof("hash: query %s TXT", name)
 	results, err := c.resolve(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("lookup failed for %q: %v", name, err)
@@ -180,6 +207,7 @@ func (c *DNSClient) getProof(ctx context.Context, base string) ([][]byte, error)
 	var proof [][]byte
 	for index := 0; index <= 255; {
 		name := fmt.Sprintf("%d.%s", index, base)
+		glog.V(2).Infof("proof: query %s TXT", name)
 		results, err := c.resolve(ctx, name)
 		if err != nil {
 			if index == 0 {

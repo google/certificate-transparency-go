@@ -42,67 +42,85 @@ func TestParseBool(t *testing.T) {
 }
 
 type int64Test struct {
-	in  []byte
-	ok  bool
-	out int64
+	in    []byte
+	ok    bool
+	okLax bool
+	out   int64
 }
 
 var int64TestData = []int64Test{
-	{[]byte{0x00}, true, 0},
-	{[]byte{0x7f}, true, 127},
-	{[]byte{0x00, 0x80}, true, 128},
-	{[]byte{0x01, 0x00}, true, 256},
-	{[]byte{0x80}, true, -128},
-	{[]byte{0xff, 0x7f}, true, -129},
-	{[]byte{0xff}, true, -1},
-	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, true, -9223372036854775808},
-	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, false, 0},
-	{[]byte{}, false, 0},
-	{[]byte{0x00, 0x7f}, false, 0},
-	{[]byte{0xff, 0xf0}, false, 0},
+	{[]byte{0x00}, true, true, 0},
+	{[]byte{0x7f}, true, true, 127},
+	{[]byte{0x00, 0x80}, true, true, 128},
+	{[]byte{0x01, 0x00}, true, true, 256},
+	{[]byte{0x80}, true, true, -128},
+	{[]byte{0xff, 0x7f}, true, true, -129},
+	{[]byte{0xff}, true, true, -1},
+	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, true, true, -9223372036854775808},
+	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, false, false, 0},
+	{[]byte{}, false, false, 0},
+	{[]byte{0x00, 0x7f}, false, true, 127},
+	{[]byte{0xff, 0xf0}, false, true, -16},
 }
 
 func TestParseInt64(t *testing.T) {
 	for i, test := range int64TestData {
-		ret, err := parseInt64(test.in, "fieldname")
+		ret, err := parseInt64(test.in, false, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
 		if test.ok && ret != test.out {
 			t.Errorf("#%d: Bad result: %v (expected %v)", i, ret, test.out)
 		}
+
+		ret, err = parseInt64(test.in, true, "fieldname")
+		if (err == nil) != test.okLax {
+			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+		}
+		if test.okLax && ret != test.out {
+			t.Errorf("#%d: Bad lax result: %v (expected %v)", i, ret, test.out)
+		}
 	}
 }
 
 type int32Test struct {
-	in  []byte
-	ok  bool
-	out int32
+	in    []byte
+	ok    bool
+	okLax bool
+	out   int32
 }
 
 var int32TestData = []int32Test{
-	{[]byte{0x00}, true, 0},
-	{[]byte{0x7f}, true, 127},
-	{[]byte{0x00, 0x80}, true, 128},
-	{[]byte{0x01, 0x00}, true, 256},
-	{[]byte{0x80}, true, -128},
-	{[]byte{0xff, 0x7f}, true, -129},
-	{[]byte{0xff}, true, -1},
-	{[]byte{0x80, 0x00, 0x00, 0x00}, true, -2147483648},
-	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00}, false, 0},
-	{[]byte{}, false, 0},
-	{[]byte{0x00, 0x7f}, false, 0},
-	{[]byte{0xff, 0xf0}, false, 0},
+	{[]byte{0x00}, true, true, 0},
+	{[]byte{0x7f}, true, true, 127},
+	{[]byte{0x00, 0x80}, true, true, 128},
+	{[]byte{0x01, 0x00}, true, true, 256},
+	{[]byte{0x80}, true, true, -128},
+	{[]byte{0xff, 0x7f}, true, true, -129},
+	{[]byte{0xff}, true, true, -1},
+	{[]byte{0x80, 0x00, 0x00, 0x00}, true, true, -2147483648},
+	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00}, false, false, 0},
+	{[]byte{}, false, false, 0},
+	{[]byte{0x00, 0x7f}, false, true, 127},
+	{[]byte{0xff, 0xf0}, false, true, -16},
 }
 
 func TestParseInt32(t *testing.T) {
 	for i, test := range int32TestData {
-		ret, err := parseInt32(test.in, "fieldname")
+		ret, err := parseInt32(test.in, false, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
 		if test.ok && int32(ret) != test.out {
 			t.Errorf("#%d: Bad result: %v (expected %v)", i, ret, test.out)
+		}
+
+		ret, err = parseInt32(test.in, true, "fieldname")
+		if (err == nil) != test.okLax {
+			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+		}
+		if test.okLax && int32(ret) != test.out {
+			t.Errorf("#%d: Bad lax result: %v (expected %v)", i, ret, test.out)
 		}
 	}
 }
@@ -110,22 +128,23 @@ func TestParseInt32(t *testing.T) {
 var bigIntTests = []struct {
 	in     []byte
 	ok     bool
+	okLax  bool
 	base10 string
 }{
-	{[]byte{0xff}, true, "-1"},
-	{[]byte{0x00}, true, "0"},
-	{[]byte{0x01}, true, "1"},
-	{[]byte{0x00, 0xff}, true, "255"},
-	{[]byte{0xff, 0x00}, true, "-256"},
-	{[]byte{0x01, 0x00}, true, "256"},
-	{[]byte{}, false, ""},
-	{[]byte{0x00, 0x7f}, false, ""},
-	{[]byte{0xff, 0xf0}, false, ""},
+	{[]byte{0xff}, true, true, "-1"},
+	{[]byte{0x00}, true, true, "0"},
+	{[]byte{0x01}, true, true, "1"},
+	{[]byte{0x00, 0xff}, true, true, "255"},
+	{[]byte{0xff, 0x00}, true, true, "-256"},
+	{[]byte{0x01, 0x00}, true, true, "256"},
+	{[]byte{}, false, false, ""},
+	{[]byte{0x00, 0x7f}, false, true, "127"},
+	{[]byte{0xff, 0xf0}, false, true, "-16"},
 }
 
 func TestParseBigInt(t *testing.T) {
 	for i, test := range bigIntTests {
-		ret, err := parseBigInt(test.in, "fieldname")
+		ret, err := parseBigInt(test.in, false, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -142,6 +161,16 @@ func TestParseBigInt(t *testing.T) {
 			e.Encode(result)
 			if !bytes.Equal(result, test.in) {
 				t.Errorf("#%d: got %x from marshaling %s, want %x", i, result, ret, test.in)
+			}
+		}
+
+		ret, err = parseBigInt(test.in, true, "fieldname")
+		if (err == nil) != test.okLax {
+			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+		}
+		if test.okLax {
+			if ret.String() != test.base10 {
+				t.Errorf("#%d: bad result from %x, got %s want %s", i, test.in, ret.String(), test.base10)
 			}
 		}
 	}
@@ -226,22 +255,24 @@ func TestBitStringRightAlign(t *testing.T) {
 
 type objectIdentifierTest struct {
 	in  []byte
+	lax bool
 	ok  bool
-	out []int
+	out ObjectIdentifier // has base type[]int
 }
 
 var objectIdentifierTestData = []objectIdentifierTest{
-	{[]byte{}, false, []int{}},
-	{[]byte{85}, true, []int{2, 5}},
-	{[]byte{85, 0x02}, true, []int{2, 5, 2}},
-	{[]byte{85, 0x02, 0xc0, 0x00}, true, []int{2, 5, 2, 0x2000}},
-	{[]byte{0x81, 0x34, 0x03}, true, []int{2, 100, 3}},
-	{[]byte{85, 0x02, 0xc0, 0x80, 0x80, 0x80, 0x80}, false, []int{}},
+	{in: []byte{}, ok: false},
+	{in: []byte{}, lax: true, ok: true, out: []int{}},
+	{in: []byte{85}, ok: true, out: []int{2, 5}},
+	{in: []byte{85, 0x02}, ok: true, out: []int{2, 5, 2}},
+	{in: []byte{85, 0x02, 0xc0, 0x00}, ok: true, out: []int{2, 5, 2, 0x2000}},
+	{in: []byte{0x81, 0x34, 0x03}, ok: true, out: []int{2, 100, 3}},
+	{in: []byte{85, 0x02, 0xc0, 0x80, 0x80, 0x80, 0x80}, ok: false},
 }
 
 func TestObjectIdentifier(t *testing.T) {
 	for i, test := range objectIdentifierTestData {
-		ret, err := parseObjectIdentifier(test.in, "fieldname")
+		ret, err := parseObjectIdentifier(test.in, test.lax, "fieldname")
 		if (err == nil) != test.ok {
 			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
 		}
@@ -428,9 +459,11 @@ var parseFieldParametersTestData []parseFieldParametersTest = []parseFieldParame
 	{"optional", fieldParameters{optional: true}},
 	{"explicit", fieldParameters{explicit: true, tag: new(int)}},
 	{"application", fieldParameters{application: true, tag: new(int)}},
+	{"private", fieldParameters{private: true, tag: new(int)}},
 	{"optional,explicit", fieldParameters{optional: true, explicit: true, tag: new(int)}},
 	{"default:42", fieldParameters{defaultValue: newInt64(42)}},
 	{"tag:17", fieldParameters{tag: newInt(17)}},
+	{"lax", fieldParameters{lax: true}},
 	{"optional,explicit,default:42,tag:17",
 		fieldParameters{optional: true, explicit: true, defaultValue: newInt64(42), tag: newInt(17)}},
 	{"optional,explicit,default:42,tag:17,rubbish1",
@@ -483,37 +516,43 @@ type TestAuthKeyID struct {
 	SerialNumber *big.Int `asn1:"optional,tag:2"`
 }
 
+type TestSetOfAny struct {
+	Values anySET
+}
+type anySET []RawValue
+
 var unmarshalTestData = []struct {
-	in  []byte
-	out interface{}
+	in     []byte
+	params string
+	out    interface{}
 }{
-	{[]byte{0x02, 0x01, 0x42}, newInt(0x42)},
-	{[]byte{0x05, 0x00}, &RawValue{0, 5, false, []byte{}, []byte{0x05, 0x00}}},
-	{[]byte{0x30, 0x08, 0x06, 0x06, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d}, &TestObjectIdentifierStruct{[]int{1, 2, 840, 113549}}},
-	{[]byte{0x03, 0x04, 0x06, 0x6e, 0x5d, 0xc0}, &BitString{[]byte{110, 93, 192}, 18}},
-	{[]byte{0x30, 0x09, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03}, &[]int{1, 2, 3}},
-	{[]byte{0x02, 0x01, 0x10}, newInt(16)},
-	{[]byte{0x13, 0x04, 't', 'e', 's', 't'}, newString("test")},
-	{[]byte{0x16, 0x04, 't', 'e', 's', 't'}, newString("test")},
+	{[]byte{0x02, 0x01, 0x42}, "", newInt(0x42)},
+	{[]byte{0x05, 0x00}, "", &RawValue{0, 5, false, []byte{}, []byte{0x05, 0x00}}},
+	{[]byte{0x30, 0x08, 0x06, 0x06, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d}, "", &TestObjectIdentifierStruct{[]int{1, 2, 840, 113549}}},
+	{[]byte{0x03, 0x04, 0x06, 0x6e, 0x5d, 0xc0}, "", &BitString{[]byte{110, 93, 192}, 18}},
+	{[]byte{0x30, 0x09, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03}, "", &[]int{1, 2, 3}},
+	{[]byte{0x02, 0x01, 0x10}, "", newInt(16)},
+	{[]byte{0x13, 0x04, 't', 'e', 's', 't'}, "", newString("test")},
+	{[]byte{0x16, 0x04, 't', 'e', 's', 't'}, "", newString("test")},
 	// Ampersand is allowed in PrintableString due to mistakes by major CAs.
-	{[]byte{0x13, 0x05, 't', 'e', 's', 't', '&'}, newString("test&")},
-	{[]byte{0x16, 0x04, 't', 'e', 's', 't'}, &RawValue{0, 22, false, []byte("test"), []byte("\x16\x04test")}},
-	{[]byte{0x04, 0x04, 1, 2, 3, 4}, &RawValue{0, 4, false, []byte{1, 2, 3, 4}, []byte{4, 4, 1, 2, 3, 4}}},
-	{[]byte{0x30, 0x03, 0x81, 0x01, 0x01}, &TestContextSpecificTags{1}},
-	{[]byte{0x30, 0x08, 0xa1, 0x03, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02}, &TestContextSpecificTags2{1, 2}},
-	{[]byte{0x30, 0x03, 0x81, 0x01, '@'}, &TestContextSpecificTags3{"@"}},
-	{[]byte{0x01, 0x01, 0x00}, newBool(false)},
-	{[]byte{0x01, 0x01, 0xff}, newBool(true)},
-	{[]byte{0x30, 0x0b, 0x13, 0x03, 0x66, 0x6f, 0x6f, 0x02, 0x01, 0x22, 0x02, 0x01, 0x33}, &TestElementsAfterString{"foo", 0x22, 0x33}},
-	{[]byte{0x30, 0x05, 0x02, 0x03, 0x12, 0x34, 0x56}, &TestBigInt{big.NewInt(0x123456)}},
-	{[]byte{0x30, 0x0b, 0x31, 0x09, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03}, &TestSet{Ints: []int{1, 2, 3}}},
-	{[]byte{0x12, 0x0b, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '}, newString("0123456789 ")},
-	{[]byte{0x30, 0x0e, 0x80, 0x04, 0x01, 0x02, 0x03, 0x04, 0x82, 0x06, 0x01, 0x22, 0x33, 0x44, 0x55, 0x66},
+	{[]byte{0x13, 0x05, 't', 'e', 's', 't', '&'}, "", newString("test&")},
+	{[]byte{0x16, 0x04, 't', 'e', 's', 't'}, "", &RawValue{0, 22, false, []byte("test"), []byte("\x16\x04test")}},
+	{[]byte{0x04, 0x04, 1, 2, 3, 4}, "", &RawValue{0, 4, false, []byte{1, 2, 3, 4}, []byte{4, 4, 1, 2, 3, 4}}},
+	{[]byte{0x30, 0x03, 0x81, 0x01, 0x01}, "", &TestContextSpecificTags{1}},
+	{[]byte{0x30, 0x08, 0xa1, 0x03, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02}, "", &TestContextSpecificTags2{1, 2}},
+	{[]byte{0x30, 0x03, 0x81, 0x01, '@'}, "", &TestContextSpecificTags3{"@"}},
+	{[]byte{0x01, 0x01, 0x00}, "", newBool(false)},
+	{[]byte{0x01, 0x01, 0xff}, "", newBool(true)},
+	{[]byte{0x30, 0x0b, 0x13, 0x03, 0x66, 0x6f, 0x6f, 0x02, 0x01, 0x22, 0x02, 0x01, 0x33}, "", &TestElementsAfterString{"foo", 0x22, 0x33}},
+	{[]byte{0x30, 0x05, 0x02, 0x03, 0x12, 0x34, 0x56}, "", &TestBigInt{big.NewInt(0x123456)}},
+	{[]byte{0x30, 0x0b, 0x31, 0x09, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03}, "", &TestSet{Ints: []int{1, 2, 3}}},
+	{[]byte{0x12, 0x0b, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '}, "", newString("0123456789 ")},
+	{[]byte{0x30, 0x0e, 0x80, 0x04, 0x01, 0x02, 0x03, 0x04, 0x82, 0x06, 0x01, 0x22, 0x33, 0x44, 0x55, 0x66}, "",
 		&TestAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}, SerialNumber: big.NewInt(0x12233445566)}},
 	{[]byte{0x30, 0x12,
 		0x80, 0x04, 0x01, 0x02, 0x03, 0x04,
 		0x81, 0x02, 0xFF, 0xFF,
-		0x82, 0x06, 0x01, 0x22, 0x33, 0x44, 0x55, 0x66},
+		0x82, 0x06, 0x01, 0x22, 0x33, 0x44, 0x55, 0x66}, "",
 		&TestAuthKeyID{
 			ID: []byte{0x01, 0x02, 0x03, 0x04},
 			Issuer: RawValue{
@@ -525,20 +564,59 @@ var unmarshalTestData = []struct {
 			},
 			SerialNumber: big.NewInt(0x12233445566),
 		}},
-	{[]byte{0x30, 0x06, 0x80, 0x04, 0x01, 0x02, 0x03, 0x04}, &TestAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}}},
+	{[]byte{0x30, 0x06, 0x80, 0x04, 0x01, 0x02, 0x03, 0x04}, "", &TestAuthKeyID{ID: []byte{0x01, 0x02, 0x03, 0x04}}},
+	{[]byte{0x30, 0x05, 0x31, 0x03, 0x02, 0x01, 0x42}, "",
+		&TestSetOfAny{
+			Values: []RawValue{
+				RawValue{Class: 0, Tag: 2, Bytes: []byte{0x42}, FullBytes: []byte{0x02, 0x01, 0x42}},
+			},
+		},
+	},
+	// PrintableString that erroneously contains non-printable contents:
+	// 0xE9 is é in ISO8859-1, @ in T.61, taken to be the former.
+	{[]byte{0x13, 0x04, 'c', 'a', 'f', 0xE9}, "lax", newString("café")},
+	// 0xFB is û in ISO8859-1, ß in T.61, taken to be the former.
+	{[]byte{0x13, 0x04, 'a', 'b', 'c', 0xFB}, "lax", newString("abcû")},
 }
 
 func TestUnmarshal(t *testing.T) {
 	for i, test := range unmarshalTestData {
 		pv := reflect.New(reflect.TypeOf(test.out).Elem())
 		val := pv.Interface()
-		_, err := Unmarshal(test.in, val)
+		_, err := UnmarshalWithParams(test.in, val, test.params)
 		if err != nil {
 			t.Errorf("Unmarshal failed at index %d %v", i, err)
 		}
 		if !reflect.DeepEqual(val, test.out) {
 			t.Errorf("#%d:\nhave %#v\nwant %#v", i, val, test.out)
 		}
+	}
+}
+
+type stringHolder struct {
+	Value string
+}
+
+func TestLaxPropagate(t *testing.T) {
+	b := []byte{0x30, 0x06, // SEQUENCE length 6
+		0x13, 0x04, // PrintableString length 4
+		'c', 'a', 'f', 0xE9}
+	var got stringHolder
+
+	wantErr := "invalid character"
+	_, err := UnmarshalWithParams(b, &got, "")
+	if err == nil {
+		t.Errorf("Unmarshal()=_,nil; want _, err containing %q", wantErr)
+	} else if !strings.Contains(err.Error(), wantErr) {
+		t.Errorf("Unmarshal()=_,%v; want _, err containing %q", err, wantErr)
+	}
+
+	_, err = UnmarshalWithParams(b, &got, "lax")
+	if err != nil {
+		t.Errorf("Unmarshal(lax)=_,%v; want _, nil", err)
+	}
+	if want := "café"; got.Value != want {
+		t.Errorf("Unmarshal(lax)=%q; want %q", got.Value, want)
 	}
 }
 
@@ -1156,6 +1234,7 @@ func TestTaggedRawValue(t *testing.T) {
 		{true, []byte{0x30, 3, (ClassContextSpecific << 6) | tag, 1, 1}},
 		{true, []byte{0x30, 3, (ClassContextSpecific << 6) | tag | isCompound, 1, 1}},
 		{false, []byte{0x30, 3, (ClassApplication << 6) | tag | isCompound, 1, 1}},
+		{false, []byte{0x30, 3, (ClassPrivate << 6) | tag | isCompound, 1, 1}},
 	}
 
 	for i, test := range tests {

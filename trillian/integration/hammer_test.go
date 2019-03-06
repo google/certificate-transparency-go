@@ -44,9 +44,9 @@ func TestHammer_NotAfter(t *testing.T) {
 	defer s.close()
 
 	now := time.Now()
-	notAfterStart := now.Add(-24 * time.Hour)
+	notAfterStart := now.Add(-48 * time.Hour)
 	notAfterOverride := now.Add(23 * time.Hour)
-	notAfterLimit := now.Add(24 * time.Hour)
+	notAfterLimit := now.Add(48 * time.Hour)
 
 	ctx := context.Background()
 	addChain := func(hs *hammerState) error { return hs.addChain(ctx) }
@@ -110,49 +110,57 @@ func TestHammer_NotAfter(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		s.reset()
+		t.Run(test.desc, func(t *testing.T) {
+			s.reset()
 
-		var startPB, limitPB *timestamp.Timestamp
-		if ts := test.notAfterStart; ts.UnixNano() > 0 {
-			startPB, _ = ptypes.TimestampProto(ts)
-		}
-		if ts := test.notAfterLimit; ts.UnixNano() > 0 {
-			limitPB, _ = ptypes.TimestampProto(ts)
-		}
-		hs, err := newHammerState(&HammerConfig{
-			CACert:     keys.caCert,
-			ClientPool: RandomPool{lc},
-			LeafChain:  keys.leafChain,
-			LeafCert:   keys.leafCert,
-			LogCfg: &configpb.LogConfig{
-				NotAfterStart: startPB,
-				NotAfterLimit: limitPB,
-			},
-			Signer:           keys.signer,
-			NotAfterOverride: test.notAfterOverride,
-		})
-		if err != nil {
-			t.Errorf("%v: newHammerState() returned err = %v", test.desc, err)
-			continue
-		}
-
-		if err := test.fn(hs); err != nil {
-			t.Errorf("%v: addChain() returned err = %v", test.desc, err)
-			continue
-		}
-		if got, want := len(s.addedCerts), 1; got != want {
-			t.Errorf("%v: unexpected number of certs added to server, got = %v, want = %v", test.desc, got, want)
-			continue
-		}
-		temporal := startPB != nil || limitPB != nil
-		for i, cert := range s.addedCerts {
-			switch got, fixed := cert.NotAfter, test.wantNotAfter.UnixNano() > 0; {
-			case fixed && got.Unix() != test.wantNotAfter.Unix(): // second precision is OK
-				t.Errorf("%v: cert #%v has NotAfter = %v, want = %v", test.desc, i, got, test.wantNotAfter)
-			case !fixed && temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)):
-				t.Errorf("%v: cert #%v has NotAfter = %v, want %v <= NotAfter <= %v", test.desc, i, got, test.notAfterStart, test.notAfterLimit)
+			var startPB, limitPB *timestamp.Timestamp
+			if ts := test.notAfterStart; ts.UnixNano() > 0 {
+				startPB, _ = ptypes.TimestampProto(ts)
 			}
-		}
+			if ts := test.notAfterLimit; ts.UnixNano() > 0 {
+				limitPB, _ = ptypes.TimestampProto(ts)
+			}
+			generator, err := NewSyntheticChainGenerator(keys.leafChain, keys.signer, test.notAfterOverride)
+			if err != nil {
+				t.Fatalf("Failed to build chain generator: %v", err)
+			}
+			hs, err := newHammerState(&HammerConfig{
+				ChainGenerator: generator,
+				ClientPool:     RandomPool{lc},
+				LogCfg: &configpb.LogConfig{
+					NotAfterStart: startPB,
+					NotAfterLimit: limitPB,
+				},
+			})
+			if err != nil {
+				t.Fatalf("newHammerState() returned err = %v", err)
+			}
+
+			if err := test.fn(hs); err != nil {
+				t.Fatalf("addChain() returned err = %v", err)
+			}
+			if got := len(s.addedCerts); got != 1 {
+				t.Fatalf("unexpected number of certs (%d) added to server", got)
+			}
+			got := s.addedCerts[0].NotAfter
+			temporal := startPB != nil || limitPB != nil
+			fixed := test.wantNotAfter.UnixNano() > 0
+			if fixed {
+				// Expect a fixed NotAfter in the generated cert.
+				delta := got.Sub(test.wantNotAfter)
+				if delta < 0 {
+					delta = -delta
+				}
+				if delta > time.Second {
+					t.Errorf("cert has NotAfter = %v, want = %v", got, test.wantNotAfter)
+				}
+			} else {
+				// For a temporal log, expect the NotAfter in the generated cert to be in range.
+				if temporal && (got.Before(test.notAfterStart) || got.After(test.notAfterLimit)) {
+					t.Errorf("cert has NotAfter = %v, want %v <= NotAfter <= %v", got, test.notAfterStart, test.notAfterLimit)
+				}
+			}
+		})
 	}
 }
 

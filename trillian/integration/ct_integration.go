@@ -24,7 +24,6 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -37,28 +36,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/merkletree"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509/pkix"
-	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keyspb"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
+	"google.golang.org/genproto/protobuf/field_mask"
+	"google.golang.org/grpc"
 
 	ct "github.com/google/certificate-transparency-go"
 	keyspem "github.com/google/trillian/crypto/keys/pem"
 )
 
 const (
-	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} (\d+)$`
-	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>\d+)$`
+	reqStatsRE = `^http_reqs{ep="(\w+)",logid="(\d+)"} ([.\d]+)$`
+	rspStatsRE = `^http_rsps{ep="(\w+)",logid="(\d+)",rc="(\d+)"} (?P<val>[.\d]+)$`
 )
-
-var zeroTime = time.Time{}
 
 // DefaultTransport is a http Transport more suited for use in the hammer
 // context.
@@ -80,10 +81,7 @@ var DefaultTransport = &http.Transport{
 }
 
 // Verifier is used to verify Merkle tree calculations.
-var Verifier = merkletree.NewMerkleVerifier(func(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
-})
+var Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
 
 // ClientPool describes an entity which produces LogClient instances.
 type ClientPool interface {
@@ -108,6 +106,7 @@ func (p RandomPool) Next() *client.LogClient {
 func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (ClientPool, error) {
 	opts := jsonclient.Options{
 		PublicKeyDER: pubKey.GetDer(),
+		UserAgent:    "ct-go-integrationtest/1.0",
 	}
 
 	hc := &http.Client{Transport: DefaultTransport}
@@ -128,6 +127,7 @@ type testInfo struct {
 	prefix         string
 	cfg            *configpb.LogConfig
 	metricsServers string
+	adminServer    string
 	stats          *logStats
 	pool           ClientPool
 }
@@ -152,14 +152,14 @@ func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, m
 		var err error
 		sth, err = t.client().GetSTH(ctx)
 		if t.stats != nil {
-			t.stats.done(ctfe.GetSTHName, 200)
+			t.stats.expect(ctfe.GetSTHName, 200)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to get STH: %v", err)
 		}
 	}
 	if exact && sth.TreeSize != size {
-		return nil, fmt.Errorf("sth.TreeSize=%d; want 1", sth.TreeSize)
+		return nil, fmt.Errorf("sth.TreeSize=%d; want: %d", sth.TreeSize, size)
 	}
 	return sth, nil
 }
@@ -182,12 +182,12 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 		return fmt.Errorf("ct.LeafHashForLeaf(leaf[%d])=(nil,%v); want (_,nil)", 0, err)
 	}
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
-	t.stats.done(ctfe.GetProofByHashName, 200)
+	t.stats.expect(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
-	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProofByHash(%d, %d,...)=%v", 0, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
 }
@@ -212,16 +212,16 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("ct.LeafHashForLeaf(precertLeaf)=(nil,%v); want (_,nil)", err)
 	}
 	rsp, err := t.client().GetProofByHash(ctx, leafHash[:], sth.TreeSize)
-	t.stats.done(ctfe.GetProofByHashName, 200)
+	t.stats.expect(ctfe.GetProofByHashName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
-	if err := Verifier.VerifyInclusionProofByHash(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProofByHash(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
+	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	return nil
 }
@@ -229,7 +229,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 // checkPreCertEntry retrieves a pre-cert from a known index and checks it.
 func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tbs []byte) error {
 	precertEntries, err := t.client().GetEntries(ctx, precertIndex, precertIndex)
-	t.stats.done(ctfe.GetEntriesName, 200)
+	t.stats.expect(ctfe.GetEntriesName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetEntries(%d,%d)=(nil,%v); want (_,nil)", precertIndex, precertIndex, err)
 	}
@@ -248,7 +248,7 @@ func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tb
 		return fmt.Errorf("leaf[%d].ts.PrecertEntry differs from originally uploaded cert", precertIndex)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	return nil
 }
@@ -272,22 +272,22 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 0: get accepted roots, which should just be the fake CA.
 	roots, err := t.client().GetAcceptedRoots(ctx)
-	t.stats.done(ctfe.GetRootsName, 200)
+	t.stats.expect(ctfe.GetRootsName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
 	}
-	if len(roots) != 1 {
-		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", len(roots))
+	if len(roots) > 2 {
+		return fmt.Errorf("len(GetAcceptedRoots())=%d; want <=2", len(roots))
 	}
 
 	// Stage 1: get the STH, which should be empty.
 	sth0, err := t.client().GetSTH(ctx)
-	t.stats.done(ctfe.GetSTHName, 200)
+	t.stats.expect(ctfe.GetSTHName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
 	}
@@ -306,8 +306,12 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
+	issuer, err := x509.ParseCertificate(chain[0][0].Data)
+	if err != nil {
+		return fmt.Errorf("failed to parse int-ca.cert: %v", err)
+	}
 	scts[0], err = t.client().AddChain(ctx, chain[0])
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
 	}
@@ -321,7 +325,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth1.Timestamp), sth1.TreeSize, sth1.SHA256RootHash)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 	t.checkInclusionOf(ctx, chain[0], scts[0], sth1)
 
@@ -331,7 +335,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("got re-AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
 	}
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if scts[0].Timestamp != sctCopy.Timestamp {
 		return fmt.Errorf("got sct @ %v; want @ %v", sctCopy, scts[0])
 	}
@@ -342,7 +346,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to load certificate: %v", err)
 	}
 	scts[1], err = t.client().AddChain(ctx, chain[1])
-	t.stats.done(ctfe.AddChainName, 200)
+	t.stats.expect(ctfe.AddChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddChain(leaf01)=(nil,%v); want (_,nil)", err)
 	}
@@ -355,7 +359,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 4: get a consistency proof from size 1-> size 2.
 	proof12, err := t.client().GetSTHConsistency(ctx, 1, 2)
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(1, 2)=(nil,%v); want (_,nil)", err)
 	}
@@ -373,12 +377,12 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("got CheckCTConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 4.5: get a consistency proof from size 0-> size 2, which should be empty.
 	proof02, err := t.client().GetSTHConsistency(ctx, 0, 2)
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(0, 2)=(nil,%v); want (_,nil)", err)
 	}
@@ -386,7 +390,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("len(proof02)=%d; want 0", len(proof02))
 	}
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 5: add certificates 2, 3, 4, 5,...N, for some random N in [4,20]
@@ -399,14 +403,14 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 			return fmt.Errorf("failed to load certificate: %v", err)
 		}
 		scts[i], err = t.client().AddChain(ctx, chain[i])
-		t.stats.done(ctfe.AddChainName, 200)
+		t.stats.expect(ctfe.AddChainName, 200)
 		if err != nil {
 			return fmt.Errorf("got AddChain(leaf%02d)=(nil,%v); want (_,nil)", i, err)
 		}
 	}
 	fmt.Printf("%s: Uploaded leaf02-leaf%02d to log, got SCTs\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 6: keep getting the STH until tree size becomes 1 + N (allows for int-ca.cert).
@@ -419,7 +423,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 7: get a consistency proof from 2->(1+N).
 	proof2N, err := t.client().GetSTHConsistency(ctx, 2, uint64(treeSize))
-	t.stats.done(ctfe.GetSTHConsistencyName, 200)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetSTHConsistency(2, %d)=(nil,%v); want (_,nil)", treeSize, err)
 	}
@@ -430,7 +434,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 8: get entries [1, N] (start at 1 to skip int-ca.cert)
 	entries, err := t.client().GetEntries(ctx, 1, int64(count))
-	t.stats.done(ctfe.GetEntriesName, 200)
+	t.stats.expect(ctfe.GetEntriesName, 200)
 	if err != nil {
 		return fmt.Errorf("got GetEntries(1,%d)=(nil,%v); want (_,nil)", count, err)
 	}
@@ -462,7 +466,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got entries [1:%d+1]\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 9: get an audit proof for each certificate we have an SCT for.
@@ -471,7 +475,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	}
 	fmt.Printf("%s: Got inclusion proofs [1:%d+1]\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 10: attempt to upload a corrupt certificate.
@@ -482,17 +486,17 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if sct, err := t.client().AddChain(ctx, corruptChain); err == nil {
 		return fmt.Errorf("got AddChain(corrupt-cert)=(%+v,nil); want (nil,error)", sct)
 	}
-	t.stats.done(ctfe.AddChainName, 400)
+	t.stats.expect(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(corrupt-cert)=nil,%v\n", t.prefix, err)
 
 	// Stage 11: attempt to upload a certificate without chain.
 	if sct, err := t.client().AddChain(ctx, chain[1][0:0]); err == nil {
 		return fmt.Errorf("got AddChain(leaf-only)=(%+v,nil); want (nil,error)", sct)
 	}
-	t.stats.done(ctfe.AddChainName, 400)
+	t.stats.expect(ctfe.AddChainName, 400)
 	fmt.Printf("%s: AddChain(leaf-only)=nil,%v\n", t.prefix, err)
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
 
 	// Stage 12: build and add a pre-certificate.
@@ -500,16 +504,17 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err != nil {
 		return fmt.Errorf("failed to retrieve signer for re-signing: %v", err)
 	}
-	issuer, err := x509.ParseCertificate(chain[0][0].Data)
+	generator, err := NewSyntheticChainGenerator(chain[1], signer, time.Time{})
 	if err != nil {
-		return fmt.Errorf("failed to parse issuer for precert: %v", err)
+		return fmt.Errorf("failed to create chain generator: %v", err)
 	}
-	prechain, tbs, err := makePrecertChain(chain[1], issuer, signer, time.Time{} /*  notAfter */)
+
+	prechain, tbs, err := generator.PreCertChain()
 	if err != nil {
 		return fmt.Errorf("failed to build pre-certificate: %v", err)
 	}
 	precertSCT, err := t.client().AddPreChain(ctx, prechain)
-	t.stats.done(ctfe.AddPreChainName, 200)
+	t.stats.expect(ctfe.AddPreChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddPreChain()=(nil,%v); want (_,nil)", err)
 	}
@@ -536,7 +541,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if rsp, err := t.client().GetSTHConsistency(ctx, 2, 299); err == nil {
 		return fmt.Errorf("got GetSTHConsistency(2,299)=(%+v,nil); want (nil,_)", rsp)
 	}
-	t.stats.done(ctfe.GetSTHConsistencyName, 400)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 400)
 	fmt.Printf("%s: GetSTHConsistency(2,299)=(nil,_)\n", t.prefix)
 
 	// Stage 16: invalid inclusion proof; expect a client.RspError{404}.
@@ -550,7 +555,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	} else {
 		return fmt.Errorf("got GetProofByHash(wrong)=%+v (%T); want (client.RspError)", err, err)
 	}
-	t.stats.done(ctfe.GetProofByHashName, 404)
+	t.stats.expect(ctfe.GetProofByHashName, 404)
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,_)\n", t.prefix, sthN1.TreeSize)
 
 	// Stage 17: build and add a pre-certificate signed by a pre-issuer.
@@ -559,7 +564,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("failed to build pre-issued pre-certificate: %v", err)
 	}
 	preIssuerCertSCT, err := pool.Next().AddPreChain(ctx, preIssuerChain)
-	stats.done(ctfe.AddPreChainName, 200)
+	stats.expect(ctfe.AddPreChainName, 200)
 	if err != nil {
 		return fmt.Errorf("got AddPreChain()=(nil,%v); want (_,nil)", err)
 	}
@@ -584,8 +589,194 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Final stats check.
 	if err := t.checkStats(); err != nil {
-		return fmt.Errorf("unexpected stats check: %v", err)
+		return fmt.Errorf("stats check failed: %v", err)
 	}
+	return nil
+}
+
+// RunCTLifecycleForLog does a simple log lifecycle test. The log
+// is assumed to be newly created when this test runs. A random number of
+// entries are then submitted to build up a queue. The log is set to
+// DRAINING state and the test checks that all the entries are integrated
+// into the tree and we can verify a consistency proof to the latest entry.
+func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, adminServer string, testDir string, mmd time.Duration, stats *logStats) error {
+	// Retrieve the test data.
+	caChain, err := GetChain(testDir, "int-ca.cert")
+	if err != nil {
+		return err
+	}
+	leafChain, err := GetChain(testDir, "leaf01.chain")
+	if err != nil {
+		return err
+	}
+	signer, err := MakeSigner(testDir)
+	if err != nil {
+		return err
+	}
+	generator, err := NewSyntheticChainGenerator(leafChain, signer, time.Time{})
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
+	if err != nil {
+		return fmt.Errorf("failed to create pool: %v", err)
+	}
+	t := testInfo{
+		prefix:         cfg.Prefix,
+		cfg:            cfg,
+		metricsServers: metricsServers,
+		adminServer:    adminServer,
+		stats:          stats,
+		pool:           pool,
+	}
+
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("stats check failed: %v", err)
+	}
+
+	// Stage 0: get accepted roots, which should just be the fake CA.
+	roots, err := t.client().GetAcceptedRoots(ctx)
+	t.stats.expect(ctfe.GetRootsName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetAcceptedRoots()=(nil,%v); want (_,nil)", err)
+	}
+	if got := len(roots); got != 1 {
+		return fmt.Errorf("len(GetAcceptedRoots())=%d; want 1", got)
+	}
+
+	// Stage 1: get the STH, which should be empty.
+	sth0, err := t.client().GetSTH(ctx)
+	t.stats.expect(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH()=(nil,%v); want (_,nil)", err)
+	}
+	if sth0.Version != 0 {
+		return fmt.Errorf("sth.Version=%v; want V1(0)", sth0.Version)
+	}
+	if sth0.TreeSize != 0 {
+		return fmt.Errorf("sth.TreeSize=%d; want 0", sth0.TreeSize)
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth0.Timestamp), sth0.TreeSize, sth0.SHA256RootHash)
+
+	// Stage 2: add certificates 2, 3, 4, 5,...N, for some random N with
+	// at least 2000 so the queue builds up a bit.
+	atLeast := 2000
+	count := atLeast + rand.Intn(3000-atLeast)
+	fmt.Printf("%s: Starting upload of %d certificates ....\n", t.prefix, count)
+	for i := 1; i <= count; i++ {
+		chain, err := generator.CertChain()
+		if err != nil {
+			return err
+		}
+		_, err = t.client().AddChain(ctx, chain)
+		t.stats.expect(ctfe.AddChainName, 200)
+		if err != nil {
+			return fmt.Errorf("got AddChain(int-ca.cert)=(nil,%v); want (_,nil)", err)
+		}
+	}
+	fmt.Printf("%s: Upload of %d certificates complete\n", t.prefix, count)
+
+	// Stage 3: Set the log to DRAINING using the admin server.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_DRAINING); err != nil {
+		return fmt.Errorf("setTreeState(DRAINING)=%v, want: nil", err)
+	}
+
+	// Stage 4a: Get an updated STH. We'll use this point for a consistency
+	// proof later.
+	sth1, err := t.client().GetSTH(ctx)
+	t.stats.expect(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH(DRAINING)=(nil,%v); want (_,nil)", err)
+	}
+	if sth1.Version != 0 {
+		return fmt.Errorf("sth.Version=%v; want V1(0)", sth1.Version)
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth1.Timestamp), sth1.TreeSize, sth1.SHA256RootHash)
+
+	// Stage 4b: Wait for the queue to drain and everything to be integrated.
+	sth2, err := t.awaitTreeSize(context.Background(), uint64(count), true, mmd)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth2.TreeSize, sth2.SHA256RootHash)
+
+	// Stage 5. Get a consistency proof from sth1 to sth2 and verify it.
+	proof, err := t.client().GetSTHConsistency(ctx, sth1.TreeSize, sth2.TreeSize)
+	t.stats.expect(ctfe.GetSTHConsistencyName, 200)
+	if err != nil {
+		return err
+	}
+	if err := checkCTConsistencyProof(sth1, sth2, proof); err != nil {
+		return err
+	}
+	fmt.Printf("%s: VerifiedConsistency(time=%q, size1=%d, size2=%d): final roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth1.TreeSize, sth2.TreeSize, sth2.SHA256RootHash)
+
+	// Stage 6. Try to submit a chain and it should be rejected with 403.
+	_, err = t.client().AddChain(ctx, caChain)
+	t.stats.expect(ctfe.AddChainName, 403)
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		return fmt.Errorf("got AddChain(DRAINING: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+	}
+
+	// Stage 7a - Set the log state back to ACTIVE and submit again. This should
+	// be accepted.
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_ACTIVE); err != nil {
+		return fmt.Errorf("setTreeState(ACTIVE)=%v, want: nil", err)
+	}
+	_, err = t.client().AddChain(ctx, caChain)
+	t.stats.expect(ctfe.AddChainName, 200)
+	if err != nil {
+		return fmt.Errorf("got AddChain(ACTIVE: int-ca.cert)=(nil,%v); want (_,nil)", err)
+	}
+
+	// Stage 7b: Wait for that new certificate to be integrated.
+	sthCaCert, err := t.awaitTreeSize(context.Background(), uint64(count+1), true, mmd)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromMS(sthCaCert.Timestamp), sthCaCert.TreeSize, sthCaCert.SHA256RootHash)
+
+	// Stage 8 - Set the log to FROZEN using the admin server.
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	if err := setTreeState(ctx, t.adminServer, t.cfg.LogId, trillian.TreeState_FROZEN); err != nil {
+		return fmt.Errorf("setTreeState(FROZEN)=%v, want: nil", err)
+	}
+
+	// Stage 9 - Try to upload the pre-cert again and it should be rejected
+	// with FORBIDDEN status.
+	_, err = t.client().AddChain(ctx, caChain)
+	t.stats.expect(ctfe.AddChainName, 403)
+	if err == nil || !strings.Contains(err.Error(), "403") {
+		return fmt.Errorf("got AddChain(FROZEN: int-ca.cert)=(nil,%v); want (_,err inc. 403)", err)
+	}
+
+	// Stage 10 - Obtain latest STH and check it hasn't increased in size since
+	// the last submission.
+	sth3, err := t.client().GetSTH(ctx)
+	t.stats.expect(ctfe.GetSTHName, 200)
+	if err != nil {
+		return fmt.Errorf("got GetSTH(FROZEN)=(nil,%v); want (_,nil)", err)
+	}
+
+	// We know that anything queued was integrated so is should be impossible
+	// that the tree has grown. There is one extra certificate from the test
+	// that we could submit in Stage 7a.
+	if sth2.TreeSize+1 != sth3.TreeSize {
+		return fmt.Errorf("sth3 got TreeSize=%d, want: %d", sth3.TreeSize, sth2.TreeSize)
+	}
+
+	// Final stats check.
+	if err := t.checkStats(); err != nil {
+		return fmt.Errorf("stats check failed: %v", err)
+	}
+
 	return nil
 }
 
@@ -627,34 +818,6 @@ func checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) erro
 		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
-// makePrecertChain builds a precert chain based from the given cert chain and cert, converting and
-// re-signing relative to the given issuer.
-func makePrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, []byte, error) {
-	prechain := make([]ct.ASN1Cert, len(chain))
-	copy(prechain[1:], chain[1:])
-
-	cert, err := x509.ParseCertificate(chain[0].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
-	}
-	cert.NotAfter = notAfter
-	if cert.NotAfter == zeroTime {
-		cert.NotAfter = time.Now().Add(24 * time.Hour)
-	}
-
-	prechain[0].Data, err = buildNewPrecertData(cert, issuer, signer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	// For later verification, build the leaf TBS data that is included in the log.
-	tbs, err := buildLeafTBS(prechain[0].Data, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
-	}
-	return prechain, tbs, nil
-}
-
 // buildNewPrecertData creates a new pre-certificate based on the given template cert (which is
 // modified)
 func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) ([]byte, error) {
@@ -681,158 +844,6 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 	return data, nil
 }
 
-// buildLeafTBS builds the raw pre-cert data (a DER-encoded TBSCertificate) that is included
-// in the log.
-func buildLeafTBS(precertData []byte, preIssuer *x509.Certificate) ([]byte, error) {
-	reparsed, err := x509.ParseCertificate(precertData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to re-parse created precertificate: %v", err)
-	}
-	return x509.BuildPrecertTBS(reparsed.RawTBSCertificate, preIssuer)
-}
-
-// makePreIssuerPrecertChain builds a precert chain where the pre-cert is signed by a new
-// pre-issuer intermediate.
-func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, signer crypto.Signer) ([]ct.ASN1Cert, []byte, error) {
-	prechain := make([]ct.ASN1Cert, len(chain)+1)
-	copy(prechain[2:], chain[1:])
-
-	// Create a new private key and intermediate CA cert to go with it.
-	preSigner, err := keys.NewFromSpec(&keyspb.Specification{
-		Params: &keyspb.Specification_EcdsaParams{
-			EcdsaParams: &keyspb.Specification_ECDSA{
-				Curve: keyspb.Specification_ECDSA_P256,
-			},
-		},
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create pre-issuer private key: %v", err)
-	}
-
-	preIssuerTemplate := *issuer
-	preIssuerTemplate.RawSubject = nil
-	preIssuerTemplate.Subject.CommonName += "PrecertIssuer"
-	preIssuerTemplate.PublicKeyAlgorithm = x509.ECDSA
-	preIssuerTemplate.PublicKey = preSigner.Public()
-	preIssuerTemplate.ExtKeyUsage = append(preIssuerTemplate.ExtKeyUsage, x509.ExtKeyUsageCertificateTransparency)
-
-	// Set a new subject-key-id for the intermediate (to ensure it's different from the true
-	// issuer's subject-key-id).
-	randData := make([]byte, 128)
-	if _, err := cryptorand.Read(randData); err != nil {
-		return nil, nil, fmt.Errorf("failed to read random data: %v", err)
-	}
-	preIssuerTemplate.SubjectKeyId = randData
-	prechain[1].Data, err = x509.CreateCertificate(cryptorand.Reader, &preIssuerTemplate, issuer, preIssuerTemplate.PublicKey, signer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create pre-issuer certificate: %v", err)
-	}
-
-	// Parse the pre-issuer back to a fully-populated x509.Certificate.
-	preIssuer, err := x509.ParseCertificate(prechain[1].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to re-parse generated pre-issuer: %v", err)
-	}
-
-	cert, err := x509.ParseCertificate(chain[0].Data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse certificate to build precert from: %v", err)
-	}
-
-	prechain[0].Data, err = buildNewPrecertData(cert, preIssuer, preSigner)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	if err := verifyChain(prechain); err != nil {
-		return nil, nil, fmt.Errorf("failed to verify just-created prechain: %v", err)
-	}
-
-	// The leaf data has the poison removed and the issuance information changed.
-	tbs, err := buildLeafTBS(prechain[0].Data, preIssuer)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build leaf TBSCertificate: %v", err)
-	}
-	return prechain, tbs, nil
-}
-
-// makeCertChain builds a new cert chain based from the given cert chain, changing SubjectKeyId and
-// re-signing relative to the given issuer.
-func makeCertChain(chain []ct.ASN1Cert, template, issuer *x509.Certificate, signer crypto.Signer, notAfter time.Time) ([]ct.ASN1Cert, error) {
-	cert := *template
-	cert.NotAfter = notAfter
-	if cert.NotAfter == zeroTime {
-		cert.NotAfter = time.Now().Add(24 * time.Hour)
-	}
-
-	newchain := make([]ct.ASN1Cert, len(chain))
-	copy(newchain[1:], chain[1:])
-
-	// Randomize the subject key ID.
-	randData := make([]byte, 128)
-	if _, err := cryptorand.Read(randData); err != nil {
-		return nil, fmt.Errorf("failed to read random data: %v", err)
-	}
-	cert.SubjectKeyId = randData
-
-	// Create a fresh certificate, signed by the intermediate CA.
-	var err error
-	newchain[0].Data, err = x509.CreateCertificate(cryptorand.Reader, &cert, issuer, cert.PublicKey, signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create certificate: %v", err)
-	}
-
-	return newchain, nil
-}
-
-// verifyChain checks that a chain of certificates validates locally.
-func verifyChain(rawChain []ct.ASN1Cert) error {
-	chain := make([]*x509.Certificate, 0, len(rawChain))
-	for i, c := range rawChain {
-		cert, err := x509.ParseCertificate(c.Data)
-		if err != nil {
-			return fmt.Errorf("failed to parse rawChain[%d]: %v", i, err)
-		}
-		chain = append(chain, cert)
-	}
-
-	// First verify signatures cert-by-cert.
-	for i := 1; i < len(chain); i++ {
-		issuer := chain[i]
-		cert := chain[i-1]
-		if err := cert.CheckSignatureFrom(issuer); err != nil {
-			return fmt.Errorf("failed to check signature on rawChain[%d] using rawChain[%d]: %v", i-1, i, err)
-		}
-	}
-
-	// Now verify the chain as a whole
-	intermediatePool := x509.NewCertPool()
-	for i := 1; i < len(chain); i++ {
-		// Don't check path-len constraints
-		chain[i].MaxPathLen = -1
-		intermediatePool.AddCert(chain[i])
-	}
-	rootPool := x509.NewCertPool()
-	rootPool.AddCert(chain[len(chain)-1])
-	opts := x509.VerifyOptions{
-		Roots:             rootPool,
-		Intermediates:     intermediatePool,
-		DisableTimeChecks: true,
-		KeyUsages:         []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-	}
-
-	chain[0].UnhandledCriticalExtensions = nil
-	chains, err := chain[0].Verify(opts)
-	if err != nil {
-		return fmt.Errorf("chain[0].Verify(%+v) failed: %v", opts, err)
-	}
-	if len(chains) == 0 {
-		return errors.New("no path to root found when trying to validate chains")
-	}
-
-	return nil
-}
-
 // MakeSigner creates a signer using the private key in the test directory.
 func MakeSigner(testdir string) (crypto.Signer, error) {
 	key, err := keyspem.ReadPrivateKeyFile(filepath.Join(testdir, "int-ca.privkey.pem"), "babelfish")
@@ -844,12 +855,9 @@ func MakeSigner(testdir string) (crypto.Signer, error) {
 
 // Track HTTP requests/responses so we can check the stats exported by the log.
 type logStats struct {
-	logID            int64
-	lastSCTTimestamp int
-	lastSTHTimestamp int
-	lastSTHTreesize  int
-	reqs             map[string]int            // entrypoint =>count
-	rsps             map[string]map[string]int // entrypoint => status => count
+	logID int64
+	reqs  map[string]int            // entrypoint =>count
+	rsps  map[string]map[string]int // entrypoint => status => count
 
 }
 
@@ -865,7 +873,7 @@ func newLogStats(logID int64) *logStats {
 	return &stats
 }
 
-func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
+func (ls *logStats) expect(ep ctfe.EntrypointName, rc int) {
 	if ls == nil {
 		return
 	}
@@ -873,30 +881,26 @@ func (ls *logStats) done(ep ctfe.EntrypointName, rc int) {
 	ls.rsps[string(ep)][strconv.Itoa(rc)]++
 }
 
-func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
-	if ls == nil {
-		return nil
-	}
+func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, error) {
 	reqsRE := regexp.MustCompile(reqStatsRE)
 	rspsRE := regexp.MustCompile(rspStatsRE)
 
-	ctx := context.Background()
 	got := newLogStats(int64(ls.logID))
 	for _, s := range strings.Split(servers, ",") {
 		httpReq, err := http.NewRequest(http.MethodGet, "http://"+s+"/metrics", nil)
 		if err != nil {
-			return fmt.Errorf("failed to build GET request: %v", err)
+			return nil, fmt.Errorf("failed to build GET request: %v", err)
 		}
 		c := new(http.Client)
 
 		httpRsp, err := ctxhttp.Do(ctx, c, httpReq)
 		if err != nil {
-			return fmt.Errorf("getting stats failed: %v", err)
+			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}
 		defer httpRsp.Body.Close()
 		defer ioutil.ReadAll(httpRsp.Body)
 		if httpRsp.StatusCode != http.StatusOK {
-			return fmt.Errorf("got HTTP Status %q", httpRsp.Status)
+			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
 
 		scanner := bufio.NewScanner(httpRsp.Body)
@@ -905,9 +909,9 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 			m := reqsRE.FindStringSubmatch(line)
 			if m != nil {
 				if m[2] == strconv.FormatInt(ls.logID, 10) {
-					if val, err := strconv.Atoi(m[3]); err == nil {
+					if val, err := strconv.ParseFloat(m[3], 64); err == nil {
 						ep := m[1]
-						got.reqs[ep] += val
+						got.reqs[ep] += int(val)
 					}
 				}
 				continue
@@ -915,10 +919,10 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 			m = rspsRE.FindStringSubmatch(line)
 			if m != nil {
 				if m[2] == strconv.FormatInt(ls.logID, 10) {
-					if val, err := strconv.Atoi(m[4]); err == nil {
+					if val, err := strconv.ParseFloat(m[4], 64); err == nil {
 						ep := m[1]
 						rc := m[3]
-						got.rsps[ep][rc] += val
+						got.rsps[ep][rc] += int(val)
 					}
 				}
 				continue
@@ -926,6 +930,18 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 		}
 	}
 
+	return got, nil
+}
+
+func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
+	if ls == nil {
+		return nil
+	}
+	ctx := context.Background()
+	got, err := ls.fromServer(ctx, servers)
+	if err != nil {
+		return err
+	}
 	// Now compare accumulated actual stats with what we expect to see.
 	if !reflect.DeepEqual(got.reqs, ls.reqs) {
 		return fmt.Errorf("got reqs %+v; want %+v", got.reqs, ls.reqs)
@@ -934,4 +950,62 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 		return fmt.Errorf("got rsps %+v; want %+v", got.rsps, ls.rsps)
 	}
 	return nil
+}
+
+func setTreeState(ctx context.Context, adminServer string, logID int64, state trillian.TreeState) error {
+	treeStateMask := &field_mask.FieldMask{
+		Paths: []string{"tree_state"},
+	}
+
+	req := &trillian.UpdateTreeRequest{
+		Tree: &trillian.Tree{
+			TreeId:    logID,
+			TreeState: state,
+		},
+		UpdateMask: treeStateMask,
+	}
+
+	conn, err := grpc.Dial(adminServer, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	client := trillian.NewTrillianAdminClient(conn)
+	_, err = client.UpdateTree(ctx, req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// NotAfterForLog returns a NotAfter time to be used for certs submitted
+// to the given log instance, allowing for any temporal shard configuration.
+func NotAfterForLog(c *configpb.LogConfig) (time.Time, error) {
+	if c.NotAfterStart == nil && c.NotAfterLimit == nil {
+		return time.Now().Add(24 * time.Hour), nil
+	}
+
+	if c.NotAfterStart != nil {
+		start, err := ptypes.Timestamp(c.NotAfterStart)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterStart: %v", err)
+		}
+		if c.NotAfterLimit == nil {
+			return start.Add(24 * time.Hour), nil
+		}
+
+		limit, err := ptypes.Timestamp(c.NotAfterLimit)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+		}
+		midDelta := limit.Sub(start) / 2
+		return start.Add(midDelta), nil
+	}
+
+	limit, err := ptypes.Timestamp(c.NotAfterLimit)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
+	}
+	return limit.Add(-1 * time.Hour), nil
 }

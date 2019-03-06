@@ -1,12 +1,13 @@
 sudo: true  # required for CI push into Kubernetes.
-language: go
 os: linux
-go: 1.9
-
+dist: xenial
+language: go
+go: "1.10"
 go_import_path: github.com/google/certificate-transparency-go
 
+
 env:
-  - GCE_CI=${ENABLE_GCE_CI} GOFLAGS=
+  - GOFLAGS=
   - GOFLAGS=-race
   - GOFLAGS=      WITH_ETCD=true WITH_COVERAGE=true
   - GOFLAGS=-race WITH_ETCD=true
@@ -16,19 +17,19 @@ matrix:
 
 services:
   - docker
+  - mysql
 
 install:
   - mkdir ../protoc
   - |
     (
       cd ../protoc
-      wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-${TRAVIS_OS_NAME}-x86_64.zip
-      unzip protoc-3.2.0-${TRAVIS_OS_NAME}-x86_64.zip
+      wget https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip
+      unzip protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
   - go get -d -t ./...
-  - go get github.com/alecthomas/gometalinter
-  - gometalinter --install
+  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.13.2
   - go get -u github.com/golang/protobuf/proto
   - go get -u github.com/golang/protobuf/protoc-gen-go
   - go install github.com/golang/mock/mockgen
@@ -38,6 +39,10 @@ install:
   - pushd ${GOPATH}/src/github.com/google/trillian
   - go get -d -t ./...
   - popd
+
+before_script:
+  - ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh --force
+  - ./scripts/resetctdb.sh --force
 
 script:
   - set -e
@@ -63,12 +68,3 @@ script:
 after_success:
   - cp /tmp/coverage.txt .
   - bash <(curl -s https://codecov.io/bash)
-  - |
-      # Push up to GCE CI instance if we're running after a merge to master
-      if [[ "${GCE_CI}" == "true" ]] && [[ $TRAVIS_PULL_REQUEST == "false" ]] && [[ $TRAVIS_BRANCH == "master" ]]; then
-        . scripts/install_cloud.sh
-        echo ${GCLOUD_SERVICE_KEY_CI} | base64 --decode -i > ${HOME}/gcloud-service-key.json
-        gcloud auth activate-service-account --key-file ${HOME}/gcloud-service-key.json
-        rm ${HOME}/gcloud-service-key.json
-        . scripts/deploy_gce_ci.sh
-      fi

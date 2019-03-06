@@ -204,10 +204,10 @@ func (s *Storage) addSCTFeedbackIfNotExists(tx *sql.Tx, chainID, sctID int64) er
 	stmt := tx.Stmt(s.insertSCTFeedback)
 	_, err := stmt.Exec(chainID, sctID)
 	if err != nil {
-		switch err.(type) {
+		switch err := err.(type) {
 		case sqlite3.Error:
 			// If this is a dupe that's fine, no need to return an error
-			if err.(sqlite3.Error).Code != sqlite3.ErrConstraint {
+			if err.Code != sqlite3.ErrConstraint {
 				return err
 			}
 		default:
@@ -258,10 +258,10 @@ func (s *Storage) addSTHIfNotExists(tx *sql.Tx, sth ct.SignedTreeHead) error {
 	}
 	_, err = stmt.Exec(sth.Version, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash.Base64String(), sigB64, sth.LogID.Base64String())
 	if err != nil {
-		switch err.(type) {
+		switch err := err.(type) {
 		case sqlite3.Error:
 			// If this is a dupe that's fine, no need to return an error
-			if err.(sqlite3.Error).Code != sqlite3.ErrConstraint {
+			if err.Code != sqlite3.ErrConstraint {
 				return err
 			}
 		default:

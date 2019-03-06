@@ -15,9 +15,11 @@
 package ctfe
 
 import (
+	"encoding/pem"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestLoadSingleCertFromPEMs(t *testing.T) {
@@ -58,4 +60,50 @@ func TestLoadMultipleCertsFromPEM(t *testing.T) {
 	if got, want := len(pool.Subjects()), 2; got != want {
 		t.Fatalf("Got %d certs in pool, expected %d", got, want)
 	}
+}
+
+func TestIncluded(t *testing.T) {
+	certs := [2]*x509.Certificate{parsePEM(t, testonly.CACertPEM), parsePEM(t, testonly.FakeCACertPEM)}
+
+	// Note: tests are cumulative
+	tests := []struct {
+		cert *x509.Certificate
+		want [2]bool
+	}{
+		{cert: nil, want: [2]bool{false, false}},
+		{cert: nil, want: [2]bool{false, false}},
+		{cert: certs[0], want: [2]bool{true, false}},
+		{cert: nil, want: [2]bool{true, false}},
+		{cert: certs[0], want: [2]bool{true, false}},
+		{cert: certs[1], want: [2]bool{true, true}},
+		{cert: nil, want: [2]bool{true, true}},
+		{cert: certs[1], want: [2]bool{true, true}},
+	}
+
+	pool := NewPEMCertPool()
+	for _, test := range tests {
+		if test.cert != nil {
+			pool.AddCert(test.cert)
+		}
+		for i, cert := range certs {
+			got := pool.Included(cert)
+			if got != test.want[i] {
+				t.Errorf("pool.Included(cert[%d])=%v, want %v", i, got, test.want[i])
+			}
+		}
+	}
+}
+
+func parsePEM(t *testing.T, pemCert string) *x509.Certificate {
+	var block *pem.Block
+	block, _ = pem.Decode([]byte(pemCert))
+	if block == nil || block.Type != pemCertificateBlockType || len(block.Headers) != 0 {
+		t.Fatal("No PEM data found")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if x509.IsFatal(err) {
+		t.Fatalf("Failed to parse PEM certificate: %v", err)
+	}
+	return cert
 }
