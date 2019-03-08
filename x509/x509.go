@@ -190,6 +190,12 @@ type tbsCertificate struct {
 	Extensions         []pkix.Extension `asn1:"optional,explicit,tag:3"`
 }
 
+type rsaesoaepAlgorithmParameters struct {
+	HashFunc    pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:0,default:sha1Identifier"`
+	MaskgenFunc pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:1,default:mgf1SHA1Identifier"`
+	PSourceFunc pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:2,default:pSpecifiedEmptyIdentifier"`
+}
+
 type dsaAlgorithmParameters struct {
 	P, Q, G *big.Int
 }
@@ -238,6 +244,37 @@ const (
 	SHA512WithRSAPSS
 )
 
+// RFC 4055
+// Various identifiers
+var (
+	// 2.1.  One-way Hash Functions
+	OIDSHA1 = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
+	// 2.2.  Mask Generation Functions
+	OIDMFGSHA1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
+	// 6.    Basic object identifiers
+	OIDpSpecified = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 9}
+)
+
+// These are the default parameters for an RSAES-OAEP pubkey.
+// The current ASN.1 parser does not support non-integer defaults so
+// these currently do nothing.
+// It has been suggested that we switch to cryptobytes but that
+// only supports parsing primitives (tag < 32).
+var (
+	sha1Identifier = pkix.AlgorithmIdentifier{
+		Algorithm:  OIDSHA1,
+		Parameters: asn1.NullRawValue,
+	}
+	mgf1SHA1Identifier = pkix.AlgorithmIdentifier{
+		Algorithm:  OIDMFGSHA1,
+		Parameters: asn1.RawValue{0, 6, false, []byte{43, 14, 3, 2, 26}, []byte{6, 5, 43, 14, 3, 2, 26}},
+	}
+	pSpecifiedEmptyIdentifier = pkix.AlgorithmIdentifier{
+		Algorithm:  OIDpSpecified,
+		Parameters: asn1.RawValue{0, 4, false, []byte{}, []byte{4, 0}},
+	}
+)
+
 func (algo SignatureAlgorithm) isRSAPSS() bool {
 	switch algo {
 	case SHA256WithRSAPSS, SHA384WithRSAPSS, SHA512WithRSAPSS:
@@ -265,12 +302,14 @@ const (
 	RSA
 	DSA
 	ECDSA
+	RSAESOAEP
 )
 
 var publicKeyAlgoName = [...]string{
-	RSA:   "RSA",
-	DSA:   "DSA",
-	ECDSA: "ECDSA",
+	RSA:       "RSA",
+	DSA:       "DSA",
+	ECDSA:     "ECDSA",
+	RSAESOAEP: "RSAESOAEP",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -505,6 +544,7 @@ func SignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 //       iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 var (
 	OIDPublicKeyRSA         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+	OIDPublicKeyRSAESOAEP   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 7}
 	OIDPublicKeyDSA         = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
 	OIDPublicKeyECDSA       = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
@@ -518,6 +558,8 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return DSA
 	case oid.Equal(OIDPublicKeyECDSA):
 		return ECDSA
+	case oid.Equal(OIDPublicKeyRSAESOAEP):
+		return RSAESOAEP
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -1270,6 +1312,41 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		}
 		if p.E <= 0 {
 			return nil, errors.New("x509: RSA public exponent is not a positive number")
+		}
+
+		pub := &rsa.PublicKey{
+			E: p.E,
+			N: p.N,
+		}
+		return pub, nil
+	case RSAESOAEP:
+		p := new(pkcs1PublicKey)
+		rest, err := asn1.Unmarshal(asn1Data, p)
+		if err != nil {
+			var laxErr error
+			rest, laxErr = asn1.UnmarshalWithParams(asn1Data, p, "lax")
+			if laxErr != nil {
+				return nil, laxErr
+			}
+			nfe.AddError(err)
+		}
+		if len(rest) != 0 {
+			return nil, errors.New("x509: trailing data after RSA public key")
+		}
+		if p.N.Sign() <= 0 {
+			nfe.AddError(errors.New("x509: RSA modulus is not a positive number"))
+		}
+		if p.E <= 0 {
+			return nil, errors.New("x509: RSA public exponent is not a positive number")
+		}
+		paramsData := keyData.Algorithm.Parameters.FullBytes
+		params := new(rsaesoaepAlgorithmParameters)
+		rest, err = asn1.Unmarshal(paramsData, params)
+		if err != nil {
+			return nil, err
+		}
+		if len(rest) != 0 {
+			return nil, errors.New("x509: trailing data after RSAES-OAEP parameters")
 		}
 
 		pub := &rsa.PublicKey{
