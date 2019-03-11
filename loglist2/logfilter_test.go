@@ -64,16 +64,6 @@ func TestSelectUsable(t *testing.T) {
 	}
 }
 
-func cert() *x509.Certificate {
-	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
-	return cert
-}
-
-func caCert() *x509.Certificate {
-	cert, _ := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
-	return cert
-}
-
 func artificialRoots(source string) LogRoots {
 	roots := LogRoots{
 		"https://log.bob.io":                   ctfe.NewPEMCertPool(),
@@ -86,6 +76,9 @@ func artificialRoots(source string) LogRoots {
 }
 
 func TestRootCompatible(t *testing.T) {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
+	caCert, _ := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
+
 	tests := []struct {
 		name     string
 		in       LogList
@@ -97,24 +90,24 @@ func TestRootCompatible(t *testing.T) {
 		{
 			name:     "RootedChain",
 			in:       sampleLogList,
-			cert:     cert(),
-			rootCert: caCert(),
+			cert:     cert,
+			rootCert: caCert,
 			roots:    artificialRoots(testdata.CACertPEM),
 			want:     subLogList(map[string]bool{"https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
 			name:     "RootedChainNoRootAccepted",
 			in:       sampleLogList,
-			cert:     cert(),
-			rootCert: caCert(),
+			cert:     cert,
+			rootCert: caCert,
 			roots:    artificialRoots(testdata.TestPreCertPEM),
 			want:     subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
 			name:     "UnRootedChain",
 			in:       sampleLogList,
-			cert:     cert(),
-			rootCert: cert(),
+			cert:     cert,
+			rootCert: cert,
 			roots:    artificialRoots(testdata.CACertPEM),
 			want:     subLogList(map[string]bool{}),
 		},
