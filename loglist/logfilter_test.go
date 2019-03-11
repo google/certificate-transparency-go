@@ -58,15 +58,14 @@ func TestActiveLogs(t *testing.T) {
 	}
 }
 
-func certChain() []*x509.Certificate {
+func cert() *x509.Certificate {
 	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
-	caCert, _ := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
-	return []*x509.Certificate{cert, caCert}
+	return cert
 }
 
-func singleCert() []*x509.Certificate {
-	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
-	return []*x509.Certificate{cert}
+func caCert() *x509.Certificate {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
+	return cert
 }
 
 func artificialRoots(source string) LogRoots {
@@ -82,45 +81,50 @@ func artificialRoots(source string) LogRoots {
 
 func TestCompatible(t *testing.T) {
 	tests := []struct {
-		name  string
-		in    LogList
-		chain []*x509.Certificate
-		roots LogRoots
-		want  LogList
+		name     string
+		in       LogList
+		cert     *x509.Certificate
+		certRoot *x509.Certificate
+		roots    LogRoots
+		want     LogList
 	}{
 		{
-			name:  "RootedChain",
-			in:    sampleLogList,
-			chain: certChain(),
-			roots: artificialRoots(testdata.CACertPEM),
-			want:  subLogList(map[string]bool{"log.bob.io": true, "ct.googleapis.com/icarus/": true}), // icarus has no root info.
+			name:     "RootedChain",
+			in:       sampleLogList,
+			cert:     cert(),
+			certRoot: caCert(),
+			roots:    artificialRoots(testdata.CACertPEM),
+			want:     subLogList(map[string]bool{"log.bob.io": true, "ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
-			name:  "RootedChainNoRootAccepted",
-			in:    sampleLogList,
-			chain: certChain(),
-			roots: artificialRoots(testdata.TestPreCertPEM),
-			want:  subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
+			name:     "RootedChainNoRootAccepted",
+			in:       sampleLogList,
+			cert:     cert(),
+			certRoot: caCert(),
+			roots:    artificialRoots(testdata.TestPreCertPEM),
+			want:     subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
-			name:  "UnRootedChain",
-			in:    sampleLogList,
-			chain: singleCert(),
-			roots: artificialRoots(testdata.CACertPEM),
-			want:  subLogList(map[string]bool{}),
+			name:     "UnRootedChain",
+			in:       sampleLogList,
+			cert:     cert(),
+			certRoot: cert(),
+			roots:    artificialRoots(testdata.CACertPEM),
+			want:     subLogList(map[string]bool{}),
 		},
 		{
-			name:  "EmptyChain",
-			in:    sampleLogList,
-			chain: []*x509.Certificate{},
-			roots: artificialRoots(testdata.CACertPEM),
-			want:  subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
+			name:     "EmptyChain",
+			in:       sampleLogList,
+			cert:     nil,
+			certRoot: nil,
+			roots:    artificialRoots(testdata.CACertPEM),
+			want:     subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.Compatible(test.chain, test.roots)
+			got := test.in.Compatible(test.cert, test.certRoot, test.roots)
 			if diff := pretty.Compare(got, test.want); diff != "" {
 				t.Errorf("Getting compatible logs diff: (-got +want)\n%s", diff)
 			}
