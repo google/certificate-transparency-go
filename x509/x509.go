@@ -1301,7 +1301,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 			nfe.AddError(errors.New("x509: RSA key missing NULL parameters"))
 		}
 		if algo == RSAESOAEP {
-			// We only parse the parameters to ensure it is a valid encoding, we throw out the actually values
+			// We only parse the parameters to ensure it is a valid encoding, we throw out the actual values
 			paramsData := keyData.Algorithm.Parameters.FullBytes
 			params := new(rsaesoaepAlgorithmParameters)
 			params.HashFunc = sha1Identifier
@@ -1329,6 +1329,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		if len(rest) != 0 {
 			return nil, errors.New("x509: trailing data after RSA public key")
 		}
+
 		if p.N.Sign() <= 0 {
 			nfe.AddError(errors.New("x509: RSA modulus is not a positive number"))
 		}
@@ -1336,7 +1337,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 			return nil, errors.New("x509: RSA public exponent is not a positive number")
 		}
 
-		// TODO(dkarch): Update to return the parameters once crypto/x509 has come up with permanent solution
+		// TODO(dkarch): Update to return the parameters once crypto/x509 has come up with permanent solution (https://github.com/golang/go/issues/30416)
 		pub := &rsa.PublicKey{
 			E: p.E,
 			N: p.N,
