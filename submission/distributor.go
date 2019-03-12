@@ -189,6 +189,19 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	return lc.AddPreChain(ctx, chain)
 }
 
+// parseRawChain reads cert chain from bytes into x509.Certificate format.
+func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
+	parsedChain := make([]*x509.Certificate, 0, len(rawChain))
+	for _, certBytes := range rawChain {
+		cert, err := x509.ParseCertificate(certBytes)
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("distributor unable to parse cert-chain %v", err)
+		}
+		parsedChain = append(parsedChain, cert)
+	}
+	return parsedChain, nil
+}
+
 // AddPreChain runs add-pre-chain calls across subset of logs according to
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
@@ -197,35 +210,37 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 		return nil, fmt.Errorf("distributor unable to process empty chain")
 	}
 
-	// Validate and root the chain.
+	var parsedChain []*x509.Certificate
+	var compatibleLogs loglist.LogList
+
 	d.mu.RLock()
 	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
 	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
 
-	if err != nil && d.isRootDataFull() {
+	if err == nil {
+		parsedChain = rootedChain
+		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
+	} else if d.isRootDataFull() {
+		// Could not verify the chain while root info for logs is complete.
 		d.mu.RUnlock()
 		return nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+	} else {
+		// Chain might be rooted to the Log which has no root-info yet.
+		parsedChain, err = parseRawChain(rawChain)
+		if err != nil {
+			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+		}
+		compatibleLogs = d.ll.Compatible(rootedChain[0], nil, d.logRoots)
 	}
-	compatibleLogs := d.ll.Compatible(rootedChain, d.logRoots)
 	d.mu.RUnlock()
 
-	// Set-up policy structs.
-	var cert *x509.Certificate
-	if len(rootedChain) != 0 {
-		cert = rootedChain[0]
-	} else {
-		cert, err = x509.ParseCertificate(rawChain[0])
-		if x509.IsFatal(err) {
-			return nil, fmt.Errorf("distributor unable to parse cert-chain %v", err)
-		}
-	}
-
-	groups, err := d.policy.LogsByGroup(cert, &compatibleLogs)
+	// Set up policy structs.
+	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		return nil, fmt.Errorf("distributor does not have enough compatible Logs to comply with the policy: %v", err)
 	}
-	chain := make([]ct.ASN1Cert, len(rootedChain))
-	for i, c := range rootedChain {
+	chain := make([]ct.ASN1Cert, len(parsedChain))
+	for i, c := range parsedChain {
 		chain[i] = ct.ASN1Cert{Data: c.Raw}
 	}
 	return GetSCTs(ctx, d, chain, groups)
