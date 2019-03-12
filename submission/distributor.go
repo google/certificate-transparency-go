@@ -49,7 +49,12 @@ type Distributor struct {
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
+	rootPool   *ctfe.PEMCertPool
 
+	rootDataFull bool
+
+	// Guards ticker.
+	tmu                sync.RWMutex
 	rootsRefreshTicker *time.Ticker
 
 	policy ctpolicy.CTPolicy
@@ -57,10 +62,16 @@ type Distributor struct {
 
 // Run starts regular roots updates.
 func (d *Distributor) Run(ctx context.Context) {
+	d.tmu.RLock()
 	if d.rootsRefreshTicker != nil {
+		d.tmu.RUnlock()
 		return
 	}
+	d.tmu.RUnlock()
+
+	d.tmu.Lock()
 	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
+	d.tmu.Unlock()
 
 	// Collect Log-roots first time.
 	errs := d.refreshRoots(ctx)
@@ -69,6 +80,8 @@ func (d *Distributor) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			d.tmu.Lock()
+			defer d.tmu.Unlock()
 			d.rootsRefreshTicker.Stop()
 			d.rootsRefreshTicker = nil
 			return
@@ -86,7 +99,8 @@ func printErrs(errs map[string]error) {
 }
 
 // refreshRoots requests roots from Logs and updates local copy.
-// Returns errors for any Log experiencing roots retrieval problems.
+// Returns error map keyed by log-URL for any Log experiencing roots retrieval
+// problems
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
 func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
@@ -147,22 +161,89 @@ func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
 	defer d.mu.Unlock()
 
 	d.logRoots = freshRoots
+	d.rootDataFull = len(d.logRoots) == len(d.logClients)
+	// Merge individual root-pools into a unified one
+	d.rootPool = ctfe.NewPEMCertPool()
+	for _, pool := range d.logRoots {
+		for _, c := range pool.RawCertificates() {
+			d.rootPool.AddCert(c)
+		}
+	}
 
 	return errors
 }
 
+// IsRootDataFull returns true if root certificates have been obtained for all Logs.
+func (d *Distributor) isRootDataFull() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.rootDataFull
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	// TODO(Mercurrent) add implementation.
-	return nil, nil
+	lc, ok := d.logClients[logURL]
+	if !ok {
+		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
+	}
+	return lc.AddPreChain(ctx, chain)
+}
+
+// parseRawChain reads cert chain from bytes into x509.Certificate format.
+func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
+	parsedChain := make([]*x509.Certificate, 0, len(rawChain))
+	for _, certBytes := range rawChain {
+		cert, err := x509.ParseCertificate(certBytes)
+		if x509.IsFatal(err) {
+			return nil, fmt.Errorf("distributor unable to parse cert-chain %v", err)
+		}
+		parsedChain = append(parsedChain, cert)
+	}
+	return parsedChain, nil
 }
 
 // AddPreChain runs add-pre-chain calls across subset of logs according to
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
 func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
-	// TODO(Mercurrent) add implementation.
-	return []*AssignedSCT{}, nil
+	if len(rawChain) == 0 {
+		return nil, fmt.Errorf("distributor unable to process empty chain")
+	}
+
+	var parsedChain []*x509.Certificate
+	var compatibleLogs loglist.LogList
+
+	d.mu.RLock()
+	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
+	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
+
+	if err == nil {
+		parsedChain = rootedChain
+		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
+	} else if d.isRootDataFull() {
+		// Could not verify the chain while root info for logs is complete.
+		d.mu.RUnlock()
+		return nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+	} else {
+		// Chain might be rooted to the Log which has no root-info yet.
+		parsedChain, err = parseRawChain(rawChain)
+		if err != nil {
+			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+		}
+		compatibleLogs = d.ll.Compatible(rootedChain[0], nil, d.logRoots)
+	}
+	d.mu.RUnlock()
+
+	// Set up policy structs.
+	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)
+	if err != nil {
+		return nil, fmt.Errorf("distributor does not have enough compatible Logs to comply with the policy: %v", err)
+	}
+	chain := make([]ct.ASN1Cert, len(parsedChain))
+	for i, c := range parsedChain {
+		chain[i] = ct.ASN1Cert{Data: c.Raw}
+	}
+	return GetSCTs(ctx, d, chain, groups)
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.
@@ -192,6 +273,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist.LogRoots)
+	d.rootPool = ctfe.NewPEMCertPool()
 
 	// Build clients for each of the Logs.
 	for _, log := range d.ll.Logs {
