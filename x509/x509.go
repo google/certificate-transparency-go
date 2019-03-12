@@ -35,6 +35,8 @@
 //  - RPKI support:
 //     - Support for SubjectInfoAccess extension
 //     - Support for RFC3779 extensions (in rpki.go)
+//  - RSAES-OAEP support:
+//     - Support for parsing RSASES-OAEP public keys from certificates
 //  - General improvements:
 //     - Export and use OID values throughout.
 //     - Export OIDFromNamedCurve().
@@ -190,6 +192,15 @@ type tbsCertificate struct {
 	Extensions         []pkix.Extension `asn1:"optional,explicit,tag:3"`
 }
 
+// RFC 4055,  4.1
+// The current ASN.1 parser does not support non-integer defaults so
+// the 'default:' tags here do nothing.
+type rsaesoaepAlgorithmParameters struct {
+	HashFunc    pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:0,default:sha1Identifier"`
+	MaskgenFunc pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:1,default:mgf1SHA1Identifier"`
+	PSourceFunc pkix.AlgorithmIdentifier `asn1:"optional,explicit,tag:2,default:pSpecifiedEmptyIdentifier"`
+}
+
 type dsaAlgorithmParameters struct {
 	P, Q, G *big.Int
 }
@@ -238,6 +249,39 @@ const (
 	SHA512WithRSAPSS
 )
 
+// RFC 4055,  6. Basic object identifiers
+var oidpSpecified = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 9}
+
+// These are the default parameters for an RSAES-OAEP pubkey.
+// The current ASN.1 parser does not support non-integer defaults so
+// these currently do nothing.
+var (
+	sha1Identifier = pkix.AlgorithmIdentifier{
+		Algorithm:  oidSHA1,
+		Parameters: asn1.NullRawValue,
+	}
+	mgf1SHA1Identifier = pkix.AlgorithmIdentifier{
+		Algorithm: oidMGF1,
+		// RFC 4055, 2.1 sha1Identifier
+		Parameters: asn1.RawValue{
+			Class:      asn1.ClassUniversal,
+			Tag:        asn1.TagSequence,
+			IsCompound: false,
+			Bytes:      []byte{6, 5, 43, 14, 3, 2, 26, 5, 0},
+			FullBytes:  []byte{16, 9, 6, 5, 43, 14, 3, 2, 26, 5, 0}},
+	}
+	pSpecifiedEmptyIdentifier = pkix.AlgorithmIdentifier{
+		Algorithm: oidpSpecified,
+		// RFC 4055, 4.1 nullOctetString
+		Parameters: asn1.RawValue{
+			Class:      asn1.ClassUniversal,
+			Tag:        asn1.TagOctetString,
+			IsCompound: false,
+			Bytes:      []byte{},
+			FullBytes:  []byte{4, 0}},
+	}
+)
+
 func (algo SignatureAlgorithm) isRSAPSS() bool {
 	switch algo {
 	case SHA256WithRSAPSS, SHA384WithRSAPSS, SHA512WithRSAPSS:
@@ -265,12 +309,14 @@ const (
 	RSA
 	DSA
 	ECDSA
+	RSAESOAEP
 )
 
 var publicKeyAlgoName = [...]string{
-	RSA:   "RSA",
-	DSA:   "DSA",
-	ECDSA: "ECDSA",
+	RSA:       "RSA",
+	DSA:       "DSA",
+	ECDSA:     "ECDSA",
+	RSAESOAEP: "RSAESOAEP",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -345,6 +391,7 @@ var (
 	oidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
 	oidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 
+	oidSHA1   = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
 	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
 	oidSHA512 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
@@ -505,6 +552,7 @@ func SignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) SignatureAlgorithm {
 //       iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
 var (
 	OIDPublicKeyRSA         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+	OIDPublicKeyRSAESOAEP   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 7}
 	OIDPublicKeyDSA         = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
 	OIDPublicKeyECDSA       = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
@@ -518,6 +566,8 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return DSA
 	case oid.Equal(OIDPublicKeyECDSA):
 		return ECDSA
+	case oid.Equal(OIDPublicKeyRSAESOAEP):
+		return RSAESOAEP
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -1244,11 +1294,26 @@ type distributionPointName struct {
 func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFatalErrors) (interface{}, error) {
 	asn1Data := keyData.PublicKey.RightAlign()
 	switch algo {
-	case RSA:
+	case RSA, RSAESOAEP:
 		// RSA public keys must have a NULL in the parameters.
 		// See RFC 3279, Section 2.3.1.
-		if !bytes.Equal(keyData.Algorithm.Parameters.FullBytes, asn1.NullBytes) {
+		if algo == RSA && !bytes.Equal(keyData.Algorithm.Parameters.FullBytes, asn1.NullBytes) {
 			nfe.AddError(errors.New("x509: RSA key missing NULL parameters"))
+		}
+		if algo == RSAESOAEP {
+			// We only parse the parameters to ensure it is a valid encoding, we throw out the actual values
+			paramsData := keyData.Algorithm.Parameters.FullBytes
+			params := new(rsaesoaepAlgorithmParameters)
+			params.HashFunc = sha1Identifier
+			params.MaskgenFunc = mgf1SHA1Identifier
+			params.PSourceFunc = pSpecifiedEmptyIdentifier
+			rest, err := asn1.Unmarshal(paramsData, params)
+			if err != nil {
+				return nil, err
+			}
+			if len(rest) != 0 {
+				return nil, errors.New("x509: trailing data after RSAES-OAEP parameters")
+			}
 		}
 
 		p := new(pkcs1PublicKey)
@@ -1272,6 +1337,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 			return nil, errors.New("x509: RSA public exponent is not a positive number")
 		}
 
+		// TODO(dkarch): Update to return the parameters once crypto/x509 has come up with permanent solution (https://github.com/golang/go/issues/30416)
 		pub := &rsa.PublicKey{
 			E: p.E,
 			N: p.N,

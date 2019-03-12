@@ -1119,6 +1119,70 @@ func TestRSAPSSSelfSigned(t *testing.T) {
 	}
 }
 
+// Valid EKCert (from an Infineon TPM1.2)  with RSAES-OAEP Public Key.
+// TPM1.2 uses RSA keys with OAEP padding (SHA1).
+// The hardware only supports SHA1 so manufacturers have since switched
+// to using rsaEncryption keys but millions of certificates still exist
+// that have this type of key.
+var oaepCertPEM = `-----BEGIN CERTIFICATE-----
+MIIFbjCCBFagAwIBAgIEZPW9pTANBgkqhkiG9w0BAQUFADB3MQswCQYDVQQGEwJE
+RTEPMA0GA1UECBMGU2F4b255MSEwHwYDVQQKExhJbmZpbmVvbiBUZWNobm9sb2dp
+ZXMgQUcxDDAKBgNVBAsTA0FJTTEmMCQGA1UEAxMdSUZYIFRQTSBFSyBJbnRlcm1l
+ZGlhdGUgQ0EgMjAwHhcNMTUwOTIxMjEyOTI4WhcNMjUwOTIxMjEyOTI4WjAAMIIB
+NzAiBgkqhkiG9w0BAQcwFaITMBEGCSqGSIb3DQEBCQQEVENQQQOCAQ8AMIIBCgKC
+AQEAjnmDEFBjo/HC5318i09BHbnHbxE2bMuxF1cAH6UYBbu/aLbczZrSioLGqDHh
+WR8GGBwuMowmHPmhT/FwTcMmHMFtp1F2AUGWkzCnWz/Frhhax21japejOYOL0EKq
+fFmZ9j+UbGmHsOi+j1kI0IVj9ivG7pUQ42dSvTsue1UoG8kqjcyLqKMNaqp1gLZy
+2DgCRJ00v+oENO3qTbw6myAfPeC/WrLKlqUlT052pYrcjTvDhb6U6T4AUuQGbyOK
+nBGV6qzaAqbceDkwYzQAVOPOmXVKh3DI78ykWtj8mZ96qmeoqDlgFB5fS4ktOvMz
+8JttE+YJAODqi9O17qMPTyuImwIDAQABo4ICYjCCAl4wVQYDVR0RAQH/BEswSaRH
+MEUxFjAUBgVngQUCAQwLaWQ6NDk0NjU4MDAxFzAVBgVngQUCAgwMU0xCOTY2MHh4
+MS4yMRIwEAYFZ4EFAgMMB2lkOjA0MjgwDAYDVR0TAQH/BAIwADCBvAYDVR0gAQH/
+BIGxMIGuMIGrBgtghkgBhvhFAQcvATCBmzA5BggrBgEFBQcCARYtaHR0cDovL3d3
+dy52ZXJpc2lnbi5jb20vcmVwb3NpdG9yeS9pbmRleC5odG1sMF4GCCsGAQUFBwIC
+MFIeUABUAEMAUABBACAAVAByAHUAcwB0AGUAZAAgAFAAbABhAHQAZgBvAHIAbQAg
+AE0AbwBkAHUAbABlACAARQBuAGQAbwByAHMAZQBtAGUAbgB0MIGhBgNVHSMEgZkw
+gZaAFI/9R4gOI5o6OiDeE+3xAeiCqdIdoXukeTB3MQswCQYDVQQGEwJERTEPMA0G
+A1UECBMGU2F4b255MSEwHwYDVQQKExhJbmZpbmVvbiBUZWNobm9sb2dpZXMgQUcx
+DDAKBgNVBAsTA0FJTTEmMCQGA1UEAxMdSUZYIFRQTSBFSyBJbnRlcm1lZGlhdGUg
+Q0EgMjCCAQUwgZMGA1UdCQSBizCBiDA6BgNVBDQxMzALMAkGBSsOAwIaBQAwJDAi
+BgkqhkiG9w0BAQcwFaITMBEGCSqGSIb3DQEBCQQEVENQQTAWBgVngQUCEDENMAsM
+AzEuMgIBAgIBAzAyBgVngQUCEjEpMCcBAf+gAwoBAaEDCgEAogMKAQCjEDAOFgMz
+LjEKAQQKAQEBAf8BAf8wDQYJKoZIhvcNAQEFBQADggEBADsl05WM8IssMs77QFcP
+hF4l+pj9OKR76MFuTvZj2PBXgk/1UAUrSjOONTsIv+cDZM2geWHT9Ptcv1SElzia
+WrWcNGnRS29b/cJ9s90MvSGsgYpkoUAyzUM6K/+5ObX1RVXCtokrX2R548OL1LMC
+g9Lo7lfsrXedrpC9nWBSrWvz77sw9jngOwojn1OaR2sSlUC8mAbi3HAR0mXcqKlT
+Aaq6hytOF2vbZw5lt1Cwr9wsqXs/C+9VhirhNb2GsdOijU7t/l7kRaPx1lu60K2u
+SZmeYT6rsTMWZGHPRxRt4Hin1/VQlAoaR17Mg07nhKam5C+krXhp740rIlHIMO+z
+hJY=
+-----END CERTIFICATE-----`
+
+func TestParseCertificateWithRSAESOAEPPublicKey(t *testing.T) {
+	wantKey := &rsa.PublicKey{
+		E: 65537,
+		N: bigFromHexString("8e7983105063a3f1c2e77d7c8b4f411db9c76f11366ccbb11757001fa51805bbbf68b6dccd9ad28a82c6a831e1591f06181c2e328c261cf9a14ff1704dc3261cc16da751760141969330a75b3fc5ae185ac76d636a97a339838bd042aa7c5999f63f946c6987b0e8be8f5908d08563f62bc6ee9510e36752bd3b2e7b55281bc92a8dcc8ba8a30d6aaa7580b672d83802449d34bfea0434edea4dbc3a9b201f3de0bf5ab2ca96a5254f4e76a58adc8d3bc385be94e93e0052e4066f238a9c1195eaacda02a6dc78393063340054e3ce99754a8770c8efcca45ad8fc999f7aaa67a8a83960141e5f4b892d3af333f09b6d13e60900e0ea8bd3b5eea30f4f2b889b"),
+	}
+	der, _ := pem.Decode([]byte(oaepCertPEM))
+	if der == nil {
+		t.Fatalf("Failed to decode PEM cert")
+	}
+	cert, err := ParseCertificate(der.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to parse certificate: %s", err)
+	}
+	if cert.PublicKeyAlgorithm != RSAESOAEP {
+		t.Errorf("Parsed key algorithm was not RSAESOAEP")
+	}
+	parsedKey, ok := cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("Parsed key was not an RSA key: %s", err)
+	}
+	if wantKey.E != parsedKey.E ||
+		wantKey.N.Cmp(parsedKey.N) != 0 {
+		t.Fatal("Parsed key differs from expected key")
+	}
+}
+
 const (
 	pemCertificate = `-----BEGIN CERTIFICATE-----
 MIIDATCCAemgAwIBAgIRAKQkkrFx1T/dgB/Go/xBM5swDQYJKoZIhvcNAQELBQAw
