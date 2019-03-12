@@ -16,7 +16,6 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -287,38 +286,17 @@ func (c *Controller) Run(ctx context.Context) error {
 // verifyConsistency checks that the provided verified Trillian root is
 // consistent with the CT log's STH.
 func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV1, sth *ct.SignedTreeHead) error {
-	h := c.plClient.verif.Hasher
-	if root.TreeSize == 0 {
-		if got, want := root.RootHash, h.EmptyRoot(); !bytes.Equal(got, want) {
-			return fmt.Errorf("invalid empty tree hash %x, want %x", got, want)
-		}
-		return nil
-	}
 	if c.opts.NoConsistencyCheck {
 		glog.Warningf("%s: skipping consistency check", c.label)
 		return nil
 	}
-
-	resp, err := c.ctClient.GetEntryAndProof(ctx, root.TreeSize-1, sth.TreeSize)
+	proof, err := c.ctClient.GetSTHConsistency(ctx, root.TreeSize, sth.TreeSize)
 	if err != nil {
 		return err
 	}
-	leafHash, err := h.HashLeaf(resp.LeafInput)
-	if err != nil {
-		return err
-	}
-
-	hash, err := merkle.NewLogVerifier(h).VerifiedPrefixHashFromInclusionProof(
+	return merkle.NewLogVerifier(c.plClient.verif.Hasher).VerifyConsistencyProof(
 		int64(root.TreeSize), int64(sth.TreeSize),
-		resp.AuditPath, sth.SHA256RootHash[:], leafHash)
-	if err != nil {
-		return err
-	}
-
-	if got := root.RootHash; !bytes.Equal(got, hash) {
-		return fmt.Errorf("inconsistent root hash %x, want %x", got, hash)
-	}
-	return nil
+		root.RootHash, sth.SHA256RootHash[:], proof)
 }
 
 // runSubmitter obtains CT log entry batches from the controller's channel and

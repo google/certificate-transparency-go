@@ -103,9 +103,8 @@ type MigrationConfig struct {
 	IdentityFunction IdentityFunction `protobuf:"varint,12,opt,name=identity_function,json=identityFunction,proto3,enum=configpb.IdentityFunction" json:"identity_function,omitempty"`
 	// If set to false (by default), then Migrillian verifies that the tree as
 	// seen by Trillian is consistent with the current STH of the source CT log.
-	// It does so by requesting inclusion proofs corresponding to specific tree
-	// sizes, and computing the expected root hash using them. This verification
-	// uses the get-entry-and-proof endpoint (section 4.8 of RFC 6962).
+	// It invokes the get-sth-consistency endpoint (section 4.4 of RFC 6962) with
+	// the corresponding tree sizes, and verifies the returned proof.
 	NoConsistencyCheck   bool     `protobuf:"varint,13,opt,name=no_consistency_check,json=noConsistencyCheck,proto3" json:"no_consistency_check,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
