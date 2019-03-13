@@ -71,7 +71,6 @@ var DefaultTransport = &http.Transport{
 	DialContext: (&net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		DualStack: true,
 	}).DialContext,
 	MaxIdleConns:          1000,
 	MaxIdleConnsPerHost:   1000,
