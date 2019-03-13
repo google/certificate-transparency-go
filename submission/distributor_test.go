@@ -36,9 +36,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// ReadCertFile returns the first certificate it finds in file provided.
+// readCertFile returns the first certificate it finds in file provided.
 func readCertFile(filename string) string {
-	fmt.Println(filename)
 	data, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
 		return ""
@@ -46,24 +45,29 @@ func readCertFile(filename string) string {
 	return string(data[0])
 }
 
+type rootInfo struct {
+	raw      string
+	filename string
+}
+
 var (
-	RootsCerts = map[string][]string{
+	RootsCerts = map[string][]rootInfo{
 		"ct.googleapis.com/aviator/": {
-			readCertFile("../trillian/testdata/fake-ca-1.cert"),
-			readCertFile("testdata/some.cert"),
+			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
+			rootInfo{filename: "testdata/some.cert"},
 		},
 		"ct.googleapis.com/rocketeer/": {
-			readCertFile("../trillian/testdata/fake-ca.cert"),
-			readCertFile("../trillian/testdata/fake-ca-1.cert"),
-			readCertFile("testdata/some.cert"),
-			readCertFile("testdata/another.cert"),
+			rootInfo{filename: "../trillian/testdata/fake-ca.cert"},
+			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
+			rootInfo{filename: "testdata/some.cert"},
+			rootInfo{filename: "testdata/another.cert"},
 		},
 		"ct.googleapis.com/icarus/": {
-			"aW52YWxpZDAwMA==", // encoded 'invalid000'
-			readCertFile("testdata/another.cert"),
+			rootInfo{raw: "aW52YWxpZDAwMA=="}, // encoded 'invalid000'
+			rootInfo{filename: "testdata/another.cert"},
 		},
 		"uncollectable-roots/log/": {
-			"invalid",
+			rootInfo{raw: "invalid"},
 		},
 	}
 )
@@ -203,9 +207,14 @@ func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*c
 
 func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
 	roots := []ct.ASN1Cert{}
-	if certs, ok := RootsCerts[m.logURL]; ok {
-		for _, cert := range certs {
-			roots = append(roots, ct.ASN1Cert{Data: []byte(cert)})
+	if certInfos, ok := RootsCerts[m.logURL]; ok {
+		for _, certInfo := range certInfos {
+			if len(certInfo.raw) > 0 {
+				roots = append(roots, ct.ASN1Cert{Data: []byte(certInfo.raw)})
+			} else {
+
+				roots = append(roots, ct.ASN1Cert{Data: []byte(readCertFile(certInfo.filename))})
+			}
 		}
 	}
 	return roots, nil
