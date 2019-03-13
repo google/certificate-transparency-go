@@ -7,7 +7,7 @@
 # Exclude code that's for testing, demos or utilities that aren't really
 # part of production releases.
 ignore:
+  - "**/mock_*.go"
+  - "**/testonly"
   - "trillian/integration/**/*"
-  - "trillian/mockclient/**/*"
-  - "trillian/ctfe/testonly"
   - "vendor/**/*"
