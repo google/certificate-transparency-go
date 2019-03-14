@@ -724,7 +724,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		if currentRoot.TreeSize <= uint64(start) {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here.
-			return http.StatusBadRequest, fmt.Errorf("request for leaves from %d but current tree size only %d", start, currentRoot.TreeSize)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
@@ -755,7 +755,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here. It was previously returned via the error status
 			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", currentRoot.TreeSize, start)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 
 		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be

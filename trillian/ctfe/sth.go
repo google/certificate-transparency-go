@@ -23,6 +23,7 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/trillian"
+	"github.com/google/trillian/types"
 )
 
 type contextKey string
@@ -70,14 +71,18 @@ func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) 
 		return nil, err
 	}
 
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
+	}
 	// Build the CT STH object, except the signature.
 	sth := &ct.SignedTreeHead{
 		Version:   ct.V1,
-		TreeSize:  uint64(slr.TreeSize),
-		Timestamp: uint64(slr.TimestampNanos / 1000 / 1000),
+		TreeSize:  uint64(currentRoot.TreeSize),
+		Timestamp: uint64(currentRoot.TimestampNanos / 1000 / 1000),
 	}
 	// Note: The size was checked in getSignedLogRoot.
-	copy(sth.SHA256RootHash[:], slr.RootHash)
+	copy(sth.SHA256RootHash[:], currentRoot.RootHash)
 
 	// Add the signature over the STH contents.
 	err = signV1TreeHead(sg.li.signer, sth, &sg.cache)
@@ -106,7 +111,11 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 		return nil, err
 	}
 
-	sth, err := sg.st.GetMirrorSTH(ctx, slr.TreeSize) // nolint:staticcheck
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
+	}
+	sth, err := sg.st.GetMirrorSTH(ctx, int64(currentRoot.TreeSize)) // nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}
@@ -140,10 +149,14 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 		return nil, errors.New("no log root returned")
 	}
 	glog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
-	if treeSize := slr.TreeSize; treeSize < 0 {
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
+	}
+	if treeSize := currentRoot.TreeSize; treeSize < 0 {
 		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
 	}
-	if hashSize := len(slr.RootHash); hashSize != sha256.Size {
+	if hashSize := len(currentRoot.RootHash); hashSize != sha256.Size {
 		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
 	}
 

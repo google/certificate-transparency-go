@@ -725,12 +725,6 @@ func TestGetSTH(t *testing.T) {
 			errStr: "no-such-thing",
 		},
 		{
-			descr:  "bad-tree-size",
-			rpcRsp: makeGetRootResponseForTest(12345, -50, []byte("abcdabcdabcdabcdabcdabcdabcdabcd")),
-			want:   http.StatusInternalServerError,
-			errStr: "bad tree size",
-		},
-		{
 			descr:  "bad-hash",
 			rpcRsp: makeGetRootResponseForTest(12345, 25, []byte("thisisnot32byteslong")),
 			want:   http.StatusInternalServerError,
@@ -906,8 +900,23 @@ func runTestGetEntries(t *testing.T) {
 			errStr: "bang",
 		},
 		{
-			descr:  "backend extra leaves",
-			req:    "start=1&end=2",
+			descr: "start outside tree size",
+			req:   "start=2&end=3",
+			slr: mustMarshalRoot(&types.LogRootV1{
+				TreeSize: 2, // Not large enough - only indices 0 and 1 valid.
+			}),
+			glbir:  &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{2, 3}},
+			glbrr:  &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 2, Count: 2},
+			want:   http.StatusBadRequest,
+			leaves: []*trillian.LogLeaf{{LeafIndex: 2}, {LeafIndex: 3}},
+			errStr: "need tree size: 3 to get leaves but only got: 2",
+		},
+		{
+			descr: "backend extra leaves",
+			req:   "start=1&end=2",
+			slr: mustMarshalRoot(&types.LogRootV1{
+				TreeSize: 2,
+			}),
 			want:   http.StatusInternalServerError,
 			leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 2}, {LeafIndex: 3}},
 			errStr: "too many leaves",
@@ -915,6 +924,7 @@ func runTestGetEntries(t *testing.T) {
 		{
 			descr:  "backend non-contiguous range",
 			req:    "start=1&end=2",
+			slr:    mustMarshalRoot(&types.LogRootV1{TreeSize: 100}),
 			want:   http.StatusInternalServerError,
 			leaves: []*trillian.LogLeaf{{LeafIndex: 1}, {LeafIndex: 3}},
 			errStr: "unexpected leaf index",
@@ -922,6 +932,7 @@ func runTestGetEntries(t *testing.T) {
 		{
 			descr: "backend leaf corrupt",
 			req:   "start=1&end=2",
+			slr:   mustMarshalRoot(&types.LogRootV1{TreeSize: 100}),
 			want:  http.StatusOK,
 			leaves: []*trillian.LogLeaf{
 				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: []byte("NOT A MERKLE TREE LEAF")},
@@ -931,6 +942,7 @@ func runTestGetEntries(t *testing.T) {
 		{
 			descr: "leaves ok",
 			req:   "start=1&end=2",
+			slr:   mustMarshalRoot(&types.LogRootV1{TreeSize: 100}),
 			want:  http.StatusOK,
 			leaves: []*trillian.LogLeaf{
 				{LeafIndex: 1, MerkleLeafHash: []byte("hash"), LeafValue: merkleBytes1, ExtraData: []byte("extra1")},
@@ -940,6 +952,7 @@ func runTestGetEntries(t *testing.T) {
 		{
 			descr:         "leaves ok with quota",
 			req:           "start=1&end=2",
+			slr:           mustMarshalRoot(&types.LogRootV1{TreeSize: 100}),
 			want:          http.StatusOK,
 			wantQuotaUser: remoteQuotaUser,
 			leaves: []*trillian.LogLeaf{
@@ -997,6 +1010,10 @@ func runTestGetEntries(t *testing.T) {
 			t.Errorf("Failed to create request: %v", err)
 			continue
 		}
+		slr := test.slr
+		if slr == nil {
+			slr = mustMarshalRoot(&types.LogRootV1{})
+		}
 		if test.leaves != nil || test.rpcErr != nil {
 			var chargeTo *trillian.ChargeTo
 			if len(test.wantQuotaUser) != 0 {
@@ -1007,14 +1024,14 @@ func runTestGetEntries(t *testing.T) {
 				if test.glbrr != nil {
 					glbrr = test.glbrr
 				}
-				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: test.slr, Leaves: test.leaves}
+				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: slr, Leaves: test.leaves}
 				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), glbrr).Return(&rsp, test.rpcErr)
 			} else {
 				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}, ChargeTo: chargeTo}
 				if test.glbir != nil {
 					glbir = test.glbir
 				}
-				rsp := trillian.GetLeavesByIndexResponse{SignedLogRoot: test.slr, Leaves: test.leaves}
+				rsp := trillian.GetLeavesByIndexResponse{SignedLogRoot: slr, Leaves: test.leaves}
 				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), glbir).Return(&rsp, test.rpcErr)
 			}
 		}
@@ -1285,9 +1302,27 @@ func TestGetProofByHash(t *testing.T) {
 			errStr: "RPCFAIL",
 		},
 		{
+			req:  "tree_size=11&hash=YWhhc2g=",
+			want: http.StatusNotFound,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10, // Not large enough to handle the request.
+				}),
+				Proof: []*trillian.Proof{
+					{
+						LeafIndex: 0,
+						Hashes:    nil,
+					},
+				},
+			},
+		},
+		{
 			req:  "tree_size=1&hash=YWhhc2g=",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 0,
@@ -1305,6 +1340,9 @@ func TestGetProofByHash(t *testing.T) {
 			// Want quota
 			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 0,
@@ -1320,6 +1358,9 @@ func TestGetProofByHash(t *testing.T) {
 			req:  "tree_size=7&hash=YWhhc2g=",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
@@ -1338,6 +1379,9 @@ func TestGetProofByHash(t *testing.T) {
 			req:  "tree_size=9&hash=YWhhc2g=",
 			want: http.StatusInternalServerError,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
@@ -1355,6 +1399,9 @@ func TestGetProofByHash(t *testing.T) {
 			req:  "tree_size=7&hash=YWhhc2g=",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
@@ -1369,6 +1416,9 @@ func TestGetProofByHash(t *testing.T) {
 			req:  "hash=WtfX3Axbm7UwtY7GhHoAHPCtXJVrY5vZsH%2ByaXOD2GI=&tree_size=1",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 10,
+				}),
 				Proof: []*trillian.Proof{
 					{
 						LeafIndex: 2,
@@ -1590,6 +1640,9 @@ func TestGetSTHConsistency(t *testing.T) {
 			second: 20,
 			want:   http.StatusInternalServerError,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 50,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes: [][]byte{
@@ -1605,8 +1658,31 @@ func TestGetSTHConsistency(t *testing.T) {
 			req:    "first=10&second=20",
 			first:  10,
 			second: 20,
+			want:   http.StatusBadRequest,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 19, // Tree not large enough to serve the request.
+				}),
+				Proof: &trillian.Proof{
+					LeafIndex: 2,
+					Hashes: [][]byte{
+						auditHashes[0],
+						{}, // missing hash
+						auditHashes[2],
+					},
+				},
+			},
+			errStr: "need tree size: 20",
+		},
+		{
+			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
 			want:   http.StatusInternalServerError,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 50,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes: [][]byte{
@@ -1624,6 +1700,9 @@ func TestGetSTHConsistency(t *testing.T) {
 			second: 20,
 			want:   http.StatusOK,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 50,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes:    auditHashes,
@@ -1639,6 +1718,9 @@ func TestGetSTHConsistency(t *testing.T) {
 			second: 2,
 			want:   http.StatusOK,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 50,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 0,
 					Hashes:    nil,
@@ -1656,6 +1738,9 @@ func TestGetSTHConsistency(t *testing.T) {
 			second: 332,
 			want:   http.StatusOK,
 			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					TreeSize: 333,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 0,
 					Hashes:    nil,
@@ -1878,6 +1963,10 @@ func TestGetEntryAndProof(t *testing.T) {
 			want:    http.StatusOK,
 			wantRsp: &proofRsp,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					// Server returns a tree not large enough for the proof.
+					TreeSize: 20,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes: [][]byte{
@@ -1903,6 +1992,10 @@ func TestGetEntryAndProof(t *testing.T) {
 			// wantQuota
 			wantQuotaUser: remoteQuotaUser,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
+				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
+					// Server returns a tree not large enough for the proof.
+					TreeSize: 20,
+				}),
 				Proof: &trillian.Proof{
 					LeafIndex: 2,
 					Hashes: [][]byte{
@@ -1926,7 +2019,7 @@ func TestGetEntryAndProof(t *testing.T) {
 			want: http.StatusBadRequest,
 			rpcRsp: &trillian.GetEntryAndProofResponse{
 				SignedLogRoot: mustMarshalRoot(&types.LogRootV1{
-					// Server returns a tree just large enough for the proof.
+					// Server returns a tree not large enough for the proof.
 					TreeSize: 2,
 				}),
 				Proof: &trillian.Proof{},
@@ -2205,8 +2298,8 @@ func loadCertsIntoPoolOrDie(t *testing.T, certs []string) *PEMCertPool {
 	return pool
 }
 
-func mustMarshalRoot(slr *types.LogRootV1) *trillian.SignedLogRoot {
-	rootBytes, err := slr.MarshalBinary()
+func mustMarshalRoot(lr *types.LogRootV1) *trillian.SignedLogRoot {
+	rootBytes, err := lr.MarshalBinary()
 	if err != nil {
 		glog.Fatalf("Failed to marshal root in test: %v", err)
 	}
