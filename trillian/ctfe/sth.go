@@ -153,9 +153,6 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
 	}
-	if treeSize := currentRoot.TreeSize; treeSize < 0 {
-		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
-	}
 	if hashSize := len(currentRoot.RootHash); hashSize != sha256.Size {
 		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
 	}
