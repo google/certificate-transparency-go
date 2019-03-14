@@ -303,11 +303,11 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", cfg.Prefix, ohPrefix)
 		lhp = "/" + strings.Trim(ohPrefix, "/")
 	}
-	handlers, err := ctfe.SetUpInstance(ctx, opts)
+	inst, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {
 		return err
 	}
-	for path, handler := range *handlers {
+	for path, handler := range inst.Handlers {
 		mux.Handle(lhp+path, handler)
 	}
 	return nil

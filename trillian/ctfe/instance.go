@@ -62,28 +62,25 @@ type InstanceOptions struct {
 	STHStorage MirrorSTHStorage
 }
 
-// SetUpInstance sets up a log (or log mirror) instance using the provided
-// configuration, and returns a set of handlers for this log. This is the
-// standard way of setting up a log instance.
-func SetUpInstance(ctx context.Context, opts InstanceOptions) (*PathHandlers, error) {
-	handlers, _, err := SetUpInstanceAndGetter(ctx, opts)
-	return handlers, err
+// Instance is a set up log/mirror instance. It must be created with the
+// SetUpInstance call.
+type Instance struct {
+	Opts      InstanceOptions
+	Handlers  PathHandlers
+	STHGetter STHGetter
 }
 
-// SetUpInstanceAndGetter sets up a log (or log mirror) instance using the
-// provided configuration, and returns a set of handlers for this log and the
-// STHGetter being used for it.
-//
-// Note: This is for experiments with DNS serving and is not currently used
-// by CTFE. This may either go away or become an official thing in future.
-func SetUpInstanceAndGetter(ctx context.Context, opts InstanceOptions) (*PathHandlers, STHGetter, error) {
+// SetUpInstance sets up a log (or log mirror) instance using the provided
+// configuration, and returns an object containing a set of handlers for this
+// log, and an STH getter.
+func SetUpInstance(ctx context.Context, opts InstanceOptions) (*Instance, error) {
 	logInfo, err := setUpLogInfo(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// TODO(pavelkalinnikov): Handlers can take the prefix from logInfo's opts.
 	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
-	return &handlers, logInfo.sthGetter, nil
+	return &Instance{Opts: opts, Handlers: handlers, STHGetter: logInfo.sthGetter}, nil
 }
 
 func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
