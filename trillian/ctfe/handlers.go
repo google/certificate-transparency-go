@@ -335,6 +335,19 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	return ph
 }
 
+// getSTH returns the current STH as known to the STH getter, and updates tree
+// size / timestamp metrics correspondingly.
+func (li *logInfo) getSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	sth, err := li.sthGetter.GetSTH(ctx)
+	if err != nil {
+		return nil, err
+	}
+	logID := strconv.FormatInt(li.logID, 10)
+	lastSTHTimestamp.Set(float64(sth.Timestamp), logID)
+	lastSTHTreeSize.Set(float64(sth.TreeSize), logID)
+	return sth, nil
+}
+
 // ParseBodyAsJSONChain tries to extract cert-chain out of request.
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := ioutil.ReadAll(r.Body)
@@ -510,14 +523,10 @@ func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Req
 		rqu := li.instanceOpts.RemoteQuotaUser(r)
 		qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
 	}
-
-	sth, err := li.sthGetter.GetSTH(qctx)
+	sth, err := li.getSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
 	}
-	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(li.logID, 10))
-	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(li.logID, 10))
-
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
 	}

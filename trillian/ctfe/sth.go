@@ -35,6 +35,7 @@ var remoteQuotaCtxKey = contextKey("quotaUser")
 type MirrorSTHStorage interface {
 	// GetMirrorSTH returns an STH of TreeSize <= maxTreeSize. It does best
 	// effort to maximize the returned STH's TreeSize and/or Timestamp.
+	// If maxTreeSize < 0 then returns the latest known STH.
 	GetMirrorSTH(ctx context.Context, maxTreeSize int64) (*ct.SignedTreeHead, error)
 }
 
