@@ -173,8 +173,12 @@ func main() {
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		if err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix); err != nil {
+		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix)
+		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
+		}
+		if *getSTHInterval > 0 {
+			go inst.RunUpdateSTH(ctx, *getSTHInterval)
 		}
 	}
 
@@ -199,27 +203,6 @@ func main() {
 	} else {
 		// Handle metrics on the DefaultServeMux.
 		http.Handle("/metrics", promhttp.Handler())
-	}
-
-	if *getSTHInterval > 0 {
-		// Regularly update the internal STH for each log so our metrics stay up-to-date with any tree head
-		// changes that are not triggered by us.
-		for _, c := range cfg.LogConfigs.Config {
-			// TODO(pavelkalinnikov): Update mirror STHs when there is a way to.
-			if c.IsMirror {
-				continue
-			}
-			ticker := time.NewTicker(*getSTHInterval)
-			go func(c *configpb.LogConfig) {
-				glog.Infof("start internal get-sth operations on log %v (%d)", c.Prefix, c.LogId)
-				for t := range ticker.C {
-					glog.V(1).Infof("tick at %v: force internal get-sth for log %v (%d)", t, c.Prefix, c.LogId)
-					if err := ctfe.PingTreeHead(ctx, clientMap[c.LogBackendName], c.LogId, c.Prefix); err != nil {
-						glog.Warningf("failed to retrieve tree head for log %v (%d): %v", c.Prefix, c.LogId, err)
-					}
-				}
-			}(c)
-		}
 	}
 
 	// If we're enabling tracing we need to use an instrumented http.Handler.
@@ -270,10 +253,10 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string) error {
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string) (*ctfe.Instance, error) {
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	opts := ctfe.InstanceOptions{
@@ -305,10 +288,10 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	}
 	inst, err := ctfe.SetUpInstance(ctx, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for path, handler := range inst.Handlers {
 		mux.Handle(lhp+path, handler)
 	}
-	return nil
+	return inst, nil
 }

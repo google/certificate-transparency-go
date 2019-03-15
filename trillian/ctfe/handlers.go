@@ -503,20 +503,6 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 	return addChainInternal(ctx, li, w, r, true)
 }
 
-// PingTreeHead retrieves a tree head for the given log, and updates the STH
-// timestamp metrics correspondingly.
-// TODO(pavelkalinnikov): Should we cache the resulting STH?
-// nolint:staticcheck
-func PingTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) error {
-	slr, err := getSignedLogRoot(ctx, client, logID, prefix)
-	if err != nil {
-		return err
-	}
-	lastSTHTimestamp.Set(float64(slr.TimestampNanos/1000/1000), strconv.FormatInt(logID, 10))
-	lastSTHTreeSize.Set(float64(slr.TreeSize), strconv.FormatInt(logID, 10))
-	return nil
-}
-
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	qctx := ctx
 	if li.instanceOpts.RemoteQuotaUser != nil {
