@@ -66,7 +66,6 @@ type InstanceOptions struct {
 // Instance is a set up log/mirror instance. It must be created with the
 // SetUpInstance call.
 type Instance struct {
-	Opts      InstanceOptions
 	Handlers  PathHandlers
 	STHGetter STHGetter
 	li        *logInfo
@@ -75,7 +74,7 @@ type Instance struct {
 // RunUpdateSTH regularly updates the internal STH for each log so our metrics
 // stay up-to-date with any tree head changes that are not triggered by us.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
-	c := i.Opts.Validated.Config
+	c := i.li.instanceOpts.Validated.Config
 	ticker := time.NewTicker(period)
 	glog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
 	for t := range ticker.C {
@@ -99,7 +98,7 @@ func SetUpInstance(ctx context.Context, opts InstanceOptions) (*Instance, error)
 		return nil, err
 	}
 	handlers := logInfo.Handlers(opts.Validated.Config.Prefix)
-	return &Instance{Opts: opts, Handlers: handlers, STHGetter: logInfo.sthGetter, li: logInfo}, nil
+	return &Instance{Handlers: handlers, STHGetter: logInfo.sthGetter, li: logInfo}, nil
 }
 
 func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
