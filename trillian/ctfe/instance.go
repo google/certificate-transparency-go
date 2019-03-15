@@ -71,16 +71,15 @@ type Instance struct {
 	li        *logInfo
 }
 
-// RunUpdateSTH regularly updates the internal STH for each log so our metrics
-// stay up-to-date with any tree head changes that are not triggered by us.
+// RunUpdateSTH regularly updates the Instance STH so our metrics stay
+// up-to-date with any tree head changes that are not triggered by us.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	c := i.li.instanceOpts.Validated.Config
 	ticker := time.NewTicker(period)
 	glog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
 	for t := range ticker.C {
 		glog.V(1).Infof("Tick at %v: force internal get-sth for %v (%d)", t, c.Prefix, c.LogId)
-		_, err := i.li.getSTH(ctx)
-		if err != nil {
+		if _, err := i.li.getSTH(ctx); err != nil {
 			glog.Warningf("Failed to retrieve STH for %v (%d): %v", c.Prefix, c.LogId, err)
 			if ctx.Err() != nil {
 				break
