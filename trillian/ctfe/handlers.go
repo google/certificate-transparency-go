@@ -335,6 +335,19 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	return ph
 }
 
+// getSTH returns the current STH as known to the STH getter, and updates tree
+// size / timestamp metrics correspondingly.
+func (li *logInfo) getSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	sth, err := li.sthGetter.GetSTH(ctx)
+	if err != nil {
+		return nil, err
+	}
+	logID := strconv.FormatInt(li.logID, 10)
+	lastSTHTimestamp.Set(float64(sth.Timestamp), logID)
+	lastSTHTreeSize.Set(float64(sth.TreeSize), logID)
+	return sth, nil
+}
+
 // ParseBodyAsJSONChain tries to extract cert-chain out of request.
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := ioutil.ReadAll(r.Body)
@@ -490,34 +503,16 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 	return addChainInternal(ctx, li, w, r, true)
 }
 
-// PingTreeHead retrieves a tree head for the given log, and updates the STH
-// timestamp metrics correspondingly.
-// TODO(pavelkalinnikov): Should we cache the resulting STH?
-// nolint:staticcheck
-func PingTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) error {
-	slr, err := getSignedLogRoot(ctx, client, logID, prefix)
-	if err != nil {
-		return err
-	}
-	lastSTHTimestamp.Set(float64(slr.TimestampNanos/1000/1000), strconv.FormatInt(logID, 10))
-	lastSTHTreeSize.Set(float64(slr.TreeSize), strconv.FormatInt(logID, 10))
-	return nil
-}
-
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	qctx := ctx
 	if li.instanceOpts.RemoteQuotaUser != nil {
 		rqu := li.instanceOpts.RemoteQuotaUser(r)
 		qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
 	}
-
-	sth, err := li.sthGetter.GetSTH(qctx)
+	sth, err := li.getSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
 	}
-	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(li.logID, 10))
-	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(li.logID, 10))
-
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
 	}
