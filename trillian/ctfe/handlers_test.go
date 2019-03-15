@@ -900,6 +900,18 @@ func runTestGetEntries(t *testing.T) {
 			errStr: "bang",
 		},
 		{
+			descr: "invalid log root",
+			req:   "start=2&end=3",
+			slr: &trillian.SignedLogRoot{
+				LogRoot: []byte("not tls encoded data"),
+			},
+			glbir:  &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{2, 3}},
+			glbrr:  &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 2, Count: 2},
+			want:   http.StatusInternalServerError,
+			leaves: []*trillian.LogLeaf{{LeafIndex: 2}, {LeafIndex: 3}},
+			errStr: "failed to unmarshal",
+		},
+		{
 			descr: "start outside tree size",
 			req:   "start=2&end=3",
 			slr: mustMarshalRoot(&types.LogRootV1{
@@ -1317,6 +1329,15 @@ func TestGetProofByHash(t *testing.T) {
 			},
 		},
 		{
+			req:  "tree_size=11&hash=YWhhc2g=",
+			want: http.StatusInternalServerError,
+			rpcRsp: &trillian.GetInclusionProofByHashResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					LogRoot: []byte("not tls encoded data"),
+				},
+			},
+		},
+		{
 			req:  "tree_size=1&hash=YWhhc2g=",
 			want: http.StatusOK,
 			rpcRsp: &trillian.GetInclusionProofByHashResponse{
@@ -1653,6 +1674,18 @@ func TestGetSTHConsistency(t *testing.T) {
 				},
 			},
 			errStr: "invalid proof",
+		},
+		{
+			req:    "first=10&second=20",
+			first:  10,
+			second: 20,
+			want:   http.StatusInternalServerError,
+			rpcRsp: &trillian.GetConsistencyProofResponse{
+				SignedLogRoot: &trillian.SignedLogRoot{
+					LogRoot: []byte("not tls encoded data"),
+				},
+			},
+			errStr: "failed to unmarshal",
 		},
 		{
 			req:    "first=10&second=20",

@@ -647,12 +647,12 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 		return li.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %s", err)
 	}
 
-	// We could fail to get the proof because the tree size that the server has
-	// is not large enough.
 	var currentRoot types.LogRootV1
 	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
 	}
+	// We could fail to get the proof because the tree size that the server has
+	// is not large enough.
 	if currentRoot.TreeSize < uint64(treeSize) {
 		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", currentRoot.TreeSize, treeSize)
 	}

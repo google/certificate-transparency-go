@@ -66,15 +66,11 @@ type LogSTHGetter struct {
 // GetSTH retrieves and builds a tree head structure for the given log.
 // nolint:staticcheck
 func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
-	slr, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
+	currentRoot, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	var currentRoot types.LogRootV1
-	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
-	}
 	// Build the CT STH object, except the signature.
 	sth := &ct.SignedTreeHead{
 		Version:   ct.V1,
@@ -106,15 +102,11 @@ type MirrorSTHGetter struct {
 // to ensure that the mirror doesn't expose a "future" state of the log before
 // it is properly stored in Trillian.
 func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
-	slr, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
+	currentRoot, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	var currentRoot types.LogRootV1
-	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
-	}
 	sth, err := sg.st.GetMirrorSTH(ctx, int64(currentRoot.TreeSize)) // nolint:staticcheck
 	if err != nil {
 		return nil, err
@@ -124,9 +116,9 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 	return sth, nil
 }
 
-// getSignedLogRoot obtains the latest SignedLogRoot from Trillian log.
+// getSignedLogRoot obtains the latest LogRootV1 from Trillian log.
 // nolint:staticcheck
-func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*trillian.SignedLogRoot, error) {
+func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*types.LogRootV1, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
 	if q := ctx.Value(remoteQuotaCtxKey); q != nil {
 		quotaUser, ok := q.(string)
@@ -157,7 +149,7 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
 	}
 
-	return slr, nil
+	return &currentRoot, nil
 }
 
 // DefaultMirrorSTHFactory creates DefaultMirrorSTHStorage instances.
