@@ -98,17 +98,18 @@ const (
 var (
 	// Metrics are all per-log (label "logid"), but may also be
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
-	once             sync.Once
-	knownLogs        monitoring.Gauge     // logid => value (always 1.0)
-	isMirrorLog      monitoring.Gauge     // logid => value (either 0.0 or 1.0)
-	maxMergeDelay    monitoring.Gauge     // logid => value
-	expMergeDelay    monitoring.Gauge     // logid => value
-	lastSCTTimestamp monitoring.Gauge     // logid => value
-	lastSTHTimestamp monitoring.Gauge     // logid => value
-	lastSTHTreeSize  monitoring.Gauge     // logid => value
-	reqsCounter      monitoring.Counter   // logid, ep => value
-	rspsCounter      monitoring.Counter   // logid, ep, rc => value
-	rspLatency       monitoring.Histogram // logid, ep, rc => value
+	once               sync.Once
+	knownLogs          monitoring.Gauge     // logid => value (always 1.0)
+	isMirrorLog        monitoring.Gauge     // logid => value (either 0.0 or 1.0)
+	maxMergeDelay      monitoring.Gauge     // logid => value
+	expMergeDelay      monitoring.Gauge     // logid => value
+	lastSCTTimestamp   monitoring.Gauge     // logid => value
+	lastSTHTimestamp   monitoring.Gauge     // logid => value
+	lastSTHTreeSize    monitoring.Gauge     // logid => value
+	frozenSTHTimestamp monitoring.Gauge     // logid => value
+	reqsCounter        monitoring.Counter   // logid, ep => value
+	rspsCounter        monitoring.Counter   // logid, ep, rc => value
+	rspLatency         monitoring.Histogram // logid, ep, rc => value
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -120,6 +121,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	lastSCTTimestamp = mf.NewGauge("last_sct_timestamp", "Time of last SCT in ms since epoch", "logid")
 	lastSTHTimestamp = mf.NewGauge("last_sth_timestamp", "Time of last STH in ms since epoch", "logid")
 	lastSTHTreeSize = mf.NewGauge("last_sth_treesize", "Size of tree at last STH", "logid")
+	frozenSTHTimestamp = mf.NewGauge("frozen_sth_timestamp", "Time of the frozen STH in ms since epoch", "logid")
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
@@ -279,28 +281,28 @@ func newLogInfo(
 		RequestLog:     instanceOpts.RequestLog,
 	}
 
+	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
+	label := strconv.FormatInt(logID, 10)
+	knownLogs.Set(1.0, label)
+	isMirrorLog.Set(0.0, label) // TODO(pavelkalinnikov): Assume 0 by default.
+
 	switch {
 	case vCfg.FrozenSTH != nil:
 		li.sthGetter = &FrozenSTHGetter{sth: vCfg.FrozenSTH}
+		frozenSTHTimestamp.Set(float64(vCfg.FrozenSTH.Timestamp), label)
+
 	case cfg.IsMirror:
 		st := instanceOpts.STHStorage
 		if st == nil {
 			st = DefaultMirrorSTHStorage{}
 		}
 		li.sthGetter = &MirrorSTHGetter{li: li, st: st}
+		isMirrorLog.Set(1.0, label)
+
 	default:
 		li.sthGetter = &LogSTHGetter{li: li}
 	}
 
-	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
-	label := strconv.FormatInt(logID, 10)
-	knownLogs.Set(1.0, label)
-
-	if cfg.IsMirror {
-		isMirrorLog.Set(1.0, label)
-	} else {
-		isMirrorLog.Set(0.0, label)
-	}
 	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
 	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
 
