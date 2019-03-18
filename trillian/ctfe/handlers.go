@@ -776,7 +776,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	return http.StatusOK, nil
 }
 
-func getRoots(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getRoots(_ context.Context, li *logInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 	// Pull out the raw certificates from the parsed versions
 	rawCerts := make([][]byte, 0, len(li.validationOpts.trustedRoots.RawCertificates()))
 	for _, cert := range li.validationOpts.trustedRoots.RawCertificates() {

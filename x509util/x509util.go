@@ -139,7 +139,7 @@ func curveOIDToString(oid asn1.ObjectIdentifier) (t string, bitlen int) {
 	return fmt.Sprintf("%v", oid), -1
 }
 
-func publicKeyToString(algo x509.PublicKeyAlgorithm, pub interface{}) string {
+func publicKeyToString(_ x509.PublicKeyAlgorithm, pub interface{}) string {
 	var buf bytes.Buffer
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:

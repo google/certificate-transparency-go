@@ -73,7 +73,7 @@ var (
 )
 
 // buildNoLogClient is LogClientBuilder that always fails.
-func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad client builder")
 }
 
@@ -94,7 +94,7 @@ func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, er
 }
 
 // buildEmptyLogClient produces empty stub Log clients.
-func buildEmptyLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildEmptyLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return emptyLogClient{}, nil
 }
 

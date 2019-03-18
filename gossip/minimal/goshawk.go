@@ -350,7 +350,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 // NewBoundaryGoshawk creates a Goshawk from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossip checking across (some kinds of) network boundaries.
-func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
+func NewBoundaryGoshawk(_ context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")
 	}
