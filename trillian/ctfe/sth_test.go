@@ -45,106 +45,76 @@ type testCase struct {
 
 // commonTests are valid for both cases, mostly basic parameter checks
 // and type / error handling.
-var commonTests = []testCase{
-	{
-		desc: "bad quota value",
-		ctxSetup: func(ctx context.Context) context.Context {
-			return context.WithValue(ctx, remoteQuotaCtxKey, []byte("not a string value"))
+func commonTests(t *testing.T) []testCase {
+	t.Helper()
+	return []testCase{
+		{
+			desc: "bad quota value",
+			ctxSetup: func(ctx context.Context) context.Context {
+				return context.WithValue(ctx, remoteQuotaCtxKey, []byte("not a string value"))
+			},
+			errStr: "incorrect quota",
 		},
-		errStr: "incorrect quota",
-	},
-	{
-		desc:   "latest root RPC fails",
-		slrErr: errors.New("slr failed"),
-		errStr: "slr failed",
-	},
-	{
-		desc:   "nil slr",
-		slr:    &trillian.GetLatestSignedLogRootResponse{},
-		errStr: "no log root",
-	},
-	{
-		desc:   "bad slr",
-		slr:    &trillian.GetLatestSignedLogRootResponse{SignedLogRoot: &trillian.SignedLogRoot{LogRoot: []byte("not tls encoded")}},
-		errStr: "unmarshal root: log_root:\"not tls",
-	},
-	{
-		desc: "bad hash",
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{RootHash: []byte("not a 32 byte hash")}),
+		{
+			desc:   "latest root RPC fails",
+			slrErr: errors.New("slr failed"),
+			errStr: "slr failed",
 		},
-		errStr: "bad hash size",
-	},
+		{
+			desc:   "nil slr",
+			slr:    &trillian.GetLatestSignedLogRootResponse{},
+			errStr: "no log root",
+		},
+		{
+			desc:   "bad slr",
+			slr:    &trillian.GetLatestSignedLogRootResponse{SignedLogRoot: &trillian.SignedLogRoot{LogRoot: []byte("not tls encoded")}},
+			errStr: "unmarshal root: log_root:\"not tls",
+		},
+		{
+			desc: "bad hash",
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{RootHash: []byte("not a 32 byte hash")}),
+			},
+			errStr: "bad hash size",
+		},
+	}
 }
 
 // logTests apply only to the LogSTHGetter where things are signed.
-var logTests = []testCase{
-	{
-		desc: "signer error",
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{RootHash: []byte("12345678123456781234567812345678")}),
-		},
-		sigErr: errors.New("not signing that"),
-		errStr: "sign tree head: not signing",
-	},
-	{
-		desc: "empty sig",
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{RootHash: []byte("12345678123456781234567812345678")}),
-		},
-		sig:    []byte{},
-		errStr: "sign tree head: <nil>",
-	},
-	{
-		desc: "ok",
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{
-					// Ensure response contains all fields needed for the CT STH.
-					TreeSize:       12345,
-					TimestampNanos: 987654321,
-					RootHash:       []byte("12345678123456781234567812345678")}),
-		},
-		sig: []byte("signedit"),
-		wantSTH: &ct.SignedTreeHead{
-			Timestamp:      987,
-			SHA256RootHash: hashFromString("12345678123456781234567812345678"),
-			TreeHeadSignature: ct.DigitallySigned{
-				Algorithm: tls.SignatureAndHashAlgorithm{
-					Hash:      tls.SHA256,
-					Signature: tls.SignatureAlgorithmFromPubKey(tls.Anonymous),
-				},
-				Signature: []byte("signedit"),
+func logTests(t *testing.T) []testCase {
+	t.Helper()
+	return []testCase{
+		{
+			desc: "signer error",
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{RootHash: []byte("12345678123456781234567812345678")}),
 			},
-			TreeSize: 12345,
+			sigErr: errors.New("not signing that"),
+			errStr: "sign tree head: not signing",
 		},
-	},
-}
-
-// mirrorTests apply only to the MirrorSTHGetter where sth is read from a store.
-var mirrorTests = []testCase{
-	{
-		desc: "bad mirror storage",
-		ms: &fakeMirrorSTHStorage{
-			err: errors.New("mirror store failed"),
+		{
+			desc: "empty sig",
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{RootHash: []byte("12345678123456781234567812345678")}),
+			},
+			sig:    []byte{},
+			errStr: "sign tree head: <nil>",
 		},
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{
-					// Ensure response contains all fields needed for the CT STH.
-					TreeSize:       12345,
-					TimestampNanos: 987654321,
-					RootHash:       []byte("12345678123456781234567812345678")}),
-		},
-		errStr: "mirror store failed",
-	},
-	{
-		desc: "ok",
-		ms: &fakeMirrorSTHStorage{
-			sth: &ct.SignedTreeHead{
+		{
+			desc: "ok",
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{
+						// Ensure response contains all fields needed for the CT STH.
+						TreeSize:       12345,
+						TimestampNanos: 987654321,
+						RootHash:       []byte("12345678123456781234567812345678")}),
+			},
+			sig: []byte("signedit"),
+			wantSTH: &ct.SignedTreeHead{
 				Timestamp:      987,
 				SHA256RootHash: hashFromString("12345678123456781234567812345678"),
 				TreeHeadSignature: ct.DigitallySigned{
@@ -157,35 +127,74 @@ var mirrorTests = []testCase{
 				TreeSize: 12345,
 			},
 		},
-		slr: &trillian.GetLatestSignedLogRootResponse{
-			SignedLogRoot: mustMarshalRoot(
-				&types.LogRootV1{
-					// Ensure response contains all fields needed for the CT STH.
-					TreeSize:       12345,
-					TimestampNanos: 987654321,
-					RootHash:       []byte("12345678123456781234567812345678")}),
-		},
-		wantSTH: &ct.SignedTreeHead{
-			Timestamp:      987,
-			SHA256RootHash: hashFromString("12345678123456781234567812345678"),
-			TreeHeadSignature: ct.DigitallySigned{
-				Algorithm: tls.SignatureAndHashAlgorithm{
-					Hash:      tls.SHA256,
-					Signature: tls.SignatureAlgorithmFromPubKey(tls.Anonymous),
-				},
-				Signature: []byte("signedit"),
+	}
+}
+
+// mirrorTests apply only to the MirrorSTHGetter where sth is read from a store.
+func mirrorTests(t *testing.T) []testCase {
+	t.Helper()
+	return []testCase{
+		{
+			desc: "bad mirror storage",
+			ms: &fakeMirrorSTHStorage{
+				err: errors.New("mirror store failed"),
 			},
-			TreeSize: 12345,
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{
+						// Ensure response contains all fields needed for the CT STH.
+						TreeSize:       12345,
+						TimestampNanos: 987654321,
+						RootHash:       []byte("12345678123456781234567812345678")}),
+			},
+			errStr: "mirror store failed",
 		},
-	},
+		{
+			desc: "ok",
+			ms: &fakeMirrorSTHStorage{
+				sth: &ct.SignedTreeHead{
+					Timestamp:      987,
+					SHA256RootHash: hashFromString("12345678123456781234567812345678"),
+					TreeHeadSignature: ct.DigitallySigned{
+						Algorithm: tls.SignatureAndHashAlgorithm{
+							Hash:      tls.SHA256,
+							Signature: tls.SignatureAlgorithmFromPubKey(tls.Anonymous),
+						},
+						Signature: []byte("signedit"),
+					},
+					TreeSize: 12345,
+				},
+			},
+			slr: &trillian.GetLatestSignedLogRootResponse{
+				SignedLogRoot: mustMarshalRoot(t,
+					&types.LogRootV1{
+						// Ensure response contains all fields needed for the CT STH.
+						TreeSize:       12345,
+						TimestampNanos: 987654321,
+						RootHash:       []byte("12345678123456781234567812345678")}),
+			},
+			wantSTH: &ct.SignedTreeHead{
+				Timestamp:      987,
+				SHA256RootHash: hashFromString("12345678123456781234567812345678"),
+				TreeHeadSignature: ct.DigitallySigned{
+					Algorithm: tls.SignatureAndHashAlgorithm{
+						Hash:      tls.SHA256,
+						Signature: tls.SignatureAlgorithmFromPubKey(tls.Anonymous),
+					},
+					Signature: []byte("signedit"),
+				},
+				TreeSize: 12345,
+			},
+		},
+	}
 }
 
 func TestLogSTHGetter(t *testing.T) {
 	// Note: Does not test signature cache interaction as this is inside
 	// signV1TreeHead and covered by other tests.
 	tests := make([]testCase, 0, 30)
-	tests = append(tests, commonTests...)
-	tests = append(tests, logTests...)
+	tests = append(tests, commonTests(t)...)
+	tests = append(tests, logTests(t)...)
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -220,8 +229,8 @@ func TestMirrorSTHGetter(t *testing.T) {
 	// Note: This does not test the operation of MirrorSTHStorage. Implementations
 	// of this need their own tests.
 	tests := make([]testCase, 0, 30)
-	tests = append(tests, commonTests...)
-	tests = append(tests, mirrorTests...)
+	tests = append(tests, commonTests(t)...)
+	tests = append(tests, mirrorTests(t)...)
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
