@@ -284,7 +284,6 @@ func newLogInfo(
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
 	label := strconv.FormatInt(logID, 10)
 	knownLogs.Set(1.0, label)
-	isMirrorLog.Set(0.0, label) // TODO(pavelkalinnikov): Assume 0 by default.
 
 	switch {
 	case vCfg.FrozenSTH != nil:
@@ -297,12 +296,14 @@ func newLogInfo(
 			st = DefaultMirrorSTHStorage{}
 		}
 		li.sthGetter = &MirrorSTHGetter{li: li, st: st}
-		isMirrorLog.Set(1.0, label)
 
 	default:
 		li.sthGetter = &LogSTHGetter{li: li}
 	}
 
+	if cfg.IsMirror {
+		isMirrorLog.Set(1.0, label)
+	}
 	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
 	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
 
