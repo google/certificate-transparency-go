@@ -119,13 +119,13 @@ func TestEqual(t *testing.T) {
 			false,
 		},
 		{
-			&FixError{Error: errors.New("Error1")},
+			&FixError{Error: errors.New("error1")},
 			&FixError{},
 			false,
 		},
 		{
-			&FixError{Error: errors.New("Error1")},
-			&FixError{Error: errors.New("Error2")},
+			&FixError{Error: errors.New("error1")},
+			&FixError{Error: errors.New("error2")},
 			false,
 		},
 		{
@@ -139,7 +139,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log Post Failed"),
 			},
 			&FixError{},
 			false,
@@ -156,7 +156,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log Post Failed"),
 			},
 			false,
 		},
@@ -171,7 +171,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			&FixError{
 				Type: LogPostFailed,
@@ -183,7 +183,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			true,
 		},
@@ -198,7 +198,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			nil,
 			false,
@@ -273,7 +273,7 @@ func TestString(t *testing.T) {
 					GetTestCertificateFromPEM(t, verisignRoot),
 				},
 				URL:   "https://www.test.com",
-				Error: errors.New("Log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			"LogPostFailed\n" +
 				"Error: Log Post Failed\n" +
@@ -303,7 +303,7 @@ func TestMarshalJSON(t *testing.T) {
 			},
 			URL:   "https://www.test.com",
 			Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-			Error: errors.New("Log Post Failed"),
+			Error: errors.New("log post failed"),
 		},
 	}
 

@@ -116,7 +116,7 @@ func (s *Scanner) processEntry(info entryInfo, foundCert func(*ct.RawLogEntry), 
 	case LeafMatcher:
 		return s.processMatcherLeafEntry(matcher, info, foundCert, foundPrecert)
 	default:
-		return fmt.Errorf("Unexpected matcher type %T", matcher)
+		return fmt.Errorf("unexpected matcher type %T", matcher)
 	}
 }
 

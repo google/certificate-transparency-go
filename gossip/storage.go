@@ -254,7 +254,7 @@ func (s *Storage) addSTHIfNotExists(tx *sql.Tx, sth ct.SignedTreeHead) error {
 	stmt := tx.Stmt(s.insertSTHPollination)
 	sigB64, err := sth.TreeHeadSignature.Base64String()
 	if err != nil {
-		return fmt.Errorf("Failed to base64 sth signature: %v", err)
+		return fmt.Errorf("failed to base64 sth signature: %v", err)
 	}
 	_, err = stmt.Exec(sth.Version, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash.Base64String(), sigB64, sth.LogID.Base64String())
 	if err != nil {
@@ -344,7 +344,7 @@ func getNumThings(getCount *sql.Stmt) (int64, error) {
 		return -1, err
 	}
 	if !r.Next() {
-		return -1, fmt.Errorf("Empty scan returned while querying %v", getCount)
+		return -1, fmt.Errorf("empty scan returned while querying %v", getCount)
 	}
 	var count int64
 	if err := r.Scan(&count); err != nil {

@@ -50,7 +50,7 @@ func createVerifiers() (*gossip.SignatureVerifierMap, error) {
 			}
 			sv, err := ct.NewSignatureVerifier(key)
 			if err != nil {
-				return nil, fmt.Errorf("Failed to create new SignatureVerifier: %v", err)
+				return nil, fmt.Errorf("failed to create new SignatureVerifier: %v", err)
 			}
 			m[id] = *sv
 			log.Printf("Loaded key for LogID %v", id)
