@@ -449,7 +449,7 @@ func newString(s string) *string { return &s }
 
 func newBool(b bool) *bool { return &b }
 
-var parseFieldParametersTestData []parseFieldParametersTest = []parseFieldParametersTest{
+var parseFieldParametersTestData = []parseFieldParametersTest{
 	{"", fieldParameters{}},
 	{"ia5", fieldParameters{stringType: TagIA5String}},
 	{"generalized", fieldParameters{timeType: TagGeneralizedTime}},
