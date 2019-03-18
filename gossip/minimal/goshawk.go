@@ -350,7 +350,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 // NewBoundaryGoshawk creates a Goshawk from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossip checking across (some kinds of) network boundaries.
-func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
+func NewBoundaryGoshawk(_ context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")
 	}
@@ -542,12 +542,12 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 		TreeHeadSignature: sthInfo.TreeHeadSignature,
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
-		return fmt.Errorf("Checker(%s): failed to validate STH signature: %v", o.Name, err)
+		return fmt.Errorf("checker(%s): failed to validate STH signature: %v", o.Name, err)
 	}
 
 	currentSTH := o.getLastSTH()
 	if currentSTH == nil {
-		glog.Warningf("Checker(%s): no current STH available", o.Name)
+		glog.Warningf("checker(%s): no current STH available", o.Name)
 		return nil
 	}
 	first, second := sthInfo.TreeSize, currentSTH.TreeSize
@@ -564,7 +564,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	glog.V(2).Infof("Checker(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
-		return fmt.Errorf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
+		return fmt.Errorf("failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
 	}
 	glog.Infof("Checker(%s): verified that hash %x @%d + proof = hash %x @%d\n", o.Name, firstHash, first, secondHash, second)
 	return nil

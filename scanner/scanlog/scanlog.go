@@ -168,7 +168,7 @@ func createMatcherFromFlags(logClient *client.LogClient) (interface{}, error) {
 		var sn big.Int
 		_, success := sn.SetString(*serialNumber, 0)
 		if !success {
-			return nil, fmt.Errorf("Invalid serialNumber %s", *serialNumber)
+			return nil, fmt.Errorf("invalid serialNumber %s", *serialNumber)
 		}
 		return scanner.MatchSerialNumber{SerialNumber: sn}, nil
 	}

@@ -48,45 +48,45 @@ func checkMasterOpsMatchBranch(master *LogList, branch *LogList, wl *warningList
 }
 
 // checkEquivalence: whether 2 logs are functionally identical.
-func (log1 *Log) checkEquivalence(log2 *Log, wl *warningList) {
+func (l *Log) checkEquivalence(log2 *Log, wl *warningList) {
 	// Description and STH comparison are omitted.
-	if !bytes.Equal(log1.Key, log2.Key) {
+	if !bytes.Equal(l.Key, log2.Key) {
 		wl.addWarning(fmt.Sprintf(
 			"Log %q and log %q have different keys.",
-			log1.Description, log2.Description))
+			l.Description, log2.Description))
 	}
-	if log1.MaximumMergeDelay != log2.MaximumMergeDelay {
+	if l.MaximumMergeDelay != log2.MaximumMergeDelay {
 		wl.addWarning(fmt.Sprintf(
 			"Maximum merge delay mismatch for logs %q and %q: %d != %d.",
-			log1.Description, log2.Description, log1.MaximumMergeDelay,
+			l.Description, log2.Description, l.MaximumMergeDelay,
 			log2.MaximumMergeDelay))
 	}
 	// Strong assumption: operators IDs are semantically same across logs.
-	log1Ops := log1.OperatedBy
+	log1Ops := l.OperatedBy
 	log2Ops := log2.OperatedBy
 	sort.IntSlice(log1Ops).Sort()
 	sort.IntSlice(log2Ops).Sort()
 	if !reflect.DeepEqual(log1Ops, log2Ops) {
 		wl.addWarning(fmt.Sprintf(
 			"Operators mismatch for logs %q and %q.",
-			log1.Description, log2.Description))
+			l.Description, log2.Description))
 	}
-	if log1.URL != log2.URL {
+	if l.URL != log2.URL {
 		wl.addWarning(fmt.Sprintf(
 			"URL mismatch for logs %q and %q: %s != %s.",
-			log1.Description, log2.Description, log1.URL, log2.URL))
+			l.Description, log2.Description, l.URL, log2.URL))
 	}
-	if log1.DisqualifiedAt != log2.DisqualifiedAt {
+	if l.DisqualifiedAt != log2.DisqualifiedAt {
 		wl.addWarning(fmt.Sprintf(
 			"Disqualified-at-timing mismatch for logs %q and %q: %v != %v.",
-			log1.Description, log2.Description,
-			ct.TimestampToTime(uint64(log1.DisqualifiedAt)),
+			l.Description, log2.Description,
+			ct.TimestampToTime(uint64(l.DisqualifiedAt)),
 			ct.TimestampToTime(uint64(log2.DisqualifiedAt))))
 	}
-	if log1.DNSAPIEndpoint != log2.DNSAPIEndpoint {
+	if l.DNSAPIEndpoint != log2.DNSAPIEndpoint {
 		wl.addWarning(fmt.Sprintf(
 			"DNS API mismatch for logs %q and %q: %s != %s.",
-			log1.Description, log2.Description, log1.DNSAPIEndpoint,
+			l.Description, log2.Description, l.DNSAPIEndpoint,
 			log2.DNSAPIEndpoint))
 	}
 }
@@ -106,9 +106,9 @@ func checkMasterLogsMatchBranch(master *LogList, branch *LogList, wl *warningLis
 // restrictions: consistency across operators, matching functionality of mutual
 // logs.
 // Returns slice of warnings if any.
-func (master *LogList) CheckBranch(branch *LogList) []string {
+func (ll *LogList) CheckBranch(branch *LogList) []string {
 	w := &warningList{warnings: []string{}}
-	checkMasterOpsMatchBranch(master, branch, w)
-	checkMasterLogsMatchBranch(master, branch, w)
+	checkMasterOpsMatchBranch(ll, branch, w)
+	checkMasterLogsMatchBranch(ll, branch, w)
 	return w.warnings
 }

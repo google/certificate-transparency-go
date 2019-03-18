@@ -166,12 +166,12 @@ func (c *PreorderedLogClient) buildLogLeaf(index int64, entry *ct.LeafEntry) (*t
 	}, nil
 }
 
-func idHashCertData(index int64, entry *ct.RawLogEntry) []byte {
+func idHashCertData(_ int64, entry *ct.RawLogEntry) []byte {
 	hash := sha256.Sum256(entry.Cert.Data)
 	return hash[:]
 }
 
-func idHashLeafIndex(index int64, entry *ct.RawLogEntry) []byte {
+func idHashLeafIndex(index int64, _ *ct.RawLogEntry) []byte {
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint64(data, uint64(index))
 	hash := sha256.Sum256(data)

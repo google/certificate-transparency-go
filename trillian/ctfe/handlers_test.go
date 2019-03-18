@@ -94,7 +94,7 @@ LPd2G+er1/w5wxpM/hvZbWc0yoLyLd5aDIu73YJde28+dhKtjbMAp+IRaYhgIyYi
 hMOqXSGR79oQv5I103s6KjQNWUGblKSFZvP6w82LU9Wk6YJw6tKXsHIQ+c5KITix
 iBEUO5P6TnqH3TfhOF8sKQg=`
 
-const caAndIntermediateCertsPEM string = "-----BEGIN CERTIFICATE-----\n" +
+const caAndIntermediateCertsPEM = "-----BEGIN CERTIFICATE-----\n" +
 	caCertB64 +
 	"\n-----END CERTIFICATE-----\n" +
 	"\n-----BEGIN CERTIFICATE-----\n" +

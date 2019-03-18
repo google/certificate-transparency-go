@@ -73,7 +73,7 @@ var (
 )
 
 // buildNoLogClient is LogClientBuilder that always fails.
-func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad client builder")
 }
 
@@ -94,7 +94,7 @@ func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, er
 }
 
 // buildEmptyLogClient produces empty stub Log clients.
-func buildEmptyLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildEmptyLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return emptyLogClient{}, nil
 }
 
@@ -202,7 +202,7 @@ func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*c
 	if _, ok := RootsCerts[m.logURL]; ok {
 		return testSCT(m.logURL), nil
 	}
-	return nil, fmt.Errorf("Log %q has no roots", m.logURL)
+	return nil, fmt.Errorf("log %q has no roots", m.logURL)
 }
 
 func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
