@@ -139,7 +139,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			&FixError{},
 			false,
@@ -156,7 +156,7 @@ func TestEqual(t *testing.T) {
 				},
 				URL:   "https://www.test.com",
 				Bad:   GetTestCertificateFromPEM(t, googleLeaf).Raw,
-				Error: errors.New("log Post Failed"),
+				Error: errors.New("log post failed"),
 			},
 			false,
 		},
@@ -276,7 +276,7 @@ func TestString(t *testing.T) {
 				Error: errors.New("log post failed"),
 			},
 			"LogPostFailed\n" +
-				"Error: Log Post Failed\n" +
+				"Error: log post failed\n" +
 				"URL: https://www.test.com\n" +
 				"Cert: " + googleLeaf +
 				"Chain: " + googleLeaf + thawteIntermediate + verisignRoot,
