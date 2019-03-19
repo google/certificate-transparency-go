@@ -49,10 +49,6 @@ type LoglistRefresher struct {
 	mu   sync.RWMutex
 	ll   *loglist.LogList
 	path string
-
-	// Guards ticker.
-	tmu    sync.Mutex
-	ticker *time.Ticker
 }
 
 // NewLoglistRefresher creates and inits a LoglistRefresher instance.
@@ -75,39 +71,31 @@ func (llr *LoglistRefresher) sendEventIfAny() {
 
 // Run starts regular Log list refreshes.
 func (llr *LoglistRefresher) Run(ctx context.Context) {
-	llr.tmu.Lock()
-	if llr.ticker != nil {
-		// Re-start the ticker.
-		llr.ticker = time.NewTicker(loglistRefreshInterval)
-		llr.tmu.Unlock()
-		llr.sendEventIfAny()
-		return
-	}
-
-	llr.ticker = time.NewTicker(loglistRefreshInterval)
-	llr.tmu.Unlock()
+	ticker := time.NewTicker(loglistRefreshInterval)
 
 	llr.sendEventIfAny()
 
 	for {
 		select {
 		case <-ctx.Done():
-			llr.tmu.Lock()
-			defer llr.tmu.Unlock()
-			if llr.ticker != nil {
-				llr.ticker.Stop()
-				llr.ticker = nil
-			}
+			ticker.Stop()
 			return
-		case <-llr.ticker.C:
+		case <-ticker.C:
 			llr.sendEventIfAny()
 		}
 	}
 }
 
+// Check runs singular Log list refresh.
+func (llr *LoglistRefresher) Check() {
+	go llr.sendEventIfAny()
+}
+
 // read runs single Log list refresh and forms LogListEvent instance containing
 // info on update/error observed.
 func (llr *LoglistRefresher) read() *LogListEvent {
+	llr.mu.Lock()
+	defer llr.mu.Unlock()
 	client := &http.Client{Timeout: time.Second * 10}
 	llData, err := x509util.ReadFileOrURL(llr.path, client)
 
@@ -121,8 +109,6 @@ func (llr *LoglistRefresher) read() *LogListEvent {
 		evt.Err = fmt.Errorf("failed to parse log list: %v", err)
 		return &evt
 	}
-	llr.mu.Lock()
-	defer llr.mu.Unlock()
 	if reflect.DeepEqual(ll, llr.ll) {
 		return nil
 	}

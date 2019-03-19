@@ -162,9 +162,9 @@ func TestNewLoglistRefresherUpdate(t *testing.T) {
 			// Simulate Log list update.
 			rewriteDataFile(t, f.Name(), []byte(tc.llNext))
 
-			go llr.Run(ctx)
+			llr.Check()
 			// Wait for event if any.
-			waitCtx, waitCancel := context.WithTimeout(context.Background(), time.Second)
+			waitCtx, waitCancel := context.WithTimeout(context.Background(), 1*time.Second)
 			defer waitCancel()
 
 			select {
