@@ -44,7 +44,7 @@ func createDataFile(t *testing.T, name string, data []byte) *os.File {
 
 func rewriteDataFile(t *testing.T, name string, data []byte) *os.File {
 	t.Helper()
-	f, err = os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0755)
+	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		t.Fatalf("unable to open file %q for an update", name)
 	}
@@ -167,16 +167,17 @@ func TestNewLoglistRefresherUpdate(t *testing.T) {
 			<-llr.Events
 
 			// Simulate Log list update.
-			rewriteDataFile(t, f.Name, []byte(tc.llNext))
+			rewriteDataFile(t, f.Name(), []byte(tc.llNext))
 
 			go llr.Run(ctx)
 			// Wait for event if any.
-			time.Sleep(time.Second * 1)
+			waitCtx, waitCancel := context.WithTimeout(context.Background(), time.Second)
+			defer waitCancel()
 
 			select {
 			case gotEvt := <-llr.Events:
 				compareEvents(t, gotEvt, tc.wantLl, tc.errRegexp)
-			default:
+			case <-waitCtx.Done():
 				compareEvents(t, nil, tc.wantLl, tc.errRegexp)
 			}
 		})
