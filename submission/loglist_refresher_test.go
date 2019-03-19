@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func createDataFile(t *testing.T, name string, data []byte) *os.File {
+func createTempFile(t *testing.T, name string, data []byte) *os.File {
 	t.Helper()
 	f, err := ioutil.TempFile("", name)
 	if err != nil {
@@ -42,19 +42,12 @@ func createDataFile(t *testing.T, name string, data []byte) *os.File {
 	return f
 }
 
-func rewriteDataFile(t *testing.T, name string, data []byte) *os.File {
+func rewriteDataFile(t *testing.T, name string, data []byte) {
 	t.Helper()
-	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0755)
+	err := ioutil.WriteFile(name, data, 0755)
 	if err != nil {
-		t.Fatalf("unable to open file %q for an update", name)
+		t.Fatalf("unable to update file %q", name)
 	}
-	if _, err := f.Write(data); err != nil {
-		t.Fatalf("unable to write update into %q", name)
-	}
-	if err = f.Close(); err != nil {
-		t.Fatalf("unable to close file %q after update", name)
-	}
-	return f
 }
 
 func compareEvents(t *testing.T, gotEvt *LogListEvent, wantLl *loglist.LogList, errRegexp *regexp.Regexp) {
@@ -111,7 +104,7 @@ func TestNewLoglistRefresher(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := createDataFile(t, "loglist.json", []byte(tc.ll))
+			f := createTempFile(t, "loglist.json", []byte(tc.ll))
 			defer os.Remove(f.Name())
 
 			llr := NewLoglistRefresher(f.Name())
@@ -157,7 +150,7 @@ func TestNewLoglistRefresherUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := createDataFile(t, "loglist.json", []byte(tc.ll))
+			f := createTempFile(t, "loglist.json", []byte(tc.ll))
 			defer os.Remove(f.Name())
 
 			llr := NewLoglistRefresher(f.Name())

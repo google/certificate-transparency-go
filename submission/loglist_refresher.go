@@ -31,20 +31,24 @@ const (
 	loglistRefreshInterval = time.Hour * 24 * 7
 )
 
-// LogListEvent wraps result of sinle Log list refresh.
+// LogListEvent wraps result of single Log list refresh. Only one field
+// expected to be set.
 type LogListEvent struct {
-	Ll  *loglist.LogList
+	// Ll is new version of Log list. Emitted when update observed.
+	Ll *loglist.LogList
+	// Err is error on reading/parsing Log-list source.
 	Err error
 }
 
 // LoglistRefresher regularly reads Log-list and emits notifications when updates/errors
 // observed.
 type LoglistRefresher struct {
+	// Events is an output channel emitting events of Log-list updates/errors.
+	Events chan *LogListEvent
+
 	mu   sync.RWMutex
 	ll   *loglist.LogList
 	path string
-
-	Events chan *LogListEvent
 
 	// Guards ticker.
 	tmu    sync.Mutex
@@ -120,7 +124,6 @@ func (llr *LoglistRefresher) read() *LogListEvent {
 	llr.mu.Lock()
 	defer llr.mu.Unlock()
 	if reflect.DeepEqual(ll, llr.ll) {
-		fmt.Printf("some\n")
 		return nil
 	}
 	// Event of Loglist update.
