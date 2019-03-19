@@ -37,6 +37,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
+	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -574,9 +575,13 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %s", err)
 		}
 
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
 		// We can get here with a tree size too small to satisfy the proof.
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < second {
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, rsp.SignedLogRoot.TreeSize)
+		if currentRoot.TreeSize < uint64(second) {
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, currentRoot.TreeSize)
 		}
 
 		// Additional sanity checks, none of the hashes in the returned path should be empty
@@ -643,10 +648,14 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 		return li.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %s", err)
 	}
 
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+	}
 	// We could fail to get the proof because the tree size that the server has
 	// is not large enough.
-	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
-		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", rsp.SignedLogRoot.TreeSize, treeSize)
+	if currentRoot.TreeSize < uint64(treeSize) {
+		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", currentRoot.TreeSize, treeSize)
 	}
 
 	// Additional sanity checks on the response.
@@ -709,10 +718,14 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		if err != nil {
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
 		}
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
+		if currentRoot.TreeSize <= uint64(start) {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here.
-			return http.StatusBadRequest, fmt.Errorf("request for leaves from %d but current tree size only %d", start, rsp.SignedLogRoot.TreeSize)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
@@ -735,11 +748,15 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %s", err)
 		}
 
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
+		if currentRoot.TreeSize <= uint64(start) {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here. It was previously returned via the error status
 			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.SignedLogRoot.TreeSize, start)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 
 		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
@@ -817,10 +834,14 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		return li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %s", err)
 	}
 
-	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+	}
+	if currentRoot.TreeSize < uint64(treeSize) {
 		// If tree size is not large enough return the 4xx here, would previously
 		// have come from the error status mapping above.
-		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, rsp.SignedLogRoot.TreeSize)
+		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, currentRoot.TreeSize)
 	}
 
 	// Apply some checks that we got reasonable data from the backend

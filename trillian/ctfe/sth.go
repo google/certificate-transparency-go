@@ -23,6 +23,7 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/trillian"
+	"github.com/google/trillian/types"
 )
 
 type contextKey string
@@ -65,7 +66,7 @@ type LogSTHGetter struct {
 // GetSTH retrieves and builds a tree head structure for the given log.
 // nolint:staticcheck
 func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
-	slr, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
+	currentRoot, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +74,11 @@ func (sg *LogSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) 
 	// Build the CT STH object, except the signature.
 	sth := &ct.SignedTreeHead{
 		Version:   ct.V1,
-		TreeSize:  uint64(slr.TreeSize),
-		Timestamp: uint64(slr.TimestampNanos / 1000 / 1000),
+		TreeSize:  uint64(currentRoot.TreeSize),
+		Timestamp: uint64(currentRoot.TimestampNanos / 1000 / 1000),
 	}
 	// Note: The size was checked in getSignedLogRoot.
-	copy(sth.SHA256RootHash[:], slr.RootHash)
+	copy(sth.SHA256RootHash[:], currentRoot.RootHash)
 
 	// Add the signature over the STH contents.
 	err = signV1TreeHead(sg.li.signer, sth, &sg.cache)
@@ -101,12 +102,12 @@ type MirrorSTHGetter struct {
 // to ensure that the mirror doesn't expose a "future" state of the log before
 // it is properly stored in Trillian.
 func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
-	slr, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
+	currentRoot, err := getSignedLogRoot(ctx, sg.li.rpcClient, sg.li.logID, sg.li.LogPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	sth, err := sg.st.GetMirrorSTH(ctx, slr.TreeSize) // nolint:staticcheck
+	sth, err := sg.st.GetMirrorSTH(ctx, int64(currentRoot.TreeSize)) // nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}
@@ -115,9 +116,9 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 	return sth, nil
 }
 
-// getSignedLogRoot obtains the latest SignedLogRoot from Trillian log.
+// getSignedLogRoot obtains the latest LogRootV1 from Trillian log.
 // nolint:staticcheck
-func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*trillian.SignedLogRoot, error) {
+func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*types.LogRootV1, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
 	if q := ctx.Value(remoteQuotaCtxKey); q != nil {
 		quotaUser, ok := q.(string)
@@ -140,14 +141,15 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 		return nil, errors.New("no log root returned")
 	}
 	glog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
-	if treeSize := slr.TreeSize; treeSize < 0 {
-		return nil, fmt.Errorf("bad tree size from backend: %d", treeSize)
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)
 	}
-	if hashSize := len(slr.RootHash); hashSize != sha256.Size {
+	if hashSize := len(currentRoot.RootHash); hashSize != sha256.Size {
 		return nil, fmt.Errorf("bad hash size from backend expecting: %d got %d", sha256.Size, hashSize)
 	}
 
-	return slr, nil
+	return &currentRoot, nil
 }
 
 // DefaultMirrorSTHFactory creates DefaultMirrorSTHStorage instances.
