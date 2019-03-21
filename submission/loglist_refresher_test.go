@@ -27,27 +27,21 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func createTempFile(t *testing.T, name string, data []byte) *os.File {
-	t.Helper()
-	f, err := ioutil.TempFile("", name)
+// createTempFile creates a file in the system's temp directory and writes data to it.
+// It returns the name of the file.
+func createTempFile(data string) (string, error) {
+	f, err := ioutil.TempFile("", "")
 	if err != nil {
-		t.Fatalf("%v", err)
+		return "", err
 	}
-	if _, err := f.Write(data); err != nil {
-		f.Close()
-		t.Fatalf("Unable to write into testing file: %v", err)
+	defer f.Close()
+	if _, err := f.WriteString(data); err != nil {
+		return "", err
 	}
 	if err := f.Close(); err != nil {
-		t.Fatalf("Unable to close testing file: %v", err)
+		return "", err
 	}
-	return f
-}
-
-func rewriteDataFile(t *testing.T, name string, data []byte) {
-	t.Helper()
-	if err := ioutil.WriteFile(name, data, 0755); err != nil {
-		t.Fatalf("unable to update file %q: %v", name, err)
-	}
+	return f.Name(), nil
 }
 
 func compareEvents(t *testing.T, gotEvt *LogListEvent, wantLl *loglist.LogList, errRegexp *regexp.Regexp) {
@@ -102,10 +96,13 @@ func TestNewLogListRefresher(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := createTempFile(t, "loglist.json", []byte(tc.ll))
-			defer os.Remove(f.Name())
+			f, err := createTempFile(tc.ll)
+			if err != nil {
+				t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", tc.ll, err)
+			}
+			defer os.Remove(f)
 
-			llr := NewLogListRefresher(f.Name())
+			llr := NewLogListRefresher(f)
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			go llr.Run(ctx)
@@ -139,7 +136,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			errRegexp: nil,
 		},
 		{
-			name:      "CannotReadInput",
+			name:      "CannotParseInput",
 			ll:        `{"operators": [{"id":0,"name":"Google"}]}`,
 			llNext:    `invalid`,
 			errRegexp: regexp.MustCompile("failed to parse"),
@@ -148,17 +145,22 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			f := createTempFile(t, "loglist.json", []byte(tc.ll))
-			defer os.Remove(f.Name())
+			f, err := createTempFile(tc.ll)
+			if err != nil {
+				t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", tc.ll, err)
+			}
+			defer os.Remove(f)
 
-			llr := NewLogListRefresher(f.Name())
+			llr := NewLogListRefresher(f)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go llr.Run(ctx)
 			<-llr.Events
 
 			// Simulate Log list update.
-			rewriteDataFile(t, f.Name(), []byte(tc.llNext))
+			if err := ioutil.WriteFile(f, []byte(tc.llNext), 0755); err != nil {
+				t.Fatalf("ioutil.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
+			}
 
 			llr.Check()
 			// Wait for event if any.
