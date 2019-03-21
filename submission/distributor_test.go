@@ -98,28 +98,24 @@ func buildEmptyLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return emptyLogClient{}, nil
 }
 
-func sampleLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
+func sampleLogList() *loglist.LogList {
 	var loglist loglist.LogList
-	err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist)
-	if err != nil {
-		t.Fatalf("Unable to Unmarshal testdata.SampleLogList %v", err)
+	if err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist); err != nil {
+		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
 	}
 	return &loglist
 }
 
-func sampleValidLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
-	ll := sampleLogList(t)
+func sampleValidLogList() *loglist.LogList {
+	ll := sampleLogList()
 	// Id of invalid Log description Racketeer
 	inval := 3
 	ll.Logs = append(ll.Logs[:inval], ll.Logs[inval+1:]...)
 	return ll
 }
 
-func sampleUncollectableLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
-	ll := sampleValidLogList(t)
+func sampleUncollectableLogList() *loglist.LogList {
+	ll := sampleValidLogList()
 	// Append loglist that is unable to provide roots on request.
 	ll.Logs = append(ll.Logs, loglist.Log{
 		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
@@ -139,12 +135,12 @@ func TestNewDistributorLogClients(t *testing.T) {
 	}{
 		{
 			name:      "ValidLogClients",
-			ll:        sampleValidLogList(t),
+			ll:        sampleValidLogList(),
 			lcBuilder: buildEmptyLogClient,
 		},
 		{
 			name:      "NoLogClients",
-			ll:        sampleValidLogList(t),
+			ll:        sampleValidLogList(),
 			lcBuilder: buildNoLogClient,
 			errRegexp: regexp.MustCompile("failed to create log client"),
 		},
@@ -232,12 +228,12 @@ func TestNewDistributorRootPools(t *testing.T) {
 	}{
 		{
 			name:    "InactiveZeroRoots",
-			ll:      sampleValidLogList(t),
+			ll:      sampleValidLogList(),
 			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1}, // aviator is not active; 1 of 2 icarus roots is not x509 struct
 		},
 		{
 			name:    "CouldNotCollect",
-			ll:      sampleUncollectableLogList(t),
+			ll:      sampleUncollectableLogList(),
 			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0}, // aviator is not active; uncollectable client cannot provide roots
 		},
 	}
@@ -267,11 +263,10 @@ func TestNewDistributorRootPools(t *testing.T) {
 	}
 }
 
-func pemFileToDERChain(t *testing.T, filename string) [][]byte {
-	t.Helper()
+func pemFileToDERChain(filename string) [][]byte {
 	rawChain, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
-		t.Fatalf("failed to load testdata: %v", err)
+		panic(err)
 	}
 	return rawChain
 }
@@ -312,25 +307,25 @@ func TestDistributorAddPreChain(t *testing.T) {
 	}{
 		{
 			name:     "MalformedChainRequest with log roots available",
-			ll:       sampleValidLogList(t),
+			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
-			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.misordered.chain"),
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
 			getRoots: true,
 			scts:     nil,
 			wantErr:  true,
 		},
 		{
 			name:     "MalformedChainRequest without log roots available",
-			ll:       sampleValidLogList(t),
+			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
-			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.misordered.chain"),
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
 			getRoots: false,
 			scts:     nil,
 			wantErr:  true,
 		},
 		{
 			name:     "CallBeforeInit",
-			ll:       sampleValidLogList(t),
+			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
 			rawChain: nil,
 			scts:     nil,
@@ -338,18 +333,18 @@ func TestDistributorAddPreChain(t *testing.T) {
 		},
 		{
 			name:     "InsufficientSCTsForPolicy",
-			ll:       sampleValidLogList(t),
+			ll:       sampleValidLogList(),
 			plc:      ctpolicy.AppleCTPolicy{},
-			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.chain"), // subleaf chain is fake-ca-1-rooted
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"), // subleaf chain is fake-ca-1-rooted
 			getRoots: true,
 			scts:     []*AssignedSCT{},
 			wantErr:  true, // Not enough SCTs for policy
 		},
 		{
 			name:     "FullChain1Policy",
-			ll:       sampleValidLogList(t),
+			ll:       sampleValidLogList(),
 			plc:      buildStubCTPolicy(1),
-			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.chain"),
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"),
 			getRoots: true,
 			scts: []*AssignedSCT{
 				{
