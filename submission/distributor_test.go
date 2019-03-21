@@ -34,8 +34,8 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
-
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func ExampleDistributor() {
@@ -312,14 +312,6 @@ func pemFileToDERChain(filename string) [][]byte {
 	return rawChain
 }
 
-func getSCTMap(l []*AssignedSCT) map[string]*AssignedSCT {
-	m := map[string]*AssignedSCT{}
-	for _, asct := range l {
-		m[asct.LogURL] = asct
-	}
-	return m
-}
-
 // Stub CT policy to run tests.
 type stubCTPolicy struct {
 	baseNum int
@@ -413,19 +405,18 @@ func TestDistributorAddPreChain(t *testing.T) {
 
 			scts, err := dist.AddPreChain(context.Background(), tc.rawChain)
 			if gotErr := (err != nil); gotErr != tc.wantErr {
-				t.Errorf("Expected to get errors is %v while actually getting errors is %v", tc.wantErr, gotErr)
+				t.Fatalf("dist.AddPreChain(%q) = (_, %v), want err? %t", tc.rawChain, err, tc.wantErr)
+			} else if gotErr {
+				return
 			}
 
 			if got, want := len(scts), len(tc.scts); got != want {
-				t.Errorf("Expected to get %d SCTs on AddPreChain request, got %d", want, got)
+				t.Errorf("dist.AddPreChain(%q) = %d SCTs, want %d SCTs", tc.rawChain, got, want)
 			}
-			gotMap := getSCTMap(tc.scts)
-			for _, asct := range scts {
-				if wantedSCT, ok := gotMap[asct.LogURL]; !ok {
-					t.Errorf("dist.AddPreChain() = (_, %v), want err? %t", err, tc.wantErr)
-				} else if diff := cmp.Diff(asct, wantedSCT); diff != "" {
-					t.Errorf("Got unexpected SCT for Log %q", asct.LogURL)
-				}
+			if diff := cmp.Diff(scts, tc.scts, cmpopts.SortSlices(func(x, y *AssignedSCT) bool {
+				return x.LogURL < y.LogURL
+			})); diff != "" {
+				t.Errorf("dist.AddPreChain(%q): diff -want +got\n%s", tc.rawChain, diff)
 			}
 		})
 	}
