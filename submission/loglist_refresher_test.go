@@ -77,7 +77,7 @@ func TestNewLogListRefresherNoFile(t *testing.T) {
 	go llr.Run(ctx)
 	evt := <-llr.Events
 	if !strings.Contains(evt.Err.Error(), "failed to read") {
-		t.Errorf("Expected getting error event on reading non-existent file, got %q", evt.Err)
+		t.Errorf("Expected getting error event on reading non-existent file, got %s", evt.Err)
 	}
 }
 
@@ -106,7 +106,7 @@ func TestNewLogListRefresher(t *testing.T) {
 			defer os.Remove(f.Name())
 
 			llr := NewLogListRefresher(f.Name())
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			go llr.Run(ctx)
 
