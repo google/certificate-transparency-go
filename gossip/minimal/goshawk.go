@@ -542,12 +542,12 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 		TreeHeadSignature: sthInfo.TreeHeadSignature,
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
-		return fmt.Errorf("checker(%s): failed to validate STH signature: %v", o.Name, err)
+		return fmt.Errorf("failed to validate STH signature: %v", err)
 	}
 
 	currentSTH := o.getLastSTH()
 	if currentSTH == nil {
-		glog.Warningf("checker(%s): no current STH available", o.Name)
+		glog.Warningf("Checker(%s): no current STH available", o.Name)
 		return nil
 	}
 	first, second := sthInfo.TreeSize, currentSTH.TreeSize
