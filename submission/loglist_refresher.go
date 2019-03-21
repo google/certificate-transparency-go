@@ -27,8 +27,11 @@ import (
 )
 
 const (
-	// LoglistRefreshInterval is interval between consecutive external reads of Log-list.
-	loglistRefreshInterval = time.Hour * 24 * 7
+	// LogListRefreshInterval is interval between consecutive reads of Log-list.
+	LogListRefreshInterval = time.Hour * 24 * 7
+
+	// HttpClientTimeout timeout for Log list reader http client.
+	httpClientTimeout = 10 * time.Second
 )
 
 // LogListEvent wraps result of single Log list refresh. Only one field
@@ -40,45 +43,45 @@ type LogListEvent struct {
 	Err error
 }
 
-// LoglistRefresher regularly reads Log-list and emits notifications when updates/errors
+// LogListRefresher regularly reads Log-list and emits notifications when updates/errors
 // observed.
-type LoglistRefresher struct {
+type LogListRefresher struct {
 	// Events is an output channel emitting events of Log-list updates/errors.
 	Events chan *LogListEvent
 
-	mu   sync.RWMutex
-	ll   *loglist.LogList
-	path string
+	// updateMu guards single update process.
+	updateMu sync.RWMutex
+	ll       *loglist.LogList
+	path     string
 }
 
-// NewLoglistRefresher creates and inits a LoglistRefresher instance.
-// The LoglistRefresher will asynchronously try to read Loglist using path provided.
+// NewLogListRefresher creates and inits a LogListRefresher instance.
+// The LogListRefresher will asynchronously try to read LogList using path provided.
 // Call Run() to (re)start regular reads and listen to Events channel.
-func NewLoglistRefresher(llPath string) *LoglistRefresher {
-	var llr LoglistRefresher
-	llr.path = llPath
-	llr.Events = make(chan *LogListEvent)
-	return &llr
+func NewLogListRefresher(llPath string) *LogListRefresher {
+	return &LogListRefresher{
+		path:   llPath,
+		Events: make(chan *LogListEvent),
+	}
 }
 
 // sendEventIfAny redirects non-empty events to the output channel.
-func (llr *LoglistRefresher) sendEventIfAny() {
-	evt := llr.read()
-	if evt != nil {
+func (llr *LogListRefresher) sendEventIfAny() {
+	if evt := llr.read(); evt != nil {
 		llr.Events <- evt
 	}
 }
 
 // Run starts regular Log list refreshes.
-func (llr *LoglistRefresher) Run(ctx context.Context) {
-	ticker := time.NewTicker(loglistRefreshInterval)
+func (llr *LogListRefresher) Run(ctx context.Context) {
+	ticker := time.NewTicker(LogListRefreshInterval)
+	defer ticker.Stop()
 
 	llr.sendEventIfAny()
 
 	for {
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			llr.sendEventIfAny()
@@ -87,32 +90,32 @@ func (llr *LoglistRefresher) Run(ctx context.Context) {
 }
 
 // Check runs singular Log list refresh.
-func (llr *LoglistRefresher) Check() {
+func (llr *LogListRefresher) Check() {
 	go llr.sendEventIfAny()
 }
 
 // read runs single Log list refresh and forms LogListEvent instance containing
 // info on update/error observed.
-func (llr *LoglistRefresher) read() *LogListEvent {
-	llr.mu.Lock()
-	defer llr.mu.Unlock()
-	client := &http.Client{Timeout: time.Second * 10}
+func (llr *LogListRefresher) read() *LogListEvent {
+	llr.updateMu.Lock()
+	defer llr.updateMu.Unlock()
+	client := &http.Client{Timeout: httpClientTimeout}
 	llData, err := x509util.ReadFileOrURL(llr.path, client)
 
 	var evt LogListEvent
 	if err != nil {
-		evt.Err = fmt.Errorf("failed to read log list: %v", err)
+		evt.Err = fmt.Errorf("failed to read %q: %v", llr.path, err)
 		return &evt
 	}
 	ll, err := loglist.NewFromJSON(llData)
 	if err != nil {
-		evt.Err = fmt.Errorf("failed to parse log list: %v", err)
+		evt.Err = fmt.Errorf("failed to parse %q: %v", llr.path, err)
 		return &evt
 	}
 	if reflect.DeepEqual(ll, llr.ll) {
 		return nil
 	}
-	// Event of Loglist update.
+	// Event of LogList update.
 	evt.Ll = ll
 	llr.ll = ll
 	return &evt

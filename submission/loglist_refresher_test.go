@@ -34,6 +34,7 @@ func createTempFile(t *testing.T, name string, data []byte) *os.File {
 		t.Fatalf("%v", err)
 	}
 	if _, err := f.Write(data); err != nil {
+		f.Close()
 		t.Fatalf("Unable to write into testing file: %v", err)
 	}
 	if err := f.Close(); err != nil {
@@ -44,9 +45,8 @@ func createTempFile(t *testing.T, name string, data []byte) *os.File {
 
 func rewriteDataFile(t *testing.T, name string, data []byte) {
 	t.Helper()
-	err := ioutil.WriteFile(name, data, 0755)
-	if err != nil {
-		t.Fatalf("unable to update file %q", name)
+	if err := ioutil.WriteFile(name, data, 0755); err != nil {
+		t.Fatalf("unable to update file %q: %v", name, err)
 	}
 }
 
@@ -70,20 +70,18 @@ func compareEvents(t *testing.T, gotEvt *LogListEvent, wantLl *loglist.LogList, 
 	}
 }
 
-func TestNewLoglistRefresherNoFile(t *testing.T) {
-	t.Run("NoDataFile", func(t *testing.T) {
-		llr := NewLoglistRefresher("nofile.json")
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		go llr.Run(ctx)
-		evt := <-llr.Events
-		if !strings.Contains(evt.Err.Error(), "failed to read") {
-			t.Errorf("Expected getting error event on reading non-existent file, got %q", evt.Err)
-		}
-	})
+func TestNewLogListRefresherNoFile(t *testing.T) {
+	llr := NewLogListRefresher("nofile.json")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	go llr.Run(ctx)
+	evt := <-llr.Events
+	if !strings.Contains(evt.Err.Error(), "failed to read") {
+		t.Errorf("Expected getting error event on reading non-existent file, got %q", evt.Err)
+	}
 }
 
-func TestNewLoglistRefresher(t *testing.T) {
+func TestNewLogListRefresher(t *testing.T) {
 	testCases := []struct {
 		name      string
 		ll        string
@@ -107,7 +105,7 @@ func TestNewLoglistRefresher(t *testing.T) {
 			f := createTempFile(t, "loglist.json", []byte(tc.ll))
 			defer os.Remove(f.Name())
 
-			llr := NewLoglistRefresher(f.Name())
+			llr := NewLogListRefresher(f.Name())
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			go llr.Run(ctx)
@@ -118,7 +116,7 @@ func TestNewLoglistRefresher(t *testing.T) {
 	}
 }
 
-func TestNewLoglistRefresherUpdate(t *testing.T) {
+func TestNewLogListRefresherUpdate(t *testing.T) {
 	testCases := []struct {
 		name      string
 		ll        string
@@ -134,7 +132,7 @@ func TestNewLoglistRefresherUpdate(t *testing.T) {
 			errRegexp: nil,
 		},
 		{
-			name:      "LoglistUpdated",
+			name:      "LogListUpdated",
 			ll:        `{"operators": [{"id":0,"name":"Google"}]}`,
 			llNext:    `{"operators": [{"id":0,"name":"GoogleOps"}]}`,
 			wantLl:    &loglist.LogList{Operators: []loglist.Operator{{ID: 0, Name: "GoogleOps"}}},
@@ -153,7 +151,7 @@ func TestNewLoglistRefresherUpdate(t *testing.T) {
 			f := createTempFile(t, "loglist.json", []byte(tc.ll))
 			defer os.Remove(f.Name())
 
-			llr := NewLoglistRefresher(f.Name())
+			llr := NewLogListRefresher(f.Name())
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go llr.Run(ctx)
