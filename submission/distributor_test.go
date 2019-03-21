@@ -37,12 +37,12 @@ import (
 )
 
 // readCertFile returns the first certificate it finds in file provided.
-func readCertFile(filename string) string {
+func readCertFile(filename string) []byte {
 	data, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(data[0])
+	return data[0]
 }
 
 type rootInfo struct {
@@ -213,7 +213,7 @@ func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, err
 				roots = append(roots, ct.ASN1Cert{Data: []byte(certInfo.raw)})
 			} else {
 
-				roots = append(roots, ct.ASN1Cert{Data: []byte(readCertFile(certInfo.filename))})
+				roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
 			}
 		}
 	}
