@@ -230,7 +230,7 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 		if err != nil {
 			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
-		compatibleLogs = d.ll.Compatible(rootedChain[0], nil, d.logRoots)
+		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots)
 	}
 	d.mu.RUnlock()
 
