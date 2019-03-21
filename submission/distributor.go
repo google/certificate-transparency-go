@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
@@ -33,9 +32,6 @@ import (
 )
 
 const (
-	// RootsRefreshInterval is interval between consecutive get-roots calls.
-	rootsRefreshInterval = time.Hour * 24
-
 	// GetRootsTimeout timeout used for external requests within root-updates.
 	getRootsTimeout = time.Second * 10
 )
@@ -53,57 +49,15 @@ type Distributor struct {
 
 	rootDataFull bool
 
-	// Guards ticker.
-	tmu                sync.RWMutex
-	rootsRefreshTicker *time.Ticker
-
 	policy ctpolicy.CTPolicy
 }
 
-// Run starts regular roots updates.
-func (d *Distributor) Run(ctx context.Context) {
-	d.tmu.RLock()
-	if d.rootsRefreshTicker != nil {
-		d.tmu.RUnlock()
-		return
-	}
-	d.tmu.RUnlock()
-
-	d.tmu.Lock()
-	d.rootsRefreshTicker = time.NewTicker(rootsRefreshInterval)
-	d.tmu.Unlock()
-
-	// Collect Log-roots first time.
-	errs := d.refreshRoots(ctx)
-	printErrs(errs)
-
-	for {
-		select {
-		case <-ctx.Done():
-			d.tmu.Lock()
-			defer d.tmu.Unlock()
-			d.rootsRefreshTicker.Stop()
-			d.rootsRefreshTicker = nil
-			return
-		case <-d.rootsRefreshTicker.C:
-			errs := d.refreshRoots(ctx)
-			printErrs(errs)
-		}
-	}
-}
-
-func printErrs(errs map[string]error) {
-	for _, e := range errs {
-		glog.Errorln(e)
-	}
-}
-
-// refreshRoots requests roots from Logs and updates local copy.
+// RefreshRoots requests roots from Logs and updates local copy.
 // Returns error map keyed by log-URL for any Log experiencing roots retrieval
 // problems
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
-func (d *Distributor) refreshRoots(ctx context.Context) map[string]error {
+func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	type RootsResult struct {
 		LogURL string
 		Roots  *ctfe.PEMCertPool

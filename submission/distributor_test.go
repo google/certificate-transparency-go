@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/glog"
+
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
@@ -35,6 +37,43 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 )
+
+func ExampleDistributor() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), buildStubLogClient)
+	if err != nil {
+		panic(err)
+	}
+
+	// Refresh roots periodically so they stay up-to-date.
+	// Not necessary for this example, but appropriate for long-running systems.
+	refresh := make(chan struct{})
+	go Every(ctx, time.Hour, func(ctx context.Context) {
+		if errs := d.RefreshRoots(ctx); len(errs) > 0 {
+			glog.Error(errs)
+		}
+		refresh <- struct{}{}
+	})
+
+	select {
+	case <-refresh:
+		break
+	case <-ctx.Done():
+		panic("Context expired")
+	}
+
+	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf.chain"))
+	if err != nil {
+		panic(err)
+	}
+	for _, sct := range scts {
+		fmt.Printf("%s\n", *sct)
+	}
+	// Output:
+	// {ct.googleapis.com/rocketeer/ {Version:0 LogId:Y3QuZ29vZ2xlYXBpcy5jb20vcm9ja2V0ZWVyLwAAAAA= Timestamp:1234 Extensions:'' Signature:{{SHA256 ECDSA} []}}}
+}
 
 // readCertFile returns the first certificate it finds in file provided.
 func readCertFile(filename string) []byte {
@@ -222,34 +261,36 @@ func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
-		name    string
-		ll      *loglist.LogList
-		rootNum map[string]int
+		name     string
+		ll       *loglist.LogList
+		rootNum  map[string]int
+		wantErrs int
 	}{
 		{
-			name:    "InactiveZeroRoots",
-			ll:      sampleValidLogList(),
-			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1}, // aviator is not active; 1 of 2 icarus roots is not x509 struct
+			name: "InactiveZeroRoots",
+			ll:   sampleValidLogList(),
+			// aviator is not active; 1 of 2 icarus roots is not x509 struct
+			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1},
+			wantErrs: 1,
 		},
 		{
-			name:    "CouldNotCollect",
-			ll:      sampleUncollectableLogList(),
-			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0}, // aviator is not active; uncollectable client cannot provide roots
+			name: "CouldNotCollect",
+			ll:   sampleUncollectableLogList(),
+			// aviator is not active; uncollectable client cannot provide roots
+			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0},
+			wantErrs: 2,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
 			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
 
-			go dist.Run(ctx)
-			// First Log refresh expected.
-			<-ctx.Done()
+			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
+				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
+			}
 
-			dist.mu.Lock()
-			defer dist.mu.Unlock()
 			for logURL, wantNum := range tc.rootNum {
 				gotNum := 0
 				if roots, ok := dist.logRoots[logURL]; ok {
@@ -364,7 +405,10 @@ func TestDistributorAddPreChain(t *testing.T) {
 			defer cancel()
 
 			if tc.getRoots {
-				dist.Run(ctx)
+				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+					// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
+					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+				}
 			}
 
 			scts, err := dist.AddPreChain(context.Background(), tc.rawChain)
