@@ -15,10 +15,9 @@
 package submission
 
 import (
-	"context"
+	"bytes"
 	"fmt"
 	"net/http"
-	"reflect"
 	"sync"
 	"time"
 
@@ -27,31 +26,16 @@ import (
 )
 
 const (
-	// LogListRefreshInterval is interval between consecutive reads of Log-list.
-	LogListRefreshInterval = time.Hour * 24 * 7
-
 	// HttpClientTimeout timeout for Log list reader http client.
 	httpClientTimeout = 10 * time.Second
 )
 
-// LogListEvent wraps result of single Log list refresh. Only one field
-// expected to be set.
-type LogListEvent struct {
-	// Ll is new version of Log list. Emitted when update observed.
-	Ll *loglist.LogList
-	// Err is error on reading/parsing Log-list source.
-	Err error
-}
-
 // LogListRefresher regularly reads Log-list and emits notifications when updates/errors
 // observed.
 type LogListRefresher struct {
-	// Events is an output channel emitting events of Log-list updates/errors.
-	Events chan *LogListEvent
-
-	// updateMu guards single update process.
+	// updateMu limits LogListRefresher to a single Refresh() at a time.
 	updateMu sync.RWMutex
-	ll       *loglist.LogList
+	lastJSON []byte
 	path     string
 }
 
@@ -60,63 +44,29 @@ type LogListRefresher struct {
 // Call Run() to (re)start regular reads and listen to Events channel.
 func NewLogListRefresher(llPath string) *LogListRefresher {
 	return &LogListRefresher{
-		path:   llPath,
-		Events: make(chan *LogListEvent),
+		path: llPath,
 	}
 }
 
-// sendEventIfAny redirects non-empty events to the output channel.
-func (llr *LogListRefresher) sendEventIfAny() {
-	if evt := llr.read(); evt != nil {
-		llr.Events <- evt
-	}
-}
-
-// Run starts regular Log list refreshes.
-func (llr *LogListRefresher) Run(ctx context.Context) {
-	ticker := time.NewTicker(LogListRefreshInterval)
-	defer ticker.Stop()
-
-	llr.sendEventIfAny()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			llr.sendEventIfAny()
-		}
-	}
-}
-
-// Check runs singular Log list refresh.
-func (llr *LogListRefresher) Check() {
-	go llr.sendEventIfAny()
-}
-
-// read runs single Log list refresh and forms LogListEvent instance containing
-// info on update/error observed.
-func (llr *LogListRefresher) read() *LogListEvent {
+// Refresh fetches the log list and returns it if it has changed.
+func (llr *LogListRefresher) Refresh() (*loglist.LogList, error) {
 	llr.updateMu.Lock()
 	defer llr.updateMu.Unlock()
 	client := &http.Client{Timeout: httpClientTimeout}
-	llData, err := x509util.ReadFileOrURL(llr.path, client)
 
-	var evt LogListEvent
+	json, err := x509util.ReadFileOrURL(llr.path, client)
 	if err != nil {
-		evt.Err = fmt.Errorf("failed to read %q: %v", llr.path, err)
-		return &evt
+		return nil, fmt.Errorf("failed to read %q: %v", llr.path, err)
 	}
-	ll, err := loglist.NewFromJSON(llData)
+
+	if bytes.Equal(json, llr.lastJSON) {
+		return nil, nil
+	}
+
+	ll, err := loglist.NewFromJSON(json)
 	if err != nil {
-		evt.Err = fmt.Errorf("failed to parse %q: %v", llr.path, err)
-		return &evt
+		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}
-	if reflect.DeepEqual(ll, llr.ll) {
-		return nil
-	}
-	// Event of LogList update.
-	evt.Ll = ll
-	llr.ll = ll
-	return &evt
+	llr.lastJSON = json
+	return ll, nil
 }

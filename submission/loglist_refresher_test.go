@@ -16,6 +16,7 @@ package submission
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"regexp"
@@ -44,34 +45,47 @@ func createTempFile(data string) (string, error) {
 	return f.Name(), nil
 }
 
-func compareEvents(t *testing.T, gotEvt *LogListEvent, wantLl *loglist.LogList, errRegexp *regexp.Regexp) {
-	if gotEvt == nil {
-		if wantLl != nil || errRegexp != nil {
-			t.Errorf("Got no LogList event while wanted (%v; %v)", wantLl, errRegexp)
-		}
-		return
-	}
+func ExampleLogListRefresher() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if diff := cmp.Diff(wantLl, gotEvt.Ll); diff != "" {
-		t.Errorf("LogList update event is not expected %s", diff)
+	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
+	if err != nil {
+		panic(err)
 	}
-	if errRegexp != nil {
-		if gotEvt.Err == nil || !errRegexp.MatchString(gotEvt.Err.Error()) {
-			t.Errorf("Got error event %q did not match wanted substring %q", gotEvt.Err, errRegexp)
+	defer os.Remove(f)
+
+	llr := NewLogListRefresher(f)
+
+	// Refresh log list periodically so it stays up-to-date.
+	// Not necessary for this example, but appropriate for long-running systems.
+	llChan := make(chan *loglist.LogList)
+	errChan := make(chan error)
+	go Every(ctx, time.Hour, func(ctx context.Context) {
+		if ll, err := llr.Refresh(); err != nil {
+			errChan <- err
+		} else {
+			llChan <- ll
 		}
-	} else if gotEvt.Err != nil {
-		t.Errorf("Got error event %q while none expected", gotEvt.Err)
+	})
+
+	select {
+	case ll := <-llChan:
+		fmt.Printf("Log Operators: %v\n", ll.Operators)
+	case err := <-errChan:
+		panic(err)
+	case <-ctx.Done():
+		panic("Context expired")
 	}
+	// Output:
+	// Log Operators: [{0 Google}]
 }
 
 func TestNewLogListRefresherNoFile(t *testing.T) {
+	const wantErrSubstr = "failed to read"
 	llr := NewLogListRefresher("nofile.json")
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	go llr.Run(ctx)
-	evt := <-llr.Events
-	if !strings.Contains(evt.Err.Error(), "failed to read") {
-		t.Errorf("Expected getting error event on reading non-existent file, got %s", evt.Err)
+	if _, err := llr.Refresh(); !strings.Contains(err.Error(), wantErrSubstr) {
+		t.Errorf("llr.Refresh() = (_, %v), want err containing %q", err, wantErrSubstr)
 	}
 }
 
@@ -103,12 +117,15 @@ func TestNewLogListRefresher(t *testing.T) {
 			defer os.Remove(f)
 
 			llr := NewLogListRefresher(f)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			go llr.Run(ctx)
-
-			gotEvt := <-llr.Events
-			compareEvents(t, gotEvt, tc.wantLl, tc.errRegexp)
+			ll, err := llr.Refresh()
+			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
+				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
+			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
+				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
+			}
+			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
+			}
 		})
 	}
 }
@@ -152,26 +169,23 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			defer os.Remove(f)
 
 			llr := NewLogListRefresher(f)
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go llr.Run(ctx)
-			<-llr.Events
+			if _, err := llr.Refresh(); err != nil {
+				t.Fatalf("llr.Refresh() = (_, %v), want (_, nil)", err)
+			}
 
 			// Simulate Log list update.
 			if err := ioutil.WriteFile(f, []byte(tc.llNext), 0755); err != nil {
 				t.Fatalf("ioutil.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
 			}
 
-			llr.Check()
-			// Wait for event if any.
-			waitCtx, waitCancel := context.WithTimeout(context.Background(), 1*time.Second)
-			defer waitCancel()
-
-			select {
-			case gotEvt := <-llr.Events:
-				compareEvents(t, gotEvt, tc.wantLl, tc.errRegexp)
-			case <-waitCtx.Done():
-				compareEvents(t, nil, tc.wantLl, tc.errRegexp)
+			ll, err := llr.Refresh()
+			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
+				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
+			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
+				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
+			}
+			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})
 	}
