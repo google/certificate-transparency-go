@@ -46,7 +46,7 @@ func readCertFile(filename string) []byte {
 }
 
 type rootInfo struct {
-	raw      string
+	raw      []byte
 	filename string
 }
 
@@ -63,11 +63,11 @@ var (
 			rootInfo{filename: "testdata/another.cert"},
 		},
 		"ct.googleapis.com/icarus/": {
-			rootInfo{raw: "aW52YWxpZDAwMA=="}, // encoded 'invalid000'
+			rootInfo{raw: []byte("invalid000")},
 			rootInfo{filename: "testdata/another.cert"},
 		},
 		"uncollectable-roots/log/": {
-			rootInfo{raw: "invalid"},
+			rootInfo{raw: []byte("invalid")},
 		},
 	}
 )
@@ -210,7 +210,7 @@ func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, err
 	if certInfos, ok := RootsCerts[m.logURL]; ok {
 		for _, certInfo := range certInfos {
 			if len(certInfo.raw) > 0 {
-				roots = append(roots, ct.ASN1Cert{Data: []byte(certInfo.raw)})
+				roots = append(roots, ct.ASN1Cert{Data: certInfo.raw})
 			} else {
 
 				roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
