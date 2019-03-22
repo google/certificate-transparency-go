@@ -359,6 +359,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		// TODO(merkulova): Add tests to cover more cases where log roots aren't available
 	}
 
 	for _, tc := range testCases {
