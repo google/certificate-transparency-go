@@ -306,14 +306,25 @@ func TestDistributorAddPreChain(t *testing.T) {
 		ll       *loglist.LogList
 		plc      ctpolicy.CTPolicy
 		rawChain [][]byte
+		getRoots bool
 		scts     []*AssignedSCT
 		wantErr  bool
 	}{
 		{
-			name:     "MalformedChainRequest",
+			name:     "MalformedChainRequest with log roots available",
 			ll:       sampleValidLogList(t),
 			plc:      ctpolicy.ChromeCTPolicy{},
 			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.misordered.chain"),
+			getRoots: true,
+			scts:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "MalformedChainRequest without log roots available",
+			ll:       sampleValidLogList(t),
+			plc:      ctpolicy.ChromeCTPolicy{},
+			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.misordered.chain"),
+			getRoots: false,
 			scts:     nil,
 			wantErr:  true,
 		},
@@ -330,6 +341,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			ll:       sampleValidLogList(t),
 			plc:      ctpolicy.AppleCTPolicy{},
 			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.chain"), // subleaf chain is fake-ca-1-rooted
+			getRoots: true,
 			scts:     []*AssignedSCT{},
 			wantErr:  true, // Not enough SCTs for policy
 		},
@@ -338,6 +350,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			ll:       sampleValidLogList(t),
 			plc:      buildStubCTPolicy(1),
 			rawChain: pemFileToDERChain(t, "../trillian/testdata/subleaf.chain"),
+			getRoots: true,
 			scts: []*AssignedSCT{
 				{
 					LogURL: "ct.googleapis.com/rocketeer/",
@@ -354,7 +367,9 @@ func TestDistributorAddPreChain(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			dist.Run(ctx)
+			if tc.getRoots {
+				dist.Run(ctx)
+			}
 
 			scts, err := dist.AddPreChain(context.Background(), tc.rawChain)
 			if gotErr := (err != nil); gotErr != tc.wantErr {
