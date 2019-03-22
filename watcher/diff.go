@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -39,7 +40,6 @@ type Diff struct {
 	filepath string
 
 	checkInterval time.Duration
-	ticker        *time.Ticker
 
 	events chan<- DiffEvent
 }
@@ -67,15 +67,9 @@ func NewDiff(ctx context.Context, path string, isPathURL bool, checkInterval tim
 
 func (d *Diff) init(ctx context.Context) {
 	d.checkUpdate()
-	d.ticker = time.NewTicker(d.checkInterval)
-	go func() {
-		select {
-		case <-ctx.Done():
-			d.ticker.Stop()
-		case <-d.ticker.C:
-			d.checkUpdate()
-		}
-	}()
+	go schedule.Every(ctx, d.checkInterval, func(ctx context.Context) {
+		d.checkUpdate()
+	})
 }
 
 func (d *Diff) checkUpdate() {
