@@ -52,7 +52,8 @@ type treeMetrics struct {
 	entriesFetched   monitoring.Counter
 	entriesSeen      monitoring.Counter
 	entriesStored    monitoring.Counter
-	// TODO(pavelkalinnikov): Add latency histograms, latest STH, tree size, etc.
+	sthTimestamp     monitoring.Gauge
+	sthTreeSize      monitoring.Gauge
 }
 
 // initMetrics creates metrics using the factory, if not yet created.
@@ -67,6 +68,8 @@ func initMetrics(mf monitoring.MetricFactory) {
 			entriesFetched:   mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
 			entriesSeen:      mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
 			entriesStored:    mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+			sthTimestamp:     mf.NewGauge("sth_timestamp", "Timestamp of the last seen STH.", treeID),
+			sthTreeSize:      mf.NewGauge("sth_tree_size", "Tree size of the last seen STH.", treeID),
 		}
 	})
 }
@@ -232,6 +235,10 @@ func (c *Controller) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO(pavelkalinnikov): Update metrics when Fetcher gets a newer STH.
+	metrics.sthTimestamp.Set(float64(sth.Timestamp), c.label)
+	metrics.sthTreeSize.Set(float64(sth.TreeSize), c.label)
+
 	if err := c.verifyConsistency(ctx, root, sth); err != nil {
 		return err
 	}
