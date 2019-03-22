@@ -29,18 +29,18 @@ import (
 	"sync"
 	"time"
 
-	// Register PEMKeyFile ProtoHandler
-	_ "github.com/google/trillian/crypto/keys/pem/proto"
-	"github.com/google/trillian/monitoring"
-
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
+
+	// Register PEMKeyFile ProtoHandler
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
 var (
