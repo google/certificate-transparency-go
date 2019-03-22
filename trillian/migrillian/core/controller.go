@@ -105,11 +105,6 @@ func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
 }
 
 // Controller coordinates migration from a CT log to a Trillian tree.
-//
-// TODO(pavelkalinnikov):
-// - Schedule a distributed fetch to increase throughput.
-// - Store CT STHs in Trillian or make this tool stateful on its own.
-// - Make fetching stateful to reduce master resigning aftermath.
 type Controller struct {
 	opts     Options
 	batches  chan scanner.EntryBatch
@@ -225,8 +220,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		return err
 	}
 	if c.opts.Continuous { // Ignore range parameters in Continuous mode.
-		// TODO(pavelkalinnikov): Restore fetching state from storage in a better
-		// way than "take the current tree size".
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
 		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
 	} else if c.opts.StartIndex < 0 {
@@ -248,7 +241,6 @@ func (c *Controller) Run(ctx context.Context) error {
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// TODO(pavelkalinnikov): Share the submitters pool between multiple trees.
 	for w, cnt := 0, c.opts.Submitters; w < cnt; w++ {
 		wg.Add(1)
 		go func() {
