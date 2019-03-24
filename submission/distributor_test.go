@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
-	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
@@ -36,6 +34,8 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 func ExampleDistributor() {
