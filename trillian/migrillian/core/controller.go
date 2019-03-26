@@ -160,8 +160,6 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		return err // The context has been canceled.
 	}
 
-	metrics.controllerStarts.Inc(c.label)
-
 	el, err := c.ef.NewElection(ctx, c.label)
 	if err != nil {
 		return err
@@ -215,6 +213,8 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
+	metrics.controllerStarts.Inc(c.label)
+
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
 		return err
