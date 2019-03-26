@@ -160,17 +160,14 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		return err // The context has been canceled.
 	}
 
-	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
-	metrics.controllerStarts.Inc(treeID)
-
-	el, err := c.ef.NewElection(ctx, treeID)
+	el, err := c.ef.NewElection(ctx, c.label)
 	if err != nil {
 		return err
 	}
 	defer func(ctx context.Context) {
 		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%s: Election.Close(): %v", treeID, err)
+			glog.Warningf("%s: Election.Close(): %v", c.label, err)
 		}
 	}(ctx)
 
@@ -187,11 +184,11 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("%s: running as master", treeID)
+		glog.Infof("%s: running as master", c.label)
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
-		err = c.Run(mctx)
+		err = c.runWithRestarts(mctx)
 		if ctx.Err() != nil {
 			// We have been externally canceled, so return the current error (which
 			// could be nil or a cancelation-related error).
@@ -199,7 +196,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		} else if mctx.Err() == nil {
 			// We are still the master, so try to resign and emit the real error.
 			if rerr := el.Resign(ctx); rerr != nil {
-				glog.Errorf("%s: Election.Resign(): %v", treeID, rerr)
+				glog.Errorf("%s: Election.Resign(): %v", c.label, rerr)
 			}
 			return err
 		}
@@ -210,13 +207,28 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	}
 }
 
+// runWithRestarts calls Run until it succeeds or the context is done, in
+// continuous mode. For non-continuous mode it is simply equivalent to Run.
+func (c *Controller) runWithRestarts(ctx context.Context) error {
+	err := c.Run(ctx)
+	if !c.opts.Continuous {
+		return err
+	}
+	for err != nil && ctx.Err() == nil {
+		glog.Errorf("%s: Controller.Run: %v", c.label, err)
+		sleepRandom(ctx, 0, c.opts.StartDelay)
+		err = c.Run(ctx)
+	}
+	return ctx.Err()
+}
+
 // Run transfers CT log entries obtained via the CT log client to a Trillian
 // pre-ordered log via Trillian client. If Options.Continuous is true then the
 // migration process runs continuously trying to keep up with the target CT
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	treeID := c.plClient.tree.TreeId
+	metrics.controllerStarts.Inc(c.label)
 
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
@@ -224,10 +236,10 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	if c.opts.Continuous { // Ignore range parameters in Continuous mode.
 		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
+		glog.Warningf("%s: updated entry range to [%d, INF)", c.label, c.opts.StartIndex)
 	} else if c.opts.StartIndex < 0 {
 		c.opts.StartIndex = int64(root.TreeSize)
-		glog.Warningf("%d: updated start index to %d", treeID, c.opts.StartIndex)
+		glog.Warningf("%s: updated start index to %d", c.label, c.opts.StartIndex)
 	}
 
 	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
@@ -253,12 +265,14 @@ func (c *Controller) Run(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			if err := c.runSubmitter(cctx); err != nil {
-				glog.Errorf("%d: Stopping due to submitter error: %v", treeID, err)
+				glog.Errorf("%s: Stopping due to submitter error: %v", c.label, err)
 				cancel() // Stop the other submitters and the Fetcher.
 			}
 		}()
 	}
 
+	// TODO(pavelkalinnikov): Move this out of Run, because now the timer is
+	// reset on restarts, so it's possible that it never fires.
 	if c.opts.StopAfter != 0 { // Configured with max running time.
 		go func() {
 			// Sleep for random duration in [StopAfter, 2*StopAfter).
@@ -303,7 +317,6 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // the client returns a non-recoverable error (an example of a recoverable
 // error is when Trillian write quota is exceeded).
 func (c *Controller) runSubmitter(ctx context.Context) error {
-	treeID := c.plClient.tree.TreeId
 	for b := range c.batches {
 		entries := float64(len(b.Entries))
 		metrics.entriesSeen.Add(entries, c.label)
@@ -315,7 +328,7 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 			// shut down the Controller.
 			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
-		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
+		glog.Infof("%s: added batch [%d, %d)", c.label, b.Start, end)
 		metrics.entriesStored.Add(entries, c.label)
 	}
 	return nil
