@@ -188,7 +188,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
-		err = c.Run(mctx)
+		err = c.runWithRestarts(mctx)
 		if ctx.Err() != nil {
 			// We have been externally canceled, so return the current error (which
 			// could be nil or a cancelation-related error).
@@ -205,6 +205,19 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		metrics.isMaster.Set(0, c.label)
 		metrics.masterCancels.Inc(c.label)
 	}
+}
+
+// runWithRestarts calls Run until it succeeds or the context is done.
+func (c *Controller) runWithRestarts(ctx context.Context) error {
+	for ctx.Err() == nil {
+		if err := c.Run(ctx); err != nil { // There was an error, so we try again.
+			glog.Errorf("%s: Controller.Run: %v", c.label, err)
+		} else if !c.opts.Continuous {
+			break // A non-continuous run completed successfully.
+		}
+		sleepRandom(ctx, 0, c.opts.StartDelay)
+	}
+	return ctx.Err()
 }
 
 // Run transfers CT log entries obtained via the CT log client to a Trillian
