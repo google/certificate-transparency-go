@@ -207,13 +207,15 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	}
 }
 
-// runWithRestarts calls Run until it succeeds or the context is done.
+// runWithRestarts calls Run until the context is done, in continuous mode. For
+// non-continuous mode it is simply equivalent to Run.
 func (c *Controller) runWithRestarts(ctx context.Context) error {
+	if !c.opts.Continuous {
+		return c.Run(ctx)
+	}
 	for ctx.Err() == nil {
-		if err := c.Run(ctx); err != nil { // There was an error, so we try again.
+		if err := c.Run(ctx); err != nil {
 			glog.Errorf("%s: Controller.Run: %v", c.label, err)
-		} else if !c.opts.Continuous {
-			break // A non-continuous run completed successfully.
 		}
 		sleepRandom(ctx, 0, c.opts.StartDelay)
 	}
