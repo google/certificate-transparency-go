@@ -256,6 +256,8 @@ func (c *Controller) Run(ctx context.Context) error {
 		}()
 	}
 
+	// TODO(pavelkalinnikov): Move this out of Run, because now the timer is
+	// reset on restarts, so it's possible that it never fires.
 	if c.opts.StopAfter != 0 { // Configured with max running time.
 		go func() {
 			// Sleep for random duration in [StopAfter, 2*StopAfter).
