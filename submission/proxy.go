@@ -113,7 +113,7 @@ func (p *Proxy) RestartDistributor(ctx context.Context, ll *loglist.LogList) err
 // AddPreChain passes call to underlying Distributor instance.
 func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
 	if p.dist == nil {
-		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized, call %v")
+		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized")
 	}
 	return p.dist.AddPreChain(ctx, rawChain)
 }
