@@ -8,7 +8,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or ied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
@@ -55,7 +55,7 @@ func ExampleLogListRefresher() {
 	}
 	defer os.Remove(f)
 
-	llr := NewLogListRefresherImpl(f)
+	llr := NewLogListRefresher(f)
 
 	// Refresh log list periodically so it stays up-to-date.
 	// Not necessary for this example, but appropriate for long-running systems.
@@ -83,7 +83,7 @@ func ExampleLogListRefresher() {
 
 func TestNewLogListRefresherNoFile(t *testing.T) {
 	const wantErrSubstr = "failed to read"
-	llr := NewLogListRefresherImpl("nofile.json")
+	llr := NewLogListRefresher("nofile.json")
 	if _, err := llr.Refresh(); !strings.Contains(err.Error(), wantErrSubstr) {
 		t.Errorf("llr.Refresh() = (_, %v), want err containing %q", err, wantErrSubstr)
 	}
@@ -116,7 +116,7 @@ func TestNewLogListRefresher(t *testing.T) {
 			}
 			defer os.Remove(f)
 
-			llr := NewLogListRefresherImpl(f)
+			llr := NewLogListRefresher(f)
 			ll, err := llr.Refresh()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
@@ -168,7 +168,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 			defer os.Remove(f)
 
-			llr := NewLogListRefresherImpl(f)
+			llr := NewLogListRefresher(f)
 			if _, err := llr.Refresh(); err != nil {
 				t.Fatalf("llr.Refresh() = (_, %v), want (_, nil)", err)
 			}
@@ -184,7 +184,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+			if diff := cmp.Diff(tc.wantLl, ll); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})

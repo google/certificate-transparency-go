@@ -35,24 +35,24 @@ type LogListRefresher interface {
 	Refresh() (*loglist.LogList, error)
 }
 
-// LogListRefresherImpl regularly reads Log-list and emits notifications when
+// logListRefresherImpl regularly reads Log-list and emits notifications when
 // updates/errors observed. Implements LogListRefresher interface.
-type LogListRefresherImpl struct {
+type logListRefresherImpl struct {
 	// updateMu limits LogListRefresherImpl to a single Refresh() at a time.
 	updateMu sync.RWMutex
 	lastJSON []byte
 	path     string
 }
 
-// NewLogListRefresherImpl creates and inits a LogListRefresherImpl instance.
-func NewLogListRefresherImpl(llPath string) *LogListRefresherImpl {
-	return &LogListRefresherImpl{
+// NewLogListRefresher creates and inits a LogListRefresherImpl instance.
+func NewLogListRefresher(llPath string) LogListRefresher {
+	return &logListRefresherImpl{
 		path: llPath,
 	}
 }
 
 // Refresh fetches the log list and returns it if it has changed.
-func (llr *LogListRefresherImpl) Refresh() (*loglist.LogList, error) {
+func (llr *logListRefresherImpl) Refresh() (*loglist.LogList, error) {
 	llr.updateMu.Lock()
 	defer llr.updateMu.Unlock()
 	client := &http.Client{Timeout: httpClientTimeout}
@@ -63,11 +63,13 @@ func (llr *LogListRefresherImpl) Refresh() (*loglist.LogList, error) {
 	}
 
 	if bytes.Equal(json, llr.lastJSON) {
+		fmt.Printf("no changes")
 		return nil, nil
 	}
 
 	ll, err := loglist.NewFromJSON(json)
 	if err != nil {
+		fmt.Printf("failed to parse\n")
 		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}
 	llr.lastJSON = json
