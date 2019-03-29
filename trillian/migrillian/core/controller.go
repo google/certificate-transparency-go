@@ -228,30 +228,72 @@ func (c *Controller) runWithRestarts(ctx context.Context) error {
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
 	metrics.controllerStarts.Inc(c.label)
+	dur := randDuration(c.opts.StopAfter, c.opts.StopAfter)
+	start := time.Now()
 
+	// Note: Non-continuous runs are not affected by StopAfter.
+	pos, err := c.fetchTail(ctx, 0)
+	if err != nil {
+		return err
+	}
+	if !c.opts.Continuous {
+		return nil
+	}
+
+	for dur == 0 || time.Since(start) < dur {
+		// TODO(pavelkalinnikov): Integrate runWithRestarts here.
+		next, err := c.fetchTail(ctx, pos)
+		if err != nil {
+			return err
+		}
+		if next == pos {
+			// TODO(pavelkalinnikov): Pause with accordance to the rate of growth.
+			// TODO(pavelkalinnikov): Make the duration configurable.
+			if err := clock.SleepContext(ctx, 30*time.Second); err != nil {
+				return err
+			}
+		}
+		pos = next
+	}
+
+	return nil
+}
+
+// fetchTail transfers entries within the range specified in FetcherConfig,
+// with respect to the passed in minimal position to start from, and the
+// current tree size obtained from an STH.
+func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error) {
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
-		return err
-	}
-	if c.opts.Continuous { // Ignore range parameters in Continuous mode.
-		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("%s: updated entry range to [%d, INF)", c.label, c.opts.StartIndex)
-	} else if c.opts.StartIndex < 0 {
-		c.opts.StartIndex = int64(root.TreeSize)
-		glog.Warningf("%s: updated start index to %d", c.label, c.opts.StartIndex)
+		return 0, err
 	}
 
-	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
+	fo := c.opts.FetcherOptions
+	if fo.Continuous { // Ignore range parameters in continuous mode.
+		fo.StartIndex, fo.EndIndex = int64(root.TreeSize), 0
+		// Use non-continuous Fetcher, as we implement continuity in Controller.
+		fo.Continuous = false
+	} else if fo.StartIndex < 0 {
+		fo.StartIndex = int64(root.TreeSize)
+	}
+	if int64(begin) > fo.StartIndex {
+		fo.StartIndex = int64(begin)
+	}
+	glog.Infof("%s: fetching range [%d, %d)", c.label, fo.StartIndex, fo.EndIndex)
+
+	fetcher := scanner.NewFetcher(c.ctClient, &fo)
 	sth, err := fetcher.Prepare(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	// TODO(pavelkalinnikov): Update metrics when Fetcher gets a newer STH.
 	metrics.sthTimestamp.Set(float64(sth.Timestamp), c.label)
 	metrics.sthTreeSize.Set(float64(sth.TreeSize), c.label)
+	if sth.TreeSize <= begin {
+		return begin, nil
+	}
 
 	if err := c.verifyConsistency(ctx, root, sth); err != nil {
-		return err
+		return 0, err
 	}
 
 	var wg sync.WaitGroup
@@ -270,17 +312,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		}()
 	}
 
-	// TODO(pavelkalinnikov): Move this out of Run, because now the timer is
-	// reset on restarts, so it's possible that it never fires.
-	if c.opts.StopAfter != 0 { // Configured with max running time.
-		go func() {
-			// Sleep for random duration in [StopAfter, 2*StopAfter).
-			if err := sleepRandom(cctx, c.opts.StopAfter, c.opts.StopAfter); err == nil {
-				fetcher.Stop() // Trigger graceful stop if not yet canceled.
-			}
-		}()
-	}
-
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		select {
@@ -289,10 +320,13 @@ func (c *Controller) Run(ctx context.Context) error {
 		}
 	}
 
-	result := fetcher.Run(cctx, handler)
+	err = fetcher.Run(cctx, handler)
 	close(batches)
 	wg.Wait()
-	return result
+	if err != nil {
+		return 0, err
+	}
+	return sth.TreeSize, nil
 }
 
 // verifyConsistency checks that the provided verified Trillian root is
