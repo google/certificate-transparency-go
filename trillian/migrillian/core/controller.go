@@ -272,6 +272,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 	if fo.Continuous { // Ignore range parameters in continuous mode.
 		fo.StartIndex, fo.EndIndex = int64(root.TreeSize), 0
 		// Use non-continuous Fetcher, as we implement continuity in Controller.
+		// TODO(pavelkalinnikov): Don't overload Fetcher's Continuous flag.
 		fo.Continuous = false
 	} else if fo.StartIndex < 0 {
 		fo.StartIndex = int64(root.TreeSize)
