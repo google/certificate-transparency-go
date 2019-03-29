@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
 )
@@ -34,8 +33,17 @@ const (
 	AppleCTPolicy
 )
 
-// getDistributor given CT-policy type produces corresponding Distributor constructor.
-func getDistributor(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
+// DistributorFactory is building Distributor c-tor given CTPolicyType.
+type DistributorFactory interface {
+	GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error)
+}
+
+// DefaultDistributorFactory builds standard production Distributors.
+type DefaultDistributorFactory struct {
+}
+
+// getDistributorBuilder given CT-policy type produces Distributor c-tor.
+func (*DefaultDistributorFactory) getDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
 	if plc == AppleCTPolicy {
 		return func(ll *loglist.LogList) (*Distributor, error) {
 			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, BuildLogClient)
@@ -48,72 +56,88 @@ func getDistributor(plc CTPolicyType) func(*loglist.LogList) (*Distributor, erro
 
 // Proxy wraps Log List updates watcher and Distributor running on fresh Log List.
 type Proxy struct {
-	logListPath          string
+	Errors chan error
+
 	llRefreshInterval    time.Duration
 	rootsRefreshInterval time.Duration
 	ctPlc                CTPolicyType
 
-	llWatcher *LogListRefresher
+	llWatcher          *LogListRefresher
+	distributorFactory DistributorFactory
 
-	mu   sync.RWMutex // guards the distributor
-	dist *Distributor
+	distMu     sync.RWMutex // guards the distributor
+	dist       *Distributor
+	distCancel context.CancelFunc // used to cancel distributor updates
 }
 
-// NewProxy creates and inits a Proxy instance.
-func NewProxy(ctx context.Context, llPath string, llRefresh time.Duration, rootsRefresh time.Duration, ctPlc CTPolicyType) *Proxy {
+// NewProxy creates an inactive Proxy instance. Call Run() to activate.
+func NewProxy(llr *LogListRefresher, df DistributorFactory, ctPlc CTPolicyType) *Proxy {
 	var p Proxy
-	p.logListPath = llPath
-	p.llRefreshInterval = llRefresh
-	p.rootsRefreshInterval = rootsRefresh
+	p.llWatcher = llr
+	p.distributorFactory = df
 	p.ctPlc = ctPlc
-	p.llWatcher = NewLogListRefresher(llPath)
-
-	go Every(ctx, p.llRefreshInterval, func(ctx context.Context) {
-		p.RefreshLogList(ctx)
-	})
+	p.Errors = make(chan error, 1)
 
 	return &p
 }
 
-// RefreshLogList reads Log List one time and runs updates if necessary.
-func (p *Proxy) RefreshLogList(ctx context.Context) {
-	// single LogList refresh.
-	if p.llWatcher == nil {
-		return
-	}
-	if ll, err := p.llWatcher.Refresh(); err != nil {
-		glog.Error(err)
-	} else {
-		p.RestartDistributor(ctx, ll)
-	}
+// Run starts regular LogList checks and associated Distributor initialization.
+func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
+	p.llRefreshInterval = llRefresh
+	p.rootsRefreshInterval = rootsRefresh
+	go Every(ctx, p.llRefreshInterval, func(ctx context.Context) {
+		if err := p.RefreshLogList(ctx); err != nil {
+			p.Errors <- err
+		}
+	})
 }
 
-// RestartDistributor activates new Distributor instance with Log List provided
-// and sets it as active.
-func (p *Proxy) RestartDistributor(ctx context.Context, ll *loglist.LogList) error {
-	d, err := getDistributor(p.ctPlc)(ll)
+// RefreshLogList reads Log List one time and runs updates if necessary.
+func (p *Proxy) RefreshLogList(ctx context.Context) error {
+	if p.llWatcher == nil {
+		return fmt.Errorf("proxy has no log-list watcher to refresh Log List")
+	}
+	ll, err := p.llWatcher.Refresh()
 	if err != nil {
-		// losing ll info.
+		return err
+	}
+	p.restartDistributor(ctx, ll)
+	return nil
+}
+
+// restartDistributor activates new Distributor instance with Log List provided
+// and sets it as active.
+func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist.LogList) error {
+	d, err := p.distributorFactory.GetDistributorBuilder(p.ctPlc)(ll)
+	if err != nil {
+		// losing ll info. No good.
 		return err
 	}
 
 	// Start refreshing roots periodically so they stay up-to-date.
-	go Every(ctx, p.rootsRefreshInterval, func(ctx context.Context) {
-		if errs := d.RefreshRoots(ctx); len(errs) > 0 {
-			glog.Error(errs)
+	refreshCtx, refreshCancel := context.WithCancel(ctx)
+	go Every(refreshCtx, p.rootsRefreshInterval, func(ectx context.Context) {
+		if errs := d.RefreshRoots(ectx); len(errs) > 0 {
+			for logURL, err := range errs {
+				p.Errors <- fmt.Errorf("proxy on %q got %v", logURL, err)
+			}
 		}
 	})
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.distMu.Lock()
+	defer p.distMu.Unlock()
+	if p.distCancel != nil {
+		p.distCancel()
+	}
 	p.dist = d
+	p.distCancel = refreshCancel
 	return nil
 }
 
 // AddPreChain passes call to underlying Distributor instance.
 func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
 	if p.dist == nil {
-		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized")
+		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
 	return p.dist.AddPreChain(ctx, rawChain)
 }
