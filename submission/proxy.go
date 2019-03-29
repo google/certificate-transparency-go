@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/schedule"
 )
 
 // CTPolicyType indicates CT-policy used for certificate submission.
@@ -86,7 +87,7 @@ func NewProxy(llr LogListRefresher, df DistributorFactory, ctPlc CTPolicyType) *
 func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
 	p.llRefreshInterval = llRefresh
 	p.rootsRefreshInterval = rootsRefresh
-	go Every(ctx, p.llRefreshInterval, func(ctx context.Context) {
+	go schedule.Every(ctx, p.llRefreshInterval, func(ctx context.Context) {
 		if err := p.RefreshLogList(ctx); err != nil {
 			p.Errors <- err
 		}
@@ -119,7 +120,7 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist.LogList) err
 
 	// Start refreshing roots periodically so they stay up-to-date.
 	refreshCtx, refreshCancel := context.WithCancel(ctx)
-	go Every(refreshCtx, p.rootsRefreshInterval, func(ectx context.Context) {
+	go schedule.Every(refreshCtx, p.rootsRefreshInterval, func(ectx context.Context) {
 		if errs := d.RefreshRoots(ectx); len(errs) > 0 {
 			for logURL, err := range errs {
 				p.Errors <- fmt.Errorf("proxy on %q got %v", logURL, err)
