@@ -110,7 +110,6 @@ func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
 // Controller coordinates migration from a CT log to a Trillian tree.
 type Controller struct {
 	opts     Options
-	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
 	ef       election2.Factory
@@ -160,17 +159,14 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		return err // The context has been canceled.
 	}
 
-	treeID := strconv.FormatInt(c.plClient.tree.TreeId, 10)
-	metrics.controllerStarts.Inc(treeID)
-
-	el, err := c.ef.NewElection(ctx, treeID)
+	el, err := c.ef.NewElection(ctx, c.label)
 	if err != nil {
 		return err
 	}
 	defer func(ctx context.Context) {
 		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%s: Election.Close(): %v", treeID, err)
+			glog.Warningf("%s: Election.Close(): %v", c.label, err)
 		}
 	}(ctx)
 
@@ -187,11 +183,11 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("%s: running as master", treeID)
+		glog.Infof("%s: running as master", c.label)
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
-		err = c.Run(mctx)
+		err = c.runWithRestarts(mctx)
 		if ctx.Err() != nil {
 			// We have been externally canceled, so return the current error (which
 			// could be nil or a cancelation-related error).
@@ -199,7 +195,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		} else if mctx.Err() == nil {
 			// We are still the master, so try to resign and emit the real error.
 			if rerr := el.Resign(ctx); rerr != nil {
-				glog.Errorf("%s: Election.Resign(): %v", treeID, rerr)
+				glog.Errorf("%s: Election.Resign(): %v", c.label, rerr)
 			}
 			return err
 		}
@@ -210,41 +206,99 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	}
 }
 
+// runWithRestarts calls Run until it succeeds or the context is done, in
+// continuous mode. For non-continuous mode it is simply equivalent to Run.
+func (c *Controller) runWithRestarts(ctx context.Context) error {
+	err := c.Run(ctx)
+	if !c.opts.Continuous {
+		return err
+	}
+	for err != nil && ctx.Err() == nil {
+		glog.Errorf("%s: Controller.Run: %v", c.label, err)
+		sleepRandom(ctx, 0, c.opts.StartDelay)
+		err = c.Run(ctx)
+	}
+	return ctx.Err()
+}
+
 // Run transfers CT log entries obtained via the CT log client to a Trillian
 // pre-ordered log via Trillian client. If Options.Continuous is true then the
 // migration process runs continuously trying to keep up with the target CT
 // log. Returns if an error occurs, the context is canceled, or all the entries
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
-	treeID := c.plClient.tree.TreeId
+	metrics.controllerStarts.Inc(c.label)
+	stopAfter := randDuration(c.opts.StopAfter, c.opts.StopAfter)
+	start := time.Now()
 
+	// Note: Non-continuous runs are not affected by StopAfter.
+	pos, err := c.fetchTail(ctx, 0)
+	if err != nil {
+		return err
+	}
+	if !c.opts.Continuous {
+		return nil
+	}
+
+	for stopAfter == 0 || time.Since(start) < stopAfter {
+		// TODO(pavelkalinnikov): Integrate runWithRestarts here.
+		next, err := c.fetchTail(ctx, pos)
+		if err != nil {
+			return err
+		}
+		if next == pos {
+			// TODO(pavelkalinnikov): Pause with accordance to the rate of growth.
+			// TODO(pavelkalinnikov): Make the duration configurable.
+			if err := clock.SleepContext(ctx, 30*time.Second); err != nil {
+				return err
+			}
+		}
+		pos = next
+	}
+
+	return nil
+}
+
+// fetchTail transfers entries within the range specified in FetcherConfig,
+// with respect to the passed in minimal position to start from, and the
+// current tree size obtained from an STH.
+func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error) {
 	root, err := c.plClient.getVerifiedRoot(ctx)
 	if err != nil {
-		return err
-	}
-	if c.opts.Continuous { // Ignore range parameters in Continuous mode.
-		c.opts.StartIndex, c.opts.EndIndex = int64(root.TreeSize), 0
-		glog.Warningf("%d: updated entry range to [%d, INF)", treeID, c.opts.StartIndex)
-	} else if c.opts.StartIndex < 0 {
-		c.opts.StartIndex = int64(root.TreeSize)
-		glog.Warningf("%d: updated start index to %d", treeID, c.opts.StartIndex)
+		return 0, err
 	}
 
-	fetcher := scanner.NewFetcher(c.ctClient, &c.opts.FetcherOptions)
+	fo := c.opts.FetcherOptions
+	if fo.Continuous { // Ignore range parameters in continuous mode.
+		fo.StartIndex, fo.EndIndex = int64(root.TreeSize), 0
+		// Use non-continuous Fetcher, as we implement continuity in Controller.
+		// TODO(pavelkalinnikov): Don't overload Fetcher's Continuous flag.
+		fo.Continuous = false
+	} else if fo.StartIndex < 0 {
+		fo.StartIndex = int64(root.TreeSize)
+	}
+	if int64(begin) > fo.StartIndex {
+		fo.StartIndex = int64(begin)
+	}
+	glog.Infof("%s: fetching range [%d, %d)", c.label, fo.StartIndex, fo.EndIndex)
+
+	fetcher := scanner.NewFetcher(c.ctClient, &fo)
 	sth, err := fetcher.Prepare(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	// TODO(pavelkalinnikov): Update metrics when Fetcher gets a newer STH.
 	metrics.sthTimestamp.Set(float64(sth.Timestamp), c.label)
 	metrics.sthTreeSize.Set(float64(sth.TreeSize), c.label)
+	if sth.TreeSize <= begin {
+		return begin, nil
+	}
 
 	if err := c.verifyConsistency(ctx, root, sth); err != nil {
-		return err
+		return 0, err
 	}
 
 	var wg sync.WaitGroup
-	c.batches = make(chan scanner.EntryBatch, c.opts.ChannelSize)
+	batches := make(chan scanner.EntryBatch, c.opts.ChannelSize)
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -252,18 +306,9 @@ func (c *Controller) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := c.runSubmitter(cctx); err != nil {
-				glog.Errorf("%d: Stopping due to submitter error: %v", treeID, err)
+			if err := c.runSubmitter(cctx, batches); err != nil {
+				glog.Errorf("%s: Stopping due to submitter error: %v", c.label, err)
 				cancel() // Stop the other submitters and the Fetcher.
-			}
-		}()
-	}
-
-	if c.opts.StopAfter != 0 { // Configured with max running time.
-		go func() {
-			// Sleep for random duration in [StopAfter, 2*StopAfter).
-			if err := sleepRandom(cctx, c.opts.StopAfter, c.opts.StopAfter); err == nil {
-				fetcher.Stop() // Trigger graceful stop if not yet canceled.
 			}
 		}()
 	}
@@ -271,15 +316,18 @@ func (c *Controller) Run(ctx context.Context) error {
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		select {
-		case c.batches <- b:
+		case batches <- b:
 		case <-cctx.Done(): // Avoid deadlock when shutting down.
 		}
 	}
 
-	result := fetcher.Run(cctx, handler)
-	close(c.batches)
+	err = fetcher.Run(cctx, handler)
+	close(batches)
 	wg.Wait()
-	return result
+	if err != nil {
+		return 0, err
+	}
+	return sth.TreeSize, nil
 }
 
 // verifyConsistency checks that the provided verified Trillian root is
@@ -302,9 +350,8 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // submits them through Trillian client. Returns when the channel is closed, or
 // the client returns a non-recoverable error (an example of a recoverable
 // error is when Trillian write quota is exceeded).
-func (c *Controller) runSubmitter(ctx context.Context) error {
-	treeID := c.plClient.tree.TreeId
-	for b := range c.batches {
+func (c *Controller) runSubmitter(ctx context.Context, batches <-chan scanner.EntryBatch) error {
+	for b := range batches {
 		entries := float64(len(b.Entries))
 		metrics.entriesSeen.Add(entries, c.label)
 
@@ -315,7 +362,7 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 			// shut down the Controller.
 			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
-		glog.Infof("%d: added batch [%d, %d)", treeID, b.Start, end)
+		glog.Infof("%s: added batch [%d, %d)", c.label, b.Start, end)
 		metrics.entriesStored.Add(entries, c.label)
 	}
 	return nil
@@ -323,12 +370,18 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 
 // sleepRandom sleeps for random duration in [base, base+spread).
 func sleepRandom(ctx context.Context, base, spread time.Duration) error {
-	d := base
-	if spread != 0 {
-		d += time.Duration(rand.Int63n(int64(spread)))
-	}
+	d := randDuration(base, spread)
 	if d == 0 {
 		return nil
 	}
 	return clock.SleepContext(ctx, d)
+}
+
+// randDuration returns a random duration in [base, base+spread).
+func randDuration(base, spread time.Duration) time.Duration {
+	d := base
+	if spread != 0 {
+		d += time.Duration(rand.Int63n(int64(spread)))
+	}
+	return d
 }

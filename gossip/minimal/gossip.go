@@ -29,17 +29,18 @@ import (
 	"sync"
 	"time"
 
-	// Register PEMKeyFile ProtoHandler
-	_ "github.com/google/trillian/crypto/keys/pem/proto"
-	"github.com/google/trillian/monitoring"
-
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
+
+	// Register PEMKeyFile ProtoHandler
+	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
 var (
@@ -295,8 +296,7 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 		glog.V(1).Infof("Retriever(%s): wait for %v before starting...done", src.Name, jitterWait)
 	}
 
-	ticker := time.NewTicker(src.MinInterval)
-	for {
+	schedule.Every(ctx, src.MinInterval, func(ctx context.Context) {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
 		readsCounter.Inc(src.Name)
 		sth, err := src.GetNewerSTH(ctx, g)
@@ -309,16 +309,9 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 			lastRecordedSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
 			s <- sthInfo{name: src.Name, sth: sth}
 		}
-
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
-		select {
-		case <-ctx.Done():
-			glog.Infof("Retriever(%s): termination requested", src.Name)
-			return
-		case <-ticker.C:
-		}
-
-	}
+	})
+	glog.Infof("Retriever(%s): termination requested", src.Name)
 }
 
 // GetNewerSTH retrieves a current STH from the source log and (if it is new)

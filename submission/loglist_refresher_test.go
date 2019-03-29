@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -61,7 +62,7 @@ func ExampleLogListRefresher() {
 	// Not necessary for this example, but appropriate for long-running systems.
 	llChan := make(chan *loglist.LogList)
 	errChan := make(chan error)
-	go Every(ctx, time.Hour, func(ctx context.Context) {
+	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
 		if ll, err := llr.Refresh(); err != nil {
 			errChan <- err
 		} else {
@@ -184,7 +185,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+			if diff := cmp.Diff(tc.wantLl, ll); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})

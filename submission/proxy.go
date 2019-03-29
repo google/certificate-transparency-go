@@ -43,7 +43,7 @@ type DefaultDistributorFactory struct {
 }
 
 // getDistributorBuilder given CT-policy type produces Distributor c-tor.
-func (*DefaultDistributorFactory) getDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
+func (*DefaultDistributorFactory) GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
 	if plc == AppleCTPolicy {
 		return func(ll *loglist.LogList) (*Distributor, error) {
 			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, BuildLogClient)
@@ -62,7 +62,7 @@ type Proxy struct {
 	rootsRefreshInterval time.Duration
 	ctPlc                CTPolicyType
 
-	llWatcher          *LogListRefresher
+	llWatcher          LogListRefresher
 	distributorFactory DistributorFactory
 
 	distMu     sync.RWMutex // guards the distributor
@@ -71,12 +71,13 @@ type Proxy struct {
 }
 
 // NewProxy creates an inactive Proxy instance. Call Run() to activate.
-func NewProxy(llr *LogListRefresher, df DistributorFactory, ctPlc CTPolicyType) *Proxy {
+func NewProxy(llr LogListRefresher, df DistributorFactory, ctPlc CTPolicyType) *Proxy {
 	var p Proxy
 	p.llWatcher = llr
 	p.distributorFactory = df
 	p.ctPlc = ctPlc
 	p.Errors = make(chan error, 1)
+	p.rootsRefreshInterval = 24 * time.Hour
 
 	return &p
 }
@@ -101,7 +102,9 @@ func (p *Proxy) RefreshLogList(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	p.restartDistributor(ctx, ll)
+	if err = p.restartDistributor(ctx, ll); err != nil {
+		p.Errors <- err
+	}
 	return nil
 }
 

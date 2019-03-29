@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
@@ -1055,14 +1056,12 @@ func HammerCTLog(cfg HammerConfig) error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	ticker := time.NewTicker(cfg.EmitInterval)
-	go func(c <-chan time.Time) {
-		for range c {
-			glog.Info(s.String())
-		}
-	}(ticker.C)
+	go schedule.Every(ctx, cfg.EmitInterval, func(ctx context.Context) {
+		glog.Info(s.String())
+	})
 
 	for count := uint64(1); count < cfg.Operations; count++ {
 		if err := s.retryOneOp(ctx); err != nil {
@@ -1070,7 +1069,6 @@ func HammerCTLog(cfg HammerConfig) error {
 		}
 	}
 	glog.Infof("%s: completed %d operations on log", cfg.LogCfg.Prefix, cfg.Operations)
-	ticker.Stop()
 
 	return nil
 }

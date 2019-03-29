@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
@@ -75,17 +76,13 @@ type Instance struct {
 // up-to-date with any tree head changes that are not triggered by us.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	c := i.li.instanceOpts.Validated.Config
-	ticker := time.NewTicker(period)
 	glog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
-	for t := range ticker.C {
-		glog.V(1).Infof("Tick at %v: force internal get-sth for %v (%d)", t, c.Prefix, c.LogId)
+	schedule.Every(ctx, period, func(ctx context.Context) {
+		glog.V(1).Infof("Force internal get-sth for %v (%d)", c.Prefix, c.LogId)
 		if _, err := i.li.getSTH(ctx); err != nil {
 			glog.Warningf("Failed to retrieve STH for %v (%d): %v", c.Prefix, c.LogId, err)
-			if ctx.Err() != nil {
-				break
-			}
 		}
-	}
+	})
 }
 
 // SetUpInstance sets up a log (or log mirror) instance using the provided

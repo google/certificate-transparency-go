@@ -28,6 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
@@ -50,7 +51,7 @@ func ExampleDistributor() {
 	// Refresh roots periodically so they stay up-to-date.
 	// Not necessary for this example, but appropriate for long-running systems.
 	refresh := make(chan struct{})
-	go Every(ctx, time.Hour, func(ctx context.Context) {
+	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
 		if errs := d.RefreshRoots(ctx); len(errs) > 0 {
 			glog.Error(errs)
 		}
