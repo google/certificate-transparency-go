@@ -63,13 +63,11 @@ func (llr *logListRefresherImpl) Refresh() (*loglist.LogList, error) {
 	}
 
 	if bytes.Equal(json, llr.lastJSON) {
-		fmt.Printf("no changes")
 		return nil, nil
 	}
 
 	ll, err := loglist.NewFromJSON(json)
 	if err != nil {
-		fmt.Printf("failed to parse\n")
 		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}
 	llr.lastJSON = json
