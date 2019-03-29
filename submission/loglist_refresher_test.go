@@ -185,7 +185,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+			if diff := cmp.Diff(tc.wantLl, ll); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})
