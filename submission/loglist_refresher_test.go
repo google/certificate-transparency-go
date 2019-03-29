@@ -55,7 +55,7 @@ func ExampleLogListRefresher() {
 	}
 	defer os.Remove(f)
 
-	llr := NewLogListRefresher(f)
+	llr := NewLogListRefresherImpl(f)
 
 	// Refresh log list periodically so it stays up-to-date.
 	// Not necessary for this example, but appropriate for long-running systems.
@@ -83,7 +83,7 @@ func ExampleLogListRefresher() {
 
 func TestNewLogListRefresherNoFile(t *testing.T) {
 	const wantErrSubstr = "failed to read"
-	llr := NewLogListRefresher("nofile.json")
+	llr := NewLogListRefresherImpl("nofile.json")
 	if _, err := llr.Refresh(); !strings.Contains(err.Error(), wantErrSubstr) {
 		t.Errorf("llr.Refresh() = (_, %v), want err containing %q", err, wantErrSubstr)
 	}
@@ -116,7 +116,7 @@ func TestNewLogListRefresher(t *testing.T) {
 			}
 			defer os.Remove(f)
 
-			llr := NewLogListRefresher(f)
+			llr := NewLogListRefresherImpl(f)
 			ll, err := llr.Refresh()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
@@ -168,7 +168,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 			defer os.Remove(f)
 
-			llr := NewLogListRefresher(f)
+			llr := NewLogListRefresherImpl(f)
 			if _, err := llr.Refresh(); err != nil {
 				t.Fatalf("llr.Refresh() = (_, %v), want (_, nil)", err)
 			}
