@@ -228,7 +228,7 @@ func (c *Controller) runWithRestarts(ctx context.Context) error {
 // have been transferred (in non-Continuous mode).
 func (c *Controller) Run(ctx context.Context) error {
 	metrics.controllerStarts.Inc(c.label)
-	dur := randDuration(c.opts.StopAfter, c.opts.StopAfter)
+	stopAfter := randDuration(c.opts.StopAfter, c.opts.StopAfter)
 	start := time.Now()
 
 	// Note: Non-continuous runs are not affected by StopAfter.
@@ -240,7 +240,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		return nil
 	}
 
-	for dur == 0 || time.Since(start) < dur {
+	for stopAfter == 0 || time.Since(start) < stopAfter {
 		// TODO(pavelkalinnikov): Integrate runWithRestarts here.
 		next, err := c.fetchTail(ctx, pos)
 		if err != nil {
