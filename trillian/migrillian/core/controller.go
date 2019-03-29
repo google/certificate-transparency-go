@@ -110,7 +110,6 @@ func OptionsFromConfig(cfg *configpb.MigrationConfig) Options {
 // Controller coordinates migration from a CT log to a Trillian tree.
 type Controller struct {
 	opts     Options
-	batches  chan scanner.EntryBatch
 	ctClient *client.LogClient
 	plClient *PreorderedLogClient
 	ef       election2.Factory
@@ -256,7 +255,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	var wg sync.WaitGroup
-	c.batches = make(chan scanner.EntryBatch, c.opts.ChannelSize)
+	batches := make(chan scanner.EntryBatch, c.opts.ChannelSize)
 	cctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -264,7 +263,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := c.runSubmitter(cctx); err != nil {
+			if err := c.runSubmitter(cctx, batches); err != nil {
 				glog.Errorf("%s: Stopping due to submitter error: %v", c.label, err)
 				cancel() // Stop the other submitters and the Fetcher.
 			}
@@ -285,13 +284,13 @@ func (c *Controller) Run(ctx context.Context) error {
 	handler := func(b scanner.EntryBatch) {
 		metrics.entriesFetched.Add(float64(len(b.Entries)), c.label)
 		select {
-		case c.batches <- b:
+		case batches <- b:
 		case <-cctx.Done(): // Avoid deadlock when shutting down.
 		}
 	}
 
 	result := fetcher.Run(cctx, handler)
-	close(c.batches)
+	close(batches)
 	wg.Wait()
 	return result
 }
@@ -316,8 +315,8 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 // submits them through Trillian client. Returns when the channel is closed, or
 // the client returns a non-recoverable error (an example of a recoverable
 // error is when Trillian write quota is exceeded).
-func (c *Controller) runSubmitter(ctx context.Context) error {
-	for b := range c.batches {
+func (c *Controller) runSubmitter(ctx context.Context, batches <-chan scanner.EntryBatch) error {
+	for b := range batches {
 		entries := float64(len(b.Entries))
 		metrics.entriesSeen.Add(entries, c.label)
 
