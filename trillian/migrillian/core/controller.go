@@ -336,12 +336,18 @@ func (c *Controller) runSubmitter(ctx context.Context) error {
 
 // sleepRandom sleeps for random duration in [base, base+spread).
 func sleepRandom(ctx context.Context, base, spread time.Duration) error {
-	d := base
-	if spread != 0 {
-		d += time.Duration(rand.Int63n(int64(spread)))
-	}
+	d := randDuration(base, spread)
 	if d == 0 {
 		return nil
 	}
 	return clock.SleepContext(ctx, d)
+}
+
+// randDuration returns a random duration in [base, base+spread).
+func randDuration(base, spread time.Duration) time.Duration {
+	d := base
+	if spread != 0 {
+		d += time.Duration(rand.Int63n(int64(spread)))
+	}
+	return d
 }
