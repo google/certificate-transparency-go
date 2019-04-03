@@ -34,24 +34,19 @@ const (
 	AppleCTPolicy
 )
 
-// DistributorFactory is building Distributor c-tor given CTPolicyType.
-type DistributorFactory interface {
-	GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error)
-}
+// DistributorBuilder builds distributor instance for a given Log list.
+type DistributorBuilder func(*loglist.LogList) (*Distributor, error)
 
-// DefaultDistributorFactory builds standard production Distributors.
-type DefaultDistributorFactory struct {
-}
-
-// getDistributorBuilder given CT-policy type produces Distributor c-tor.
-func (*DefaultDistributorFactory) GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
+// GetDistributorBuilder given CT-policy type and Log-client builder produces
+// Distributor c-tor.
+func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder) DistributorBuilder {
 	if plc == AppleCTPolicy {
 		return func(ll *loglist.LogList) (*Distributor, error) {
-			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, BuildLogClient)
+			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, lcBuilder)
 		}
 	}
 	return func(ll *loglist.LogList) (*Distributor, error) {
-		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, BuildLogClient)
+		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, lcBuilder)
 	}
 }
 
@@ -61,10 +56,9 @@ type Proxy struct {
 
 	llRefreshInterval    time.Duration
 	rootsRefreshInterval time.Duration
-	ctPlc                CTPolicyType
 
 	llWatcher          LogListRefresher
-	distributorFactory DistributorFactory
+	distributorBuilder DistributorBuilder
 
 	distMu     sync.RWMutex // guards the distributor
 	dist       *Distributor
@@ -72,11 +66,10 @@ type Proxy struct {
 }
 
 // NewProxy creates an inactive Proxy instance. Call Run() to activate.
-func NewProxy(llr LogListRefresher, df DistributorFactory, ctPlc CTPolicyType) *Proxy {
+func NewProxy(llr LogListRefresher, db DistributorBuilder) *Proxy {
 	var p Proxy
 	p.llWatcher = llr
-	p.distributorFactory = df
-	p.ctPlc = ctPlc
+	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
 
@@ -112,7 +105,7 @@ func (p *Proxy) RefreshLogList(ctx context.Context) error {
 // restartDistributor activates new Distributor instance with Log List provided
 // and sets it as active.
 func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist.LogList) error {
-	d, err := p.distributorFactory.GetDistributorBuilder(p.ctPlc)(ll)
+	d, err := p.distributorBuilder(ll)
 	if err != nil {
 		// losing ll info. No good.
 		return err

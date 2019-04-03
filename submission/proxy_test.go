@@ -23,13 +23,12 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/testdata"
 )
 
 func TestProxyNoLLWatcher(t *testing.T) {
-	p := NewProxy(nil, nil, ChromeCTPolicy)
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, buildStubLogClient))
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("p.RefreshLogList() on nil LogListRefresher expected to get error, got none")
@@ -37,7 +36,7 @@ func TestProxyNoLLWatcher(t *testing.T) {
 }
 
 func TestProxyNoLLWatcherAfterRun(t *testing.T) {
-	p := NewProxy(nil, nil, ChromeCTPolicy)
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, buildStubLogClient))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -59,7 +58,7 @@ func (llr stubLogListRefresher) Refresh() (*loglist.LogList, error) {
 }
 
 func TestProxyRefreshLLErr(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, nil, ChromeCTPolicy)
+	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, buildStubLogClient))
 
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
@@ -67,19 +66,8 @@ func TestProxyRefreshLLErr(t *testing.T) {
 	}
 }
 
-// BrokenDistributorFactory emits errors on every getDistributorBuilder call.
-// implements DistributorFactory interface.
-type brokenDistributorFactory struct {
-}
-
-func (brokenDistributorFactory) GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
-	return func(ll *loglist.LogList) (*Distributor, error) {
-		return nil, fmt.Errorf("no distributor c-tor can be produced by brokenDistributorFactory")
-	}
-}
-
 func TestProxyBrokenDistributor(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, brokenDistributorFactory{}, ChromeCTPolicy)
+	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, buildNoLogClient))
 
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
@@ -109,23 +97,6 @@ func buildStubNoRootsLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return stubNoRootsLogClient{logURL: log.URL}, nil
 }
 
-// noRootsDistributorFactory builds Distributors emitting errors on every
-// AddPreChain, RefreshRoots call for every Log requested.
-type noRootsDistributorFactory struct {
-}
-
-// getDistributorBuilder given CT-policy type produces Distributor c-tor.
-func (noRootsDistributorFactory) GetDistributorBuilder(plc CTPolicyType) func(*loglist.LogList) (*Distributor, error) {
-	if plc == AppleCTPolicy {
-		return func(ll *loglist.LogList) (*Distributor, error) {
-			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, buildStubNoRootsLogClient)
-		}
-	}
-	return func(ll *loglist.LogList) (*Distributor, error) {
-		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, buildStubNoRootsLogClient)
-	}
-}
-
 func TestProxyRefreshRootsErr(t *testing.T) {
 	f, err := createTempFile(testdata.SampleLogList)
 	if err != nil {
@@ -134,7 +105,7 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(llr, noRootsDistributorFactory{}, ChromeCTPolicy)
+	p := NewProxy(llr, GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient))
 	p.RefreshLogList(context.Background())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

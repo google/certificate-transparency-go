@@ -114,7 +114,7 @@ var (
 
 // buildNoLogClient is LogClientBuilder that always fails.
 func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
-	return nil, errors.New("bad client builder")
+	return nil, errors.New("bad log-client builder")
 }
 
 // Stub for AddLogClient interface
