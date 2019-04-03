@@ -29,6 +29,12 @@ install:
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
   - go get -d -t ./...
+  # TODO(daviddrysdale): remove this once https://github.com/grpc/grpc-go/pull/2733/files#r271705181 is addressed upstream
+  - |
+    (
+      cd ${GOPATH}/src/google.golang.org/grpc
+      git revert --no-edit 955eb8a3c829b
+    )
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.13.2
   - go get -u github.com/golang/protobuf/proto
   - go get -u github.com/golang/protobuf/protoc-gen-go
