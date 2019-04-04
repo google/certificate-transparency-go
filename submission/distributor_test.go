@@ -39,6 +39,10 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
+func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return buildRootedStubLc(log, RootsCerts)
+}
+
 func ExampleDistributor() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -85,11 +89,6 @@ func readCertFile(filename string) []byte {
 	return data[0]
 }
 
-type rootInfo struct {
-	raw      []byte
-	filename string
-}
-
 var (
 	RootsCerts = map[string][]rootInfo{
 		"ct.googleapis.com/aviator/": {
@@ -114,7 +113,7 @@ var (
 
 // buildNoLogClient is LogClientBuilder that always fails.
 func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
-	return nil, errors.New("bad client builder")
+	return nil, errors.New("bad log-client builder")
 }
 
 // Stub for AddLogClient interface
@@ -223,41 +222,6 @@ func testSCT(logURL string) *ct.SignedCertificateTimestamp {
 			},
 		},
 	}
-}
-
-// Stub for AddLogCLient interface
-type stubLogClient struct {
-	logURL string
-}
-
-func (m stubLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	if _, ok := RootsCerts[m.logURL]; ok {
-		return testSCT(m.logURL), nil
-	}
-	return nil, fmt.Errorf("log %q has no roots", m.logURL)
-}
-
-func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	roots := []ct.ASN1Cert{}
-	if certInfos, ok := RootsCerts[m.logURL]; ok {
-		for _, certInfo := range certInfos {
-			if len(certInfo.raw) > 0 {
-				roots = append(roots, ct.ASN1Cert{Data: certInfo.raw})
-			} else {
-
-				roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
-			}
-		}
-	}
-	return roots, nil
-}
-
-func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return stubLogClient{logURL: log.URL}, nil
 }
 
 func TestNewDistributorRootPools(t *testing.T) {
