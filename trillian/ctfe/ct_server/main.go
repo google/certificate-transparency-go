@@ -112,12 +112,7 @@ func main() {
 	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
-		// TODO(daviddrysdale): re-enable dial timeout when upstream client code fixed
-		// for https://github.com/grpc/grpc-go/pull/2733/files#r271705181
-		cfg := clientv3.Config{
-			Endpoints: strings.Split(*etcdServers, ","),
-			// DialTimeout: 5 * time.Second,
-		}
+		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
 		client, err := clientv3.New(cfg)
 		if err != nil {
 			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
