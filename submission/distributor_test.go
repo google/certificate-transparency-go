@@ -40,7 +40,7 @@ import (
 )
 
 func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return buildRootedStubLc(log, RootsCerts)
+	return buildRootedStubLC(log, RootsCerts)
 }
 
 func ExampleDistributor() {

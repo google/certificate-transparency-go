@@ -47,20 +47,21 @@ func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*c
 
 func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
 	roots := []ct.ASN1Cert{}
-	if certInfos, ok := m.rootsCerts[m.logURL]; ok {
-		for _, certInfo := range certInfos {
-			if len(certInfo.raw) > 0 {
-				roots = append(roots, ct.ASN1Cert{Data: certInfo.raw})
-			} else {
-
-				roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
-			}
+	certInfos, ok := m.rootsCerts[m.logURL]
+	if !ok {
+		return roots, nil
+	}
+	for _, certInfo := range certInfos {
+		if len(certInfo.raw) > 0 {
+			roots = append(roots, ct.ASN1Cert{Data: certInfo.raw})
+			continue
 		}
+		roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
 	}
 	return roots, nil
 }
 
-func buildRootedStubLc(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
+func buildRootedStubLC(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: rCerts}, nil
 }
 
@@ -68,6 +69,6 @@ func buildEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return buildRootedStubLc(log, map[string][]rootInfo{})
 }
 
-func buildStubLc(log *loglist.Log) (client.AddLogClient, error) {
+func buildStubLC(log *loglist.Log) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
 }
