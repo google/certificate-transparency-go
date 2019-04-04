@@ -16,11 +16,14 @@ package submission
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 type rootInfo struct {
@@ -61,14 +64,37 @@ func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, err
 	return roots, nil
 }
 
+// readCertFile returns the first certificate it finds in file provided.
+func readCertFile(filename string) []byte {
+	data, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+	if err != nil {
+		return nil
+	}
+	return data[0]
+}
+
+// TestSCT builds a mock SCT for given logURL.
+func testSCT(logURL string) *ct.SignedCertificateTimestamp {
+	var keyID [sha256.Size]byte
+	copy(keyID[:], logURL)
+	return &ct.SignedCertificateTimestamp{
+		SCTVersion: ct.V1,
+		LogID:      ct.LogID{KeyID: keyID},
+		Timestamp:  1234,
+		Extensions: []byte{},
+		Signature: ct.DigitallySigned{
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA256,
+				Signature: tls.ECDSA,
+			},
+		},
+	}
+}
+
 func buildRootedStubLC(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: rCerts}, nil
 }
 
 func buildEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return buildRootedStubLc(log, map[string][]rootInfo{})
-}
-
-func buildStubLC(log *loglist.Log) (client.AddLogClient, error) {
-	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
+	return buildRootedStubLC(log, map[string][]rootInfo{})
 }
