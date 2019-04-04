@@ -261,13 +261,14 @@ func TestErrorMasking(t *testing.T) {
 	prefix := "Internal Server Error"
 	err := errors.New("well that's bad")
 	info.SendHTTPError(w, 500, err)
-	if w.Body.String() != fmt.Sprintf("%s\n%v\n", prefix, err) {
-		t.Errorf("SendHTTPError: got %s, want %s", w.Body.String(), fmt.Sprintf("%s\n%v", prefix, err))
+	if got, want := w.Body.String(), fmt.Sprintf("%s\n%v\n", prefix, err); got != want {
+		t.Errorf("SendHTTPError: got %s, want %s", got, want)
 	}
 	info.instanceOpts.MaskInternalErrors = true
 	w = httptest.NewRecorder()
 	info.SendHTTPError(w, 500, err)
-	if w.Body.String() != prefix+"\n" {
-		t.Errorf("SendHTTPError: got %s, want %s", w.Body.String(), prefix)
+	if got, want := w.Body.String(), prefix+"\n"; got != want {
+		t.Errorf("SendHTTPError: got %s, want %s", got, want)
 	}
+
 }

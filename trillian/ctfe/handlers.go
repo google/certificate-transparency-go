@@ -336,10 +336,9 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 }
 
 // Generates a custom error page to give more information on why something didn't work
-// TODO(Martin2112): Not sure if we want to expose any detail or not
 func (li *logInfo) SendHTTPError(w http.ResponseWriter, statusCode int, err error) {
 	errorBody := http.StatusText(statusCode)
-	if !(li.instanceOpts.MaskInternalErrors && statusCode == http.StatusInternalServerError) {
+	if !li.instanceOpts.MaskInternalErrors || statusCode != http.StatusInternalServerError {
 		errorBody += fmt.Sprintf("\n%v", err)
 	}
 	http.Error(w, errorBody, statusCode)
