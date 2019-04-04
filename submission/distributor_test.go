@@ -16,7 +16,6 @@ package submission
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,14 +29,15 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
-	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
-	ct "github.com/google/certificate-transparency-go"
 )
+
+func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return buildRootedStubLC(log, RootsCerts)
+}
 
 func ExampleDistributor() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -76,20 +76,6 @@ func ExampleDistributor() {
 	// {ct.googleapis.com/rocketeer/ {Version:0 LogId:Y3QuZ29vZ2xlYXBpcy5jb20vcm9ja2V0ZWVyLwAAAAA= Timestamp:1234 Extensions:'' Signature:{{SHA256 ECDSA} []}}}
 }
 
-// readCertFile returns the first certificate it finds in file provided.
-func readCertFile(filename string) []byte {
-	data, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
-	if err != nil {
-		return nil
-	}
-	return data[0]
-}
-
-type rootInfo struct {
-	raw      []byte
-	filename string
-}
-
 var (
 	RootsCerts = map[string][]rootInfo{
 		"ct.googleapis.com/aviator/": {
@@ -115,27 +101,6 @@ var (
 // buildNoLogClient is LogClientBuilder that always fails.
 func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad log-client builder")
-}
-
-// Stub for AddLogClient interface
-type emptyLogClient struct {
-}
-
-func (e emptyLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (e emptyLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	return nil, nil
-}
-
-// buildEmptyLogClient produces empty stub Log clients.
-func buildEmptyLogClient(_ *loglist.Log) (client.AddLogClient, error) {
-	return emptyLogClient{}, nil
 }
 
 func sampleLogList() *loglist.LogList {
@@ -176,7 +141,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 		{
 			name:      "ValidLogClients",
 			ll:        sampleValidLogList(),
-			lcBuilder: buildEmptyLogClient,
+			lcBuilder: buildEmptyStubLogClient,
 		},
 		{
 			name:      "NoLogClients",
@@ -205,59 +170,6 @@ func TestNewDistributorLogClients(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestSCT builds a mock SCT for given logURL.
-func testSCT(logURL string) *ct.SignedCertificateTimestamp {
-	var keyID [sha256.Size]byte
-	copy(keyID[:], logURL)
-	return &ct.SignedCertificateTimestamp{
-		SCTVersion: ct.V1,
-		LogID:      ct.LogID{KeyID: keyID},
-		Timestamp:  1234,
-		Extensions: []byte{},
-		Signature: ct.DigitallySigned{
-			Algorithm: tls.SignatureAndHashAlgorithm{
-				Hash:      tls.SHA256,
-				Signature: tls.ECDSA,
-			},
-		},
-	}
-}
-
-// Stub for AddLogCLient interface
-type stubLogClient struct {
-	logURL string
-}
-
-func (m stubLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	if _, ok := RootsCerts[m.logURL]; ok {
-		return testSCT(m.logURL), nil
-	}
-	return nil, fmt.Errorf("log %q has no roots", m.logURL)
-}
-
-func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	roots := []ct.ASN1Cert{}
-	if certInfos, ok := RootsCerts[m.logURL]; ok {
-		for _, certInfo := range certInfos {
-			if len(certInfo.raw) > 0 {
-				roots = append(roots, ct.ASN1Cert{Data: certInfo.raw})
-			} else {
-
-				roots = append(roots, ct.ASN1Cert{Data: readCertFile(certInfo.filename)})
-			}
-		}
-	}
-	return roots, nil
-}
-
-func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return stubLogClient{logURL: log.URL}, nil
 }
 
 func TestNewDistributorRootPools(t *testing.T) {
