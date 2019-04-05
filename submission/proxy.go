@@ -34,6 +34,17 @@ const (
 	AppleCTPolicy
 )
 
+// CTPolicyTypeFromString parses string value into CTPolicyType.
+// Emits error when unable to match the value.
+func CTPolicyTypeFromString(s string) (CTPolicyType, error) {
+	if s == "chrome" {
+		return ChromeCTPolicy, nil
+	} else if s == "apple" {
+		return AppleCTPolicy, nil
+	}
+	return ChromeCTPolicy, fmt.Errorf("CTPolicyTypeFromString does not support value %q", s)
+}
+
 // DistributorBuilder builds distributor instance for a given Log list.
 type DistributorBuilder func(*loglist.LogList) (*Distributor, error)
 

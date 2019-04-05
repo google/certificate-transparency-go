@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -119,5 +120,50 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 			t.Errorf("p.RefreshLogList() on noRootsDistributorFactory expected to emit error for each Log, got %d", i)
 			return
 		}
+	}
+}
+
+func TestCTPolicyTypeFromString(t *testing.T) {
+	testCases := []struct {
+		name      string
+		from      string
+		wantPlc   CTPolicyType
+		errRegexp *regexp.Regexp
+	}{
+		{
+			name:      "chrome",
+			from:      "chrome",
+			wantPlc:   ChromeCTPolicy,
+			errRegexp: nil,
+		},
+		{
+			name:      "apple",
+			from:      "apple",
+			wantPlc:   AppleCTPolicy,
+			errRegexp: nil,
+		},
+		{
+			name:      "noValue",
+			from:      "crome",
+			wantPlc:   ChromeCTPolicy,
+			errRegexp: regexp.MustCompile("CTPolicyTypeFromString does not support value"),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotPlc, err := CTPolicyTypeFromString(tc.from)
+			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
+				var unwantedErr string
+				if gotErr {
+					unwantedErr = fmt.Sprintf(" (%q)", err)
+				}
+				t.Errorf("Got error = %v%s, expected error = %v", gotErr, unwantedErr, wantErr)
+			} else if tc.errRegexp != nil && !tc.errRegexp.MatchString(err.Error()) {
+				t.Errorf("Error %q did not match expected regexp %q", err, tc.errRegexp)
+			}
+			if gotPlc != tc.wantPlc {
+				t.Errorf("CtPolicyTypeFromStrin(%q) want %v, got %v", tc.from, tc.wantPlc, gotPlc)
+			}
+		})
 	}
 }
