@@ -35,7 +35,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func localStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func newLocalStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return newRootedStubLogClient(log, RootsCerts)
 }
 
@@ -43,7 +43,7 @@ func ExampleDistributor() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), localStubLogClient)
+	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), newLocalStubLogClient)
 	if err != nil {
 		panic(err)
 	}
@@ -198,7 +198,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, localStubLogClient)
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient)
 
 			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
 				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
@@ -305,7 +305,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, tc.plc, localStubLogClient)
+			dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
