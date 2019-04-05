@@ -99,6 +99,6 @@ func buildEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return buildRootedStubLC(log, map[string][]rootInfo{})
 }
 
-func buildStubLC(log *loglist.Log) (client.AddLogClient, error) {
+func newStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
 }
