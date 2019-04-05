@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package submission
+package main
 
 import (
 	"context"
@@ -21,6 +21,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/google/certificate-transparency-go/submission"
 )
 
 // Flags.
@@ -34,20 +36,20 @@ var (
 	addPreChainTimeout     = flag.Duration("add_prechain_timeout", 10*time.Second, "Timeout for each add-prechain call")
 )
 
-func parsePolicyType() CTPolicyType {
+func parsePolicyType() submission.CTPolicyType {
 	if *policyType == "chrome" {
-		return ChromeCTPolicy
+		return submission.ChromeCTPolicy
 	} else if *policyType == "apple" {
-		return AppleCTPolicy
+		return submission.AppleCTPolicy
 	}
 	panic(fmt.Sprintf("flag policyType does not support value %q", *policyType))
 }
 
-func parseLogClientType() LogClientBuilder {
+func parseLogClientType() submission.LogClientBuilder {
 	if *logClientType == "prod" {
-		return BuildLogClient
+		return submission.BuildLogClient
 	} else if *logClientType == "stub" {
-		return newStubLogClient
+		return submission.newStubLogClient
 	}
 	panic(fmt.Sprintf("flag logClientType does not support value %q", *logClientType))
 }
@@ -55,23 +57,7 @@ func parseLogClientType() LogClientBuilder {
 func main() {
 	flag.Parse()
 
-	s := newServer()
-	s.routes()
+	s := NewProxyServer(*logListPath, *logListRefreshIntervall, *rootsRefreshInterval)
+	http.Handle("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain())
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
-}
-
-// Server wraps Proxy and handles http-requests for it.
-type server struct {
-	p *Proxy
-}
-
-// newServer creates and inits Server instance.
-func newServer() *server {
-	plc := parsePolicyType()
-	lcBuilder := parseLogClientType()
-
-	s := &server{}
-	s.p = NewProxy(NewLogListRefresher(*logListPath), GetDistributorBuilder(plc, lcBuilder))
-	s.p.Run(context.Background(), *logListRefreshInterval, *rootsRefreshInterval)
-	return s
 }

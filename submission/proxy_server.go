@@ -24,8 +24,20 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
-func (s *server) routes() {
-	http.Handle("ct/v1/proxy/add-pre-chain/", s.handleAddPreChain())
+// ProxyServer wraps Proxy and handles http-requests for it.
+type ProxyServer struct {
+	submission.p *Proxy
+}
+
+// NewServer creates and inits Server instance.
+func NewProxyServer(logListPath string, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) *server {
+	plc := parsePolicyType()
+	lcBuilder := parseLogClientType()
+
+	s := &server{}
+	s.p = NewProxy(NewLogListRefresher(logListPath), GetDistributorBuilder(plc, lcBuilder))
+	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
+	return s
 }
 
 func marshalSCTs(scts []*AssignedSCT) []byte {
@@ -40,7 +52,8 @@ func marshalSCTs(scts []*AssignedSCT) []byte {
 	return jsonSCTs
 }
 
-func (s *server) handleAddPreChain() http.HandlerFunc {
+// HanldeAddPreChain http handler for multiplexed add-pre-chain request.
+func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.NotFound(w, r)
