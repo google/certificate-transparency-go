@@ -28,10 +28,10 @@ import (
 var (
 	httpEndpoint           = flag.String("http_endpoint", "localhost:5951", "Endpoint for HTTP (host:port)")
 	logListPath            = flag.String("loglist_path", "https://www.gstatic.com/ct/log_list/log_list.json", "Path for list of CT Logs in JSON format")
-	logListRefreshInterval = flag.Duration("loglist_refresh_interval", 2*24*time.Hour, "Interval between consecutive reads of Log-list.")
-	rootsRefreshInterval   = flag.Duration("roots_refresh_interval", 24*time.Hour, "Interval between consecutive get-roots calls.")
-	policyType             = flag.String("policy_type", "chrome", "CT-policy <chrome|apple>.")
-	logClientType          = flag.String("log_client_type", "stub", "Log-client <stub|prod>.")
+	logListRefreshInterval = flag.Duration("loglist_refresh_interval", 2*24*time.Hour, "Interval between consecutive reads of Log-list")
+	rootsRefreshInterval   = flag.Duration("roots_refresh_interval", 24*time.Hour, "Interval between consecutive get-roots calls")
+	policyType             = flag.String("policy_type", "chrome", "CT-policy <chrome|apple>")
+	dryRun                 = flag.Bool("dry_run", false, "Whether stub Log client should be used instead of prod one")
 	addPreChainTimeout     = flag.Duration("add_prechain_timeout", 10*time.Second, "Timeout for each add-prechain call")
 )
 
@@ -44,20 +44,16 @@ func parsePolicyType() submission.CTPolicyType {
 	panic(fmt.Sprintf("flag policyType does not support value %q", *policyType))
 }
 
-func parseLogClientType() submission.LogClientBuilder {
-	if *logClientType == "prod" {
-		return submission.BuildLogClient
-	} else if *logClientType == "stub" {
-		return submission.NewStubLogClient
-	}
-	panic(fmt.Sprintf("flag logClientType does not support value %q", *logClientType))
-}
-
 func main() {
 	flag.Parse()
 
 	plc := parsePolicyType()
-	lcType := parseLogClientType()
+	var lcType submission.LogClientBuilder
+	if *dryRun {
+		lcType = submission.NewStubLogClient
+	} else {
+		lcType = submission.BuildLogClient
+	}
 
 	s := submission.NewProxyServer(
 		*logListPath, *logListRefreshInterval, *rootsRefreshInterval,
