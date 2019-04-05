@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -49,7 +48,7 @@ func parseLogClientType() submission.LogClientBuilder {
 	if *logClientType == "prod" {
 		return submission.BuildLogClient
 	} else if *logClientType == "stub" {
-		return submission.newStubLogClient
+		return submission.NewStubLogClient
 	}
 	panic(fmt.Sprintf("flag logClientType does not support value %q", *logClientType))
 }
@@ -57,7 +56,12 @@ func parseLogClientType() submission.LogClientBuilder {
 func main() {
 	flag.Parse()
 
-	s := NewProxyServer(*logListPath, *logListRefreshIntervall, *rootsRefreshInterval)
+	plc := parsePolicyType()
+	lcType := parseLogClientType()
+
+	s := submission.NewProxyServer(
+		*logListPath, *logListRefreshInterval, *rootsRefreshInterval,
+		submission.GetDistributorBuilder(plc, lcType), *addPreChainTimeout)
 	http.Handle("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain())
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
 }

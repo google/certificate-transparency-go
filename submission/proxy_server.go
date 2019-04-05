@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -26,16 +27,14 @@ import (
 
 // ProxyServer wraps Proxy and handles http-requests for it.
 type ProxyServer struct {
-	submission.p *Proxy
+	p          *Proxy
+	addTimeout time.Duration
 }
 
-// NewServer creates and inits Server instance.
-func NewProxyServer(logListPath string, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) *server {
-	plc := parsePolicyType()
-	lcBuilder := parseLogClientType()
-
-	s := &server{}
-	s.p = NewProxy(NewLogListRefresher(logListPath), GetDistributorBuilder(plc, lcBuilder))
+// NewProxyServer creates and inits ProxyServer instance.
+func NewProxyServer(logListPath string, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration, dBuilder DistributorBuilder, reqTimeout time.Duration) *ProxyServer {
+	s := &ProxyServer{addTimeout: reqTimeout}
+	s.p = NewProxy(NewLogListRefresher(logListPath), dBuilder)
 	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
 	return s
 }
@@ -52,7 +51,7 @@ func marshalSCTs(scts []*AssignedSCT) []byte {
 	return jsonSCTs
 }
 
-// HanldeAddPreChain http handler for multiplexed add-pre-chain request.
+// HandleAddPreChain http handler for multiplexed add-pre-chain request.
 func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -66,7 +65,7 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), *addPreChainTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), s.addTimeout)
 		defer cancel()
 
 		scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)

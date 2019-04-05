@@ -28,7 +28,7 @@ import (
 )
 
 func TestProxyNoLLWatcher(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, newStubLogClient))
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("p.RefreshLogList() on nil LogListRefresher expected to get error, got none")
@@ -36,7 +36,7 @@ func TestProxyNoLLWatcher(t *testing.T) {
 }
 
 func TestProxyNoLLWatcherAfterRun(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, newStubLogClient))
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -58,7 +58,7 @@ func (llr stubLogListRefresher) Refresh() (*loglist.LogList, error) {
 }
 
 func TestProxyRefreshLLErr(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, newStubLogClient))
+	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
 
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
