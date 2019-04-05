@@ -101,7 +101,7 @@ func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList
 	case *ecdsa.PublicKey:
 		sigAlgo = tls.ECDSA
 	default:
-		return nil, fmt.Errorf("Unsupported public key type %v", pkType)
+		return nil, fmt.Errorf("unsupported public key type %v", pkType)
 	}
 	tlsSig := tls.DigitallySigned{
 		Algorithm: tls.SignatureAndHashAlgorithm{

@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
@@ -664,7 +665,8 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 }
 
 func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
-	if s.lastTreeSize() == 0 {
+	lastSize := s.lastTreeSize()
+	if lastSize == 0 {
 		return errSkip{}
 	}
 
@@ -675,12 +677,12 @@ func (s *hammerState) getSTHConsistencyInvalid(ctx context.Context) error {
 	var proof [][]byte
 	switch choice {
 	case ParamTooBig:
-		first := s.lastTreeSize() + uint64(invalidStretch)
+		first := lastSize + uint64(invalidStretch)
 		second := first + 100
 		proof, err = s.client().GetSTHConsistency(ctx, first, second)
 	case Param2TooBig:
-		first := s.lastTreeSize()
-		second := s.lastTreeSize() + uint64(invalidStretch)
+		first := lastSize
+		second := lastSize + uint64(invalidStretch)
 		proof, err = s.client().GetSTHConsistency(ctx, first, second)
 	case ParamsInverted:
 		var sthOld, sthNow *ct.SignedTreeHead
@@ -806,7 +808,8 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 		s.needOps(ctfe.GetSTHName)
 		return errSkip{}
 	}
-	if s.sth[0].TreeSize == 0 {
+	lastSize := s.lastTreeSize()
+	if lastSize == 0 {
 		if s.pending.empty() {
 			glog.V(3).Infof("%s: skipping get-entries as tree size 0", s.cfg.LogCfg.Prefix)
 			s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
@@ -818,13 +821,13 @@ func (s *hammerState) getEntries(ctx context.Context) error {
 	}
 	// Entry indices are zero-based, and may or may not be allowed to extend
 	// beyond current tree size (RFC 6962 s4.6).
-	first := rand.Intn(int(s.lastTreeSize()))
+	first := rand.Intn(int(lastSize))
 	span := s.cfg.MaxGetEntries - s.cfg.MinGetEntries
 	count := s.cfg.MinGetEntries + rand.Intn(int(span))
 	last := first + count
 
-	if !s.cfg.OversizedGetEntries && last >= int(s.sth[0].TreeSize) {
-		last = int(s.sth[0].TreeSize) - 1
+	if !s.cfg.OversizedGetEntries && last >= int(lastSize) {
+		last = int(lastSize) - 1
 	}
 
 	entries, err := s.client().GetEntries(ctx, int64(first), int64(last))
@@ -1055,14 +1058,12 @@ func HammerCTLog(cfg HammerConfig) error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	ticker := time.NewTicker(cfg.EmitInterval)
-	go func(c <-chan time.Time) {
-		for range c {
-			glog.Info(s.String())
-		}
-	}(ticker.C)
+	go schedule.Every(ctx, cfg.EmitInterval, func(ctx context.Context) {
+		glog.Info(s.String())
+	})
 
 	for count := uint64(1); count < cfg.Operations; count++ {
 		if err := s.retryOneOp(ctx); err != nil {
@@ -1070,7 +1071,6 @@ func HammerCTLog(cfg HammerConfig) error {
 		}
 	}
 	glog.Infof("%s: completed %d operations on log", cfg.LogCfg.Prefix, cfg.Operations)
-	ticker.Stop()
 
 	return nil
 }

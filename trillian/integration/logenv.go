@@ -89,11 +89,11 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 				MetricFactory: prometheus.MetricFactory{},
 				RequestLog:    new(ctfe.DefaultRequestLog),
 			}
-			handlers, err := ctfe.SetUpInstance(ctx, opts)
+			inst, err := ctfe.SetUpInstance(ctx, opts)
 			if err != nil {
 				glog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
 			}
-			for path, handler := range *handlers {
+			for path, handler := range inst.Handlers {
 				http.Handle(path, handler)
 			}
 		}

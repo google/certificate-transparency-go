@@ -4,9 +4,9 @@ package loglist2
 
 import "strconv"
 
-const _LogStatus_name = "UndefinedLogStatusPendingLogStatusQualifiedLogStatusUsableLogStatusFrozenLogStatusRetiredLogStatusRejectedLogStatus"
+const _LogStatus_name = "UndefinedLogStatusPendingLogStatusQualifiedLogStatusUsableLogStatusReadOnlyLogStatusRetiredLogStatusRejectedLogStatus"
 
-var _LogStatus_index = [...]uint8{0, 18, 34, 52, 67, 82, 98, 115}
+var _LogStatus_index = [...]uint8{0, 18, 34, 52, 67, 84, 100, 117}
 
 func (i LogStatus) String() string {
 	if i < 0 || i >= LogStatus(len(_LogStatus_index)-1) {

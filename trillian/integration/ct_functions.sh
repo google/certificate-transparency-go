@@ -54,7 +54,7 @@ ct_prep_test() {
     fi
 
     echo "Starting CT HTTP server on localhost:${port}, metrics on localhost:${metrics_port}"
-    ./ct_server ${ETCD_OPTS} --log_config="${CT_COMBINED_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
+    ./ct_server ${ETCD_OPTS} --log_config="${CT_COMBINED_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" ${CTFE_OPTS} &
     pid=$!
     CT_SERVER_PIDS+=(${pid})
     wait_for_server_startup ${port}

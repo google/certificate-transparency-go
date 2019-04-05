@@ -112,14 +112,14 @@ func publicKeyAlgorithmToString(algo x509.PublicKeyAlgorithm) string {
 // after each set of count bytes, and with each new line prefixed with the
 // given prefix.
 func appendHexData(buf *bytes.Buffer, data []byte, count int, prefix string) {
-	for ii, byte := range data {
+	for ii, b := range data {
 		if ii%count == 0 {
 			if ii > 0 {
 				buf.WriteString("\n")
 			}
 			buf.WriteString(prefix)
 		}
-		buf.WriteString(fmt.Sprintf("%02x:", byte))
+		buf.WriteString(fmt.Sprintf("%02x:", b))
 	}
 }
 
@@ -139,7 +139,7 @@ func curveOIDToString(oid asn1.ObjectIdentifier) (t string, bitlen int) {
 	return fmt.Sprintf("%v", oid), -1
 }
 
-func publicKeyToString(algo x509.PublicKeyAlgorithm, pub interface{}) string {
+func publicKeyToString(_ x509.PublicKeyAlgorithm, pub interface{}) string {
 	var buf bytes.Buffer
 	switch pub := pub.(type) {
 	case *rsa.PublicKey:

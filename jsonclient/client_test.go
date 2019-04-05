@@ -77,12 +77,12 @@ func TestNewJSONClient(t *testing.T) {
 		{
 			name:    "DSA PublicKey",
 			opts:    Options{PublicKey: testdata.DsaPublicKeyPEM},
-			wantErr: "Unsupported public key type",
+			wantErr: "unsupported public key type",
 		},
 		{
 			name:    "DSA PublicKeyDER",
 			opts:    Options{PublicKeyDER: publicKeyPEMToDER(testdata.DsaPublicKeyPEM)},
-			wantErr: "Unsupported public key type",
+			wantErr: "unsupported public key type",
 		},
 		{
 			name:    "PublicKey contains trailing garbage",

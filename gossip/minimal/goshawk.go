@@ -33,6 +33,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/gossip/minimal/configpb"
 	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/merkle"
@@ -350,7 +351,7 @@ func NewGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hc *http.Clien
 // NewBoundaryGoshawk creates a Goshawk from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossip checking across (some kinds of) network boundaries.
-func NewBoundaryGoshawk(ctx context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
+func NewBoundaryGoshawk(_ context.Context, cfg *configpb.GoshawkConfig, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
 	if len(cfg.DestHub) == 0 {
 		return nil, errors.New("no destination hub config found")
 	}
@@ -453,22 +454,14 @@ func (hawk *Goshawk) Fly(ctx context.Context) {
 	}
 
 	// Flush scan state occasionally in case of abrupt termination.
-	ticker := time.NewTicker(hawk.fetchOpts.FlushInterval)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if err := hawk.fetchOpts.State.Flush(ctx); err != nil {
-					// Keep going even if we failed to save current state; it
-					// just means that the next run will repeat checks that have
-					// already been done.
-					glog.Errorf("State flush failed: %v", err)
-				}
-			}
+	go schedule.Every(ctx, hawk.fetchOpts.FlushInterval, func(ctx context.Context) {
+		if err := hawk.fetchOpts.State.Flush(ctx); err != nil {
+			// Keep going even if we failed to save current state; it
+			// just means that the next run will repeat checks that have
+			// already been done.
+			glog.Errorf("State flush failed: %v", err)
 		}
-	}()
+	})
 
 	// The Checkers are consumers at the end of a chain of channels and goroutines,
 	// so they need to shut down last to prevent the producers getting blocked.
@@ -542,7 +535,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 		TreeHeadSignature: sthInfo.TreeHeadSignature,
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
-		return fmt.Errorf("Checker(%s): failed to validate STH signature: %v", o.Name, err)
+		return fmt.Errorf("failed to validate STH signature: %v", err)
 	}
 
 	currentSTH := o.getLastSTH()
@@ -564,31 +557,24 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	glog.V(2).Infof("Checker(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
-		return fmt.Errorf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
+		return fmt.Errorf("failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
 	}
 	glog.Infof("Checker(%s): verified that hash %x @%d + proof = hash %x @%d\n", o.Name, firstHash, first, secondHash, second)
 	return nil
 }
 
 func (o *originLog) STHRetriever(ctx context.Context) {
-	ticker := time.NewTicker(o.MinInterval)
-	for {
+	schedule.Every(ctx, o.MinInterval, func(ctx context.Context) {
 		if sth, err := o.Log.GetSTH(ctx); err != nil {
 			glog.Errorf("STHRetriever(%s): failed to get-sth: %v", o.Name, err)
 		} else {
 			glog.V(2).Infof("STHRetriever(%s): got STH size=%d timestamp=%d", o.Name, sth.TreeSize, sth.Timestamp)
 			o.updateSTHIfConsistent(ctx, sth)
 		}
-
 		// Wait before retrieving another STH.
 		glog.V(2).Infof("STHRetriever(%s): wait for a %s tick", o.Name, o.MinInterval)
-		select {
-		case <-ctx.Done():
-			glog.Infof("STHRetriever(%s): termination requested", o.Name)
-			return
-		case <-ticker.C:
-		}
-	}
+	})
+	glog.Infof("STHRetriever(%s): termination requested", o.Name)
 }
 
 func (o *originLog) updateSTHIfConsistent(ctx context.Context, sth *ct.SignedTreeHead) {

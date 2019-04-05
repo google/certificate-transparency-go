@@ -37,6 +37,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
+	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -98,17 +99,18 @@ const (
 var (
 	// Metrics are all per-log (label "logid"), but may also be
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
-	once             sync.Once
-	knownLogs        monitoring.Gauge     // logid => value (always 1.0)
-	isMirrorLog      monitoring.Gauge     // logid => value (either 0.0 or 1.0)
-	maxMergeDelay    monitoring.Gauge     // logid => value
-	expMergeDelay    monitoring.Gauge     // logid => value
-	lastSCTTimestamp monitoring.Gauge     // logid => value
-	lastSTHTimestamp monitoring.Gauge     // logid => value
-	lastSTHTreeSize  monitoring.Gauge     // logid => value
-	reqsCounter      monitoring.Counter   // logid, ep => value
-	rspsCounter      monitoring.Counter   // logid, ep, rc => value
-	rspLatency       monitoring.Histogram // logid, ep, rc => value
+	once               sync.Once
+	knownLogs          monitoring.Gauge     // logid => value (always 1.0)
+	isMirrorLog        monitoring.Gauge     // logid => value (either 0.0 or 1.0)
+	maxMergeDelay      monitoring.Gauge     // logid => value
+	expMergeDelay      monitoring.Gauge     // logid => value
+	lastSCTTimestamp   monitoring.Gauge     // logid => value
+	lastSTHTimestamp   monitoring.Gauge     // logid => value
+	lastSTHTreeSize    monitoring.Gauge     // logid => value
+	frozenSTHTimestamp monitoring.Gauge     // logid => value
+	reqsCounter        monitoring.Counter   // logid, ep => value
+	rspsCounter        monitoring.Counter   // logid, ep, rc => value
+	rspLatency         monitoring.Histogram // logid, ep, rc => value
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -120,6 +122,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	lastSCTTimestamp = mf.NewGauge("last_sct_timestamp", "Time of last SCT in ms since epoch", "logid")
 	lastSTHTimestamp = mf.NewGauge("last_sth_timestamp", "Time of last STH in ms since epoch", "logid")
 	lastSTHTreeSize = mf.NewGauge("last_sth_treesize", "Size of tree at last STH", "logid")
+	frozenSTHTimestamp = mf.NewGauge("frozen_sth_timestamp", "Time of the frozen STH in ms since epoch", "logid")
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
@@ -279,27 +282,28 @@ func newLogInfo(
 		RequestLog:     instanceOpts.RequestLog,
 	}
 
+	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
+	label := strconv.FormatInt(logID, 10)
+	knownLogs.Set(1.0, label)
+
 	switch {
 	case vCfg.FrozenSTH != nil:
 		li.sthGetter = &FrozenSTHGetter{sth: vCfg.FrozenSTH}
+		frozenSTHTimestamp.Set(float64(vCfg.FrozenSTH.Timestamp), label)
+
 	case cfg.IsMirror:
 		st := instanceOpts.STHStorage
 		if st == nil {
 			st = DefaultMirrorSTHStorage{}
 		}
 		li.sthGetter = &MirrorSTHGetter{li: li, st: st}
+
 	default:
 		li.sthGetter = &LogSTHGetter{li: li}
 	}
 
-	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
-	label := strconv.FormatInt(logID, 10)
-	knownLogs.Set(1.0, label)
-
 	if cfg.IsMirror {
 		isMirrorLog.Set(1.0, label)
-	} else {
-		isMirrorLog.Set(0.0, label)
 	}
 	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
 	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
@@ -342,6 +346,19 @@ func (li *logInfo) SendHTTPError(w http.ResponseWriter, statusCode int, err erro
 		errorBody += fmt.Sprintf("\n%v", err)
 	}
 	http.Error(w, errorBody, statusCode)
+}
+
+// getSTH returns the current STH as known to the STH getter, and updates tree
+// size / timestamp metrics correspondingly.
+func (li *logInfo) getSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	sth, err := li.sthGetter.GetSTH(ctx)
+	if err != nil {
+		return nil, err
+	}
+	logID := strconv.FormatInt(li.logID, 10)
+	lastSTHTimestamp.Set(float64(sth.Timestamp), logID)
+	lastSTHTreeSize.Set(float64(sth.TreeSize), logID)
+	return sth, nil
 }
 
 // ParseBodyAsJSONChain tries to extract cert-chain out of request.
@@ -499,34 +516,16 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 	return addChainInternal(ctx, li, w, r, true)
 }
 
-// PingTreeHead retrieves a tree head for the given log, and updates the STH
-// timestamp metrics correspondingly.
-// TODO(pavelkalinnikov): Should we cache the resulting STH?
-// nolint:staticcheck
-func PingTreeHead(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) error {
-	slr, err := getSignedLogRoot(ctx, client, logID, prefix)
-	if err != nil {
-		return err
-	}
-	lastSTHTimestamp.Set(float64(slr.TimestampNanos/1000/1000), strconv.FormatInt(logID, 10))
-	lastSTHTreeSize.Set(float64(slr.TreeSize), strconv.FormatInt(logID, 10))
-	return nil
-}
-
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	qctx := ctx
 	if li.instanceOpts.RemoteQuotaUser != nil {
 		rqu := li.instanceOpts.RemoteQuotaUser(r)
 		qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
 	}
-
-	sth, err := li.sthGetter.GetSTH(qctx)
+	sth, err := li.getSTH(qctx)
 	if err != nil {
 		return li.toHTTPStatus(err), err
 	}
-	lastSTHTimestamp.Set(float64(sth.Timestamp), strconv.FormatInt(li.logID, 10))
-	lastSTHTreeSize.Set(float64(sth.TreeSize), strconv.FormatInt(li.logID, 10))
-
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -585,9 +584,13 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %s", err)
 		}
 
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
 		// We can get here with a tree size too small to satisfy the proof.
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < second {
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, rsp.SignedLogRoot.TreeSize)
+		if currentRoot.TreeSize < uint64(second) {
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, currentRoot.TreeSize)
 		}
 
 		// Additional sanity checks, none of the hashes in the returned path should be empty
@@ -654,10 +657,14 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 		return li.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %s", err)
 	}
 
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+	}
 	// We could fail to get the proof because the tree size that the server has
 	// is not large enough.
-	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
-		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", rsp.SignedLogRoot.TreeSize, treeSize)
+	if currentRoot.TreeSize < uint64(treeSize) {
+		return http.StatusNotFound, fmt.Errorf("log returned tree size: %d but we expected: %d", currentRoot.TreeSize, treeSize)
 	}
 
 	// Additional sanity checks on the response.
@@ -720,10 +727,14 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		if err != nil {
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
 		}
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
+		if currentRoot.TreeSize <= uint64(start) {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here.
-			return http.StatusBadRequest, fmt.Errorf("request for leaves from %d but current tree size only %d", start, rsp.SignedLogRoot.TreeSize)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 		// Do some sanity checks on the result.
 		if len(rsp.Leaves) > int(count) {
@@ -746,11 +757,15 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %s", err)
 		}
 
-		if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize <= start {
+		var currentRoot types.LogRootV1
+		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+		}
+		if currentRoot.TreeSize <= uint64(start) {
 			// If the returned tree is too small to contain any leaves return the 4xx
 			// explicitly here. It was previously returned via the error status
 			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", rsp.SignedLogRoot.TreeSize, start)
+			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 		}
 
 		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
@@ -787,7 +802,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	return http.StatusOK, nil
 }
 
-func getRoots(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getRoots(_ context.Context, li *logInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 	// Pull out the raw certificates from the parsed versions
 	rawCerts := make([][]byte, 0, len(li.validationOpts.trustedRoots.RawCertificates()))
 	for _, cert := range li.validationOpts.trustedRoots.RawCertificates() {
@@ -828,10 +843,14 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		return li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %s", err)
 	}
 
-	if rsp.SignedLogRoot != nil && rsp.SignedLogRoot.TreeSize < treeSize {
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+	}
+	if currentRoot.TreeSize < uint64(treeSize) {
 		// If tree size is not large enough return the 4xx here, would previously
 		// have come from the error status mapping above.
-		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, rsp.SignedLogRoot.TreeSize)
+		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, currentRoot.TreeSize)
 	}
 
 	// Apply some checks that we got reasonable data from the backend

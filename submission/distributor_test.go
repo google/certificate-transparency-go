@@ -16,7 +16,6 @@ package submission
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,80 +23,104 @@ import (
 	"testing"
 	"time"
 
-	ct "github.com/google/certificate-transparency-go"
+	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+func newLocalStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return newRootedStubLogClient(log, RootsCerts)
+}
+
+func ExampleDistributor() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), newLocalStubLogClient)
+	if err != nil {
+		panic(err)
+	}
+
+	// Refresh roots periodically so they stay up-to-date.
+	// Not necessary for this example, but appropriate for long-running systems.
+	refresh := make(chan struct{})
+	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
+		if errs := d.RefreshRoots(ctx); len(errs) > 0 {
+			glog.Error(errs)
+		}
+		refresh <- struct{}{}
+	})
+
+	select {
+	case <-refresh:
+		break
+	case <-ctx.Done():
+		panic("Context expired")
+	}
+
+	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf.chain"))
+	if err != nil {
+		panic(err)
+	}
+	for _, sct := range scts {
+		fmt.Printf("%s\n", *sct)
+	}
+	// Output:
+	// {ct.googleapis.com/rocketeer/ {Version:0 LogId:Y3QuZ29vZ2xlYXBpcy5jb20vcm9ja2V0ZWVyLwAAAAA= Timestamp:1234 Extensions:'' Signature:{{SHA256 ECDSA} []}}}
+}
+
 var (
-	RootsCerts = map[string][]string{
+	RootsCerts = map[string][]rootInfo{
 		"ct.googleapis.com/aviator/": {
-			"MIIFLjCCAxagAwIBAgIQNgEiBHAkH6lLUWKp42Ob1DANBgkqhkiG9w0BAQ0FADAWMRQwEgYDVQQDEwtlc2lnbml0Lm9yZzAeFw0xNDA2MjAxODM3NTRaFw0zMDA2MjAxODQ3NDZaMBYxFDASBgNVBAMTC2VzaWduaXQub3JnMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAtylZx/zTLxRDsok14XO0Z3PvWMIY4HWro0YLgCF8dYv3tUaNkmN3ghlQvY8UcByH2LMOBGiQAcMHxgEJ53cnWRyc2DjoGhkDkiPdS2JttNEB0B/XTaGvaHwJh2CSgIBbpZpWTaqGywbe7AgJQ81L8h7tZ4E6W8ZM0vt4mnzqkPBT+BmyjTXG/McGhYTQAsmdsYZDBAdB2Y4X1/RAyL0e9MHdSboRofhg+8d5MeC0VEIgHXU/R4f4wz/pSw0FI9xxWJR3UUK/qOWqNsVYZfmCu6+ksDQtezxSTAuymoL094Dwn+hnXb8RS6dEbIQ+b0bIHxxpypcxH7rBMIpQcbZ8JSqNVDZPI9QahKNPQMQiuBE66KlqbnLOj7lGBxsbpU2Dx8QL8W96op6dTGtniFyXqhuYN2UxDMNI+fb1j9G7ENpoqvTVfjxa4RUU6uZ9ZygOiiOZD4P54vEQFteiu4OM+mWOm5Vll9yPXqHPc5oiCfyvCNVzfapqPoGbaCM6oQtcHdAca9VpE2eDTo36zfdFo31YYBOEjWNsfXwp8frNduS/L6gmWYrd91HeEoOVX2ZQKqBLp5ydW72xDSeCIr5kugqdY6whW80ugjLlc9mDd8/LEGQQKnrxzeeWdjiQG/WwcOse9GRktOzH2gvmkJ+vY82z1jhrZP4REoA6T+aYGR8CAwEAAaN4MHYwCwYDVR0PBAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFPOGsFKraD+/FoPAUXSf77qYfZHRMBIGCSsGAQQBgjcVAQQFAgMBAAEwIwYJKwYBBAGCNxUCBBYEFEq/BT//OC3eNeJ4wEfNqJXdZRNpMA0GCSqGSIb3DQEBDQUAA4ICAQBEvh2kzI+1uoUx/emM654QvpM6WtgQSJMubKwKeBY5UNgwwNpwmtswiEKzdZwBiGb1xEehPrAKz0d7aiIIEOonYEohIV6szl0+F56nN16813n1lPsCjdLSA8fjgf28jvlTKcrLRqeyCn4APadh6g7/FRiGcmIxEFPf/VNTUBZ7l4e2zzb06PxCq8oDaOsbAVYXQz8A0KX50KURZrdC2knUg1HX0J/orVpdaQ9UZYVNp2WAbe9vYTCCF5FdtzNU+nJDojpDxF5guMe9bifL3YTvd87YQwsH7+o+UbtHX4lG8VsSfmvvJulNBY6RtzZEpZvyRWIvQahM9qTrzFpsxl4wyPSBDPLDZ6YvVWsXvU4PqLOWTbPdq4BB24P9kFxeYjEe/rDQ8bd1/V/OFZTEM0rxdZDDN9vWnybzl8xL5VmNLDGl1u6JrOVvCzVAWP++L9l5UTusQI/BPSMebz6msd8vhTluD4jQIba1/6zOwfBraFgCIktCT3GEIiyt59x3rdSirLyjzmeQA9NkwoG/GqlFlSdWmQCK/sCL+z050rqjL0kEwIl/D6ncCXfBvhCpCmcrIlZFruyeOlsISZ410T1w/pLK8OXhbCr13Gb7A5jhv1nn811cQaR7XUXhcn6Wq/VV/oQZLunBYvoYOs3dc8wpBabPrrRhkdNmN6Rib6TvMg==",
+			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
+			rootInfo{filename: "testdata/some.cert"},
 		},
 		"ct.googleapis.com/rocketeer/": {
-			"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",
+			rootInfo{filename: "../trillian/testdata/fake-ca.cert"},
+			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
+			rootInfo{filename: "testdata/some.cert"},
+			rootInfo{filename: "testdata/another.cert"},
 		},
 		"ct.googleapis.com/icarus/": {
-			"aW52YWxpZDAwMA==", // encoded 'invalid000'
-			"MIIDSjCCAjKgAwIBAgIQRK+wgNajJ7qJMDmGLvhAazANBgkqhkiG9w0BAQUFADA/MSQwIgYDVQQKExtEaWdpdGFsIFNpZ25hdHVyZSBUcnVzdCBDby4xFzAVBgNVBAMTDkRTVCBSb290IENBIFgzMB4XDTAwMDkzMDIxMTIxOVoXDTIxMDkzMDE0MDExNVowPzEkMCIGA1UEChMbRGlnaXRhbCBTaWduYXR1cmUgVHJ1c3QgQ28uMRcwFQYDVQQDEw5EU1QgUm9vdCBDQSBYMzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAN+v6ZdQCINXtMxiZfaQguzH0yxrMMpb7NnDfcdAwRgUi+DoM3ZJKuM/IUmTrE4Orz5Iy2Xu/NMhD2XSKtkyj4zl93ewEnu1lcCJo6m67XMuegwGMoOifooUMM0RoOEqOLl5CjH9UL2AZd+3UWODyOKIYepLYYHsUmu5ouJLGiifSKOeDNoJjj4XLh7dIN9bxiqKqy69cK3FCxolkHRyxXtqqzTWMIn/5WgTe1QLyNau7Fqckh49ZLOMxt+/yUFw7BZy1SbsOFU5Q9D8/RhcQPGX69Wam40dutolucbY38EVAjqr2m7xPi71XAicPNaDaeQQmxkqtilX4+U9m5/wAl0CAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFMSnsaR7LHH62+FLkHX/xBVghYkQMA0GCSqGSIb3DQEBBQUAA4IBAQCjGiybFwBcqR7uKGY3Or+Dxz9LwwmglSBd49lZRNI+DT69ikugdB/OEIKcdBodfpga3csTS7MgROSR6cz8faXbauX+5v3gTt23ADq1cEmv8uXrAvHRAosZy5Q6XkjEGB5YGV8eAlrwDPGxrancWYaLbumR9YbK+rlmM6pZW87ipxZzR8srzJmwN0jP41ZL9c8PDHIyh8bwRLtTcm1D9SZImlJnt1ir/md2cXjbDaJWFBM5JDGFoqgCWjBH4d1QB7wCCZAA62RjYJsWvIjJEubSfZGL+T0yjWW06XyxV3bqxbYoOb8VZRzI9neWagqNdwvYkQsEjgfbKbYK7p2CNTUQ",
+			rootInfo{raw: []byte("invalid000")},
+			rootInfo{filename: "testdata/another.cert"},
 		},
 		"uncollectable-roots/log/": {
-			"invalid",
+			rootInfo{raw: []byte("invalid")},
 		},
 	}
 )
 
-// buildNoLogClient is LogClientBuilder that always fails.
-func buildNoLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return nil, errors.New("bad client builder")
+// newNoLogClient is LogClientBuilder that always fails.
+func newNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
+	return nil, errors.New("bad log-client builder")
 }
 
-// Stub for AddLogClient interface
-type emptyLogClient struct {
-}
-
-func (e emptyLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (e emptyLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (e emptyLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	return nil, nil
-}
-
-// buildEmptyLogClient produces empty stub Log clients.
-func buildEmptyLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return emptyLogClient{}, nil
-}
-
-func sampleLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
+func sampleLogList() *loglist.LogList {
 	var loglist loglist.LogList
-	err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist)
-	if err != nil {
-		t.Fatalf("Unable to Unmarshal testdata.SampleLogList %v", err)
+	if err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist); err != nil {
+		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
 	}
 	return &loglist
 }
 
-func sampleValidLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
-	ll := sampleLogList(t)
+func sampleValidLogList() *loglist.LogList {
+	ll := sampleLogList()
 	// Id of invalid Log description Racketeer
 	inval := 3
 	ll.Logs = append(ll.Logs[:inval], ll.Logs[inval+1:]...)
 	return ll
 }
 
-func sampleUncollectableLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
-	ll := sampleValidLogList(t)
+func sampleUncollectableLogList() *loglist.LogList {
+	ll := sampleValidLogList()
 	// Append loglist that is unable to provide roots on request.
 	ll.Logs = append(ll.Logs, loglist.Log{
 		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
@@ -117,19 +140,19 @@ func TestNewDistributorLogClients(t *testing.T) {
 	}{
 		{
 			name:      "ValidLogClients",
-			ll:        sampleValidLogList(t),
-			lcBuilder: buildEmptyLogClient,
+			ll:        sampleValidLogList(),
+			lcBuilder: newEmptyStubLogClient,
 		},
 		{
 			name:      "NoLogClients",
-			ll:        sampleValidLogList(t),
-			lcBuilder: buildNoLogClient,
+			ll:        sampleValidLogList(),
+			lcBuilder: newNoLogClient,
 			errRegexp: regexp.MustCompile("failed to create log client"),
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",
 			ll:        &loglist.LogList{},
-			lcBuilder: buildNoLogClient,
+			lcBuilder: newNoLogClient,
 		},
 	}
 
@@ -149,67 +172,38 @@ func TestNewDistributorLogClients(t *testing.T) {
 	}
 }
 
-// Stub for AddLogCLient interface
-type stubLogClient struct {
-	logURL string
-}
-
-func (m stubLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
-}
-
-func (m stubLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	roots := []ct.ASN1Cert{}
-	if certs, ok := RootsCerts[m.logURL]; ok {
-		for _, cert64 := range certs {
-			cert, err := base64.StdEncoding.DecodeString(cert64)
-			if err != nil {
-				return nil, err
-			}
-			roots = append(roots, ct.ASN1Cert{Data: cert})
-		}
-	}
-	return roots, nil
-}
-
-func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return stubLogClient{logURL: log.URL}, nil
-}
-
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
-		name    string
-		ll      *loglist.LogList
-		rootNum map[string]int
+		name     string
+		ll       *loglist.LogList
+		rootNum  map[string]int
+		wantErrs int
 	}{
 		{
-			name:    "InactiveZeroRoots",
-			ll:      sampleValidLogList(t),
-			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 2, "ct.googleapis.com/icarus/": 1}, // aviator is not active; 1 of 2 icarus roots is not x509 struct
+			name: "InactiveZeroRoots",
+			ll:   sampleValidLogList(),
+			// aviator is not active; 1 of 2 icarus roots is not x509 struct
+			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1},
+			wantErrs: 1,
 		},
 		{
-			name:    "CouldNotCollect",
-			ll:      sampleUncollectableLogList(t),
-			rootNum: map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 2, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0}, // aviator is not active; uncollectable client cannot provide roots
+			name: "CouldNotCollect",
+			ll:   sampleUncollectableLogList(),
+			// aviator is not active; uncollectable client cannot provide roots
+			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0},
+			wantErrs: 2,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
+			ctx := context.Background()
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient)
 
-			go dist.Run(ctx)
-			// First Log refresh expected.
-			<-ctx.Done()
+			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
+				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
+			}
 
-			dist.mu.Lock()
-			defer dist.mu.Unlock()
 			for logURL, wantNum := range tc.rootNum {
 				gotNum := 0
 				if roots, ok := dist.logRoots[logURL]; ok {
@@ -218,6 +212,124 @@ func TestNewDistributorRootPools(t *testing.T) {
 				if wantNum != gotNum {
 					t.Errorf("Expected %d root(s) for Log %s, got %d", wantNum, logURL, gotNum)
 				}
+			}
+		})
+	}
+}
+
+func pemFileToDERChain(filename string) [][]byte {
+	rawChain, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
+	if err != nil {
+		panic(err)
+	}
+	return rawChain
+}
+
+// Stub CT policy to run tests.
+type stubCTPolicy struct {
+	baseNum int
+}
+
+// Builds simplistic policy requiring n SCTs from any Logs for each cert.
+func buildStubCTPolicy(n int) stubCTPolicy {
+	return stubCTPolicy{baseNum: n}
+}
+
+func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (ctpolicy.LogPolicyData, error) {
+	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
+	groups := ctpolicy.LogPolicyData{baseGroup.Name: &baseGroup}
+	return groups, err
+}
+
+func TestDistributorAddPreChain(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ll       *loglist.LogList
+		plc      ctpolicy.CTPolicy
+		rawChain [][]byte
+		getRoots bool
+		scts     []*AssignedSCT
+		wantErr  bool
+	}{
+		{
+			name:     "MalformedChainRequest with log roots available",
+			ll:       sampleValidLogList(),
+			plc:      ctpolicy.ChromeCTPolicy{},
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
+			getRoots: true,
+			scts:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "MalformedChainRequest without log roots available",
+			ll:       sampleValidLogList(),
+			plc:      ctpolicy.ChromeCTPolicy{},
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
+			getRoots: false,
+			scts:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "CallBeforeInit",
+			ll:       sampleValidLogList(),
+			plc:      ctpolicy.ChromeCTPolicy{},
+			rawChain: nil,
+			scts:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "InsufficientSCTsForPolicy",
+			ll:       sampleValidLogList(),
+			plc:      ctpolicy.AppleCTPolicy{},
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"), // subleaf chain is fake-ca-1-rooted
+			getRoots: true,
+			scts:     []*AssignedSCT{},
+			wantErr:  true, // Not enough SCTs for policy
+		},
+		{
+			name:     "FullChain1Policy",
+			ll:       sampleValidLogList(),
+			plc:      buildStubCTPolicy(1),
+			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"),
+			getRoots: true,
+			scts: []*AssignedSCT{
+				{
+					LogURL: "ct.googleapis.com/rocketeer/",
+					SCT:    testSCT("ct.googleapis.com/rocketeer/"),
+				},
+			},
+			wantErr: false,
+		},
+		// TODO(merkulova): Add tests to cover more cases where log roots aren't available
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			if tc.getRoots {
+				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+					// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
+					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+				}
+			}
+
+			scts, err := dist.AddPreChain(context.Background(), tc.rawChain)
+			if gotErr := (err != nil); gotErr != tc.wantErr {
+				t.Fatalf("dist.AddPreChain(%q) = (_, %v), want err? %t", tc.rawChain, err, tc.wantErr)
+			} else if gotErr {
+				return
+			}
+
+			if got, want := len(scts), len(tc.scts); got != want {
+				t.Errorf("dist.AddPreChain(%q) = %d SCTs, want %d SCTs", tc.rawChain, got, want)
+			}
+			if diff := cmp.Diff(scts, tc.scts, cmpopts.SortSlices(func(x, y *AssignedSCT) bool {
+				return x.LogURL < y.LogURL
+			})); diff != "" {
+				t.Errorf("dist.AddPreChain(%q): diff -want +got\n%s", tc.rawChain, diff)
 			}
 		})
 	}

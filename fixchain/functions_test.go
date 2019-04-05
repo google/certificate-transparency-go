@@ -179,7 +179,7 @@ NextRoot:
 	}
 }
 
-func extractTestChain(t *testing.T, i int, testChain []string) []*x509.Certificate {
+func extractTestChain(t *testing.T, _ int, testChain []string) []*x509.Certificate {
 	var chain []*x509.Certificate
 	for _, cert := range testChain {
 		chain = append(chain, GetTestCertificateFromPEM(t, cert))

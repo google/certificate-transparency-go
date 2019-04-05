@@ -37,7 +37,7 @@ func TestNewTemporalLogClient(t *testing.T) {
 	ts0, _ := ptypes.TimestampProto(time.Date(2010, 9, 19, 11, 00, 00, 00, time.UTC))
 	ts1, _ := ptypes.TimestampProto(time.Date(2011, 9, 19, 11, 00, 00, 00, time.UTC))
 	ts2, _ := ptypes.TimestampProto(time.Date(2012, 9, 19, 11, 00, 00, 00, time.UTC))
-	ts2_5, _ := ptypes.TimestampProto(time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC))
+	ts25, _ := ptypes.TimestampProto(time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC))
 	ts3, _ := ptypes.TimestampProto(time.Date(2013, 9, 19, 11, 00, 00, 00, time.UTC))
 	ts4, _ := ptypes.TimestampProto(time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC))
 
@@ -98,7 +98,7 @@ func TestNewTemporalLogClient(t *testing.T) {
 					{Uri: "one", NotAfterStart: ts0, NotAfterLimit: ts1},
 					{Uri: "two", NotAfterStart: ts1, NotAfterLimit: ts2},
 					{Uri: "three", NotAfterStart: ts2, NotAfterLimit: ts3},
-					{Uri: "threeA", NotAfterStart: ts2_5, NotAfterLimit: ts3},
+					{Uri: "threeA", NotAfterStart: ts25, NotAfterLimit: ts3},
 					{Uri: "four", NotAfterStart: ts3, NotAfterLimit: ts4},
 				},
 			},
@@ -220,9 +220,9 @@ func TestNewTemporalLogClient(t *testing.T) {
 func TestIndexByDate(t *testing.T) {
 	time0 := time.Date(2010, 9, 19, 11, 00, 00, 00, time.UTC)
 	time1 := time.Date(2011, 9, 19, 11, 00, 00, 00, time.UTC)
-	time1_9 := time.Date(2012, 9, 19, 10, 59, 59, 00, time.UTC)
+	time19 := time.Date(2012, 9, 19, 10, 59, 59, 00, time.UTC)
 	time2 := time.Date(2012, 9, 19, 11, 00, 00, 00, time.UTC)
-	time2_5 := time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC)
+	time25 := time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC)
 	time3 := time.Date(2013, 9, 19, 11, 00, 00, 00, time.UTC)
 	time4 := time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC)
 
@@ -280,9 +280,9 @@ func TestIndexByDate(t *testing.T) {
 		{cfg: allCfg, when: time.Date(2000, 9, 19, 11, 00, 00, 00, time.UTC), want: 0},
 		{cfg: allCfg, when: time0, want: 1},
 		{cfg: allCfg, when: time1, want: 2},
-		{cfg: allCfg, when: time1_9, want: 2},
+		{cfg: allCfg, when: time19, want: 2},
 		{cfg: allCfg, when: time2, want: 3},
-		{cfg: allCfg, when: time2_5, want: 3},
+		{cfg: allCfg, when: time25, want: 3},
 		{cfg: allCfg, when: time3, want: 4},
 		{cfg: allCfg, when: time4, want: 5},
 		{cfg: allCfg, when: time.Date(2015, 9, 19, 11, 00, 00, 00, time.UTC), want: 5},
@@ -291,7 +291,7 @@ func TestIndexByDate(t *testing.T) {
 		{cfg: uptoCfg, when: time0, want: 1},
 		{cfg: uptoCfg, when: time1, want: 2},
 		{cfg: uptoCfg, when: time2, want: 3},
-		{cfg: uptoCfg, when: time2_5, want: 3},
+		{cfg: uptoCfg, when: time25, want: 3},
 		{cfg: uptoCfg, when: time3, want: 4},
 		{cfg: uptoCfg, when: time4, wantErr: true},
 		{cfg: uptoCfg, when: time.Date(2015, 9, 19, 11, 00, 00, 00, time.UTC), wantErr: true},
@@ -300,7 +300,7 @@ func TestIndexByDate(t *testing.T) {
 		{cfg: fromCfg, when: time0, want: 0},
 		{cfg: fromCfg, when: time1, want: 1},
 		{cfg: fromCfg, when: time2, want: 2},
-		{cfg: fromCfg, when: time2_5, want: 2},
+		{cfg: fromCfg, when: time25, want: 2},
 		{cfg: fromCfg, when: time3, want: 3},
 		{cfg: fromCfg, when: time4, want: 4},
 		{cfg: fromCfg, when: time.Date(2015, 9, 19, 11, 00, 00, 00, time.UTC), want: 4},
@@ -309,7 +309,7 @@ func TestIndexByDate(t *testing.T) {
 		{cfg: boundedCfg, when: time0, want: 0},
 		{cfg: boundedCfg, when: time1, want: 1},
 		{cfg: boundedCfg, when: time2, want: 2},
-		{cfg: boundedCfg, when: time2_5, want: 2},
+		{cfg: boundedCfg, when: time25, want: 2},
 		{cfg: boundedCfg, when: time3, want: 3},
 		{cfg: boundedCfg, when: time4, wantErr: true},
 		{cfg: boundedCfg, when: time.Date(2015, 9, 19, 11, 00, 00, 00, time.UTC), wantErr: true},

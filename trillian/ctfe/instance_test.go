@@ -233,11 +233,11 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 			}
 			opts := InstanceOptions{Validated: vCfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
 
-			h, err := SetUpInstance(ctx, opts)
+			inst, err := SetUpInstance(ctx, opts)
 			if err != nil {
 				t.Fatalf("%v: SetUpInstance() = %v, want no error", test.desc, err)
 			}
-			addChainHandler, ok := (*h)[test.cfg.Prefix+ct.AddChainPath]
+			addChainHandler, ok := inst.Handlers[test.cfg.Prefix+ct.AddChainPath]
 			if !ok {
 				t.Fatal("Couldn't find AddChain handler")
 			}
