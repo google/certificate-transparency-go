@@ -35,15 +35,15 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func buildStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return buildRootedStubLC(log, RootsCerts)
+func localStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return newRootedStubLogClient(log, RootsCerts)
 }
 
 func ExampleDistributor() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), buildStubLogClient)
+	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), localStubLogClient)
 	if err != nil {
 		panic(err)
 	}
@@ -98,8 +98,8 @@ var (
 	}
 )
 
-// buildNoLogClient is LogClientBuilder that always fails.
-func buildNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
+// newNoLogClient is LogClientBuilder that always fails.
+func newNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad log-client builder")
 }
 
@@ -141,18 +141,18 @@ func TestNewDistributorLogClients(t *testing.T) {
 		{
 			name:      "ValidLogClients",
 			ll:        sampleValidLogList(),
-			lcBuilder: buildEmptyStubLogClient,
+			lcBuilder: newEmptyStubLogClient,
 		},
 		{
 			name:      "NoLogClients",
 			ll:        sampleValidLogList(),
-			lcBuilder: buildNoLogClient,
+			lcBuilder: newNoLogClient,
 			errRegexp: regexp.MustCompile("failed to create log client"),
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",
 			ll:        &loglist.LogList{},
-			lcBuilder: buildNoLogClient,
+			lcBuilder: newNoLogClient,
 		},
 	}
 
@@ -198,7 +198,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, buildStubLogClient)
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, localStubLogClient)
 
 			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
 				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
@@ -305,7 +305,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, tc.plc, buildStubLogClient)
+			dist, _ := NewDistributor(tc.ll, tc.plc, localStubLogClient)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
