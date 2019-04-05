@@ -91,12 +91,16 @@ func testSCT(logURL string) *ct.SignedCertificateTimestamp {
 	}
 }
 
-func buildRootedStubLC(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
+func newRootedStubLogClient(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: rCerts}, nil
 }
 
-func buildEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	return buildRootedStubLC(log, map[string][]rootInfo{})
+func newEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return newRootedStubLogClient(log, map[string][]rootInfo{})
+}
+
+func newStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
 }
 
 func newStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
