@@ -62,6 +62,9 @@ type InstanceOptions struct {
 	// instances will use it, i.e. when IsMirror == true in the config. If it is
 	// empty then the DefaultMirrorSTHStorage will be used.
 	STHStorage MirrorSTHStorage
+	// MaskInternalErrors indicates if internal server errors should be masked
+	// or returned to the user containing the full error message.
+	MaskInternalErrors bool
 }
 
 // Instance is a set up log/mirror instance. It must be created with the

@@ -60,6 +60,7 @@ var (
 	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
 	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
 	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	maskInternalErrors = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
 	tracing            = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
 	tracingProjectID   = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
 	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
@@ -173,7 +174,7 @@ func main() {
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix)
+		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
@@ -253,18 +254,19 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string) (*ctfe.Instance, error) {
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool) (*ctfe.Instance, error) {
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	opts := ctfe.InstanceOptions{
-		Validated:     vCfg,
-		Client:        client,
-		Deadline:      deadline,
-		MetricFactory: prometheus.MetricFactory{},
-		RequestLog:    new(ctfe.DefaultRequestLog),
+		Validated:          vCfg,
+		Client:             client,
+		Deadline:           deadline,
+		MetricFactory:      prometheus.MetricFactory{},
+		RequestLog:         new(ctfe.DefaultRequestLog),
+		MaskInternalErrors: maskInternalErrors,
 	}
 	if *quotaRemote {
 		glog.Info("Enabling quota for requesting IP")

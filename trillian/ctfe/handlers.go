@@ -160,7 +160,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	glog.V(2).Infof("%s: request %v %q => %s", a.Info.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
 		glog.Warningf("%s: %s wrong HTTP method: %v", a.Info.LogPrefix, a.Name, r.Method)
-		sendHTTPError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed: %s", r.Method))
+		a.Info.SendHTTPError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed: %s", r.Method))
 		a.Info.RequestLog.Status(logCtx, http.StatusMethodNotAllowed)
 		return
 	}
@@ -169,7 +169,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// POSTs will decode the raw request body as JSON later.
 	if r.Method == http.MethodGet {
 		if err := r.ParseForm(); err != nil {
-			sendHTTPError(w, http.StatusBadRequest, fmt.Errorf("failed to parse form data: %s", err))
+			a.Info.SendHTTPError(w, http.StatusBadRequest, fmt.Errorf("failed to parse form data: %s", err))
 			a.Info.RequestLog.Status(logCtx, http.StatusBadRequest)
 			return
 		}
@@ -186,14 +186,14 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
 		glog.Warningf("%s: %s handler error: %v", a.Info.LogPrefix, a.Name, err)
-		sendHTTPError(w, status, err)
+		a.Info.SendHTTPError(w, status, err)
 		return
 	}
 
 	// Additional check, for consistency the handler must return an error for non-200 status
 	if status != http.StatusOK {
 		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Info.LogPrefix, a.Name, status, err)
-		sendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, status: %d", status))
+		a.Info.SendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, status: %d", status))
 		return
 	}
 }
@@ -337,6 +337,15 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	}
 
 	return ph
+}
+
+// Generates a custom error page to give more information on why something didn't work
+func (li *logInfo) SendHTTPError(w http.ResponseWriter, statusCode int, err error) {
+	errorBody := http.StatusText(statusCode)
+	if !li.instanceOpts.MaskInternalErrors || statusCode != http.StatusInternalServerError {
+		errorBody += fmt.Sprintf("\n%v", err)
+	}
+	http.Error(w, errorBody, statusCode)
 }
 
 // getSTH returns the current STH as known to the STH getter, and updates tree
@@ -873,12 +882,6 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	return http.StatusOK, nil
-}
-
-// Generates a custom error page to give more information on why something didn't work
-// TODO(Martin2112): Not sure if we want to expose any detail or not
-func sendHTTPError(w http.ResponseWriter, statusCode int, err error) {
-	http.Error(w, fmt.Sprintf("%s\n%v", http.StatusText(statusCode), err), statusCode)
 }
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
