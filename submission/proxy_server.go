@@ -43,10 +43,13 @@ func (s *ProxyServer) Run(logListRefreshInterval time.Duration, rootsRefreshInte
 	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
 }
 
+// SCTBatch represents JSON response to add-pre-chain method of proxy.
+type SCTBatch struct {
+	SCTs []ct.SignedCertificateTimestamp `json:"scts"`
+}
+
 func marshalSCTs(scts []*AssignedSCT) []byte {
-	var jsonSCTsObj struct {
-		SCTs []ct.SignedCertificateTimestamp `json:"scts"`
-	}
+	var jsonSCTsObj SCTBatch
 	jsonSCTsObj.SCTs = make([]ct.SignedCertificateTimestamp, 0, len(scts))
 	for _, sct := range scts {
 		jsonSCTsObj.SCTs = append(jsonSCTsObj.SCTs, *sct.SCT)
