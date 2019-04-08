@@ -25,25 +25,29 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
-// ProxyServer wraps Proxy and handles http-requests for it.
+// ProxyServer wraps Proxy and handles HTTP-requests for it.
 type ProxyServer struct {
 	p          *Proxy
 	addTimeout time.Duration
 }
 
-// NewProxyServer creates and inits ProxyServer instance.
-func NewProxyServer(logListPath string, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration, dBuilder DistributorBuilder, reqTimeout time.Duration) *ProxyServer {
+// NewProxyServer creates ProxyServer instance. Call Run() to init.
+func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout time.Duration) *ProxyServer {
 	s := &ProxyServer{addTimeout: reqTimeout}
 	s.p = NewProxy(NewLogListRefresher(logListPath), dBuilder)
-	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
 	return s
+}
+
+// Run starts regular Log list updates.
+func (s *ProxyServer) Run(logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
+	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
 }
 
 func marshalSCTs(scts []*AssignedSCT) []byte {
 	var jsonSCTsObj struct {
 		SCTs []ct.SignedCertificateTimestamp `json:"scts"`
 	}
-	jsonSCTsObj.SCTs = make([]ct.SignedCertificateTimestamp, len(scts))
+	jsonSCTsObj.SCTs = make([]ct.SignedCertificateTimestamp, 0, len(scts))
 	for _, sct := range scts {
 		jsonSCTsObj.SCTs = append(jsonSCTsObj.SCTs, *sct.SCT)
 	}

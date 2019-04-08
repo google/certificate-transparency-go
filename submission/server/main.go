@@ -16,7 +16,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -31,7 +30,7 @@ var (
 	logListRefreshInterval = flag.Duration("loglist_refresh_interval", 2*24*time.Hour, "Interval between consecutive reads of Log-list")
 	rootsRefreshInterval   = flag.Duration("roots_refresh_interval", 24*time.Hour, "Interval between consecutive get-roots calls")
 	policyType             = flag.String("policy_type", "chrome", "CT-policy <chrome|apple>")
-	dryRun                 = flag.Bool("dry_run", false, "Whether stub Log client should be used instead of prod one")
+	dryRun                 = flag.Bool("dry_run", false, "No real submissions done")
 	addPreChainTimeout     = flag.Duration("add_prechain_timeout", 10*time.Second, "Timeout for each add-prechain call")
 )
 
@@ -41,23 +40,22 @@ func parsePolicyType() submission.CTPolicyType {
 	} else if *policyType == "apple" {
 		return submission.AppleCTPolicy
 	}
-	panic(fmt.Sprintf("flag policyType does not support value %q", *policyType))
+	log.Fatalf("flag policyType does not support value %q", *policyType)
+	return submission.ChromeCTPolicy
 }
 
 func main() {
 	flag.Parse()
 
 	plc := parsePolicyType()
-	var lcType submission.LogClientBuilder
+
+	lcb := submission.BuildLogClient
 	if *dryRun {
-		lcType = submission.NewStubLogClient
-	} else {
-		lcType = submission.BuildLogClient
+		lcb = submission.NewStubLogClient
 	}
 
-	s := submission.NewProxyServer(
-		*logListPath, *logListRefreshInterval, *rootsRefreshInterval,
-		submission.GetDistributorBuilder(plc, lcType), *addPreChainTimeout)
+	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb), *addPreChainTimeout)
+	s.Run(*logListRefreshInterval, *rootsRefreshInterval)
 	http.Handle("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain())
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
 }
