@@ -231,15 +231,15 @@ ct_stop_goshawk() {
 # Assumes the following variables are set, in addition to those needed by logStopTest:
 #  - CT_SERVER_PIDS  : bash array of CT HTTP server pids
 ct_stop_test() {
+  local pids
   if [[ "${PROMETHEUS_PID}" != "" ]]; then
-    kill_pid ${PROMETHEUS_PID}
+    pids+=" ${PROMETHEUS_PID}"
   fi
   if [[ "${ETCDISCOVER_PID}" != "" ]]; then
-    kill_pid ${ETCDISCOVER_PID}
+    pids+=" ${ETCDISCOVER_PID}"
   fi
-  for pid in "${CT_SERVER_PIDS[@]}"; do
-    echo "Stopping CT HTTP server (pid ${pid})"
-    kill_pid ${pid}
-  done
+  echo "Stopping CT HTTP servers (pids ${CT_SERVER_PIDS[@]})"
+  pids+=" ${CT_SERVER_PIDS[@]}"
+  kill_pid ${pids}
   log_stop_test
 }
