@@ -58,10 +58,10 @@ func marshalSCTs(scts []*AssignedSCT) []byte {
 	return jsonSCTs
 }
 
-// HandleAddPreChain http handler for multiplexed add-pre-chain request.
+// HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
 func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
+		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
 		}
@@ -72,7 +72,7 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), s.addTimeout)
+		ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)
 		defer cancel()
 
 		scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)
