@@ -79,12 +79,12 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
 		data, err := marshalSCTs(scts)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, string(data))
 	}
 }
