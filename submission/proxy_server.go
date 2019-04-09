@@ -48,14 +48,13 @@ type SCTBatch struct {
 	SCTs []ct.SignedCertificateTimestamp `json:"scts"`
 }
 
-func marshalSCTs(scts []*AssignedSCT) []byte {
+func marshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	var jsonSCTsObj SCTBatch
 	jsonSCTsObj.SCTs = make([]ct.SignedCertificateTimestamp, 0, len(scts))
 	for _, sct := range scts {
 		jsonSCTsObj.SCTs = append(jsonSCTsObj.SCTs, *sct.SCT)
 	}
-	jsonSCTs, _ := json.Marshal(jsonSCTsObj)
-	return jsonSCTs
+	return json.Marshal(jsonSCTsObj)
 }
 
 // HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
@@ -81,7 +80,11 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		data := marshalSCTs(scts)
+		data, err := marshalSCTs(scts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		fmt.Fprint(w, string(data))
 	}
 }
