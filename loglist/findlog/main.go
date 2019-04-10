@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	logList           = flag.String("log_list", loglist.LogListURL, "Location of master log list (URL or filename)")
-	logListSig        = flag.String("log_list_sig", loglist.LogListSignatureURL, "Location of log list signature (URL or filename)")
+	logList           = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
+	logListSig        = flag.String("log_list_sig", "", "Location of log list signature (URL or filename)")
 	logListPubKeyFile = flag.String("log_list_pubkey", "", "File holding public key signing log list in PEM format")
 	verbose           = flag.Bool("verbose", false, "Print more information")
 )
