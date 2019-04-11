@@ -24,7 +24,6 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/ctpolicy"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
 const (
@@ -203,7 +202,6 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 			if firstRequested := state.request(logURL, cancel); !firstRequested {
 				return
 			}
-			reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
 			sct, err := submitter.SubmitToLog(subCtx, logURL, chain)
 			// TODO(Mercurrent): verify SCT
 			state.setResult(logURL, sct, err)

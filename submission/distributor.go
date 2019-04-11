@@ -28,9 +28,9 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"	
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/trillian/monitoring"
 )
 
 var (
@@ -160,6 +160,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	defer func(start time.Time) {
 		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
 	}(time.Now())
+	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
 	return lc.AddPreChain(ctx, chain)
 }
 
@@ -257,7 +258,9 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		}
 		d.logClients[log.URL] = lc
 	}
-	d.mf = mf
+	if mf == nil {
+ 	   mf = monitoring.InertMetricFactory{}
+	}
 	once.Do(func() { initMetrics(d.mf) })
 	return &d, nil
 }
