@@ -28,7 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian/monitoring"	
+	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -36,8 +36,8 @@ import (
 var (
 	// Metrics are per-log and add per-endpoint.
 	once        sync.Once
-	reqsCounter monitoring.Counter   // logURL, ep => value
-	rspLatency  monitoring.Histogram // logURL, ep => value
+	reqsCounter monitoring.Counter   // logid, ep => value
+	rspLatency  monitoring.Histogram // logid, ep => value
 )
 
 // initMetrics initializes all the exported metrics.
@@ -58,6 +58,7 @@ type Distributor struct {
 	mu sync.RWMutex
 
 	// helper structs produced out of ll during init.
+	logURLtoID map[string]string
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
 	rootPool   *ctfe.PEMCertPool
@@ -65,8 +66,6 @@ type Distributor struct {
 	rootDataFull bool
 
 	policy ctpolicy.CTPolicy
-
-	mf monitoring.MetricFactory
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -158,9 +157,9 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
+		rspLatency.Observe(time.Since(start).Seconds(), d.logURLtoID[logURL], string(ctfe.AddPreChainName))
 	}(time.Now())
-	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
+	reqsCounter.Inc(d.logURLtoID[logURL], string(ctfe.AddPreChainName))
 	return lc.AddPreChain(ctx, chain)
 }
 
@@ -245,13 +244,15 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	var d Distributor
 	active := ll.ActiveLogs()
 	d.ll = &active
+	d.logURLtoID = make(map[string]string)
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist.LogRoots)
 	d.rootPool = ctfe.NewPEMCertPool()
 
-	// Build clients for each of the Logs.
+	// Build clients for each of the Logs. Also build log-to-id map.
 	for _, log := range d.ll.Logs {
+		d.logURLtoID[log.URL] = string(log.Key)
 		lc, err := lcBuilder(&log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
@@ -259,8 +260,8 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		d.logClients[log.URL] = lc
 	}
 	if mf == nil {
- 	   mf = monitoring.InertMetricFactory{}
+		mf = monitoring.InertMetricFactory{}
 	}
-	once.Do(func() { initMetrics(d.mf) })
+	once.Do(func() { initMetrics(mf) })
 	return &d, nil
 }
