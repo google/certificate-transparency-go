@@ -30,7 +30,21 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/trillian/monitoring"
 )
+
+var (
+	// Metrics are per-log and add per-endpoint.
+	once        sync.Once
+	reqsCounter monitoring.Counter   // logURL, ep => value
+	rspLatency  monitoring.Histogram // logURL, ep => value
+)
+
+// initMetrics initializes all the exported metrics.
+func initMetrics(mf monitoring.MetricFactory) {
+	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep")
+}
 
 const (
 	// GetRootsTimeout timeout used for external requests within root-updates.
@@ -51,6 +65,8 @@ type Distributor struct {
 	rootDataFull bool
 
 	policy ctpolicy.CTPolicy
+
+	mf monitoring.MetricFactory
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -141,6 +157,9 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	if !ok {
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
+	}(time.Now())
 	return lc.AddPreChain(ctx, chain)
 }
 
@@ -221,7 +240,7 @@ func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
+func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
 	active := ll.ActiveLogs()
 	d.ll = &active
@@ -238,5 +257,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		}
 		d.logClients[log.URL] = lc
 	}
+	d.mf = mf
+	once.Do(func() { initMetrics(d.mf) })
 	return &d, nil
 }

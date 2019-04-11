@@ -24,10 +24,12 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/ctpolicy"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
 
 const (
-	// PostBatchInterval is duration between parallel batch call and subsequent requests to Logs within group.
+	// PostBatchInterval is duration between parallel batch call and subsequent
+	// requests to Logs within group.
 	// TODO(Mercurrent): optimize to avoid excessive requests.
 	PostBatchInterval = time.Second
 )
@@ -201,6 +203,7 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 			if firstRequested := state.request(logURL, cancel); !firstRequested {
 				return
 			}
+			reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
 			sct, err := submitter.SubmitToLog(subCtx, logURL, chain)
 			// TODO(Mercurrent): verify SCT
 			state.setResult(logURL, sct, err)
