@@ -36,9 +36,9 @@ import (
 var (
 	// Metrics are per-log, per-endpoint and some per-response-status code.
 	once        sync.Once
-	reqsCounter monitoring.Counter   // logURL, ep => value
-	rspsCounter monitoring.Counter   // logURL, ep, sc => value
-	rspLatency  monitoring.Histogram // logURL, ep => value
+	reqsCounter monitoring.Counter   // logurl, ep => value
+	rspsCounter monitoring.Counter   // logurl, ep, sc => value
+	rspLatency  monitoring.Histogram // logurl, ep => value
 )
 
 // initMetrics initializes all the exported metrics.
