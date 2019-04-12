@@ -82,6 +82,8 @@ type CTPolicy interface {
 	// not sufficient to satisfy policy.
 	// The data output is formed even when error returned.
 	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
+	Name() string
+	Description() string
 }
 
 // BaseGroupFor creates and propagates all-log group.

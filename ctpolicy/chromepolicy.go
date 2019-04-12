@@ -60,3 +60,20 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	}
 	return groups, outerror
 }
+
+// Name returns label for the submission policy.
+func (chromeP ChromeCTPolicy) Name() string {
+	return "Chrome"
+}
+
+// Description returns human-readable submission requirements.
+func (chromeP ChromeCTPolicy) Description() string {
+	return `Certificate Transparency policy according to https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.\n
+	* certificate is submitted to at least one Google Log\n
+	* certificate is submitted to at least one non-Google Log\n
+	* minimal total number of Logs certificate should get submitted to is guided by certificate lifetime L:\n
+		L < 15 months  ==> 2\n
+		15 months <= L <= 27 months  ==> 3\n
+		27 months < L <= 39 months  ==> 4\n
+		39 months < L  ==> 5\n`
+}
