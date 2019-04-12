@@ -25,10 +25,11 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/trillian/monitoring"
 )
 
 func TestProxyNoLLWatcher(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("p.RefreshLogList() on nil LogListRefresher expected to get error, got none")
@@ -36,7 +37,7 @@ func TestProxyNoLLWatcher(t *testing.T) {
 }
 
 func TestProxyNoLLWatcherAfterRun(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
+	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -58,7 +59,7 @@ func (llr stubLogListRefresher) Refresh() (*loglist.LogList, error) {
 }
 
 func TestProxyRefreshLLErr(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient))
+	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
 
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
@@ -67,7 +68,7 @@ func TestProxyRefreshLLErr(t *testing.T) {
 }
 
 func TestProxyBrokenDistributor(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, newNoLogClient))
+	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, newNoLogClient, monitoring.InertMetricFactory{}))
 
 	err := p.RefreshLogList(context.Background())
 	if err == nil {
@@ -105,7 +106,7 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(llr, GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient))
+	p := NewProxy(llr, GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
 	p.RefreshLogList(context.Background())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

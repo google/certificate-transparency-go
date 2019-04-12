@@ -33,6 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/trillian/monitoring"
 )
 
 func newLocalStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
@@ -43,7 +44,7 @@ func ExampleDistributor() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), newLocalStubLogClient)
+	d, err := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), newLocalStubLogClient, monitoring.InertMetricFactory{})
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +159,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, tc.lcBuilder)
+			_, err := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, tc.lcBuilder, monitoring.InertMetricFactory{})
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				var unwantedErr string
 				if gotErr {
@@ -198,7 +199,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient)
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient, monitoring.InertMetricFactory{})
 
 			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
 				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
@@ -305,7 +306,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient)
+			dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient, monitoring.InertMetricFactory{})
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 

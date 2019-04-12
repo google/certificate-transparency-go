@@ -23,6 +23,7 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/trillian/monitoring"
 )
 
 // CTPolicyType indicates CT-policy used for certificate submission.
@@ -39,14 +40,14 @@ type DistributorBuilder func(*loglist.LogList) (*Distributor, error)
 
 // GetDistributorBuilder given CT-policy type and Log-client builder produces
 // Distributor c-tor.
-func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder) DistributorBuilder {
+func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) DistributorBuilder {
 	if plc == AppleCTPolicy {
 		return func(ll *loglist.LogList) (*Distributor, error) {
-			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, lcBuilder)
+			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, lcBuilder, mf)
 		}
 	}
 	return func(ll *loglist.LogList) (*Distributor, error) {
-		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, lcBuilder)
+		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, lcBuilder, mf)
 	}
 }
 

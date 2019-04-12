@@ -28,9 +28,25 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
 )
+
+var (
+	// Metrics are per-log, per-endpoint and some per-response-status code.
+	once        sync.Once
+	reqsCounter monitoring.Counter   // logurl, ep => value
+	rspsCounter monitoring.Counter   // logurl, ep, sc => value
+	rspLatency  monitoring.Histogram // logurl, ep => value
+)
+
+// initMetrics initializes all the exported metrics.
+func initMetrics(mf monitoring.MetricFactory) {
+	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
+	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logurl", "ep")
+}
 
 const (
 	// GetRootsTimeout timeout used for external requests within root-updates.
@@ -135,13 +151,31 @@ func (d *Distributor) isRootDataFull() bool {
 	return d.rootDataFull
 }
 
+// incRspsCounter extracts HTTP status code and increments corresponding rspsCounter.
+func incRspsCounter(logURL string, endpoint string, rspErr error) {
+	status := http.StatusOK
+	if rspErr != nil {
+		status = http.StatusBadRequest // default to this if status code unavailable
+		if err, ok := rspErr.(client.RspError); ok {
+			status = err.StatusCode
+		}
+	}
+	rspsCounter.Inc(logURL, endpoint, string(status))
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
 	if !ok {
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
-	return lc.AddPreChain(ctx, chain)
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
+	}(time.Now())
+	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
+	sct, err := lc.AddPreChain(ctx, chain)
+	incRspsCounter(logURL, string(ctfe.AddPreChainName), err)
+	return sct, err
 }
 
 // parseRawChain reads cert chain from bytes into x509.Certificate format.
@@ -221,7 +255,7 @@ func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder) (*Distributor, error) {
+func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
 	active := ll.ActiveLogs()
 	d.ll = &active
@@ -230,7 +264,7 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	d.logRoots = make(loglist.LogRoots)
 	d.rootPool = ctfe.NewPEMCertPool()
 
-	// Build clients for each of the Logs.
+	// Build clients for each of the Logs. Also build log-to-id map.
 	for _, log := range d.ll.Logs {
 		lc, err := lcBuilder(&log)
 		if err != nil {
@@ -238,5 +272,9 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 		}
 		d.logClients[log.URL] = lc
 	}
+	if mf == nil {
+		mf = monitoring.InertMetricFactory{}
+	}
+	once.Do(func() { initMetrics(mf) })
 	return &d, nil
 }

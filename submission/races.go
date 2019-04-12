@@ -27,7 +27,8 @@ import (
 )
 
 const (
-	// PostBatchInterval is duration between parallel batch call and subsequent requests to Logs within group.
+	// PostBatchInterval is duration between parallel batch call and subsequent
+	// requests to Logs within group.
 	// TODO(Mercurrent): optimize to avoid excessive requests.
 	PostBatchInterval = time.Second
 )

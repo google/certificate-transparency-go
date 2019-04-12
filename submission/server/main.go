@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/submission"
+	"github.com/google/trillian/monitoring/prometheus"
 )
 
 // Flags.
@@ -54,8 +55,9 @@ func main() {
 	if *dryRun {
 		lcb = submission.NewStubLogClient
 	}
+	mf := prometheus.MetricFactory{}
 
-	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb), *addPreChainTimeout)
+	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb, mf), *addPreChainTimeout)
 	s.Run(*logListRefreshInterval, *rootsRefreshInterval)
 	http.Handle("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain())
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
