@@ -34,16 +34,18 @@ import (
 )
 
 var (
-	// Metrics are per-log and add per-endpoint.
+	// Metrics are per-log, per-endpoint and some per-response-status code.
 	once        sync.Once
-	reqsCounter monitoring.Counter   // logid, ep => value
-	rspLatency  monitoring.Histogram // logid, ep => value
+	reqsCounter monitoring.Counter   // logURL, ep => value
+	rspsCounter monitoring.Counter   // logURL, ep, sc => value
+	rspLatency  monitoring.Histogram // logURL, ep => value
 )
 
 // initMetrics initializes all the exported metrics.
 func initMetrics(mf monitoring.MetricFactory) {
-	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep")
+	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
+	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
 const (
@@ -58,7 +60,6 @@ type Distributor struct {
 	mu sync.RWMutex
 
 	// helper structs produced out of ll during init.
-	logURLtoID map[string]string
 	logClients map[string]client.AddLogClient
 	logRoots   loglist.LogRoots
 	rootPool   *ctfe.PEMCertPool
@@ -150,6 +151,18 @@ func (d *Distributor) isRootDataFull() bool {
 	return d.rootDataFull
 }
 
+// incRspsCounter extracts HTTP status code and increments corresponding rspsCounter.
+func incRspsCounter(logURL string, endpoint string, rspErr error) {
+	status := http.StatusOK
+	if rspErr != nil {
+		status = http.StatusBadRequest // default to this if status code unavailable
+		if err, ok := rspErr.(client.RspError); ok {
+			status = err.StatusCode
+		}
+	}
+	rspsCounter.Inc(logURL, endpoint, string(status))
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
@@ -157,10 +170,12 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), d.logURLtoID[logURL], string(ctfe.AddPreChainName))
+		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
 	}(time.Now())
-	reqsCounter.Inc(d.logURLtoID[logURL], string(ctfe.AddPreChainName))
-	return lc.AddPreChain(ctx, chain)
+	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
+	sct, err := lc.AddPreChain(ctx, chain)
+	incRspsCounter(logURL, string(ctfe.AddPreChainName), err)
+	return sct, err
 }
 
 // parseRawChain reads cert chain from bytes into x509.Certificate format.
@@ -244,7 +259,6 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	var d Distributor
 	active := ll.ActiveLogs()
 	d.ll = &active
-	d.logURLtoID = make(map[string]string)
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist.LogRoots)
@@ -252,7 +266,6 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 
 	// Build clients for each of the Logs. Also build log-to-id map.
 	for _, log := range d.ll.Logs {
-		d.logURLtoID[log.URL] = string(log.Key)
 		lc, err := lcBuilder(&log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
