@@ -33,6 +33,8 @@ const (
 // LogListRefresher is interface for Log List updates watcher.
 type LogListRefresher interface {
 	Refresh() (*loglist.LogList, error)
+	LastJSON() []byte
+	Source() string
 }
 
 // logListRefresherImpl regularly reads Log-list and emits notifications when
@@ -72,4 +74,19 @@ func (llr *logListRefresherImpl) Refresh() (*loglist.LogList, error) {
 	}
 	llr.lastJSON = json
 	return ll, nil
+}
+
+// LastJSON returns last version of Log list in JSON.
+func (llr *logListRefresherImpl) LastJSON() []byte {
+	llr.updateMu.Lock()
+	defer llr.updateMu.Unlock()
+	if llr.lastJSON == nil {
+		return []byte{}
+	}
+	return llr.lastJSON
+}
+
+// Source exposes internal Log list path.
+func (llr *logListRefresherImpl) Source() string {
+	return llr.path
 }

@@ -18,7 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -86,5 +89,38 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 		}
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, string(data))
+	}
+}
+
+func stringToHTML(s string) template.HTML {
+	return template.HTML(strings.Replace(template.HTMLEscapeString(string(s)), "\n", "<br>", -1))
+}
+
+type InfoData struct {
+	PolicyName string
+	LogListPath template.HTML
+	LogListJSON template.HTML
+}
+
+// HandleInfo handles info-page request.
+func (s *ProxyServer) HandleInfo() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := InfoData {
+			s.p.dist.policy.Name(),
+			stringToHTML(s.p.llWatcher.Source()),
+			stringToHTML(string(s.p.llWatcher.LastJSON())),
+		}
+		wd, err := os.Getwd()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		t, err := template.ParseFiles(wd + "/submission/view/info.html")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		t.Execute(w, data)
 	}
 }

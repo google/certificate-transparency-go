@@ -246,10 +246,6 @@ func (stubP stubCTPolicy) Name() string {
 	return "stub"
 }
 
-func (stubP stubCTPolicy) Description() string {
-	return fmt.Sprintf("stub CT-policy for testing. requires certificate to get submitted into %d Logs", stubP.baseNum)
-}
-
 func TestDistributorAddPreChain(t *testing.T) {
 	testCases := []struct {
 		name     string
