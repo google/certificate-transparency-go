@@ -164,7 +164,7 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 }
 
 // SubmitToLog implements Submitter interface.
-func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert, asPreChain bool) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
 	if !ok {
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
@@ -173,7 +173,11 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
 	}(time.Now())
 	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
-	sct, err := lc.AddPreChain(ctx, chain)
+	addChain := lc.AddChain
+	if asPreChain {
+		addChain = lc.AddPreChain
+	}
+	sct, err := addChain(ctx, chain)
 	incRspsCounter(logURL, string(ctfe.AddPreChainName), err)
 	return sct, err
 }
@@ -191,10 +195,9 @@ func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
 	return parsedChain, nil
 }
 
-// AddPreChain runs add-pre-chain calls across subset of logs according to
-// Distributor's policy. May emit both SCTs array and error when SCTs
-// collected do not satisfy the policy.
-func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+// addSomeChain is helper calling one of AddChain or AddPreChain based
+// on asPreChain param.
+func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPreChain bool) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
 		return nil, fmt.Errorf("distributor unable to process empty chain")
 	}
@@ -232,7 +235,21 @@ func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*As
 	for i, c := range parsedChain {
 		chain[i] = ct.ASN1Cert{Data: c.Raw}
 	}
-	return GetSCTs(ctx, d, chain, groups)
+	return GetSCTs(ctx, d, chain, asPreChain, groups)
+}
+
+// AddPreChain runs add-pre-chain calls across subset of logs according to
+// Distributor's policy. May emit both SCTs array and error when SCTs
+// collected do not satisfy the policy.
+func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+	return d.addSomeChain(ctx, rawChain, true)
+}
+
+// AddChain runs add-chain calls across subset of logs according to
+// Distributor's policy. May emit both SCTs array and error when SCTs
+// collected do not satisfy the policy.
+func (d *Distributor) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+	return d.addSomeChain(ctx, rawChain, false)
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.

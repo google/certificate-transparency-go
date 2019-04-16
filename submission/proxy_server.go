@@ -58,7 +58,7 @@ func marshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 }
 
 // HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
-func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
+func (s *ProxyServer) handleAddSomeChain(asPreChain bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
@@ -74,7 +74,12 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)
 		defer cancel()
 
-		scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)
+		var scts []*AssignedSCT
+		if asPreChain {
+			scts, err = s.p.AddPreChain(ctx, addChainReq.Chain)
+		} else {
+			scts, err = s.p.AddChain(ctx, addChainReq.Chain)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -87,4 +92,14 @@ func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, string(data))
 	}
+}
+
+// HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
+func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
+	return s.handleAddSomeChain(true)
+}
+
+// HandleAddChain handles multiplexed add-chain HTTP request.
+func (s *ProxyServer) HandleAddChain() http.HandlerFunc {
+	return s.handleAddSomeChain(false)
 }

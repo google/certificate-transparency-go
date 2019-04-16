@@ -40,7 +40,7 @@ type mockSubmitter struct {
 }
 
 // Each request within same Log-group gets additional sleep period.
-func (ms *mockSubmitter) SubmitToLog(_ context.Context, logURL string, _ []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
+func (ms *mockSubmitter) SubmitToLog(_ context.Context, logURL string, _ []ct.ASN1Cert, _ bool) (*ct.SignedCertificateTimestamp, error) {
 	ms.mu.Lock()
 	reqNum := ms.firstLetterURLReqNumber[logURL[0]]
 	ms.firstLetterURLReqNumber[logURL[0]]++
@@ -146,7 +146,7 @@ func TestGetSCTs(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := GetSCTs(tc.ctx, tc.sbMock, []ct.ASN1Cert{{Data: []byte{0}}}, tc.groups)
+			res, err := GetSCTs(tc.ctx, tc.sbMock, []ct.ASN1Cert{{Data: []byte{0}}}, true, tc.groups)
 			if tc.resultTrail != nil {
 				evaluateSCTs(t, res, tc.resultTrail)
 			}
