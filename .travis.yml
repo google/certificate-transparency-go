@@ -2,7 +2,7 @@ sudo: true  # required for CI push into Kubernetes.
 os: linux
 dist: xenial
 language: go
-go: "1.10"
+go: "1.11"
 go_import_path: github.com/google/certificate-transparency-go
 
 
