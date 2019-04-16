@@ -59,7 +59,7 @@ func main() {
 
 	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb, mf), *addPreChainTimeout)
 	s.Run(*logListRefreshInterval, *rootsRefreshInterval)
-	http.Handle("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain())
-	http.Handle("/", s.HandleInfo())
+	http.HandleFunc("ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain)
+	http.HandleFunc("/", s.HandleInfo)
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
 }
