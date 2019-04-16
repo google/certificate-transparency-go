@@ -96,8 +96,9 @@ func stringToHTML(s string) template.HTML {
 	return template.HTML(strings.Replace(template.HTMLEscapeString(string(s)), "\n", "<br>", -1))
 }
 
+// InfoData wraps data field required for info-page.
 type InfoData struct {
-	PolicyName string
+	PolicyName  string
 	LogListPath template.HTML
 	LogListJSON template.HTML
 }
@@ -105,7 +106,7 @@ type InfoData struct {
 // HandleInfo handles info-page request.
 func (s *ProxyServer) HandleInfo() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := InfoData {
+		data := InfoData{
 			s.p.dist.policy.Name(),
 			stringToHTML(s.p.llWatcher.Source()),
 			stringToHTML(string(s.p.llWatcher.LastJSON())),
