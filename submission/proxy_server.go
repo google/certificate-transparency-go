@@ -18,7 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -58,33 +61,63 @@ func marshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 }
 
 // HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
-func (s *ProxyServer) HandleAddPreChain() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.NotFound(w, r)
-			return
-		}
-		addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
-		if err != nil {
-			rc := http.StatusBadRequest
-			http.Error(w, fmt.Sprintf("proxy: failed to parse add-pre-chain body: %s", err), rc)
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)
-		defer cancel()
-
-		scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-		data, err := marshalSCTs(scts)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, string(data))
+func (s *ProxyServer) HandleAddPreChain(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
 	}
+	addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
+	if err != nil {
+		rc := http.StatusBadRequest
+		http.Error(w, fmt.Sprintf("proxy: failed to parse add-pre-chain body: %s", err), rc)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)
+	defer cancel()
+
+	scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	data, err := marshalSCTs(scts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, string(data))
+}
+
+func stringToHTML(s string) template.HTML {
+	return template.HTML(strings.Replace(template.HTMLEscapeString(string(s)), "\n", "<br>", -1))
+}
+
+// InfoData wraps data field required for info-page.
+type InfoData struct {
+	PolicyName  string
+	LogListPath template.HTML
+	LogListJSON template.HTML
+}
+
+// HandleInfo handles info-page request.
+func (s *ProxyServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
+	data := InfoData{
+		s.p.dist.policy.Name(),
+		stringToHTML(s.p.llWatcher.Source()),
+		stringToHTML(string(s.p.llWatcher.LastJSON())),
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	t, err := template.ParseFiles(wd + "/submission/view/info.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	t.Execute(w, data)
 }

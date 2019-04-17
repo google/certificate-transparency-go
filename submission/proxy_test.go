@@ -57,6 +57,12 @@ type stubLogListRefresher struct {
 func (llr stubLogListRefresher) Refresh() (*loglist.LogList, error) {
 	return nil, fmt.Errorf("stub Log List Refresher produces no Log List")
 }
+func (llr stubLogListRefresher) LastJSON() []byte {
+	return nil
+}
+func (llr stubLogListRefresher) Source() string {
+	return "stub"
+}
 
 func TestProxyRefreshLLErr(t *testing.T) {
 	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))

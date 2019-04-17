@@ -40,3 +40,8 @@ func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglis
 	groups := LogPolicyData{baseGroup.Name: &baseGroup}
 	return groups, err
 }
+
+// Name returns label for the submission policy.
+func (appleP AppleCTPolicy) Name() string {
+	return "Apple"
+}

@@ -242,6 +242,10 @@ func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.
 	return groups, err
 }
 
+func (stubP stubCTPolicy) Name() string {
+	return "stub"
+}
+
 func TestDistributorAddPreChain(t *testing.T) {
 	testCases := []struct {
 		name     string
