@@ -60,3 +60,8 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	}
 	return groups, outerror
 }
+
+// Name returns label for the submission policy.
+func (chromeP ChromeCTPolicy) Name() string {
+	return "Chrome"
+}
