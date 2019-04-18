@@ -8,6 +8,7 @@ CT_LIFECYCLE_CFG=
 CT_COMBINED_CFG=
 PROMETHEUS_CFGDIR=
 readonly CT_GO_PATH=$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)
+readonly MONO_PATH="$(go list -f '{{.Dir}}' github.com/google/monologue/incident)/.."
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
@@ -30,9 +31,14 @@ ct_prep_test() {
   local log_signer_count=${2:-1}
   local http_server_count=${3:-1}
 
-  # Wipe the cttest database
-  echo "Wiping and re-creating cttest database"
-  "${CT_GO_PATH}/scripts/resetctdb.sh" --force
+  if [[ "${HAMMER_GOSSIP}" != "off" ]]; then
+    # Wipe the cttest database
+    echo "Wiping and re-creating cttest database"
+    "${CT_GO_PATH}/scripts/resetctdb.sh" --force
+    # Wipe the incident database
+    echo "Wiping and re-creating incident database"
+    "${MONO_PATH}/scripts/resetmondb.sh" --force
+  fi
 
   echo "Launching core Trillian log components"
   log_prep_test "${rpc_server_count}" "${log_signer_count}"
@@ -202,7 +208,7 @@ ct_goshawk_config() {
   GOSHAWK_CFG=$(mktemp ${TMPDIR}/goshawk-XXXXXX)
   sed "s/@SERVER@/${server}/" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/goshawk.cfg > "${GOSHAWK_CFG}"
 
-  echo "gosmin configuration at ${GOSHAWK_CFG}:"
+  echo "goshawk configuration at ${GOSHAWK_CFG}:"
   cat "${GOSHAWK_CFG}"
   echo
 }
