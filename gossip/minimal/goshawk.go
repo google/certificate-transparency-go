@@ -67,7 +67,8 @@ type FetchOptions struct {
 	// Manage hub retrieval state persistence.
 	State         ScanStateManager
 	FlushInterval time.Duration
-	// Mechanism for reporting compliance incidents.
+	// Mechanism for reporting compliance incidents.  If unset, a
+	// LoggingReporter will be used.
 	Reporter incident.Reporter
 }
 
@@ -544,7 +545,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
 		o.reporter.Logf(ctx, o.URL, "STH signature verification failure", "signature",
-			fmt.Sprintf("%s/ct/v1/get-sth", o.URL),
+			fmt.Sprintf("%s%s", o.URL, ct.GetSTHPath),
 			"sthInfo=%+v", sthInfo)
 		return fmt.Errorf("failed to validate STH signature: %v", err)
 	}
@@ -564,7 +565,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	proof, err := o.Log.GetSTHConsistency(ctx, first, second)
 	if err != nil {
 		o.reporter.Logf(ctx, o.URL, "STH consistency retrieval failure", "get",
-			fmt.Sprintf("%s/ct/v1/get-sth-consistency?first=%d&second=%d", o.URL, first, second),
+			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
 			"err=%s", expandRspError(err))
 		return err
 	}
@@ -572,7 +573,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
 		o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
-			fmt.Sprintf("%s/ct/v1/get-sth-consistency?first=%d&second=%d", o.URL, first, second),
+			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
 			"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 		return fmt.Errorf("failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
 	}

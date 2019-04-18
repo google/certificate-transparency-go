@@ -60,27 +60,27 @@ func main() {
 		var err error
 		fetchOpts.State, err = minimal.NewFileStateManager(*stateFile)
 		if err != nil {
-			glog.Exitf("failed to create file-based state manager: %v", err)
+			glog.Exitf("Failed to create file-based state manager: %v", err)
 		}
 	} else if len(*mySQLStateURI) > 0 {
 		glog.Infof("State will be persisted to %s", *mySQLStateURI)
 		db, err := sql.Open("mysql", *mySQLStateURI)
 		if err != nil {
-			glog.Exitf("failed to open MySQL state database: %v", err)
+			glog.Exitf("Failed to open MySQL state database: %v", err)
 		}
 		if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
 			glog.Warningf("Failed to set strict mode on MySQL db: %s", err)
 		}
 		fetchOpts.State, err = mysql.NewStateManager(ctx, db)
 		if err != nil {
-			glog.Exitf("failed to create MySQL-based state manager: %v", err)
+			glog.Exitf("Failed to create MySQL-based state manager: %v", err)
 		}
 	}
 	if len(*mySQLIncidentURI) > 0 {
 		glog.Infof("Incidents will be stored in %s", *mySQLIncidentURI)
 		db, err := sql.Open("mysql", *mySQLIncidentURI)
 		if err != nil {
-			glog.Exitf("failed to open MySQL incident database: %v", err)
+			glog.Exitf("Failed to open MySQL incident database: %v", err)
 		}
 		if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
 			glog.Warningf("Failed to set strict mode on MySQL incident db: %s", err)
@@ -88,13 +88,13 @@ func main() {
 
 		fetchOpts.Reporter, err = incidentmysql.NewMySQLReporter(ctx, db, "goshawk")
 		if err != nil {
-			glog.Exitf("failed to create MySQL-based incident reporter: %v", err)
+			glog.Exitf("Failed to create MySQL-based incident reporter: %v", err)
 		}
 	}
 
 	hawk, err := minimal.NewGoshawkFromFile(ctx, *config, nil, fetchOpts)
 	if err != nil {
-		glog.Exitf("failed to load --config: %v", err)
+		glog.Exitf("Failed to load --config: %v", err)
 	}
 
 	glog.CopyStandardLogTo("WARNING")
