@@ -12,6 +12,8 @@ import (
 	"encoding/hex"
 	"reflect"
 	"testing"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 // Generated using:
@@ -38,6 +40,18 @@ var pkcs8P384PrivateKeyHex = `3081b6020100301006072a8648ce3d020106052b8104002204
 // regenerate this you may, randomly, find that it's a byte shorter than
 // expected and the Go test will fail to recreate it exactly.
 var pkcs8P521PrivateKeyHex = `3081ee020100301006072a8648ce3d020106052b810400230481d63081d3020101044200cfe0b87113a205cf291bb9a8cd1a74ac6c7b2ebb8199aaa9a5010d8b8012276fa3c22ac913369fa61beec2a3b8b4516bc049bde4fb3b745ac11b56ab23ac52e361a1818903818600040138f75acdd03fbafa4f047a8e4b272ba9d555c667962b76f6f232911a5786a0964e5edea6bd21a6f8725720958de049c6e3e6661c1c91b227cebee916c0319ed6ca003db0a3206d372229baf9dd25d868bf81140a518114803ce40c1855074d68c4e9dab9e65efba7064c703b400f1767f217dac82715ac1f6d88c74baf47a7971de4ea`
+
+// Taken from RFC 8410 section 10.3:
+//   -----BEGIN PRIVATE KEY-----
+//   MC4CAQAwBQYDK2VwBCIEINTuctv5E1hK1bbY8fdp+K06/nwoy/HU++CXqI9EdVhC
+//   -----END PRIVATE KEY-----
+var pkcs8Ed25519PrivateKeyHex = ("302e" + // SEQUENCE len=46
+	"0201" + "00" + // INTEGER len=1 value=0
+	("3005" + // SEQUENCE len=5
+		"0603" + "2b6570") + // OID len=3
+	("0422" + // OCTET STRING len=34
+		("0420" + // OCTET STRING len=32
+			"d4ee72dbf913584ad5b6d8f1f769f8ad3afe7c28cbf1d4fbe097a88f44755842")))
 
 func TestPKCS8(t *testing.T) {
 	tests := []struct {
@@ -74,6 +88,11 @@ func TestPKCS8(t *testing.T) {
 			keyHex:  pkcs8P521PrivateKeyHex,
 			keyType: reflect.TypeOf(&ecdsa.PrivateKey{}),
 			curve:   elliptic.P521(),
+		},
+		{
+			name:    "Ed25519 private key",
+			keyHex:  pkcs8Ed25519PrivateKeyHex,
+			keyType: reflect.TypeOf(ed25519.PrivateKey{}),
 		},
 	}
 

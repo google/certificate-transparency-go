@@ -37,6 +37,8 @@
 //     - Support for RFC3779 extensions (in rpki.go)
 //  - RSAES-OAEP support:
 //     - Support for parsing RSASES-OAEP public keys from certificates
+//  - Ed25519 support:
+//     - Support for parsing and marshaling Ed25519 keys
 //  - General improvements:
 //     - Export and use OID values throughout.
 //     - Export OIDFromNamedCurve().
@@ -68,6 +70,7 @@ import (
 	"unicode/utf8"
 
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
+	"golang.org/x/crypto/ed25519"
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/tls"
@@ -140,6 +143,10 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 			return
 		}
 		publicKeyAlgorithm.Parameters.FullBytes = paramBytes
+	case ed25519.PublicKey:
+		publicKeyBytes = pub
+		publicKeyAlgorithm.Algorithm = OIDPublicKeyEd25519
+		// RFC 8410 section 3: "...the parameters MUST be absent"
 	default:
 		return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: only RSA and ECDSA public keys supported")
 	}
@@ -310,6 +317,7 @@ const (
 	DSA
 	ECDSA
 	RSAESOAEP
+	Ed25519
 )
 
 var publicKeyAlgoName = [...]string{
@@ -317,6 +325,7 @@ var publicKeyAlgoName = [...]string{
 	DSA:       "DSA",
 	ECDSA:     "ECDSA",
 	RSAESOAEP: "RSAESOAEP",
+	Ed25519:   "Ed25519",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -556,6 +565,8 @@ var (
 	OIDPublicKeyDSA         = asn1.ObjectIdentifier{1, 2, 840, 10040, 4, 1}
 	OIDPublicKeyECDSA       = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
+	// From RFC 8410, section 3
+	OIDPublicKeyEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 )
 
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
@@ -568,6 +579,8 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return ECDSA
 	case oid.Equal(OIDPublicKeyRSAESOAEP):
 		return RSAESOAEP
+	case oid.Equal(OIDPublicKeyEd25519):
+		return Ed25519
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -1402,6 +1415,8 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 			Y:     y,
 		}
 		return pub, nil
+	case Ed25519:
+		return ed25519.PublicKey(asn1Data), nil
 	default:
 		return nil, nil
 	}
