@@ -358,7 +358,7 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 			desc: "no-reject-before",
 			now:  beforeValidPeriod,
 		},
-		// Reject-Expired: only allow currently-valid
+		// Reject-Expired: only allow currently-valid and not yet valid
 		{
 			desc:          "reject-expired-current",
 			rejectExpired: true,
@@ -368,15 +368,14 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 			desc:          "reject-expired-after",
 			rejectExpired: true,
 			now:           afterValidPeriod,
-			wantErr:       "expired or is not yet valid",
+			wantErr:       "rejecting expired certificate",
 		},
 		{
 			desc:          "reject-expired-before",
 			rejectExpired: true,
 			now:           beforeValidPeriod,
-			wantErr:       "expired or is not yet valid",
 		},
-		// Reject-Unexpired: only allow expired and not yet valid
+		// Reject-Unexpired: only allow expired
 		{
 			desc:            "reject-non-expired-after",
 			rejectUnexpired: true,
@@ -386,12 +385,13 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 			desc:            "reject-non-expired-before",
 			rejectUnexpired: true,
 			now:             beforeValidPeriod,
+			wantErr:         "rejecting unexpired certificate",
 		},
 		{
 			desc:            "reject-non-expired-current",
 			rejectUnexpired: true,
 			now:             currentValidPeriod,
-			wantErr:         "only expired certificates",
+			wantErr:         "rejecting unexpired certificate",
 		},
 		// Reject-Expired AND Reject-Unexpired: nothing allowed
 		{
@@ -399,21 +399,21 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 			rejectExpired:   true,
 			rejectUnexpired: true,
 			now:             afterValidPeriod,
-			wantErr:         "expired or is not yet valid",
+			wantErr:         "rejecting expired certificate",
 		},
 		{
 			desc:            "reject-all-before",
 			rejectExpired:   true,
 			rejectUnexpired: true,
 			now:             beforeValidPeriod,
-			wantErr:         "expired or is not yet valid",
+			wantErr:         "rejecting unexpired certificate",
 		},
 		{
 			desc:            "reject-all-current",
 			rejectExpired:   true,
 			rejectUnexpired: true,
 			now:             currentValidPeriod,
-			wantErr:         "only expired certificates",
+			wantErr:         "rejecting unexpired certificate",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

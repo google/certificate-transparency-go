@@ -189,10 +189,10 @@ type LogConfig struct {
 	PublicKey *keyspb.PublicKey `protobuf:"bytes,5,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	// If reject_expired is true then the certificate validity period will be
 	// checked against the current time during the validation of submissions.
-	// This will cause expired and not-yet-valid certificates to be rejected.
+	// This will cause expired certificates to be rejected.
 	RejectExpired bool `protobuf:"varint,6,opt,name=reject_expired,json=rejectExpired,proto3" json:"reject_expired,omitempty"`
-	// If reject_unexpired is true then CTFE rejects certificates that are within
-	// their validity period with respect to the current time.
+	// If reject_unexpired is true then CTFE rejects certificates that are either
+	// currently valid or not yet valid.
 	RejectUnexpired bool `protobuf:"varint,17,opt,name=reject_unexpired,json=rejectUnexpired,proto3" json:"reject_unexpired,omitempty"`
 	// If set, ext_key_usages will restrict the set of such usages that the
 	// server will accept. By default all are accepted. The values specified
