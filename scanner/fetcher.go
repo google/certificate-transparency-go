@@ -56,6 +56,8 @@ func DefaultFetcherOptions() *FetcherOptions {
 
 // Fetcher is a tool that fetches entries from a CT Log.
 type Fetcher struct {
+	// Base URI of the CT log, for diagnostics.
+	uri string
 	// Client used to talk to the CT log instance.
 	client *client.LogClient
 	// Configuration options for this Fetcher instance.
@@ -87,7 +89,12 @@ type fetchRange struct {
 // taking configuration options from opts.
 func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
 	cancel := func() {} // Protect against calling Stop before Run.
-	return &Fetcher{client: client, opts: opts, cancel: cancel}
+	return &Fetcher{
+		uri:    client.BaseURI(),
+		client: client,
+		opts:   opts,
+		cancel: cancel,
+	}
 }
 
 // Prepare caches the latest Log's STH if not present and returns it. It also
@@ -99,13 +106,13 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 
 	sth, err := f.client.GetSTH(ctx)
 	if err != nil {
-		glog.Errorf("GetSTH() failed: %v", err)
+		glog.Errorf("%s: GetSTH() failed: %v", f.uri, err)
 		return nil, err
 	}
-	glog.Infof("Got STH with %d certs", sth.TreeSize)
+	glog.Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
 
 	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size {
-		glog.Warningf("Reset EndIndex from %d to %d", f.opts.EndIndex, size)
+		glog.Infof("%s: Reset EndIndex from %d to %d", f.uri, f.opts.EndIndex, size)
 		f.opts.EndIndex = size
 	}
 	f.sth = sth
@@ -116,7 +123,7 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 // passed in context is canceled, or Stop is called (and pending work is
 // finished). For each successfully fetched batch, runs the fn callback.
 func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
-	glog.V(1).Info("Starting up Fetcher...")
+	glog.V(1).Infof("%s: Starting up Fetcher...", f.uri)
 	if _, err := f.Prepare(ctx); err != nil {
 		return err
 	}
@@ -139,14 +146,14 @@ func (f *Fetcher) Run(ctx context.Context, fn func(EntryBatch)) error {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			glog.V(1).Infof("Fetcher worker %d starting...", idx)
+			glog.V(1).Infof("%s: Fetcher worker %d starting...", f.uri, idx)
 			f.runWorker(ctx, ranges, fn)
-			glog.V(1).Infof("Fetcher worker %d finished", idx)
+			glog.V(1).Infof("%s: Fetcher worker %d finished", f.uri, idx)
 		}(w)
 	}
 	wg.Wait()
 
-	glog.V(1).Info("Fetcher terminated")
+	glog.V(1).Infof("%s: Fetcher terminated", f.uri)
 	return nil
 }
 
@@ -167,8 +174,8 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 	ranges := make(chan fetchRange)
 
 	go func() {
-		glog.V(1).Info("Range generator starting")
-		defer glog.V(1).Info("Range generator finished")
+		glog.V(1).Infof("%s: Range generator starting", f.uri)
+		defer glog.V(1).Infof("%s: Range generator finished", f.uri)
 		defer close(ranges)
 		start, end := f.opts.StartIndex, f.opts.EndIndex
 
@@ -177,7 +184,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			// including, possibly, the very first iteration.
 			if start == end { // Implies f.opts.Continuous == true.
 				if err := f.updateSTH(ctx); err != nil {
-					glog.Warningf("Failed to obtain bigger STH: %v", err)
+					glog.Warningf("%s: Failed to obtain bigger STH: %v", f.uri, err)
 					return
 				}
 				end = f.opts.EndIndex
@@ -187,7 +194,7 @@ func (f *Fetcher) genRanges(ctx context.Context) <-chan fetchRange {
 			next := fetchRange{start, batchEnd - 1}
 			select {
 			case <-ctx.Done():
-				glog.Warningf("Cancelling genRanges: %v", ctx.Err())
+				glog.Warningf("%s: Cancelling genRanges: %v", f.uri, ctx.Err())
 				return
 			case ranges <- next:
 			}
@@ -225,7 +232,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		glog.V(2).Infof("Got STH with %d certs", sth.TreeSize)
+		glog.V(2).Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
 
 		quick := time.Now().Before(quickDeadline)
 		if sth.TreeSize <= lastSize || quick && sth.TreeSize < targetSize {
@@ -252,12 +259,12 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		for r.start <= r.end {
 			// Fetcher.Run() can be cancelled while we are looping over this job.
 			if err := ctx.Err(); err != nil {
-				glog.Warningf("Worker context closed: %v", err)
+				glog.Warningf("%s: Worker context closed: %v", f.uri, err)
 				return
 			}
 			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
 			if err != nil {
-				glog.Errorf("GetRawEntries() failed: %v", err)
+				glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
 				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
 				continue
 			}
