@@ -32,6 +32,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -292,6 +294,8 @@ type hammerState struct {
 	pending pendingCerts
 	// Operations that are required to fix dependencies.
 	nextOp []ctfe.EntrypointName
+	// verifier is the verifier to be used for this log.
+	verifier merkle.LogVerifier
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -323,8 +327,9 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 
 	state := hammerState{
-		cfg:    cfg,
-		nextOp: make([]ctfe.EntrypointName, 0),
+		cfg:      cfg,
+		nextOp:   make([]ctfe.EntrypointName, 0),
+		verifier: merkle.NewLogVerifier(rfc6962.DefaultHasher),
 	}
 	return &state, nil
 }
@@ -656,7 +661,7 @@ func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get-sth-consistency(%d, %d): %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}
-	if err := checkCTConsistencyProof(sthOld, sthNow, proof); err != nil {
+	if err := s.checkCTConsistencyProof(sthOld, sthNow, proof); err != nil {
 		return fmt.Errorf("get-sth-consistency(%d, %d) proof check failed: %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}
 	glog.V(2).Infof("%s: Got STH consistency proof (size=%d => %d) len %d",
@@ -740,7 +745,7 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get-proof-by-hash(size=%d) on cert with SCT @ %v: %v, %+v", sth.TreeSize, timeFromMS(submitted.sct.Timestamp), err, rsp)
 	}
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], submitted.leafHash[:]); err != nil {
+	if err := s.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], submitted.leafHash[:]); err != nil {
 		return fmt.Errorf("failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	s.pending.dropOldest()
@@ -1050,6 +1055,12 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// checkCTConsistencyProof checks the given consistency proof.
+func (s *hammerState) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
+	return s.verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
+		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
 // HammerCTLog performs load/stress operations according to given config.
