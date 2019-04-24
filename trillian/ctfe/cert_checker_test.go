@@ -334,6 +334,9 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 		trustedRoots: fakeCARoots,
 		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
+	beforeValidPeriod := time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC)
+	currentValidPeriod := time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+	afterValidPeriod := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	for _, tc := range []struct {
 		desc            string
@@ -342,38 +345,74 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 		now             time.Time
 		wantErr         string
 	}{
-		{desc: "no-reject"},
+		// No flags: accept anything.
 		{
-			desc:          "reject-expired-pass",
+			desc: "no-reject-current",
+			now:  currentValidPeriod,
+		},
+		{
+			desc: "no-reject-after",
+			now:  afterValidPeriod,
+		},
+		{
+			desc: "no-reject-before",
+			now:  beforeValidPeriod,
+		},
+		// Reject-Expired: only allow currently-valid
+		{
+			desc:          "reject-expired-current",
 			rejectExpired: true,
-			now:           time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:           currentValidPeriod,
 		},
 		{
 			desc:          "reject-expired-after",
 			rejectExpired: true,
-			now:           time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:           afterValidPeriod,
 			wantErr:       "expired or is not yet valid",
 		},
 		{
 			desc:          "reject-expired-before",
 			rejectExpired: true,
-			now:           time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:           beforeValidPeriod,
 			wantErr:       "expired or is not yet valid",
 		},
+		// Reject-Unexpired: only allow expired and not yet valid
 		{
-			desc:            "reject-non-expired-pass-after",
+			desc:            "reject-non-expired-after",
 			rejectUnexpired: true,
-			now:             time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:             afterValidPeriod,
 		},
 		{
-			desc:            "reject-non-expired-pass-before",
+			desc:            "reject-non-expired-before",
 			rejectUnexpired: true,
-			now:             time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:             beforeValidPeriod,
 		},
 		{
-			desc:            "reject-non-expired",
+			desc:            "reject-non-expired-current",
 			rejectUnexpired: true,
-			now:             time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:             currentValidPeriod,
+			wantErr:         "only expired certificates",
+		},
+		// Reject-Expired AND Reject-Unexpired: nothing allowed
+		{
+			desc:            "reject-all-after",
+			rejectExpired:   true,
+			rejectUnexpired: true,
+			now:             afterValidPeriod,
+			wantErr:         "expired or is not yet valid",
+		},
+		{
+			desc:            "reject-all-before",
+			rejectExpired:   true,
+			rejectUnexpired: true,
+			now:             beforeValidPeriod,
+			wantErr:         "expired or is not yet valid",
+		},
+		{
+			desc:            "reject-all-current",
+			rejectExpired:   true,
+			rejectUnexpired: true,
+			now:             currentValidPeriod,
 			wantErr:         "only expired certificates",
 		},
 	} {
