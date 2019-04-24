@@ -632,6 +632,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		adminServer:    adminServer,
 		stats:          stats,
 		pool:           pool,
+		verifier:       merkle.NewLogVerifier(rfc6962.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
