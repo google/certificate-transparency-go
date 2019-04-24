@@ -1,5 +1,20 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
+## HEAD
+
+Not yet released.
+
+### CTFE
+
+The `reject_expired` and `reject_unexpired` configuration fields for the CTFE
+have been changed so that their behaviour reflects their name:
+
+  - `reject_expired` only rejects expired certificates (i.e. it now allows
+    not-yet-valid certificates).
+  - `reject_unexpired` only allows expired certificates (i.e. it now rejects
+    not-yet-valid certificates).
+
+
 ## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
 
 Published 2018-08-20 10:11:04 +0000 UTC
@@ -229,4 +244,3 @@ Published 2018-06-01 13:59:00 +0000 UTC
 This is the point that corresponds to the 1.0 release in the trillian repo.
 
 Commit [abb79e468b6f3bbd48d1ab0c9e68febf80d52c4d](https://api.github.com/repos/google/certificate-transparency-go/commits/abb79e468b6f3bbd48d1ab0c9e68febf80d52c4d) Download [zip](https://api.github.com/repos/google/certificate-transparency-go/zipball/v1.0)
-
