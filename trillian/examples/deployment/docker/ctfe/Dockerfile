@@ -4,7 +4,7 @@ ADD . /go/src/github.com/google/certificate-transparency-go
 WORKDIR /go/src/github.com/google/certificate-transparency-go
 
 ARG GOFLAGS=""
-RUN go get ${GOFLAGS} ./trillian/ctfe/ct_server
+RUN go get ./trillian/ctfe/ct_server
 
 FROM gcr.io/distroless/base
 

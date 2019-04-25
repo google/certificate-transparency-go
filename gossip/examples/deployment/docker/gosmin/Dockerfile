@@ -5,7 +5,7 @@ WORKDIR /go/src/github.com/google/certificate-transparency-go
 
 ARG GOFLAGS=""
 
-RUN go get -v ${GOFLAGS} ./gossip/minimal/gosmin
+RUN go get -v ./gossip/minimal/gosmin
 
 FROM gcr.io/distroless/base
 
