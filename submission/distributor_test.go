@@ -222,7 +222,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 func pemFileToDERChain(filename string) [][]byte {
 	if len(filename) == 0 {
 		return nil
-	} 
+	}
 	rawChain, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
 		panic(err)
@@ -252,55 +252,55 @@ func (stubP stubCTPolicy) Name() string {
 
 func TestDistributorAddXChain(t *testing.T) {
 	testCases := []struct {
-		name     string
-		ll       *loglist.LogList
-		plc      ctpolicy.CTPolicy
+		name         string
+		ll           *loglist.LogList
+		plc          ctpolicy.CTPolicy
 		pemChainFile string
-		getRoots bool
-		scts     []*AssignedSCT
-		wantErr  bool
+		getRoots     bool
+		scts         []*AssignedSCT
+		wantErr      bool
 	}{
 		{
-			name:     "MalformedChainRequest with log roots available",
-			ll:       sampleValidLogList(),
-			plc:      ctpolicy.ChromeCTPolicy{},
+			name:         "MalformedChainRequest with log roots available",
+			ll:           sampleValidLogList(),
+			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
-			getRoots: true,
-			scts:     nil,
-			wantErr:  true,
+			getRoots:     true,
+			scts:         nil,
+			wantErr:      true,
 		},
 		{
-			name:     "MalformedChainRequest without log roots available",
-			ll:       sampleValidLogList(),
-			plc:      ctpolicy.ChromeCTPolicy{},
+			name:         "MalformedChainRequest without log roots available",
+			ll:           sampleValidLogList(),
+			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
-			getRoots: false,
-			scts:     nil,
-			wantErr:  true,
+			getRoots:     false,
+			scts:         nil,
+			wantErr:      true,
 		},
 		{
-			name:     "CallBeforeInit",
-			ll:       sampleValidLogList(),
-			plc:      ctpolicy.ChromeCTPolicy{},
+			name:         "CallBeforeInit",
+			ll:           sampleValidLogList(),
+			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
-			scts:     nil,
-			wantErr:  true,
+			scts:         nil,
+			wantErr:      true,
 		},
 		{
-			name:     "InsufficientSCTsForPolicy",
-			ll:       sampleValidLogList(),
-			plc:      ctpolicy.AppleCTPolicy{},
+			name:         "InsufficientSCTsForPolicy",
+			ll:           sampleValidLogList(),
+			plc:          ctpolicy.AppleCTPolicy{},
 			pemChainFile: "../trillian/testdata/subleaf.chain", // subleaf chain is fake-ca-1-rooted
-			getRoots: true,
-			scts:     []*AssignedSCT{},
-			wantErr:  true, // Not enough SCTs for policy
+			getRoots:     true,
+			scts:         []*AssignedSCT{},
+			wantErr:      true, // Not enough SCTs for policy
 		},
 		{
-			name:     "FullChain1Policy",
-			ll:       sampleValidLogList(),
-			plc:      buildStubCTPolicy(1),
+			name:         "FullChain1Policy",
+			ll:           sampleValidLogList(),
+			plc:          buildStubCTPolicy(1),
 			pemChainFile: "../trillian/testdata/subleaf.chain",
-			getRoots: true,
+			getRoots:     true,
 			scts: []*AssignedSCT{
 				{
 					LogURL: "ct.googleapis.com/rocketeer/",
@@ -318,7 +318,7 @@ func TestDistributorAddXChain(t *testing.T) {
 			if isPreCall {
 				pre = "Pre"
 			}
-			t.Run(pre + tc.name, func(t *testing.T) {
+			t.Run(pre+tc.name, func(t *testing.T) {
 				dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient, monitoring.InertMetricFactory{})
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
@@ -359,29 +359,28 @@ func TestDistributorAddXChain(t *testing.T) {
 	}
 }
 
-
 func TestDistributorAddTypeMismatch(t *testing.T) {
 	testCases := []struct {
-		name     string
-		asPreChain bool
+		name         string
+		asPreChain   bool
 		pemChainFile string
-		scts     []*AssignedSCT
-		wantErr  bool
+		scts         []*AssignedSCT
+		wantErr      bool
 	}{
 		{
-			name:     "FullChain1PolicyCertToPreAdd",
-			asPreChain: true,
+			name:         "FullChain1PolicyCertToPreAdd",
+			asPreChain:   true,
 			pemChainFile: "../trillian/testdata/subleaf.chain",
-			scts: nil,
-			wantErr: true, // Sending valid cert via AddPreChain call
+			scts:         nil,
+			wantErr:      true, // Sending valid cert via AddPreChain call
 		},
 		{
-			name:     "FullChain1PolicyPreCertToAdd",
-			asPreChain: false,
+			name:         "FullChain1PolicyPreCertToAdd",
+			asPreChain:   false,
 			pemChainFile: "../trillian/testdata/subleaf-pre.chain",
-			scts: nil,
-			wantErr: true, // Sending pre-cert via AddChain call
-		},		
+			scts:         nil,
+			wantErr:      true, // Sending pre-cert via AddChain call
+		},
 	}
 
 	for _, tc := range testCases {
