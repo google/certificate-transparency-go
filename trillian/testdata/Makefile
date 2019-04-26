@@ -102,6 +102,15 @@ subleaf.chain: subleaf.cert int-ca-2.cert int-ca-1.cert fake-ca.cert
 subleaf.misordered.chain: subleaf.cert int-ca-1.cert int-ca-2.cert fake-ca.cert
 	cat $^ > $@
 
+# Length 4 chain (to allow mis-ordering tests) for pre-cert.
+subleaf-pre.cert: subleaf.csr.pem int-ca-2.cert
+	openssl x509 -req -in $< -sha256 -extfile int-ca-2.cfg -extensions v3_user_pre -CA int-ca-2.cert -CAkey $(INT_CA_2_PRIVKEY) -passin pass:$(INT_CA_2_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
+subleaf-pre.chain: subleaf-pre.cert int-ca-2.cert int-ca-1.cert fake-ca.cert
+	cat $^ > $@
+subleaf-pre.misordered.chain: subleaf-pre.cert int-ca-1.cert int-ca-2.cert fake-ca.cert
+	cat $^ > $@
+
+
 
 # clean removes things that regenerate exactly the same.
 clean:

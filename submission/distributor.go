@@ -91,7 +91,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 
 			roots, err := lc.GetAcceptedRoots(rctx)
 			if err != nil {
-				res.Err = fmt.Errorf("%s: couldn't collect roots. %s", logURL, err)
+				res.Err = fmt.Errorf("Roots refresh for %s: couldn't collect roots. %s", logURL, err)
 				ch <- res
 				return
 			}
@@ -99,7 +99,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
 				if x509.IsFatal(err) {
-					errS := fmt.Errorf("%s: unable to parse root cert: %s", logURL, err)
+					errS := fmt.Errorf("Roots refresh for %s: unable to parse root cert: %s", logURL, err)
 					if res.Err != nil {
 						res.Err = fmt.Errorf("%s\n%s", res.Err, errS)
 					} else {
@@ -169,16 +169,23 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	if !ok {
 		return nil, fmt.Errorf("no client registered for Log with URL %q", logURL)
 	}
+
+	// endpoint used for metrics
+	endpoint := string(ctfe.AddChainName)
+	if asPreChain {
+		endpoint = string(ctfe.AddPreChainName)
+	}
+
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), logURL, string(ctfe.AddPreChainName))
+		rspLatency.Observe(time.Since(start).Seconds(), logURL, endpoint)
 	}(time.Now())
-	reqsCounter.Inc(logURL, string(ctfe.AddPreChainName))
+	reqsCounter.Inc(logURL, endpoint)
 	addChain := lc.AddChain
 	if asPreChain {
 		addChain = lc.AddPreChain
 	}
 	sct, err := addChain(ctx, chain)
-	incRspsCounter(logURL, string(ctfe.AddPreChainName), err)
+	incRspsCounter(logURL, endpoint, err)
 	return sct, err
 }
 
@@ -225,6 +232,22 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots)
 	}
 	d.mu.RUnlock()
+
+	// Distinguish between precerts and certificates.
+	isPrecert, err := ctfe.IsPrecertificate(parsedChain[0])
+	if err != nil {
+		return nil, fmt.Errorf("distributor unable to check certificate: %v", err)
+	}
+	if isPrecert != asPreChain {
+		var methodType, inputType string
+		if asPreChain {
+			methodType = "pre-"
+		}
+		if isPrecert {
+			inputType = "pre-"
+		}
+		return nil, fmt.Errorf("For add-%s-chain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
+	}
 
 	// Set up policy structs.
 	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)

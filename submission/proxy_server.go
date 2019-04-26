@@ -60,7 +60,7 @@ func marshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	return json.Marshal(jsonSCTsObj)
 }
 
-// handleAddsomeChain is helper func choosing between AddChain and AddPreChain
+// handleAddSomeChain is helper func choosing between AddChain and AddPreChain
 // based on asPreChain value
 func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request, asPreChain bool) {
 	if r.Method != http.MethodPost {
@@ -70,7 +70,11 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 	addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
 	if err != nil {
 		rc := http.StatusBadRequest
-		http.Error(w, fmt.Sprintf("proxy: failed to parse add-pre-chain body: %s", err), rc)
+		pre := ""
+		if asPreChain {
+			pre = "pre-"
+		}
+		http.Error(w, fmt.Sprintf("proxy: failed to parse add-%schain body: %s", pre, err), rc)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)

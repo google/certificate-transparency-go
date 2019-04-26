@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,7 +67,7 @@ func ExampleDistributor() {
 		panic("Context expired")
 	}
 
-	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf.chain"))
+	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf-pre.chain"))
 	if err != nil {
 		panic(err)
 	}
@@ -219,6 +220,9 @@ func TestNewDistributorRootPools(t *testing.T) {
 }
 
 func pemFileToDERChain(filename string) [][]byte {
+	if len(filename) == 0 {
+		return nil
+	} 
 	rawChain, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 	if err != nil {
 		panic(err)
@@ -246,12 +250,12 @@ func (stubP stubCTPolicy) Name() string {
 	return "stub"
 }
 
-func TestDistributorAddPreChain(t *testing.T) {
+func TestDistributorAddXChain(t *testing.T) {
 	testCases := []struct {
 		name     string
 		ll       *loglist.LogList
 		plc      ctpolicy.CTPolicy
-		rawChain [][]byte
+		pemChainFile string
 		getRoots bool
 		scts     []*AssignedSCT
 		wantErr  bool
@@ -260,7 +264,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			name:     "MalformedChainRequest with log roots available",
 			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
-			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
+			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots: true,
 			scts:     nil,
 			wantErr:  true,
@@ -269,7 +273,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			name:     "MalformedChainRequest without log roots available",
 			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
-			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.misordered.chain"),
+			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots: false,
 			scts:     nil,
 			wantErr:  true,
@@ -278,7 +282,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			name:     "CallBeforeInit",
 			ll:       sampleValidLogList(),
 			plc:      ctpolicy.ChromeCTPolicy{},
-			rawChain: nil,
+			pemChainFile: "",
 			scts:     nil,
 			wantErr:  true,
 		},
@@ -286,7 +290,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			name:     "InsufficientSCTsForPolicy",
 			ll:       sampleValidLogList(),
 			plc:      ctpolicy.AppleCTPolicy{},
-			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"), // subleaf chain is fake-ca-1-rooted
+			pemChainFile: "../trillian/testdata/subleaf.chain", // subleaf chain is fake-ca-1-rooted
 			getRoots: true,
 			scts:     []*AssignedSCT{},
 			wantErr:  true, // Not enough SCTs for policy
@@ -295,7 +299,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			name:     "FullChain1Policy",
 			ll:       sampleValidLogList(),
 			plc:      buildStubCTPolicy(1),
-			rawChain: pemFileToDERChain("../trillian/testdata/subleaf.chain"),
+			pemChainFile: "../trillian/testdata/subleaf.chain",
 			getRoots: true,
 			scts: []*AssignedSCT{
 				{
@@ -309,32 +313,113 @@ func TestDistributorAddPreChain(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		for _, isPreCall := range []bool{true, false} {
+			pre := ""
+			if isPreCall {
+				pre = "Pre"
+			}
+			t.Run(pre + tc.name, func(t *testing.T) {
+				dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient, monitoring.InertMetricFactory{})
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+
+				if tc.getRoots {
+					if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+						// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
+						t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+					}
+				}
+
+				var scts []*AssignedSCT
+				var err error
+				pemChainFile := tc.pemChainFile
+				if isPreCall {
+					pemChainFile = strings.Replace(tc.pemChainFile, "subleaf", "subleaf-pre", 1)
+					scts, err = dist.AddPreChain(context.Background(), pemFileToDERChain(pemChainFile))
+				} else {
+					scts, err = dist.AddChain(context.Background(), pemFileToDERChain(pemChainFile))
+				}
+
+				if gotErr := (err != nil); gotErr != tc.wantErr {
+					t.Fatalf("dist.Add%sChain(from %q) = (_, error: %v), want err? %t", pre, pemChainFile, err, tc.wantErr)
+				} else if gotErr {
+					return
+				}
+
+				if got, want := len(scts), len(tc.scts); got != want {
+					t.Errorf("dist.Add%sChain(from %q) = %d SCTs, want %d SCTs", pre, pemChainFile, got, want)
+				}
+				if diff := cmp.Diff(scts, tc.scts, cmpopts.SortSlices(func(x, y *AssignedSCT) bool {
+					return x.LogURL < y.LogURL
+				})); diff != "" {
+					t.Errorf("dist.Add%sChain(from %q): diff -want +got\n%s", pre, pemChainFile, diff)
+				}
+			})
+		}
+	}
+}
+
+
+func TestDistributorAddTypeMismatch(t *testing.T) {
+	testCases := []struct {
+		name     string
+		asPreChain bool
+		pemChainFile string
+		scts     []*AssignedSCT
+		wantErr  bool
+	}{
+		{
+			name:     "FullChain1PolicyCertToPreAdd",
+			asPreChain: true,
+			pemChainFile: "../trillian/testdata/subleaf.chain",
+			scts: nil,
+			wantErr: true, // Sending valid cert via AddPreChain call
+		},
+		{
+			name:     "FullChain1PolicyPreCertToAdd",
+			asPreChain: false,
+			pemChainFile: "../trillian/testdata/subleaf-pre.chain",
+			scts: nil,
+			wantErr: true, // Sending pre-cert via AddChain call
+		},		
+	}
+
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dist, _ := NewDistributor(tc.ll, tc.plc, newLocalStubLogClient, monitoring.InertMetricFactory{})
+			dist, _ := NewDistributor(sampleValidLogList(), buildStubCTPolicy(1), newLocalStubLogClient, monitoring.InertMetricFactory{})
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			if tc.getRoots {
-				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
-					// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
-					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
-				}
+			if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+				// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
+				t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
 			}
 
-			scts, err := dist.AddPreChain(context.Background(), tc.rawChain)
+			var scts []*AssignedSCT
+			var err error
+			if tc.asPreChain {
+				scts, err = dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+			} else {
+				scts, err = dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+			}
+
+			pre := ""
+			if tc.asPreChain {
+				pre = "Pre"
+			}
 			if gotErr := (err != nil); gotErr != tc.wantErr {
-				t.Fatalf("dist.AddPreChain(%q) = (_, %v), want err? %t", tc.rawChain, err, tc.wantErr)
+				t.Fatalf("dist.Add%sChain(from %q) = (_, error: %v), want err? %t", pre, tc.pemChainFile, err, tc.wantErr)
 			} else if gotErr {
 				return
 			}
 
 			if got, want := len(scts), len(tc.scts); got != want {
-				t.Errorf("dist.AddPreChain(%q) = %d SCTs, want %d SCTs", tc.rawChain, got, want)
+				t.Errorf("dist.Add%sChain(from %q) = %d SCTs, want %d SCTs", pre, tc.pemChainFile, got, want)
 			}
 			if diff := cmp.Diff(scts, tc.scts, cmpopts.SortSlices(func(x, y *AssignedSCT) bool {
 				return x.LogURL < y.LogURL
 			})); diff != "" {
-				t.Errorf("dist.AddPreChain(%q): diff -want +got\n%s", tc.rawChain, diff)
+				t.Errorf("dist.Add%sChain(from %q): diff -want +got\n%s", pre, tc.pemChainFile, diff)
 			}
 		})
 	}
