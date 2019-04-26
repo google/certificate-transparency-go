@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Submission proxy server runs (pre-)certs multi-Log submission complying with
+// CT-policy provided.
 package main
 
 import (
