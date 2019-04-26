@@ -44,7 +44,7 @@ ct_prep_test() {
   log_prep_test "${rpc_server_count}" "${log_signer_count}"
 
   echo "Building CT personality code"
-  go build ${GOFLAGS} github.com/google/certificate-transparency-go/trillian/ctfe/ct_server
+  go build github.com/google/certificate-transparency-go/trillian/ctfe/ct_server
 
   echo "Provisioning logs for CT"
   ct_provision "${RPC_SERVER_1}"
@@ -116,7 +116,7 @@ ct_provision() {
   sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_lifecycle_test.cfg > "${CT_LIFECYCLE_CFG}"
 
   echo 'Building createtree'
-  go build ${GOFLAGS} github.com/google/trillian/cmd/createtree/
+  go build github.com/google/trillian/cmd/createtree/
 
   echo 'Provisioning Integration Logs'
   ct_provision_cfg ${admin_server} ${CT_CFG}
@@ -180,7 +180,7 @@ ct_gosmin_config() {
 # Populates:
 #   - GOSMIN_PID : pid for gosmin instance.
 ct_start_gosmin() {
-  go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/gosmin
+  go build github.com/google/certificate-transparency-go/gossip/minimal/gosmin
   local metrics_port=$(pick_unused_port)
   echo "Starting gosmin with metrics on localhost:${metrics_port}"
   ./gosmin --config="${GOSMIN_CFG}" --metrics_endpoint "localhost:${metrics_port}" --logtostderr &
@@ -219,7 +219,7 @@ ct_goshawk_config() {
 # Populates:
 #   - GOSHAWK_PID : pid for gosmin instance.
 ct_start_goshawk() {
-  go build ${GOFLAGS} github.com/google/certificate-transparency-go/gossip/minimal/goshawk
+  go build github.com/google/certificate-transparency-go/gossip/minimal/goshawk
   ./goshawk --config="${GOSHAWK_CFG}" --logtostderr --flush_state=10s &
   GOSHAWK_PID=$!
 }
