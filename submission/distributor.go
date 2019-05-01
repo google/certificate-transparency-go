@@ -177,7 +177,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 
 	defer rspLatency.Observe(time.Since(time.Now()).Seconds(), logURL, endpoint)
-	
+
 	reqsCounter.Inc(logURL, endpoint)
 	addChain := lc.AddChain
 	if asPreChain {
