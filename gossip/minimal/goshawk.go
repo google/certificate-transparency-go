@@ -607,6 +607,9 @@ func (o *originLog) updateSTHIfConsistent(ctx context.Context, sth *ct.SignedTre
 		}
 		glog.V(2).Infof("STHRetriever(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 		if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
+			o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
+				fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
+				"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 			glog.Errorf("STHRetriever(%s): failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", o.Name, firstHash, first, secondHash, second, err)
 			return
 		}
