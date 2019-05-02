@@ -270,6 +270,7 @@ func SyntheticGeneratorFactory(testDir, leafNotAfter string) (GeneratorFactory, 
 	return func(c *configpb.LogConfig) (ChainGenerator, error) {
 		notAfter := notAfterOverride
 		if notAfter.IsZero() {
+			var err error
 			notAfter, err = NotAfterForLog(c)
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine notAfter for %s: %v", c.Prefix, err)
