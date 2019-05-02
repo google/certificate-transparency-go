@@ -104,7 +104,10 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 
 	case ed25519.PrivateKey:
 		privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: OIDPublicKeyEd25519}
-		privKey.PrivateKey = MarshalEd25519PrivateKey(k)
+		var err error
+		if privKey.PrivateKey, err = MarshalEd25519PrivateKey(k); err != nil {
+			return nil, fmt.Errorf("x509: failed to marshal Ed25519 private key while building PKCS#8: %v", err)
+		}
 
 	default:
 		return nil, fmt.Errorf("x509: unknown key type while marshalling PKCS#8: %T", key)
@@ -114,20 +117,20 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 }
 
 // MarshalEd25519PrivateKey converts an Ed25519 private key to ASN.1 DER encoded form
-// (as an OCTET STRING holding the key seed).
-func MarshalEd25519PrivateKey(key ed25519.PrivateKey) []byte {
-	b, _ := asn1.Marshal(key.Seed())
-	return b
+// (as an OCTET STRING holding the key seed, as per RFC 8410 section 7).
+func MarshalEd25519PrivateKey(key ed25519.PrivateKey) ([]byte, error) {
+	return asn1.Marshal(key.Seed())
 }
 
-// ParseEd25519PrivateKey returns an Ed25519 private key from its ASN.1 DER encoded form.
+// ParseEd25519PrivateKey returns an Ed25519 private key from its ASN.1 DER encoded form
+// (as an OCTET STRING holding the key seed, as per RFC 8410 section 7).
 func ParseEd25519PrivateKey(der []byte) (ed25519.PrivateKey, error) {
 	var keySeed []byte
 	if _, err := asn1.Unmarshal(der, &keySeed); err != nil {
 		return nil, err
 	}
 	if len(keySeed) != ed25519.SeedSize {
-		return nil, fmt.Errorf("ed25519: bad seed length %d", len(keySeed))
+		return nil, fmt.Errorf("x509: ed25519 seed length should be %d bytes, got %d", ed25519.SeedSize, len(keySeed))
 	}
 	return ed25519.NewKeyFromSeed(keySeed), nil
 }

@@ -84,22 +84,19 @@ func TestParsePKIXPublicKeyEd25519(t *testing.T) {
 	block, _ := pem.Decode([]byte(pemPublicKeyEd25519))
 	pub, err := ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		t.Errorf("Failed to parse Ed25519 public key: %s", err)
-		return
+		t.Fatalf("ParsePKIXPublicKey(Ed25519)=nil,%v; want _,nil", err)
 	}
 	edPub, ok := pub.(ed25519.PublicKey)
 	if !ok {
-		t.Errorf("Value returned from ParsePKIXPublicKey was not an Ed25519 public key")
-		return
+		t.Fatalf("ParsePKIXPublicKey.(ed25519.PublicKey)=nil,%v; want _,true", ok)
 	}
 
 	pubBytes2, err := MarshalPKIXPublicKey(edPub)
 	if err != nil {
-		t.Errorf("Failed to marshal Ed25519 public key for the second time: %s", err)
-		return
+		t.Fatalf("MarshalPKIXPublicKey(Ed25519)=nil,%v; want _,nil", err)
 	}
 	if !bytes.Equal(pubBytes2, block.Bytes) {
-		t.Errorf("Reserialization of public key didn't match. got %x, want %x", pubBytes2, block.Bytes)
+		t.Errorf("MarshalPKIXPublicKey(Ed25519)=%x; want %x", pubBytes2, block.Bytes)
 	}
 }
 
