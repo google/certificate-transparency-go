@@ -236,7 +236,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 	// Distinguish between precerts and certificates.
 	isPrecert, err := ctfe.IsPrecertificate(parsedChain[0])
 	if err != nil {
-		return nil, fmt.Errorf("distributor unable to check certificate: %v", err)
+		return nil, fmt.Errorf("distributor unable to check certificate %v: \n%v", parsedChain[0], err)
 	}
 	if isPrecert != asPreChain {
 		var methodType, inputType string
@@ -246,7 +246,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if isPrecert {
 			inputType = "pre-"
 		}
-		return nil, fmt.Errorf("For add-%s-chain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
+		return nil, fmt.Errorf("For add-%schain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
 	}
 
 	// Set up policy structs.
