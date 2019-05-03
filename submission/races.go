@@ -264,6 +264,11 @@ func completenessError(groupComplete map[string]bool) error {
 // collects SCTs from them.
 // Emits all collected SCTs even when any error produced.
 func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
+	groupComplete := make(map[string]bool)
+	for _, g := range groups {
+		groupComplete[g.Name] = false
+	}
+
 	parallelNums := parallelNums(groups)
 	// channel listening to group-completion (failure) events from each single group-race.
 	groupEvents := make(chan groupState, len(groups))
@@ -274,10 +279,6 @@ func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, grou
 		}(g)
 	}
 
-	// A group name being present in the map indicates that group has
-	// completed processing, and the bool value indicates whether it
-	// completed successfully.
-	groupComplete := make(map[string]bool)
 	// Terminates upon either all logs available are requested or required
 	// number of SCTs is collected or upon context timeout.
 	for i := 0; i < len(groups); i++ {
