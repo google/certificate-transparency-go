@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -160,7 +161,7 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 			status = err.StatusCode
 		}
 	}
-	rspsCounter.Inc(logURL, endpoint, string(status))
+	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
 }
 
 // SubmitToLog implements Submitter interface.
