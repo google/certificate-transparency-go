@@ -102,6 +102,8 @@ func newEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return newRootedStubLogClient(log, map[string][]rootInfo{})
 }
 
+// NewStubLogClient is builder for log-client stubs. Used for dry-runs and
+// testing.
 func NewStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
 }

@@ -79,9 +79,6 @@ var DefaultTransport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }
 
-// Verifier is used to verify Merkle tree calculations.
-var Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
-
 // ClientPool describes an entity which produces LogClient instances.
 type ClientPool interface {
 	// Next returns the next LogClient instance to be used.
@@ -129,6 +126,7 @@ type testInfo struct {
 	adminServer    string
 	stats          *logStats
 	pool           ClientPool
+	verifier       merkle.LogVerifier
 }
 
 func (t *testInfo) checkStats() error {
@@ -163,7 +161,7 @@ func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, m
 	return sth, nil
 }
 
-// checkInclusionOf checks that a given certificate chain and assocated SCT are included
+// checkInclusionOf checks that a given certificate chain and associated SCT are included
 // under a signed tree head.
 func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sct *ct.SignedCertificateTimestamp, sth *ct.SignedTreeHead) error {
 	leaf := ct.MerkleTreeLeaf{
@@ -185,7 +183,7 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+	if err := t.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
@@ -216,7 +214,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
-	if err := Verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+	if err := t.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
@@ -268,6 +266,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		metricsServers: metricsServers,
 		stats:          stats,
 		pool:           pool,
+		verifier:       merkle.NewLogVerifier(rfc6962.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
@@ -326,7 +325,9 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("stats check failed: %v", err)
 	}
-	t.checkInclusionOf(ctx, chain[0], scts[0], sth1)
+	if err := t.checkInclusionOf(ctx, chain[0], scts[0], sth1); err != nil {
+		return err
+	}
 
 	// Stage 2.5: add the same cert, expect an SCT with the same timestamp as before.
 	var sctCopy *ct.SignedCertificateTimestamp
@@ -372,7 +373,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 	if len(proof12) != 1 {
 		return fmt.Errorf("len(proof12)=%d; want 1", len(proof12))
 	}
-	if err := checkCTConsistencyProof(sth1, sth2, proof12); err != nil {
+	if err := t.checkCTConsistencyProof(sth1, sth2, proof12); err != nil {
 		return fmt.Errorf("got CheckCTConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
 	}
 	if err := t.checkStats(); err != nil {
@@ -427,7 +428,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		return fmt.Errorf("got GetSTHConsistency(2, %d)=(nil,%v); want (_,nil)", treeSize, err)
 	}
 	fmt.Printf("%s: Proof size 2->%d: %x\n", t.prefix, treeSize, proof2N)
-	if err := checkCTConsistencyProof(sth2, sthN, proof2N); err != nil {
+	if err := t.checkCTConsistencyProof(sth2, sthN, proof2N); err != nil {
 		return fmt.Errorf("got CheckCTConsistencyProof(sth2,sthN,proof2N)=%v; want nil", err)
 	}
 
@@ -470,7 +471,9 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 
 	// Stage 9: get an audit proof for each certificate we have an SCT for.
 	for i := 1; i <= count; i++ {
-		t.checkInclusionOf(ctx, chain[i], scts[i], sthN)
+		if err := t.checkInclusionOf(ctx, chain[i], scts[i], sthN); err != nil {
+			return err
+		}
 	}
 	fmt.Printf("%s: Got inclusion proofs [1:%d+1]\n", t.prefix, count)
 	if err := t.checkStats(); err != nil {
@@ -629,6 +632,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		adminServer:    adminServer,
 		stats:          stats,
 		pool:           pool,
+		verifier:       merkle.NewLogVerifier(rfc6962.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
@@ -709,7 +713,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	if err != nil {
 		return err
 	}
-	if err := checkCTConsistencyProof(sth1, sth2, proof); err != nil {
+	if err := t.checkCTConsistencyProof(sth1, sth2, proof); err != nil {
 		return err
 	}
 	fmt.Printf("%s: VerifiedConsistency(time=%q, size1=%d, size2=%d): final roothash=%x\n", t.prefix, timeFromMS(sth2.Timestamp), sth1.TreeSize, sth2.TreeSize, sth2.SHA256RootHash)
@@ -812,8 +816,8 @@ func CertsFromPEM(data []byte) []ct.ASN1Cert {
 }
 
 // checkCTConsistencyProof checks the given consistency proof.
-func checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
-	return Verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
+func (t *testInfo) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
+	return t.verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
 		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
@@ -844,8 +848,8 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 }
 
 // MakeSigner creates a signer using the private key in the test directory.
-func MakeSigner(testdir string) (crypto.Signer, error) {
-	key, err := keyspem.ReadPrivateKeyFile(filepath.Join(testdir, "int-ca.privkey.pem"), "babelfish")
+func MakeSigner(testDir string) (crypto.Signer, error) {
+	key, err := keyspem.ReadPrivateKeyFile(filepath.Join(testDir, "int-ca.privkey.pem"), "babelfish")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key for re-signing: %v", err)
 	}
@@ -970,8 +974,8 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 	}
 	defer conn.Close()
 
-	client := trillian.NewTrillianAdminClient(conn)
-	_, err = client.UpdateTree(ctx, req)
+	adminClient := trillian.NewTrillianAdminClient(conn)
+	_, err = adminClient.UpdateTree(ctx, req)
 	if err != nil {
 		return err
 	}

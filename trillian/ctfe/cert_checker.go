@@ -82,13 +82,15 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 	}
 
 	now := validationOpts.currentTime
-	if validationOpts.rejectUnexpired {
-		if now.IsZero() {
-			now = time.Now()
-		}
-		if !now.Before(cert.NotBefore) && !now.After(cert.NotAfter) {
-			return nil, errors.New("only expired certificates are accepted")
-		}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	expired := now.After(cert.NotAfter)
+	if validationOpts.rejectExpired && expired {
+		return nil, errors.New("rejecting expired certificate")
+	}
+	if validationOpts.rejectUnexpired && !expired {
+		return nil, errors.New("rejecting unexpired certificate")
 	}
 
 	// We can now do the verification.  Use fairly lax options for verification, as
@@ -97,7 +99,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		Roots:             validationOpts.trustedRoots.CertPool(),
 		CurrentTime:       now,
 		Intermediates:     intermediatePool.CertPool(),
-		DisableTimeChecks: !validationOpts.rejectExpired,
+		DisableTimeChecks: true,
 		// Precertificates have the poison extension; also the Go library code does not
 		// support the standard PolicyConstraints extension (which is required to be marked
 		// critical, RFC 5280 s4.2.1.11), so never check unhandled critical extensions.

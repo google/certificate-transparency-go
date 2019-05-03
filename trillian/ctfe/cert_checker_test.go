@@ -334,6 +334,9 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 		trustedRoots: fakeCARoots,
 		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
+	beforeValidPeriod := time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC)
+	currentValidPeriod := time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+	afterValidPeriod := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	for _, tc := range []struct {
 		desc            string
@@ -342,39 +345,75 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 		now             time.Time
 		wantErr         string
 	}{
-		{desc: "no-reject"},
+		// No flags: accept anything.
 		{
-			desc:          "reject-expired-pass",
+			desc: "no-reject-current",
+			now:  currentValidPeriod,
+		},
+		{
+			desc: "no-reject-after",
+			now:  afterValidPeriod,
+		},
+		{
+			desc: "no-reject-before",
+			now:  beforeValidPeriod,
+		},
+		// Reject-Expired: only allow currently-valid and not yet valid
+		{
+			desc:          "reject-expired-current",
 			rejectExpired: true,
-			now:           time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:           currentValidPeriod,
 		},
 		{
 			desc:          "reject-expired-after",
 			rejectExpired: true,
-			now:           time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
-			wantErr:       "expired or is not yet valid",
+			now:           afterValidPeriod,
+			wantErr:       "rejecting expired certificate",
 		},
 		{
 			desc:          "reject-expired-before",
 			rejectExpired: true,
-			now:           time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
-			wantErr:       "expired or is not yet valid",
+			now:           beforeValidPeriod,
+		},
+		// Reject-Unexpired: only allow expired
+		{
+			desc:            "reject-non-expired-after",
+			rejectUnexpired: true,
+			now:             afterValidPeriod,
 		},
 		{
-			desc:            "reject-non-expired-pass-after",
+			desc:            "reject-non-expired-before",
 			rejectUnexpired: true,
-			now:             time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:             beforeValidPeriod,
+			wantErr:         "rejecting unexpired certificate",
 		},
 		{
-			desc:            "reject-non-expired-pass-before",
+			desc:            "reject-non-expired-current",
 			rejectUnexpired: true,
-			now:             time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC),
+			now:             currentValidPeriod,
+			wantErr:         "rejecting unexpired certificate",
+		},
+		// Reject-Expired AND Reject-Unexpired: nothing allowed
+		{
+			desc:            "reject-all-after",
+			rejectExpired:   true,
+			rejectUnexpired: true,
+			now:             afterValidPeriod,
+			wantErr:         "rejecting expired certificate",
 		},
 		{
-			desc:            "reject-non-expired",
+			desc:            "reject-all-before",
+			rejectExpired:   true,
 			rejectUnexpired: true,
-			now:             time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC),
-			wantErr:         "only expired certificates",
+			now:             beforeValidPeriod,
+			wantErr:         "rejecting unexpired certificate",
+		},
+		{
+			desc:            "reject-all-current",
+			rejectExpired:   true,
+			rejectUnexpired: true,
+			now:             currentValidPeriod,
+			wantErr:         "rejecting unexpired certificate",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

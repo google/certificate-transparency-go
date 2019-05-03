@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509/pkix"
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestParsePKCS1PrivateKey(t *testing.T) {
@@ -78,6 +79,31 @@ func TestParsePKIXPublicKey(t *testing.T) {
 		t.Errorf("Reserialization of public key didn't match. got %x, want %x", pubBytes2, block.Bytes)
 	}
 }
+
+func TestParsePKIXPublicKeyEd25519(t *testing.T) {
+	block, _ := pem.Decode([]byte(pemPublicKeyEd25519))
+	pub, err := ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("ParsePKIXPublicKey(Ed25519)=nil,%v; want _,nil", err)
+	}
+	edPub, ok := pub.(ed25519.PublicKey)
+	if !ok {
+		t.Fatalf("ParsePKIXPublicKey.(ed25519.PublicKey)=nil,%v; want _,true", ok)
+	}
+
+	pubBytes2, err := MarshalPKIXPublicKey(edPub)
+	if err != nil {
+		t.Fatalf("MarshalPKIXPublicKey(Ed25519)=nil,%v; want _,nil", err)
+	}
+	if !bytes.Equal(pubBytes2, block.Bytes) {
+		t.Errorf("MarshalPKIXPublicKey(Ed25519)=%x; want %x", pubBytes2, block.Bytes)
+	}
+}
+
+// From RFC 8410 section 10.1.
+var pemPublicKeyEd25519 = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=
+-----END PUBLIC KEY-----`
 
 var pemPublicKey = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3VoPN9PKUjKFLMwOge6+

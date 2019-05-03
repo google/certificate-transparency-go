@@ -1,11 +1,11 @@
-FROM golang:1.10 as build
+FROM golang:1.11 as build
 
 ADD . /go/src/github.com/google/certificate-transparency-go
 WORKDIR /go/src/github.com/google/certificate-transparency-go
 
 ARG GOFLAGS=""
 
-RUN go get -v ${GOFLAGS} ./gossip/minimal/gosmin
+RUN go get -v ./gossip/minimal/gosmin
 
 FROM gcr.io/distroless/base
 

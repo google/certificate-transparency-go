@@ -205,9 +205,9 @@ type CertValidationOpts struct {
 	// currentTime is the time used for checking a certificate's validity period
 	// against. If it's zero then time.Now() is used. Only for testing.
 	currentTime time.Time
-	// rejectExpired indicates whether certificate validity period should be used during chain verification
+	// rejectExpired indicates that expired certificates will be rejected.
 	rejectExpired bool
-	// rejectUnexpired instructs to reject certificates that are still valid.
+	// rejectUnexpired indicates that certificates that are currently valid or not yet valid will be rejected.
 	rejectUnexpired bool
 	// notAfterStart is the earliest notAfter date which will be accepted.
 	// nil means no lower bound on the accepted range.

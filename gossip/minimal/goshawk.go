@@ -36,6 +36,7 @@ import (
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/monologue/incident"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
 
@@ -66,6 +67,9 @@ type FetchOptions struct {
 	// Manage hub retrieval state persistence.
 	State         ScanStateManager
 	FlushInterval time.Duration
+	// Mechanism for reporting compliance incidents.  If unset, a
+	// LoggingReporter will be used.
+	Reporter incident.Reporter
 }
 
 // ScanStateManager controls hub scanning state, with the intention of allowing
@@ -195,6 +199,7 @@ func (f *FileStateManager) Flush(ctx context.Context) error {
 }
 
 type originLog struct {
+	reporter incident.Reporter
 	logConfig
 	sigAlgo tls.SignatureAlgorithm
 
@@ -367,6 +372,9 @@ func NewBoundaryGoshawk(_ context.Context, cfg *configpb.GoshawkConfig, hcLog, h
 	if fetchOpts.FlushInterval == 0 {
 		fetchOpts.FlushInterval = 10 * time.Minute
 	}
+	if fetchOpts.Reporter == nil {
+		fetchOpts.Reporter = &incident.LoggingReporter{}
+	}
 
 	hawk := Goshawk{
 		dests:     make(map[string]*hubScanner),
@@ -415,6 +423,7 @@ func NewBoundaryGoshawk(_ context.Context, cfg *configpb.GoshawkConfig, hcLog, h
 		}
 
 		hawk.origins[base.URL] = &originLog{
+			reporter:  hawk.fetchOpts.Reporter,
 			logConfig: *base,
 			sigAlgo:   sigAlgo,
 			sths:      make(chan *x509ext.LogSTHInfo, cfg.BufferSize),
@@ -535,6 +544,9 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 		TreeHeadSignature: sthInfo.TreeHeadSignature,
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
+		o.reporter.Logf(ctx, o.URL, "STH signature verification failure", "signature",
+			fmt.Sprintf("%s%s", o.URL, ct.GetSTHPath),
+			"sthInfo=%+v", sthInfo)
 		return fmt.Errorf("failed to validate STH signature: %v", err)
 	}
 
@@ -552,11 +564,17 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	}
 	proof, err := o.Log.GetSTHConsistency(ctx, first, second)
 	if err != nil {
+		o.reporter.Logf(ctx, o.URL, "STH consistency retrieval failure", "get",
+			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
+			"err=%s", expandRspError(err))
 		return err
 	}
 	glog.V(2).Infof("Checker(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
+		o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
+			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
+			"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 		return fmt.Errorf("failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
 	}
 	glog.Infof("Checker(%s): verified that hash %x @%d + proof = hash %x @%d\n", o.Name, firstHash, first, secondHash, second)
@@ -589,6 +607,9 @@ func (o *originLog) updateSTHIfConsistent(ctx context.Context, sth *ct.SignedTre
 		}
 		glog.V(2).Infof("STHRetriever(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 		if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
+			o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
+				fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
+				"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 			glog.Errorf("STHRetriever(%s): failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", o.Name, firstHash, first, secondHash, second, err)
 			return
 		}

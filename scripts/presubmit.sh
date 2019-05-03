@@ -87,13 +87,8 @@ main() {
   fi
 
   if [[ "${run_build}" -eq 1 ]]; then
-    local goflags=''
-    if [[ "${GOFLAGS:+x}" ]]; then
-      goflags="${GOFLAGS}"
-    fi
-
     echo 'running go build'
-    go build ${goflags} ./...
+    go build ./...
 
     echo 'running go test'
 
@@ -125,7 +120,7 @@ main() {
           -short \
           -timeout=${GO_TEST_TIMEOUT:-5m} \
           ${coverflags} \
-          ${goflags} "$d"
+          "$d"
     done | xargs -I '{}' -P ${GO_TEST_PARALLELISM:-10} bash -c '{}'
 
     [[ ${coverage} -eq 1 ]] && \
@@ -148,9 +143,7 @@ main() {
 
     echo 'running go generate'
     go generate -run="protoc" ./...
-    # TODO(daviddrysdale): re-enable mockgen generation once other environments
-    # have caught up with non-back-compatible changes to github.com/golang/mock
-    # go generate -run="mockgen" ./...
+    go generate -run="mockgen" ./...
   fi
 }
 
