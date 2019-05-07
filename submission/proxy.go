@@ -24,6 +24,7 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian/monitoring"
 )
 
@@ -59,6 +60,10 @@ type Proxy struct {
 	llRefreshInterval    time.Duration
 	rootsRefreshInterval time.Duration
 
+	// latest unconfirmed Log-list update. To be confirmed for production
+	llUpdate *loglist.LogList
+	llUpdateMu sync.RWMutex // guards recent uncomfirmed Log-list update
+
 	llWatcher          LogListRefresher
 	distributorBuilder DistributorBuilder
 
@@ -74,6 +79,7 @@ func NewProxy(llr LogListRefresher, db DistributorBuilder) *Proxy {
 	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
+
 
 	return &p
 }
@@ -98,8 +104,26 @@ func (p *Proxy) RefreshLogList(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = p.restartDistributor(ctx, ll); err != nil {
-		p.Errors <- err
+
+	p.distMu.RLock()
+	// Initializing distributor first time, no confirmation required.
+	if p.dist == nil || p.dist.ll == nil {
+		p.distMu.RUnlock()
+		if err = p.restartDistributor(ctx, ll); err != nil {
+			p.Errors <- err
+		}
+		return nil
+	}
+
+	// Write down the update for further confirmation.
+	p.llUpdateMu.Lock()
+	defer p.llUpdateMu.Unlock()
+	if len(cmp.Diff(ll, p.dist.ll)) > 0 {
+		p.distMu.RUnlock()
+		p.llUpdate = ll
+	} else {
+		p.distMu.RUnlock()
+		p.llUpdate = nil
 	}
 	return nil
 }
@@ -130,6 +154,21 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist.LogList) err
 	}
 	p.dist = d
 	p.distCancel = refreshCancel
+	return nil
+}
+
+// ConfrimLogListUpdate tries setting most recent Log list update as active.
+// Returns error when Distributor cannot be initialized with that Log list.
+func (p *Proxy) ConfirmLogListUpdate(ctx context.Context) error {
+	p.llUpdateMu.Lock()
+	defer p.llUpdateMu.Unlock()
+	if p.llUpdate == nil {
+		return nil
+	}
+	if err := p.restartDistributor(ctx, p.llUpdate); err != nil {
+		return err
+	}
+	p.llUpdate = nil
 	return nil
 }
 
