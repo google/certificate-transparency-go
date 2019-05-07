@@ -61,7 +61,7 @@ type Proxy struct {
 	rootsRefreshInterval time.Duration
 
 	// latest unconfirmed Log-list update. To be confirmed for production
-	llUpdate *loglist.LogList
+	llUpdate   *loglist.LogList
 	llUpdateMu sync.RWMutex // guards recent uncomfirmed Log-list update
 
 	llWatcher          LogListRefresher
@@ -79,7 +79,6 @@ func NewProxy(llr LogListRefresher, db DistributorBuilder) *Proxy {
 	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
-
 
 	return &p
 }
