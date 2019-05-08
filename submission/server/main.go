@@ -25,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/submission"
 	"github.com/google/trillian/monitoring/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Flags.
@@ -63,6 +64,7 @@ func main() {
 	s.Run(*logListRefreshInterval, *rootsRefreshInterval)
 	http.HandleFunc("/ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain)
 	http.HandleFunc("/ct/v1/proxy/add-chain/", s.HandleAddChain)
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/", s.HandleInfo)
 	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
 }
