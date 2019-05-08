@@ -35,7 +35,7 @@ const (
 
 // Submitter is interface wrapping Log-request-response cycle and any processing.
 type Submitter interface {
-	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error)
+	SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert, asPreChain bool) (*ct.SignedCertificateTimestamp, error)
 }
 
 // submissionResult holds outcome of a single-log submission.
@@ -168,7 +168,8 @@ func postInterval(idx int, parallelStart int, dur time.Duration) time.Duration {
 
 // groupRace shuffles logs within the group, submits avoiding
 // duplicate-requests and collects responses.
-func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGroupInfo, parallelStart int,
+func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
+	group *ctpolicy.LogGroupInfo, parallelStart int,
 	state *safeSubmissionState, submitter Submitter) groupState {
 	groupURLs := make([]string, 0, len(group.LogURLs))
 	for logURL := range group.LogURLs {
@@ -202,7 +203,7 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, group *ctpolicy.LogGrou
 			if firstRequested := state.request(logURL, cancel); !firstRequested {
 				return
 			}
-			sct, err := submitter.SubmitToLog(subCtx, logURL, chain)
+			sct, err := submitter.SubmitToLog(subCtx, logURL, chain, asPreChain)
 			// TODO(Mercurrent): verify SCT
 			state.setResult(logURL, sct, err)
 		}(i, groupURLs[urlNum])
@@ -263,7 +264,7 @@ func completenessError(groupComplete map[string]bool) error {
 // GetSCTs picks required number of Logs according to policy-group logic and
 // collects SCTs from them.
 // Emits all collected SCTs even when any error produced.
-func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
+func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, asPreChain bool, groups ctpolicy.LogPolicyData) ([]*AssignedSCT, error) {
 	groupComplete := make(map[string]bool)
 	for _, g := range groups {
 		groupComplete[g.Name] = false
@@ -275,7 +276,7 @@ func GetSCTs(ctx context.Context, submitter Submitter, chain []ct.ASN1Cert, grou
 	submissions := newSafeSubmissionState(groups)
 	for _, g := range groups {
 		go func(g *ctpolicy.LogGroupInfo) {
-			groupEvents <- groupRace(ctx, chain, g, parallelNums[g.Name], submissions, submitter)
+			groupEvents <- groupRace(ctx, chain, asPreChain, g, parallelNums[g.Name], submissions, submitter)
 		}(g)
 	}
 

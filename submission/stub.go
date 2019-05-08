@@ -38,7 +38,10 @@ type stubLogClient struct {
 }
 
 func (m stubLogClient) AddChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {
-	return nil, nil
+	if _, ok := m.rootsCerts[m.logURL]; ok {
+		return testSCT(m.logURL), nil
+	}
+	return nil, fmt.Errorf("log %q has no roots", m.logURL)
 }
 
 func (m stubLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.SignedCertificateTimestamp, error) {

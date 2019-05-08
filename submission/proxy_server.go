@@ -60,8 +60,9 @@ func marshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	return json.Marshal(jsonSCTsObj)
 }
 
-// HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
-func (s *ProxyServer) HandleAddPreChain(w http.ResponseWriter, r *http.Request) {
+// handleAddSomeChain is helper func choosing between AddChain and AddPreChain
+// based on asPreChain value
+func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request, asPreChain bool) {
 	if r.Method != http.MethodPost {
 		http.NotFound(w, r)
 		return
@@ -69,18 +70,27 @@ func (s *ProxyServer) HandleAddPreChain(w http.ResponseWriter, r *http.Request) 
 	addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
 	if err != nil {
 		rc := http.StatusBadRequest
-		http.Error(w, fmt.Sprintf("proxy: failed to parse add-pre-chain body: %s", err), rc)
+		pre := ""
+		if asPreChain {
+			pre = "pre-"
+		}
+		http.Error(w, fmt.Sprintf("proxy: failed to parse add-%schain body: %s", pre, err), rc)
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), s.addTimeout)
 	defer cancel()
 
-	scts, err := s.p.AddPreChain(ctx, addChainReq.Chain)
+	var scts []*AssignedSCT
+	if asPreChain {
+		scts, err = s.p.AddPreChain(ctx, addChainReq.Chain)
+	} else {
+		scts, err = s.p.AddChain(ctx, addChainReq.Chain)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
+
 	data, err := marshalSCTs(scts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -88,6 +98,16 @@ func (s *ProxyServer) HandleAddPreChain(w http.ResponseWriter, r *http.Request) 
 	}
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, string(data))
+}
+
+// HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
+func (s *ProxyServer) HandleAddPreChain(w http.ResponseWriter, r *http.Request) {
+	s.handleAddSomeChain(w, r, true /* asPreChain*/)
+}
+
+// HandleAddChain handles multiplexed add-chain HTTP request.
+func (s *ProxyServer) HandleAddChain(w http.ResponseWriter, r *http.Request) {
+	s.handleAddSomeChain(w, r, false /* asPreChain*/)
 }
 
 func stringToHTML(s string) template.HTML {

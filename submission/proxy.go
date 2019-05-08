@@ -140,3 +140,11 @@ func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*Assigned
 	}
 	return p.dist.AddPreChain(ctx, rawChain)
 }
+
+// AddChain passes call to underlying Distributor instance.
+func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+	if p.dist == nil {
+		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
+	}
+	return p.dist.AddChain(ctx, rawChain)
+}
