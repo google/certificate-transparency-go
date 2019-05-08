@@ -1,0 +1,11 @@
+global:
+  scrape_interval:     15s
+  external_labels:
+    monitor: 'proxy-monitor'
+
+scrape_configs:
+  - job_name: 'submission-proxy'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:5951']  # mathes default for proxy
+      
