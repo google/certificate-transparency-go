@@ -1,4 +1,18 @@
-// Package main sends multiple add-pre-chain requests to Submission proxy at the same time.
+// Copyright 2019 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Hammer tool sends multiple add-pre-chain requests to Submission proxy at the same time.
 package main
 
 import (
@@ -58,12 +72,12 @@ func main() {
 	}
 
 	ticker := time.NewTicker(time.Second)
-	left_to_send := *count
-	left_to_receive := *count
+	leftToSend := *count
+	leftToReceive := *count
 	mu := sync.Mutex{}
 	// If count flag is not set, send *qps requests each second until *timeout.
 	if *count <= 0 {
-		left_to_send = int(*timeout / time.Second)
+		leftToSend = int(*timeout / time.Second)
 	}
 
 	for {
@@ -72,12 +86,12 @@ func main() {
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			batch_size := *qps
-			if left_to_send < *qps {
-				batch_size = left_to_send
+			batchSize := *qps
+			if leftToSend < *qps {
+				batchSize = leftToSend
 			}
-			left_to_send -= batch_size
-			for i := 0; i < batch_size; i++ {
+			leftToSend -= batchSize
+			for i := 0; i < batchSize; i++ {
 				fmt.Printf("%v\n", i)
 				go func() {
 					resp, err := http.Post(*proxyEndpoint+"ct/v1/proxy/add-pre-chain/", "application/json", bytes.NewBuffer(postBody))
@@ -86,14 +100,14 @@ func main() {
 					}
 					var scts submission.SCTBatch
 					err = json.NewDecoder(resp.Body).Decode(&scts)
-					if err != nil  {
+					if err != nil {
 						log.Fatalf("Unable to decode response %v\n", err)
 					}
 					fmt.Printf("%v\n", scts)
 					mu.Lock()
 					defer mu.Unlock()
-					left_to_receive -= 1
-					if left_to_receive == 0 {
+					leftToReceive--
+					if leftToReceive == 0 {
 						cancel()
 					}
 				}()
