@@ -37,7 +37,7 @@ import (
 var (
 	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port)")
 	timeout       = flag.Duration("duration", 0*time.Minute, "Time to run continuous flow of submissions")
-	count         = flag.Int("count", 1, "Total number of submissions to execute")
+	count         = flag.Int("count", 10, "Total number of submissions to execute")
 	qps           = flag.Int("qps", 5, "Number of requests per second")
 )
 
@@ -79,20 +79,16 @@ func main() {
 	if *count <= 0 {
 		leftToSend = int(*timeout / time.Second)
 	}
+	var batchSize int
 
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			batchSize := *qps
+	go func() {
+		for range ticker.C {
+			batchSize = *qps
 			if leftToSend < *qps {
 				batchSize = leftToSend
 			}
 			leftToSend -= batchSize
 			for i := 0; i < batchSize; i++ {
-				fmt.Printf("%v\n", i)
 				go func() {
 					resp, err := http.Post(*proxyEndpoint+"ct/v1/proxy/add-pre-chain/", "application/json", bytes.NewBuffer(postBody))
 					if err != nil {
@@ -104,6 +100,7 @@ func main() {
 						log.Fatalf("Unable to decode response %v\n", err)
 					}
 					fmt.Printf("%v\n", scts)
+
 					mu.Lock()
 					defer mu.Unlock()
 					leftToReceive--
@@ -112,6 +109,12 @@ func main() {
 					}
 				}()
 			}
+
 		}
+	}()
+
+	for range ctx.Done() {
+		ticker.Stop()
+		return
 	}
 }
