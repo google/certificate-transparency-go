@@ -25,14 +25,16 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/submission"
 )
 
-// Default number of submissions is explicitly low.
+// Default number of submissions is intentionally low.
 // After several runs, likely to hit Log rate-limits.
 var (
 	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port)")
@@ -42,14 +44,17 @@ var (
 )
 
 func main() {
-	wd, _ := os.Getwd()
-	certData, err := ioutil.ReadFile(wd + "/submission/hammer/testdata/precert.der")
+	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("%v\n", err)
+		log.Fatal(err)
 	}
-	interimData, err := ioutil.ReadFile(wd + "/submission/hammer/testdata/interim.der")
+	certData, err := ioutil.ReadFile(filepath.Join(wd, "/submission/hammer/testdata/precert.der"))
 	if err != nil {
-		log.Fatalf("%v\n", err)
+		log.Fatal(err)
+	}
+	interimData, err := ioutil.ReadFile(filepath.Join(wd, "/submission/hammer/testdata/interim.der"))
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	var req ct.AddChainRequest
@@ -67,54 +72,45 @@ func main() {
 	if *timeout > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), *timeout)
 	} else if *count <= 0 {
-		// Both restrictions set to 0. Nothing to run.
+		log.Print("Both timeout and count flags set to 0. No submissions to be sent.")
 		return
 	}
 
-	ticker := time.NewTicker(time.Second)
 	leftToSend := *count
-	leftToReceive := *count
-	mu := sync.Mutex{}
 	// If count flag is not set, send *qps requests each second until *timeout.
 	if *count <= 0 {
 		leftToSend = int(*timeout / time.Second)
 	}
 	var batchSize int
 
-	go func() {
-		for range ticker.C {
-			batchSize = *qps
-			if leftToSend < *qps {
-				batchSize = leftToSend
-			}
-			leftToSend -= batchSize
-			for i := 0; i < batchSize; i++ {
-				go func() {
-					resp, err := http.Post(*proxyEndpoint+"ct/v1/proxy/add-pre-chain/", "application/json", bytes.NewBuffer(postBody))
-					if err != nil {
-						log.Fatalf("http.Post(add-pre-chain)=(_,%q); want (_,nil)", err)
-					}
-					var scts submission.SCTBatch
-					err = json.NewDecoder(resp.Body).Decode(&scts)
-					if err != nil {
-						log.Fatalf("Unable to decode response %v\n", err)
-					}
-					fmt.Printf("%v\n", scts)
-
-					mu.Lock()
-					defer mu.Unlock()
-					leftToReceive--
-					if leftToReceive == 0 {
-						cancel()
-					}
-				}()
-			}
-
+	schedule.Every(ctx, time.Second, func(ctx context.Context) {
+		batchSize = *qps
+		if leftToSend < *qps {
+			batchSize = leftToSend
 		}
-	}()
-
-	for range ctx.Done() {
-		ticker.Stop()
-		return
-	}
+		leftToSend -= batchSize
+		if batchSize == 0 {
+			cancel()
+		}
+		var wg sync.WaitGroup
+		wg.Add(batchSize)
+		for i := 0; i < batchSize; i++ {
+			go func() {
+				url := *proxyEndpoint + "ct/v1/proxy/add-pre-chain/"
+				resp, err := http.Post(url, "application/json", bytes.NewBuffer(postBody))
+				if err != nil {
+					log.Fatalf("http.Post(%s)=(_,%q); want (_,nil)", url, err)
+				}
+				defer resp.Body.Close()
+				var scts submission.SCTBatch
+				err = json.NewDecoder(resp.Body).Decode(&scts)
+				if err != nil {
+					log.Fatalf("Unable to decode response: %v", err)
+				}
+				fmt.Printf("%v\n", scts)
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+	})
 }
