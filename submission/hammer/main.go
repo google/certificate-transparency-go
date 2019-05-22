@@ -38,9 +38,11 @@ import (
 // After several runs, likely to hit Log rate-limits.
 var (
 	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port)")
-	timeout       = flag.Duration("duration", 0*time.Minute, "Time to run continuous flow of submissions")
-	count         = flag.Int("count", 10, "Total number of submissions to execute")
-	qps           = flag.Int("qps", 5, "Number of requests per second")
+	timeout       = flag.Duration("duration", 0*time.Minute, "Time to run continuous flow of submissions. "+
+		"When this and count-flag both have non-zero values, submission ends upon reaching earliest restriction")
+	count = flag.Int("count", 10, "Total number of submissions to execute. "+
+		"When this and timeout-flag both have non-zero values, submission ends upon reaching earliest restriction")
+	qps = flag.Int("qps", 5, "Number of requests per second")
 )
 
 func main() {
