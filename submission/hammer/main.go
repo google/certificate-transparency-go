@@ -24,8 +24,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -39,22 +37,18 @@ import (
 var (
 	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port)")
 	timeout       = flag.Duration("duration", 0*time.Minute, "Time to run continuous flow of submissions. "+
-		"When this and count-flag both have non-zero values, submission ends upon reaching earliest restriction")
+		"When this and --count both have non-zero values, submission ends upon reaching earliest restriction")
 	count = flag.Int("count", 10, "Total number of submissions to execute. "+
-		"When this and timeout-flag both have non-zero values, submission ends upon reaching earliest restriction")
+		"When this and --duration both have non-zero values, submission ends upon reaching earliest restriction")
 	qps = flag.Int("qps", 5, "Number of requests per second")
 )
 
 func main() {
-	wd, err := os.Getwd()
+	certData, err := ioutil.ReadFile("submission/hammer/testdata/precert.der")
 	if err != nil {
 		log.Fatal(err)
 	}
-	certData, err := ioutil.ReadFile(filepath.Join(wd, "/submission/hammer/testdata/precert.der"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	interimData, err := ioutil.ReadFile(filepath.Join(wd, "/submission/hammer/testdata/interim.der"))
+	interimData, err := ioutil.ReadFile("submission/hammer/testdata/intermediate.der")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +75,7 @@ func main() {
 	leftToSend := *count
 	// If count flag is not set, send *qps requests each second until *timeout.
 	if *count <= 0 {
-		leftToSend = int(*timeout / time.Second)
+		leftToSend = int(*timeout/time.Second) * *qps
 	}
 	var batchSize int
 
@@ -107,7 +101,7 @@ func main() {
 				var scts submission.SCTBatch
 				err = json.NewDecoder(resp.Body).Decode(&scts)
 				if err != nil {
-					log.Fatalf("Unable to decode response: %v", err)
+					log.Fatalf("Unable to decode response: %v\n%v", err, resp.Body)
 				}
 				fmt.Printf("%v\n", scts)
 				wg.Done()
