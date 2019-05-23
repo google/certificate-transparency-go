@@ -35,7 +35,7 @@ import (
 // Default number of submissions is intentionally low.
 // After several runs, likely to hit Log rate-limits.
 var (
-	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port)")
+	proxyEndpoint = flag.String("proxy_endpoint", "http://localhost:5951/", "Endpoint for HTTP (host:port). Final slash is expected")
 	timeout       = flag.Duration("duration", 0*time.Minute, "Time to run continuous flow of submissions. "+
 		"When this and --count both have non-zero values, submission ends upon reaching earliest restriction")
 	count = flag.Int("count", 10, "Total number of submissions to execute. "+
@@ -101,7 +101,11 @@ func main() {
 				var scts submission.SCTBatch
 				err = json.NewDecoder(resp.Body).Decode(&scts)
 				if err != nil {
-					log.Fatalf("Unable to decode response: %v\n%v", err, resp.Body)
+					responseData, err := ioutil.ReadAll(resp.Body)
+					if err != nil {
+						log.Fatalf("Unable to parse response: %v", err)
+					}
+					log.Fatalf("Unable to decode response: %v\n%v", err, responseData)
 				}
 				fmt.Printf("%v\n", scts)
 				wg.Done()
