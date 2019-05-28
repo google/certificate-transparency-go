@@ -9,5 +9,5 @@
 ignore:
   - "**/mock_*.go"
   - "**/testonly"
-  - "trillian/integration/**"
-  - "vendor/**/*"
+  - "trillian/integration"
+  - "vendor"
