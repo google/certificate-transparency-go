@@ -2044,16 +2044,34 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 // The parsed data is returned in a Certificate struct for ease of access.
 func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 	var tbsCert tbsCertificate
+	var nfe NonFatalErrors
+	var laxErr error
 	rest, err := asn1.Unmarshal(asn1Data, &tbsCert)
 	if err != nil {
-		return nil, err
+		rest, laxErr = asn1.UnmarshalWithParams(asn1Data, &tbsCert, "lax")
+		if laxErr != nil {
+			return nil, laxErr
+		}
+		nfe.AddError(err)
 	}
 	if len(rest) > 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
-	return parseCertificate(&certificate{
+	ret, err := parseCertificate(&certificate{
 		Raw:            tbsCert.Raw,
 		TBSCertificate: tbsCert})
+	if err != nil {
+		var errs NonFatalErrors
+		var ok bool
+		if errs, ok = err.(NonFatalErrors); !ok {
+			return nil, err
+		}
+		nfe.Errors = append(nfe.Errors, errs.Errors...)
+	}
+	if nfe.HasError() {
+		return ret, nfe
+	}
+	return ret, nil
 }
 
 // ParseCertificate parses a single certificate from the given ASN.1 DER data.
@@ -2061,15 +2079,32 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 // error will be of type NonFatalErrors).
 func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	var cert certificate
+	var nfe NonFatalErrors
+	var laxErr error
 	rest, err := asn1.Unmarshal(asn1Data, &cert)
 	if err != nil {
-		return nil, err
+		rest, laxErr = asn1.UnmarshalWithParams(asn1Data, &cert, "lax")
+		if laxErr != nil {
+			return nil, laxErr
+		}
+		nfe.AddError(err)
 	}
 	if len(rest) > 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
-
-	return parseCertificate(&cert)
+	ret, err := parseCertificate(&cert)
+	if err != nil {
+		var errs NonFatalErrors
+		var ok bool
+		if errs, ok = err.(NonFatalErrors); !ok {
+			return nil, err
+		}
+		nfe.Errors = append(nfe.Errors, errs.Errors...)
+	}
+	if nfe.HasError() {
+		return ret, nfe
+	}
+	return ret, nil
 }
 
 // ParseCertificates parses one or more certificates from the given ASN.1 DER
@@ -2078,27 +2113,33 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 // case the error will be of type NonFatalErrors).
 func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 	var v []*certificate
+	var nfe NonFatalErrors
+	var laxErr error
 
 	for len(asn1Data) > 0 {
 		cert := new(certificate)
 		var err error
 		asn1Data, err = asn1.Unmarshal(asn1Data, cert)
 		if err != nil {
-			return nil, err
+			asn1Data, laxErr = asn1.UnmarshalWithParams(asn1Data, &cert, "lax")
+			if laxErr != nil {
+				return nil, laxErr
+			}
+			nfe.AddError(err)
 		}
 		v = append(v, cert)
 	}
 
-	var nfe NonFatalErrors
 	ret := make([]*Certificate, len(v))
 	for i, ci := range v {
 		cert, err := parseCertificate(ci)
 		if err != nil {
-			if errs, ok := err.(NonFatalErrors); !ok {
+			var errs NonFatalErrors
+			var ok bool
+			if errs, ok = err.(NonFatalErrors); !ok {
 				return nil, err
-			} else {
-				nfe.Errors = append(nfe.Errors, errs.Errors...)
 			}
+			nfe.Errors = append(nfe.Errors, errs.Errors...)
 		}
 		ret[i] = cert
 	}
