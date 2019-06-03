@@ -2045,9 +2045,9 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 	var tbsCert tbsCertificate
 	var nfe NonFatalErrors
-	var laxErr error
 	rest, err := asn1.Unmarshal(asn1Data, &tbsCert)
 	if err != nil {
+		var laxErr error
 		rest, laxErr = asn1.UnmarshalWithParams(asn1Data, &tbsCert, "lax")
 		if laxErr != nil {
 			return nil, laxErr
@@ -2061,9 +2061,8 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 		Raw:            tbsCert.Raw,
 		TBSCertificate: tbsCert})
 	if err != nil {
-		var errs NonFatalErrors
-		var ok bool
-		if errs, ok = err.(NonFatalErrors); !ok {
+		errs, ok := err.(NonFatalErrors)
+		if !ok {
 			return nil, err
 		}
 		nfe.Errors = append(nfe.Errors, errs.Errors...)
@@ -2080,9 +2079,9 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	var cert certificate
 	var nfe NonFatalErrors
-	var laxErr error
 	rest, err := asn1.Unmarshal(asn1Data, &cert)
 	if err != nil {
+		var laxErr error
 		rest, laxErr = asn1.UnmarshalWithParams(asn1Data, &cert, "lax")
 		if laxErr != nil {
 			return nil, laxErr
@@ -2114,13 +2113,13 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 	var v []*certificate
 	var nfe NonFatalErrors
-	var laxErr error
 
 	for len(asn1Data) > 0 {
 		cert := new(certificate)
 		var err error
 		asn1Data, err = asn1.Unmarshal(asn1Data, cert)
 		if err != nil {
+			var laxErr error
 			asn1Data, laxErr = asn1.UnmarshalWithParams(asn1Data, &cert, "lax")
 			if laxErr != nil {
 				return nil, laxErr
