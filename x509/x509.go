@@ -2093,9 +2093,8 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	}
 	ret, err := parseCertificate(&cert)
 	if err != nil {
-		var errs NonFatalErrors
-		var ok bool
-		if errs, ok = err.(NonFatalErrors); !ok {
+		errs, ok := err.(NonFatalErrors)
+		if !ok {
 			return nil, err
 		}
 		nfe.Errors = append(nfe.Errors, errs.Errors...)
@@ -2133,9 +2132,8 @@ func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 	for i, ci := range v {
 		cert, err := parseCertificate(ci)
 		if err != nil {
-			var errs NonFatalErrors
-			var ok bool
-			if errs, ok = err.(NonFatalErrors); !ok {
+			errs, ok := err.(NonFatalErrors)
+			if !ok {
 				return nil, err
 			}
 			nfe.Errors = append(nfe.Errors, errs.Errors...)
