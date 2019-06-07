@@ -43,7 +43,7 @@ install:
   # install vendored etcd binary
   - go get -u ./vendor/github.com/coreos/etcd/cmd/etcd
   - go get -u ./vendor/github.com/coreos/etcd/cmd/etcdctl
-  - pushd ${GOPATH}/src/github.com/google/trillian
+  - pushd $(go list -f '{{ .Dir }}' github.com/google/trillian)
   - go get -d -t ./...
   - popd
 
