@@ -7,6 +7,9 @@ go_import_path: github.com/google/certificate-transparency-go
 
 
 env:
+  global:
+  - GO111MODULE=on
+  matrix:
   - GOFLAGS=
   - GOFLAGS=-race
   - GOFLAGS=      WITH_ETCD=true WITH_COVERAGE=true
@@ -14,6 +17,10 @@ env:
 
 matrix:
   fast_finish: true
+
+cache:
+  directories:
+    - "$HOME/gopath/pkg/mod"
 
 services:
   - docker
