@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-. "${GOPATH}"/src/github.com/google/trillian/integration/functions.sh
+. "$(go list -f '{{ .Dir }}' github.com/google/trillian)"/integration/functions.sh
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 . "${INTEGRATION_DIR}"/ct_functions.sh
 
@@ -23,7 +23,7 @@ TO_KILL+=(${ETCDISCOVER_PID})
 TO_DELETE="${TO_DELETE} ${CT_CFG} ${CT_LIFECYCLE_CFG} ${CT_COMBINED_CONFIG}"
 TO_KILL+=(${CT_SERVER_PIDS[@]})
 
-COMMON_ARGS="--ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata"
+COMMON_ARGS="--ct_http_servers=${CT_SERVERS} --ct_metrics_servers=${CT_METRICS_SERVERS} --testdata_dir="$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go)"/trillian/testdata"
 
 echo "Running test(s)"
 pushd "${INTEGRATION_DIR}"
