@@ -59,7 +59,7 @@ type Proxy struct {
 	llRefreshInterval    time.Duration
 	rootsRefreshInterval time.Duration
 
-	llWatcher          LogListRefresher
+	llWatcher          *LogListManager
 	distributorBuilder DistributorBuilder
 
 	distMu     sync.RWMutex // guards the distributor
@@ -68,9 +68,9 @@ type Proxy struct {
 }
 
 // NewProxy creates an inactive Proxy instance. Call Run() to activate.
-func NewProxy(llr LogListRefresher, db DistributorBuilder) *Proxy {
+func NewProxy(llm *LogListManager, db DistributorBuilder) *Proxy {
 	var p Proxy
-	p.llWatcher = llr
+	p.llWatcher = llm
 	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
@@ -82,26 +82,22 @@ func NewProxy(llr LogListRefresher, db DistributorBuilder) *Proxy {
 func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
 	p.llRefreshInterval = llRefresh
 	p.rootsRefreshInterval = rootsRefresh
-	go schedule.Every(ctx, p.llRefreshInterval, func(ctx context.Context) {
-		if err := p.RefreshLogList(ctx); err != nil {
-			p.Errors <- err
-		}
-	})
-}
+	p.llWatcher.Run(ctx, llRefresh)
 
-// RefreshLogList reads Log List one time and runs updates if necessary.
-func (p *Proxy) RefreshLogList(ctx context.Context) error {
-	if p.llWatcher == nil {
-		return fmt.Errorf("proxy has no log-list watcher to refresh Log List")
-	}
-	ll, err := p.llWatcher.Refresh()
-	if err != nil {
-		return err
-	}
-	if err = p.restartDistributor(ctx, ll); err != nil {
-		p.Errors <- err
-	}
-	return nil
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ll := <-p.llWatcher.LLUpdates:
+				if err := p.restartDistributor(ctx, &ll); err != nil {
+					p.Errors <- err
+				}
+			case err := <-p.llWatcher.Errors:
+				p.Errors <- err
+			}
+		}
+	}()
 }
 
 // restartDistributor activates new Distributor instance with Log List provided

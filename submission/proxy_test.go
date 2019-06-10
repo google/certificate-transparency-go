@@ -28,28 +28,6 @@ import (
 	"github.com/google/trillian/monitoring"
 )
 
-func TestProxyNoLLWatcher(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
-	err := p.RefreshLogList(context.Background())
-	if err == nil {
-		t.Errorf("p.RefreshLogList() on nil LogListRefresher expected to get error, got none")
-	}
-}
-
-func TestProxyNoLLWatcherAfterRun(t *testing.T) {
-	p := NewProxy(nil, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	p.Run(ctx, 3*time.Second, 3*time.Second)
-	select {
-	case <-p.Errors:
-		return
-	case <-ctx.Done():
-		t.Errorf("p.Run() on nil LogListRefresher expected to emit error, got none")
-	}
-}
-
 // stubLogListRefresher produces error on each Refresh call.
 type stubLogListRefresher struct {
 }
@@ -64,19 +42,23 @@ func (llr stubLogListRefresher) Source() string {
 	return "stub"
 }
 
-func TestProxyRefreshLLErr(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
+func stubLogListManager() *LogListManager {
+	return NewLogListManager(stubLogListRefresher{})
+}
 
-	err := p.RefreshLogList(context.Background())
+func TestProxyRefreshLLErr(t *testing.T) {
+	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
+
+	_, err := p.llWatcher.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("p.RefreshLogList() on stubLogListRefresher expected to get error, got none")
 	}
 }
 
 func TestProxyBrokenDistributor(t *testing.T) {
-	p := NewProxy(stubLogListRefresher{}, GetDistributorBuilder(ChromeCTPolicy, newNoLogClient, monitoring.InertMetricFactory{}))
+	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, newNoLogClient, monitoring.InertMetricFactory{}))
 
-	err := p.RefreshLogList(context.Background())
+	_, err := p.llWatcher.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("p.RefreshLogList() on brokenDistributorFactory expected to get error, got none")
 	}
@@ -112,8 +94,8 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(llr, GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
-	p.RefreshLogList(context.Background())
+	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
+	p.Run(context.Background(), time.Hour, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -121,10 +103,10 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	var numLogs = 3
 	for i := 0; i < numLogs; i++ {
 		select {
-		case <-p.Errors:
 		case <-ctx.Done():
 			t.Errorf("p.RefreshLogList() on noRootsDistributorFactory expected to emit error for each Log, got %d", i)
 			return
+		case <-p.Errors:
 		}
 	}
 }
