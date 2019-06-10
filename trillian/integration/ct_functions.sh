@@ -79,7 +79,7 @@ ct_prep_test() {
         PROMETHEUS_CFGDIR="$(mktemp -d ${TMPDIR}/ct-prometheus-XXXXXX)"
         local prom_cfg="${PROMETHEUS_CFGDIR}/config.yaml"
         local etcdiscovered="${PROMETHEUS_CFGDIR}/trillian.json"
-        sed "s!@ETCDISCOVERED@!${etcdiscovered}!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/prometheus.yml > "${prom_cfg}"
+        sed "s!@ETCDISCOVERED@!${etcdiscovered}!" ${CT_GO_PATH}/trillian/integration/prometheus.yml > "${prom_cfg}"
         echo "Prometheus configuration in ${prom_cfg}:"
         cat ${prom_cfg}
 
@@ -91,8 +91,8 @@ ct_prep_test() {
         ETCDISCOVER_PID=$!
         echo "Launching Prometheus (default location localhost:9090)"
         ${PROMETHEUS_DIR}/prometheus --config.file=${prom_cfg} \
-                           --web.console.templates=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/consoles \
-                           --web.console.libraries=${GOPATH}/src/github.com/google/certificate-transparency-go/third_party/prometheus/console_libs &
+                           --web.console.templates=${CT_GO_PATH}/trillian/integration/consoles \
+                           --web.console.libraries=${CT_GO_PATH}/third_party/prometheus/console_libs &
         PROMETHEUS_PID=$!
     fi
   fi
@@ -110,10 +110,10 @@ ct_provision() {
 
   # Build config files with absolute paths
   CT_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
-  sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_integration_test.cfg > "${CT_CFG}"
+  sed "s!@TESTDATA@!${CT_GO_PATH}/trillian/testdata!" ${CT_GO_PATH}/trillian/integration/ct_integration_test.cfg > "${CT_CFG}"
 
   CT_LIFECYCLE_CFG=$(mktemp ${TMPDIR}/ct-XXXXXX)
-  sed "s!@TESTDATA@!${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata!" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_lifecycle_test.cfg > "${CT_LIFECYCLE_CFG}"
+  sed "s!@TESTDATA@!${CT_GO_PATH}/trillian/testdata!" ${CT_GO_PATH}/trillian/integration/ct_lifecycle_test.cfg > "${CT_LIFECYCLE_CFG}"
 
   echo 'Building createtree'
   go build github.com/google/trillian/cmd/createtree/
@@ -147,7 +147,7 @@ ct_provision_cfg() {
     tree_id=$(./createtree \
       --admin_server="${admin_server}" \
       --private_key_format=PrivateKey \
-      --pem_key_path=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem \
+      --pem_key_path=${CT_GO_PATH}/trillian/testdata/log-rpc-server.privkey.pem \
       --pem_key_password=towel \
       --signature_algorithm=ECDSA)
     echo "Created tree ${tree_id}"
@@ -167,7 +167,7 @@ ct_gosmin_config() {
 
   # Build config file with absolute paths
   GOSMIN_CFG=$(mktemp ${TMPDIR}/gosmin-XXXXXX)
-  sed "s/@SERVER@/${server}/" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/gosmin.cfg > "${GOSMIN_CFG}"
+  sed "s/@SERVER@/${server}/" ${CT_GO_PATH}/trillian/integration/gosmin.cfg > "${GOSMIN_CFG}"
 
   echo "gosmin configuration at ${GOSMIN_CFG}:"
   cat "${GOSMIN_CFG}"
@@ -206,7 +206,7 @@ ct_goshawk_config() {
 
   # Build config file with absolute paths
   GOSHAWK_CFG=$(mktemp ${TMPDIR}/goshawk-XXXXXX)
-  sed "s/@SERVER@/${server}/" ${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/goshawk.cfg > "${GOSHAWK_CFG}"
+  sed "s/@SERVER@/${server}/" ${CT_GO_PATH}/trillian/integration/goshawk.cfg > "${GOSHAWK_CFG}"
 
   echo "goshawk configuration at ${GOSHAWK_CFG}:"
   cat "${GOSHAWK_CFG}"
