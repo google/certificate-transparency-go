@@ -17,7 +17,6 @@ package submission
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/certificate-transparency-go/loglist"
@@ -29,52 +28,44 @@ import (
 type LogListManager struct {
 	Errors    chan error
 	LLUpdates chan loglist.LogList
-	initOnce  sync.Once
 
 	llRefreshInterval time.Duration
 
 	llr        LogListRefresher
 	latestLL   *loglist.LogList
 	previousLL *loglist.LogList
-	updateMu   sync.Mutex
 }
 
 // NewLogListManager creates and inits a LogListManager instance.
 func NewLogListManager(llr LogListRefresher) *LogListManager {
-	var llm LogListManager
-	llm.Errors = make(chan error, 1)
-	llm.LLUpdates = make(chan loglist.LogList, 1)
-	llm.llr = llr
-	return &llm
+	return &LogListManager{
+		Errors:    make(chan error, 1),
+		LLUpdates: make(chan loglist.LogList, 1),
+		llr:       llr,
+	}
 }
 
 // Run starts regular LogList checks and associated versions archiving.
+// Emits errors and Loglist-updates into its corresponding channels, expected
+// to have readers listening.
 func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
-	runBody := func() {
-		llm.llRefreshInterval = llRefresh
-		go schedule.Every(ctx, llm.llRefreshInterval, func(ctx context.Context) {
-			if ll, err := llm.RefreshLogList(ctx); err != nil {
-				llm.Errors <- err
-			} else if ll != nil {
-				llm.LLUpdates <- llm.ProduceClientLogList()
-			}
-		})
-	}
-	llm.initOnce.Do(runBody)
+	llm.llRefreshInterval = llRefresh
+	go schedule.Every(ctx, llm.llRefreshInterval, func(ctx context.Context) {
+		if ll, err := llm.RefreshLogList(ctx); err != nil {
+			llm.Errors <- err
+		} else if ll != nil {
+			llm.LLUpdates <- llm.ProduceClientLogList()
+		}
+	})
 }
 
 // LatestLogList returns last version of Log list.
 func (llm *LogListManager) LatestLogList() *loglist.LogList {
-	llm.updateMu.Lock()
-	defer llm.updateMu.Unlock()
 	return llm.latestLL
 }
 
-// PreviousLogList returns the version of Log List that was before latest and
-// time of its retrieval.
+// PreviousLogList returns the version of Log List that was before latest.
 func (llm *LogListManager) PreviousLogList() *loglist.LogList {
-	llm.updateMu.Lock()
-	defer llm.updateMu.Unlock()
 	return llm.previousLL
 }
 
@@ -87,8 +78,6 @@ func (llm *LogListManager) RefreshLogList(ctx context.Context) (*loglist.LogList
 	if err != nil {
 		return nil, err
 	}
-	llm.updateMu.Lock()
-	defer llm.updateMu.Unlock()
 	if ll == nil {
 		// No updates
 		return nil, nil

@@ -16,8 +16,11 @@ package submission
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/google/certificate-transparency-go/testdata"
 )
 
 func TestNoLLRefresher(t *testing.T) {
@@ -39,5 +42,28 @@ func TestNoLLRefresherAfterRun(t *testing.T) {
 		return
 	case <-ctx.Done():
 		t.Errorf("llm.Run() on nil LogListRefresher expected to emit error, got none")
+	}
+}
+
+func TestFirstRefresh(t *testing.T) {
+	f, err := createTempFile(testdata.SampleLogList)
+	if err != nil {
+		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList, err)
+	}
+	defer os.Remove(f)
+
+	llr := NewLogListRefresher(f)
+	llm := NewLogListManager(llr)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	llm.Run(ctx, 3*time.Second)
+	select {
+	case <-llm.LLUpdates:
+		return
+	case err := <-llm.Errors:
+		t.Errorf("llm.Run() returned error %q while expected none", err)
+	case <-ctx.Done():
+		t.Errorf("llm.Run() on stub LogListRefresher expected to emit update, got none")
 	}
 }
