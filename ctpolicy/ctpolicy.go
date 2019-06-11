@@ -17,6 +17,7 @@ package ctpolicy
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
@@ -30,9 +31,10 @@ const (
 // LogGroupInfo holds information on a single group of logs specified by Policy.
 type LogGroupInfo struct {
 	Name          string
-	LogURLs       map[string]bool // set of members
-	MinInclusions int             // Required number of submissions.
-	IsBase        bool            // True only for Log-group covering all logs.
+	LogURLs       map[string]bool    // set of members
+	MinInclusions int                // Required number of submissions.
+	IsBase        bool               // True only for Log-group covering all logs.
+	LogWeights    map[string]float32 // weights used for submission, default weight is 1
 }
 
 func (group *LogGroupInfo) setMinInclusions(i int) error {
@@ -49,11 +51,100 @@ func (group *LogGroupInfo) setMinInclusions(i int) error {
 
 func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *loglist.Log) bool) {
 	group.LogURLs = make(map[string]bool)
+	group.LogWeights = make(map[string]float32)
 	for _, l := range ll.Logs {
 		if included(&l) {
 			group.LogURLs[l.URL] = true
+			group.LogWeights[l.URL] = 1.0
 		}
 	}
+}
+
+// resetLogWeights applies suggested weights to the Log-group. Does not reset
+// weights and returns error when not enough to reach minimal inclusion number
+// positive weights provided.
+func (group *LogGroupInfo) ResetLogWeights(weights map[string]float32) error {
+	groupWeights := make(map[string]float32, len(group.LogURLs))
+	for logURL := range group.LogURLs {
+		groupWeights[logURL] = 1.0
+	}
+	nonZeroNum := len(group.LogURLs)
+	for logURL, w := range weights {
+		if group.LogURLs[logURL] {
+			groupWeights[logURL] = w
+			if w <= 0 {
+				nonZeroNum--
+			}
+		}
+	}
+	if nonZeroNum < group.MinInclusions {
+		return fmt.Errorf("trying to assign weights %v resulting into unability to reach minimal inclusion number %d", weights, group.MinInclusions)
+	}
+	group.LogWeights = groupWeights
+	return nil
+}
+
+// setLogWeight tries setting weights for a single Log of the Log-group.
+// Does not reset the weight and returns error if weight is non-positive and
+// its setting will result innto unability to reach minimal inclusion number.
+func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
+	if !group.LogURLs[logURL] {
+		return nil
+	}
+	if w > 0.0 || group.LogWeights[logURL] <= 0.0 {
+		group.LogWeights[logURL] = w
+		return nil
+	}
+	var nonZeroNum int
+	for _, w := range group.LogWeights {
+		if w > 0 {
+			nonZeroNum++
+		}
+	}
+	if nonZeroNum <= group.MinInclusions {
+		return fmt.Errorf("setting weight %f for log %q would result into unability to reach minimum inclusion number %d", w, logURL, group.MinInclusions)
+	}
+	group.LogWeights[logURL] = w
+	return nil
+}
+
+// getSubmissionSession produces list of log-URLs of the Log-group.
+// Order of the list is weighted random defined by Log-weights within the group
+func (group *LogGroupInfo) GetSubmissionSession() []string {
+	if len(group.LogURLs) == 0 {
+		return make([]string, 0)
+	}
+	session := make([]string, 0)
+	// modelling weighted random with exclusion
+
+	var sum float32
+	for _, w := range group.LogWeights {
+		sum += w
+	}
+	processedURLs := make(map[string]bool)
+	for logURL := range group.LogURLs {
+		processedURLs[logURL] = false
+	}
+
+	for i := 0; i < len(group.LogURLs); i++ {
+		if sum <= 0.0 {
+			break
+		}
+		r := rand.Float32() * sum
+		for logURL, w := range group.LogWeights {
+			if processedURLs[logURL] || w <= 0.0 {
+				continue
+			}
+			r -= w
+			if r < 0.0 {
+				session = append(session, logURL)
+				processedURLs[logURL] = true
+				sum -= w
+			}
+		}
+
+	}
+	return session
 }
 
 // LogPolicyData contains info on log-partition and submission requirements
