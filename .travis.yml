@@ -35,17 +35,14 @@ install:
       unzip protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
-  - go get -d -t ./...
-  - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.17.1
-  - go get -u github.com/golang/protobuf/proto
-  - go get -u github.com/golang/protobuf/protoc-gen-go
-  - go get -u github.com/golang/mock/mockgen
-  # install vendored etcd binary
-  - go get -u ./vendor/github.com/coreos/etcd/cmd/etcd
-  - go get -u ./vendor/github.com/coreos/etcd/cmd/etcdctl
-  - pushd $(go list -f '{{ .Dir }}' github.com/google/trillian)
-  - go get -d -t ./...
-  - popd
+  - go mod download
+  - go install
+     github.com/golangci/golangci-lint/cmd/golangci-lint
+     github.com/golang/protobuf/proto
+     github.com/golang/protobuf/protoc-gen-go
+     github.com/golang/mock/mockgen
+     go.etcd.io/etcd
+     go.etcd.io/etcd/etcdctl
 
 before_script:
   - ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh --force
