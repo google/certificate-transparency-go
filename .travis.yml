@@ -45,7 +45,7 @@ install:
      go.etcd.io/etcd/etcdctl
 
 before_script:
-  - ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh --force
+  - bash $(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh --force
   - ./scripts/resetctdb.sh --force
 
 script:
