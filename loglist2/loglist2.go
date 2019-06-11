@@ -214,7 +214,7 @@ func NewFromJSON(llData []byte) (*LogList, error) {
 // signature along the way. The signature data should be provided as the
 // raw signature data.
 func NewFromSignedJSON(llData, rawSig []byte, pubKey crypto.PublicKey) (*LogList, error) {
-	sigAlgo := tls.Anonymous
+	var sigAlgo tls.SignatureAlgorithm
 	switch pkType := pubKey.(type) {
 	case *rsa.PublicKey:
 		sigAlgo = tls.RSA
