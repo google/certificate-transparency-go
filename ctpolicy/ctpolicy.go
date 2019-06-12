@@ -60,10 +60,10 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 	}
 }
 
-// resetLogWeights applies suggested weights to the Log-group. Does not reset
-// weights and returns error when not enough to reach minimal inclusion number
-// positive weights provided.
-func (group *LogGroupInfo) ResetLogWeights(weights map[string]float32) error {
+// SetLogWeights applies suggested weights to the Log-group. Does not reset
+// weights and returns error when there are not enough positive weights
+// provided to reach minimal inclusion number.
+func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
 	groupWeights := make(map[string]float32, len(group.LogURLs))
 	for logURL := range group.LogURLs {
 		groupWeights[logURL] = 1.0
@@ -84,7 +84,7 @@ func (group *LogGroupInfo) ResetLogWeights(weights map[string]float32) error {
 	return nil
 }
 
-// setLogWeight tries setting weights for a single Log of the Log-group.
+// setLogWeight tries setting the weight for a single Log of the Log-group.
 // Does not reset the weight and returns error if weight is non-positive and
 // its setting will result innto unability to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
