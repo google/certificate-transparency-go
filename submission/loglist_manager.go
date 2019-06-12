@@ -17,6 +17,7 @@ package submission
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/certificate-transparency-go/loglist"
@@ -34,6 +35,7 @@ type LogListManager struct {
 	llr        LogListRefresher
 	latestLL   *loglist.LogList
 	previousLL *loglist.LogList
+	mu         sync.Mutex // guards latestLL and previousLL
 }
 
 // NewLogListManager creates and inits a LogListManager instance.
@@ -61,6 +63,8 @@ func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 
 // GetTwoLatestLogLists returns last version of Log list and a previous one.
 func (llm *LogListManager) GetTwoLatestLogLists() (*loglist.LogList, *loglist.LogList) {
+	llm.mu.Lock()
+	defer llm.mu.Unlock()
 	return llm.latestLL, llm.previousLL
 }
 
@@ -77,6 +81,8 @@ func (llm *LogListManager) RefreshLogList(ctx context.Context) (*loglist.LogList
 		// No updates
 		return nil, nil
 	}
+	llm.mu.Lock()
+	defer llm.mu.Unlock()
 	llm.previousLL = llm.latestLL
 	llm.latestLL = ll
 	return llm.latestLL, nil
