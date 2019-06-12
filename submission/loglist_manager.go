@@ -59,14 +59,9 @@ func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 	})
 }
 
-// LatestLogList returns last version of Log list.
-func (llm *LogListManager) LatestLogList() *loglist.LogList {
-	return llm.latestLL
-}
-
-// PreviousLogList returns the version of Log List that was before latest.
-func (llm *LogListManager) PreviousLogList() *loglist.LogList {
-	return llm.previousLL
+// GetTwoLatestLogLists returns last version of Log list and a previous one.
+func (llm *LogListManager) GetTwoLatestLogLists() (*loglist.LogList, *loglist.LogList) {
+	return llm.latestLL, llm.previousLL
 }
 
 // RefreshLogList reads Log List one time and runs updates if necessary.
