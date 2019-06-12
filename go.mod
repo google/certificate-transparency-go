@@ -21,7 +21,7 @@ require (
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-cmp v0.3.0
 	github.com/google/monologue v0.0.0-20190606152607-4b11a32b5934
-	github.com/google/trillian v1.2.2-0.20190605202410-a13f92d0413a
+	github.com/google/trillian v1.2.2-0.20190612132142-05461f4df60a
 	github.com/google/trillian-examples v0.0.0-20190603134952-4e75ba15216c
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
