@@ -11,9 +11,9 @@ env:
   - GO111MODULE=on
   matrix:
   - GOFLAGS=
-  - GOFLAGS=-race
+  - GOFLAGS=-race NO_LINTER=true
   - GOFLAGS=      WITH_ETCD=true WITH_COVERAGE=true
-  - GOFLAGS=-race WITH_ETCD=true
+  - GOFLAGS=-race WITH_ETCD=true NO_LINTER=true
 
 matrix:
   fast_finish: true
@@ -51,7 +51,7 @@ before_script:
 script:
   - set -e
   - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
-  - ./scripts/presubmit.sh ${PRESUBMIT_OPTS} ${WITH_COVERAGE:+--coverage}
+  - ./scripts/presubmit.sh ${PRESUBMIT_OPTS} ${WITH_COVERAGE:+--coverage} ${NO_LINTER:+--no-linters}
   - |
       # Check re-generation didn't change anything
       status=$(git status --porcelain | grep -v coverage) || :
