@@ -37,7 +37,7 @@ ct_prep_test() {
     "${CT_GO_PATH}/scripts/resetctdb.sh" --force
     # Wipe the incident database
     echo "Wiping and re-creating incident database"
-    "${MONO_PATH}/scripts/resetmondb.sh" --force
+    bash "${MONO_PATH}/scripts/resetmondb.sh" --force
   fi
 
   echo "Launching core Trillian log components"
