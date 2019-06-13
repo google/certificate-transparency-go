@@ -32,7 +32,7 @@ import (
 type stubLogListRefresher struct {
 }
 
-func (llr stubLogListRefresher) Refresh() (*loglist.LogList, error) {
+func (llr stubLogListRefresher) Refresh() (*LogListData, error) {
 	return nil, fmt.Errorf("stub Log List Refresher produces no Log List")
 }
 func (llr stubLogListRefresher) LastJSON() []byte {

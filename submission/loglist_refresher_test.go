@@ -15,6 +15,7 @@
 package submission
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -50,7 +51,8 @@ func ExampleLogListRefresher() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
+	data := bytes.NewBufferString(`{"operators": [{"id":0,"name":"Google"}]}`)
+	f, err := createTempFile(data.String())
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +62,7 @@ func ExampleLogListRefresher() {
 
 	// Refresh log list periodically so it stays up-to-date.
 	// Not necessary for this example, but appropriate for long-running systems.
-	llChan := make(chan *loglist.LogList)
+	llChan := make(chan *LogListData)
 	errChan := make(chan error)
 	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
 		if ll, err := llr.Refresh(); err != nil {
@@ -72,7 +74,7 @@ func ExampleLogListRefresher() {
 
 	select {
 	case ll := <-llChan:
-		fmt.Printf("Log Operators: %v\n", ll.Operators)
+		fmt.Printf("Log Operators: %v\n", ll.List.Operators)
 	case err := <-errChan:
 		panic(err)
 	case <-ctx.Done():
@@ -124,7 +126,13 @@ func TestNewLogListRefresher(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
+			if (ll == nil) != (tc.wantLl == nil) {
+				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, tc.wantLl != nil)
+			}
+			if ll == nil {
+				return
+			}
+			if diff := cmp.Diff(ll.List, tc.wantLl); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})
@@ -185,7 +193,13 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(tc.wantLl, ll); diff != "" {
+			if (ll == nil) != (tc.wantLl == nil) {
+				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, tc.wantLl != nil)
+			}
+			if ll == nil {
+				return
+			}
+			if diff := cmp.Diff(tc.wantLl, ll.List); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
 			}
 		})

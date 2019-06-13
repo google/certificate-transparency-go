@@ -89,8 +89,8 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 			select {
 			case <-ctx.Done():
 				return
-			case ll := <-p.llWatcher.LLUpdates:
-				if err := p.restartDistributor(ctx, &ll); err != nil {
+			case llData := <-p.llWatcher.LLUpdates:
+				if err := p.restartDistributor(ctx, llData.List); err != nil {
 					p.Errors <- err
 				}
 			case err := <-p.llWatcher.Errors:

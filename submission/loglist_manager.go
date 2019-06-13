@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/schedule"
 )
 
@@ -28,13 +27,13 @@ import (
 // list.
 type LogListManager struct {
 	Errors    chan error
-	LLUpdates chan loglist.LogList
+	LLUpdates chan LogListData
 
 	llRefreshInterval time.Duration
 
 	llr        LogListRefresher
-	latestLL   *loglist.LogList
-	previousLL *loglist.LogList
+	latestLL   *LogListData
+	previousLL *LogListData
 	mu         sync.Mutex // guards latestLL and previousLL
 }
 
@@ -42,7 +41,7 @@ type LogListManager struct {
 func NewLogListManager(llr LogListRefresher) *LogListManager {
 	return &LogListManager{
 		Errors:    make(chan error, 1),
-		LLUpdates: make(chan loglist.LogList, 1),
+		LLUpdates: make(chan LogListData, 1),
 		llr:       llr,
 	}
 }
@@ -62,14 +61,14 @@ func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 }
 
 // GetTwoLatestLogLists returns last version of Log list and a previous one.
-func (llm *LogListManager) GetTwoLatestLogLists() (*loglist.LogList, *loglist.LogList) {
+func (llm *LogListManager) GetTwoLatestLogLists() (*LogListData, *LogListData) {
 	llm.mu.Lock()
 	defer llm.mu.Unlock()
 	return llm.latestLL, llm.previousLL
 }
 
 // RefreshLogList reads Log List one time and runs updates if necessary.
-func (llm *LogListManager) RefreshLogList(ctx context.Context) (*loglist.LogList, error) {
+func (llm *LogListManager) RefreshLogList(ctx context.Context) (*LogListData, error) {
 	if llm.llr == nil {
 		return nil, fmt.Errorf("Log list manager has no log-list watcher to refresh Log List")
 	}
@@ -89,7 +88,7 @@ func (llm *LogListManager) RefreshLogList(ctx context.Context) (*loglist.LogList
 }
 
 // Applies client filtration on Log list.
-func (llm *LogListManager) ProduceClientLogList() loglist.LogList {
+func (llm *LogListManager) ProduceClientLogList() LogListData {
 	// TODO(Mercurrent): Add filtration
 	clientLL := *(llm.latestLL)
 	return clientLL
