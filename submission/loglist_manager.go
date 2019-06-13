@@ -87,7 +87,7 @@ func (llm *LogListManager) RefreshLogList(ctx context.Context) (*LogListData, er
 	return llm.latestLL, nil
 }
 
-// Applies client filtration on Log list.
+// ProduceClientLogList applies client filtration on Log list.
 func (llm *LogListManager) ProduceClientLogList() LogListData {
 	// TODO(Mercurrent): Add filtration
 	clientLL := *(llm.latestLL)

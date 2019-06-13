@@ -15,7 +15,6 @@
 package submission
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -51,8 +50,7 @@ func ExampleLogListRefresher() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	data := bytes.NewBufferString(`{"operators": [{"id":0,"name":"Google"}]}`)
-	f, err := createTempFile(data.String())
+	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
 	if err != nil {
 		panic(err)
 	}
@@ -119,8 +117,10 @@ func TestNewLogListRefresher(t *testing.T) {
 			}
 			defer os.Remove(f)
 
+			beforeRefresh := time.Now()
 			llr := NewLogListRefresher(f)
 			ll, err := llr.Refresh()
+			afterRefresh := time.Now()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
@@ -133,7 +133,13 @@ func TestNewLogListRefresher(t *testing.T) {
 				return
 			}
 			if diff := cmp.Diff(ll.List, tc.wantLl); diff != "" {
-				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
+				t.Errorf("llr.Refresh() LogList: diff -want +got\n%s", diff)
+			}
+			if diff := cmp.Diff(ll.JSON, []byte(tc.ll)); diff != "" {
+				t.Errorf("llr.Refresh() JSON: diff -want +got\n%s", diff)
+			}
+			if !beforeRefresh.Before(ll.DownloadTime) || !afterRefresh.After(ll.DownloadTime) {
+				t.Errorf("llr.Refresh() DownloadTime %s: outside of (%s, %s) interval", ll.DownloadTime, beforeRefresh, afterRefresh)
 			}
 		})
 	}
@@ -187,7 +193,9 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 				t.Fatalf("ioutil.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
 			}
 
+			beforeRefresh := time.Now()
 			ll, err := llr.Refresh()
+			afterRefresh := time.Now()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
@@ -201,6 +209,12 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.wantLl, ll.List); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
+			}
+			if diff := cmp.Diff(ll.JSON, []byte(tc.llNext)); diff != "" {
+				t.Errorf("llr.Refresh() JSON: diff -want +got\n%s", diff)
+			}
+			if !beforeRefresh.Before(ll.DownloadTime) || !afterRefresh.After(ll.DownloadTime) {
+				t.Errorf("llr.Refresh() DownloadTime %s: outside of (%s, %s) interval", ll.DownloadTime, beforeRefresh, afterRefresh)
 			}
 		})
 	}

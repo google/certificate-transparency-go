@@ -33,9 +33,9 @@ const (
 // LogListData wraps info on external LogList, keeping its JSON source and time
 // of download.
 type LogListData struct {
-	Source []byte
-	List   *loglist.LogList
-	When   time.Time
+	JSON         []byte
+	List         *loglist.LogList
+	DownloadTime time.Time
 }
 
 // LogListRefresher is interface for Log List updates watcher.
@@ -61,7 +61,7 @@ func NewLogListRefresher(llPath string) LogListRefresher {
 	}
 }
 
-// Refresh fetches the log list and returns its source, formed Loglist and
+// Refresh fetches the log list and returns its source, formed LogList and
 // timestamp if source has changed compared to previous Refresh.
 func (llr *logListRefresherImpl) Refresh() (*LogListData, error) {
 	llr.updateMu.Lock()
@@ -83,7 +83,7 @@ func (llr *logListRefresherImpl) Refresh() (*LogListData, error) {
 		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}
 	llr.lastJSON = json
-	return &LogListData{Source: json, List: ll, When: t}, nil
+	return &LogListData{JSON: json, List: ll, DownloadTime: t}, nil
 }
 
 // LastJSON returns last version of Log list in JSON.
