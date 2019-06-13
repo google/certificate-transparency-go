@@ -1,3 +1,6 @@
+service:
+  prepare:
+    - export GO111MODULE=on
 run:
   deadline: 90s
   skip-dirs:
