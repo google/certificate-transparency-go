@@ -56,7 +56,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	groups := LogPolicyData{
 		googGroup.Name:    &googGroup,
 		nonGoogGroup.Name: &nonGoogGroup,
-		baseGroup.Name:    &baseGroup,
+		baseGroup.Name:    baseGroup,
 	}
 	return groups, outerror
 }

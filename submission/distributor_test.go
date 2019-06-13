@@ -241,7 +241,7 @@ func buildStubCTPolicy(n int) stubCTPolicy {
 
 func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
-	groups := ctpolicy.LogPolicyData{baseGroup.Name: &baseGroup}
+	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }
 

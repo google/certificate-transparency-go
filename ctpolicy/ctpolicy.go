@@ -36,7 +36,7 @@ type LogGroupInfo struct {
 	MinInclusions int                // Required number of submissions.
 	IsBase        bool               // True only for Log-group covering all logs.
 	LogWeights    map[string]float32 // weights used for submission, default weight is 1
-	wMu sync.RWMutex // guards weights
+	wMu           sync.RWMutex       // guards weights
 }
 
 func (group *LogGroupInfo) setMinInclusions(i int) error {
@@ -106,8 +106,8 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 		return fmt.Errorf("trying to assign weight to Log %q not belonging to the group", logURL)
 	}
 	newWeights := make(map[string]float32)
-	for l,wt := range group.LogWeights {
-  		newWeights[l] = wt
+	for l, wt := range group.LogWeights {
+		newWeights[l] = wt
 	}
 	newWeights[logURL] = w
 	if !group.satisfyMinimalInclusion(newWeights) {
@@ -190,11 +190,11 @@ type CTPolicy interface {
 }
 
 // BaseGroupFor creates and propagates all-log group.
-func BaseGroupFor(approved *loglist.LogList, incCount int) (LogGroupInfo, error) {
+func BaseGroupFor(approved *loglist.LogList, incCount int) (*LogGroupInfo, error) {
 	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
 	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
-	return baseGroup, err
+	return &baseGroup, err
 }
 
 // lifetimeInMonths calculates and returns cert lifetime expressed in months
