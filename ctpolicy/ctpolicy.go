@@ -18,6 +18,7 @@ package ctpolicy
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
@@ -35,6 +36,7 @@ type LogGroupInfo struct {
 	MinInclusions int                // Required number of submissions.
 	IsBase        bool               // True only for Log-group covering all logs.
 	LogWeights    map[string]float32 // weights used for submission, default weight is 1
+	wMu sync.RWMutex // guards weights
 }
 
 func (group *LogGroupInfo) setMinInclusions(i int) error {
@@ -60,27 +62,39 @@ func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *logl
 	}
 }
 
+// satisfyMinimalInclusion returns whether number of positive weights is
+// bigger or equal to minimal inclusion number.
+func (group *LogGroupInfo) satisfyMinimalInclusion(weights map[string]float32) bool {
+	nonZeroNum := 0
+	for logURL, w := range weights {
+		if group.LogURLs[logURL] && w > 0.0 {
+			nonZeroNum++
+			if nonZeroNum >= group.MinInclusions {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // SetLogWeights applies suggested weights to the Log-group. Does not reset
 // weights and returns error when there are not enough positive weights
 // provided to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
-	groupWeights := make(map[string]float32, len(group.LogURLs))
-	for logURL := range group.LogURLs {
-		groupWeights[logURL] = 1.0
-	}
-	nonZeroNum := len(group.LogURLs)
-	for logURL, w := range weights {
-		if group.LogURLs[logURL] {
-			groupWeights[logURL] = w
-			if w <= 0 {
-				nonZeroNum--
-			}
-		}
-	}
-	if nonZeroNum < group.MinInclusions {
+	if !group.satisfyMinimalInclusion(weights) {
 		return fmt.Errorf("trying to assign weights %v resulting into unability to reach minimal inclusion number %d", weights, group.MinInclusions)
 	}
-	group.LogWeights = groupWeights
+	group.wMu.Lock()
+	defer group.wMu.Unlock()
+	// All group weights initially reset to 0.0
+	for logURL := range group.LogURLs {
+		group.LogWeights[logURL] = 0.0
+	}
+	for logURL, w := range weights {
+		if group.LogURLs[logURL] {
+			group.LogWeights[logURL] = w
+		}
+	}
 	return nil
 }
 
@@ -89,22 +103,19 @@ func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
 // its setting will result innto unability to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	if !group.LogURLs[logURL] {
-		return nil
+		return fmt.Errorf("trying to assign weight to Log %q not belonging to the group", logURL)
 	}
-	if w > 0.0 || group.LogWeights[logURL] <= 0.0 {
-		group.LogWeights[logURL] = w
-		return nil
+	newWeights := make(map[string]float32)
+	for l,wt := range group.LogWeights {
+  		newWeights[l] = wt
 	}
-	var nonZeroNum int
-	for _, w := range group.LogWeights {
-		if w > 0 {
-			nonZeroNum++
-		}
+	newWeights[logURL] = w
+	if !group.satisfyMinimalInclusion(newWeights) {
+		return fmt.Errorf("assigning weight %v to Log %q will result into unability to reach minimal inclusion number %d", w, logURL, group.MinInclusions)
 	}
-	if nonZeroNum <= group.MinInclusions {
-		return fmt.Errorf("setting weight %f for log %q would result into unability to reach minimum inclusion number %d", w, logURL, group.MinInclusions)
-	}
-	group.LogWeights[logURL] = w
+	group.wMu.Lock()
+	defer group.wMu.Unlock()
+	group.LogWeights = newWeights
 	return nil
 }
 
@@ -126,6 +137,8 @@ func (group *LogGroupInfo) GetSubmissionSession() []string {
 		processedURLs[logURL] = false
 	}
 
+	group.wMu.RLock()
+	defer group.wMu.RUnlock()
 	for i := 0; i < len(group.LogURLs); i++ {
 		if sum <= 0.0 {
 			break
