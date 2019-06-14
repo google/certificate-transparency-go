@@ -6,7 +6,6 @@ run:
   skip-dirs:
     - (^|/)x509($|/)
     - (^|/)asn1($|/)
-  modules-download-mode: readonly
 
 linters-settings:
   gocyclo:
