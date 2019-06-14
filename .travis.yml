@@ -14,6 +14,8 @@ env:
   - GOFLAGS=-race                PRESUBMIT_OPTS="--no-linters"
   - GOFLAGS=      WITH_ETCD=true PRESUBMIT_OPTS="--no-linters --coverage"
   - GOFLAGS=-race WITH_ETCD=true PRESUBMIT_OPTS="--no-linters"
+  - GOFLAGS='-race --tags=pkcs11' WITH_PKCS11=true PRESUBMIT_OPTS="--no-linters"
+
 
 matrix:
   fast_finish: true
