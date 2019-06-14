@@ -31,6 +31,7 @@ require (
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
+	// TODO(gbelvin): Remove when Trillian declares its dependencies with go.mod
 	github.com/letsencrypt/pkcs11key v2.0.1-0.20170608213348-396559074696+incompatible // indirect
 	github.com/lib/pq v1.1.1 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
