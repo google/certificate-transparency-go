@@ -81,6 +81,11 @@ func (group *LogGroupInfo) satisfyMinimalInclusion(weights map[string]float32) b
 // weights and returns error when there are not enough positive weights
 // provided to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
+	for logURL, w := range weights {
+		if w < 0.0 {
+			return fmt.Errorf("trying to assign negative weight %v to Log %q", w, logURL)
+		}
+	}
 	if !group.satisfyMinimalInclusion(weights) {
 		return fmt.Errorf("trying to assign weights %v resulting into unability to reach minimal inclusion number %d", weights, group.MinInclusions)
 	}
@@ -105,6 +110,9 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	if !group.LogURLs[logURL] {
 		return fmt.Errorf("trying to assign weight to Log %q not belonging to the group", logURL)
 	}
+	if w < 0.0 {
+		return fmt.Errorf("trying to assign negative weight %v to Log %q", w, logURL)
+	}
 	newWeights := make(map[string]float32)
 	for l, wt := range group.LogWeights {
 		newWeights[l] = wt
@@ -119,6 +127,32 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	return nil
 }
 
+// WeightedLogSample picks a Log from the group-Set and returns its URL.
+// Follows weight distribution LogWeights and ignores Logs specified by
+// ignoreURLs set. If it's not possible (e.g. all Logs are excluded or
+// have 0 weights), returns empty string.
+func (group *LogGroupInfo) WeightedLogSample(ignoreURLs map[string]bool) string {
+	var sum float32
+	for _, w := range group.LogWeights {
+		sum += w
+	}
+	if sum <= 0.0 {
+		return ""
+	}
+
+	r := rand.Float32() * sum
+	for logURL, w := range group.LogWeights {
+		if ignoreURLs[logURL] || w == 0.0 {
+			continue
+		}
+		r -= w
+		if r < 0.0 {
+			return logURL
+		}
+	}
+	return ""
+}
+
 // getSubmissionSession produces list of log-URLs of the Log-group.
 // Order of the list is weighted random defined by Log-weights within the group
 func (group *LogGroupInfo) GetSubmissionSession() []string {
@@ -128,10 +162,6 @@ func (group *LogGroupInfo) GetSubmissionSession() []string {
 	session := make([]string, 0)
 	// modelling weighted random with exclusion
 
-	var sum float32
-	for _, w := range group.LogWeights {
-		sum += w
-	}
 	processedURLs := make(map[string]bool)
 	for logURL := range group.LogURLs {
 		processedURLs[logURL] = false
@@ -140,22 +170,12 @@ func (group *LogGroupInfo) GetSubmissionSession() []string {
 	group.wMu.RLock()
 	defer group.wMu.RUnlock()
 	for range group.LogURLs {
-		if sum <= 0.0 {
+		sampleLog := group.WeightedLogSample(processedURLs)
+		if sampleLog == "" {
 			break
 		}
-		r := rand.Float32() * sum
-		for logURL, w := range group.LogWeights {
-			if processedURLs[logURL] || w <= 0.0 {
-				continue
-			}
-			r -= w
-			if r < 0.0 {
-				session = append(session, logURL)
-				processedURLs[logURL] = true
-				sum -= w
-			}
-		}
-
+		session = append(session, sampleLog)
+		processedURLs[sampleLog] = true
 	}
 	return session
 }
