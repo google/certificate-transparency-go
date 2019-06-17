@@ -139,7 +139,7 @@ func (group *LogGroupInfo) GetSubmissionSession() []string {
 
 	group.wMu.RLock()
 	defer group.wMu.RUnlock()
-	for i := 0; i < len(group.LogURLs); i++ {
+	for range group.LogURLs {
 		if sum <= 0.0 {
 			break
 		}
