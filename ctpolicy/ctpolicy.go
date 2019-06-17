@@ -133,8 +133,10 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 // have 0 weights), returns empty string.
 func (group *LogGroupInfo) WeightedLogSample(ignoreURLs map[string]bool) string {
 	var sum float32
-	for _, w := range group.LogWeights {
-		sum += w
+	for logURL, w := range group.LogWeights {
+		if !ignoreURLs[logURL] {
+			sum += w
+		}
 	}
 	if sum <= 0.0 {
 		return ""
