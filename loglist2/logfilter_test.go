@@ -15,6 +15,7 @@ package loglist2
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -126,6 +127,62 @@ func TestRootCompatible(t *testing.T) {
 			got := test.in.RootCompatible(test.cert, test.rootCert, test.roots)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Getting compatible logs diff: (-want +got)\n%s", diff)
+			}
+		})
+	}
+}
+
+// stripErr is helper func for wrapping time.Parse
+func stripErr(t time.Time, _ error) time.Time {
+	return t
+}
+
+func TestTemporalCompatible(t *testing.T) {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
+
+	tests := []struct {
+		name      string
+		in        LogList
+		cert      *x509.Certificate
+		notBefore time.Time
+		want      LogList
+	}{
+		{
+			name:      "AllFit",
+			in:        sampleLogList,
+			cert:      cert,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+		},
+		{
+			name:      "OperatorOff",
+			in:        sampleLogList,
+			cert:      cert,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2014")),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+		},
+		{
+			name:      "TwoLogsAfterCert",
+			in:        sampleLogList,
+			cert:      cert,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2013")),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+		},
+		{
+			name:      "TwoLogsBeforeCert",
+			in:        sampleLogList,
+			cert:      cert,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.cert.NotBefore = test.notBefore
+			got := test.in.TemporalCompatible(test.cert)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("Getting NotBefore-compatible logs diff: (-want +got)\n%s", diff)
 			}
 		})
 	}
