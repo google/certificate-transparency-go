@@ -59,16 +59,16 @@ func TestWeightedRandomSampleDef(t *testing.T) {
 
 func TestWeightedRandomSampleInDef(t *testing.T) {
 	tests := []struct {
-		name     string
-		weights  map[string]float32
+		name      string
+		weights   map[string]float32
 		wantOneOf []string
-		wantErr  bool
+		wantErr   bool
 	}{
 		{
-			name:     "TwoWeights",
-			weights:  map[string]float32{"a": 0.5, "b": 0.0, "c": 3.0},
+			name:      "TwoWeights",
+			weights:   map[string]float32{"a": 0.5, "b": 0.0, "c": 3.0},
 			wantOneOf: []string{"a", "c"},
-			wantErr:  false,
+			wantErr:   false,
 		},
 	}
 
