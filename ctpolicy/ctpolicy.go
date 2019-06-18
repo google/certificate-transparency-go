@@ -17,7 +17,6 @@ package ctpolicy
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 
 	"github.com/google/certificate-transparency-go/loglist"
@@ -127,34 +126,6 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	return nil
 }
 
-// WeightedLogSample picks a Log from the group-Set and returns its URL.
-// Follows weight distribution LogWeights and ignores Logs specified by
-// ignoreURLs set. If it's not possible (e.g. all Logs are excluded or
-// have 0 weights), returns empty string.
-func (group *LogGroupInfo) WeightedLogSample(ignoreURLs map[string]bool) string {
-	var sum float32
-	for logURL, w := range group.LogWeights {
-		if !ignoreURLs[logURL] {
-			sum += w
-		}
-	}
-	if sum <= 0.0 {
-		return ""
-	}
-
-	r := rand.Float32() * sum
-	for logURL, w := range group.LogWeights {
-		if ignoreURLs[logURL] || w == 0.0 {
-			continue
-		}
-		r -= w
-		if r < 0.0 {
-			return logURL
-		}
-	}
-	return ""
-}
-
 // getSubmissionSession produces list of log-URLs of the Log-group.
 // Order of the list is weighted random defined by Log-weights within the group
 func (group *LogGroupInfo) GetSubmissionSession() []string {
@@ -164,20 +135,21 @@ func (group *LogGroupInfo) GetSubmissionSession() []string {
 	session := make([]string, 0)
 	// modelling weighted random with exclusion
 
-	processedURLs := make(map[string]bool)
-	for logURL := range group.LogURLs {
-		processedURLs[logURL] = false
+	unProcessedWeights := make(map[string]float32)
+	for logURL, w := range group.LogWeights {
+		unProcessedWeights[logURL] = w
 	}
 
 	group.wMu.RLock()
 	defer group.wMu.RUnlock()
 	for range group.LogURLs {
-		sampleLog := group.WeightedLogSample(processedURLs)
-		if sampleLog == "" {
-			break
+		sampleLog, err := weightedRandomSample(unProcessedWeights)
+		if err != nil {
+			// session still valid, not covering all Logs
+			return session
 		}
 		session = append(session, sampleLog)
-		processedURLs[sampleLog] = true
+		delete(unProcessedWeights, sampleLog)
 	}
 	return session
 }
