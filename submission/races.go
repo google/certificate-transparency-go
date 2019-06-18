@@ -205,7 +205,7 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
 	}
 	// Wait until either all logs within session are processed or context is
 	// cancelled.
-	for i := 0; i < len(session); i++ {
+	for range session {
 		select {
 		case <-ctx.Done():
 			return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
