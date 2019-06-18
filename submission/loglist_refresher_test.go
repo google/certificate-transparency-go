@@ -201,8 +201,8 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if (ll == nil) != (tc.wantLl == nil) {
-				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, tc.wantLl != nil)
+			if llNil, wantNil := ll == nil, tc.wantLL == nil; llNil != wantNil {
+				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, !wantNil)
 			}
 			if ll == nil {
 				return
