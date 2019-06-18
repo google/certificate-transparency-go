@@ -32,6 +32,12 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 			},
 			MinInclusions: goog,
 			IsBase:        false,
+			LogWeights: map[string]float32{
+				"ct.googleapis.com/aviator/":   1.0,
+				"ct.googleapis.com/icarus/":    1.0,
+				"ct.googleapis.com/rocketeer/": 1.0,
+				"ct.googleapis.com/racketeer/": 1.0,
+			},
 		},
 		"Non-Google-operated": {
 			Name: "Non-Google-operated",
@@ -40,6 +46,9 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 			},
 			MinInclusions: nonGoog,
 			IsBase:        false,
+			LogWeights: map[string]float32{
+				"log.bob.io": 1.0,
+			},
 		},
 		BaseName: {
 			Name: BaseName,
@@ -52,11 +61,20 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 			},
 			MinInclusions: base,
 			IsBase:        true,
+			LogWeights: map[string]float32{
+				"ct.googleapis.com/aviator/":   1.0,
+				"ct.googleapis.com/icarus/":    1.0,
+				"ct.googleapis.com/rocketeer/": 1.0,
+				"ct.googleapis.com/racketeer/": 1.0,
+				"log.bob.io":                   1.0,
+			},
 		},
 	}
 	if minusBob {
 		delete(gi[BaseName].LogURLs, "log.bob.io")
+		delete(gi[BaseName].LogWeights, "log.bob.io")
 		delete(gi["Non-Google-operated"].LogURLs, "log.bob.io")
+		delete(gi["Non-Google-operated"].LogWeights, "log.bob.io")
 	}
 	return gi
 }

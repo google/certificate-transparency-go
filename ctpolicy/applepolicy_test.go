@@ -33,6 +33,13 @@ func wantedAppleGroups(count int) LogPolicyData {
 			},
 			MinInclusions: count,
 			IsBase:        true,
+			LogWeights: map[string]float32{
+				"ct.googleapis.com/aviator/":   1.0,
+				"ct.googleapis.com/icarus/":    1.0,
+				"ct.googleapis.com/rocketeer/": 1.0,
+				"ct.googleapis.com/racketeer/": 1.0,
+				"log.bob.io":                   1.0,
+			},
 		},
 	}
 	return gi

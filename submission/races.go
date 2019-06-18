@@ -17,7 +17,6 @@ package submission
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -171,21 +170,17 @@ func postInterval(idx int, parallelStart int, dur time.Duration) time.Duration {
 func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
 	group *ctpolicy.LogGroupInfo, parallelStart int,
 	state *safeSubmissionState, submitter Submitter) groupState {
-	groupURLs := make([]string, 0, len(group.LogURLs))
-	for logURL := range group.LogURLs {
-		groupURLs = append(groupURLs, logURL)
-	}
-
+	// Randomize the order in which we send requests to the logs in a group
+	// so we maximize the distribution of logs we get SCTs from.
+	session := group.GetSubmissionSession()
 	type count struct{}
-	counter := make(chan count, len(groupURLs))
+	counter := make(chan count, len(session))
 
 	countCall := func() {
 		counter <- count{}
 	}
 
-	// Randomize the order in which we send requests to the logs in a group
-	// so we maximize the distribution of logs we get SCTs from.
-	for i, urlNum := range rand.Perm(len(groupURLs)) {
+	for i, logURL := range session {
 		subCtx, cancel := context.WithCancel(ctx)
 		go func(i int, logURL string) {
 			defer countCall()
@@ -206,11 +201,11 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
 			sct, err := submitter.SubmitToLog(subCtx, logURL, chain, asPreChain)
 			// TODO(Mercurrent): verify SCT
 			state.setResult(logURL, sct, err)
-		}(i, groupURLs[urlNum])
+		}(i, logURL)
 	}
-	// Wait until either all logs within groups are processed or context is
+	// Wait until either all logs within session are processed or context is
 	// cancelled.
-	for i := 0; i < len(groupURLs); i++ {
+	for range session {
 		select {
 		case <-ctx.Done():
 			return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
