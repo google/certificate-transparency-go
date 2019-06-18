@@ -14,10 +14,12 @@
 
 syntax = "proto3";
 
+option go_package = "github.com/google/certificate-transparency-go/trillian/migrillian/configpb";
+
 package configpb;
 
-import "github.com/google/certificate-transparency-go/trillian/ctfe/configpb/config.proto";
-import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
+import "trillian/ctfe/configpb/config.proto";
+import "crypto/keyspb/keyspb.proto";
 
 // IdentityFunction specifies how Trillian identity hash is computed.
 enum IdentityFunction {

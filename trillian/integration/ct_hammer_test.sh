@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-. "${GOPATH}"/src/github.com/google/trillian/integration/functions.sh
+. "$(go list -f '{{ .Dir }}' github.com/google/trillian)"/integration/functions.sh
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 . "${INTEGRATION_DIR}"/ct_functions.sh
 
@@ -41,7 +41,8 @@ fi
 metrics_port=$(pick_unused_port)
 echo "Running test(s) with metrics at localhost:${metrics_port}"
 set +e
-./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --metrics_endpoint="localhost:${metrics_port}" --logtostderr ${HAMMER_OPTS}
+./ct_hammer --log_config "${CT_CFG}" --ct_http_servers=${CT_SERVERS} --mmd=30s --testdata_dir=$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go)/trillian/testdata --metrics_endpoint="localhost:${metrics_port}" --logtostderr ${HAMMER_OPTS}
+
 RESULT=$?
 set -e
 

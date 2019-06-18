@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc. All Rights Reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package configpb holds a config protobuf for the CT personality.
-package configpb
+// +build tools
 
-//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian)  --go_out=:$GOPATH/src config.proto"
+package tools
+
+import (
+	_ "github.com/golang/mock/mockgen"
+	_ "github.com/golang/protobuf/proto"
+	_ "github.com/golang/protobuf/protoc-gen-go"
+	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/google/monologue/incident"
+	_ "go.etcd.io/etcd"
+	_ "go.etcd.io/etcd/etcdctl"
+)
