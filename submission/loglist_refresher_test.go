@@ -60,7 +60,7 @@ func ExampleLogListRefresher() {
 
 	// Refresh log list periodically so it stays up-to-date.
 	// Not necessary for this example, but appropriate for long-running systems.
-	llChan := make(chan *loglist.LogList)
+	llChan := make(chan *LogListData)
 	errChan := make(chan error)
 	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
 		if ll, err := llr.Refresh(); err != nil {
@@ -72,7 +72,7 @@ func ExampleLogListRefresher() {
 
 	select {
 	case ll := <-llChan:
-		fmt.Printf("Log Operators: %v\n", ll.Operators)
+		fmt.Printf("Log Operators: %v\n", ll.List.Operators)
 	case err := <-errChan:
 		panic(err)
 	case <-ctx.Done():
@@ -117,15 +117,29 @@ func TestNewLogListRefresher(t *testing.T) {
 			}
 			defer os.Remove(f)
 
+			beforeRefresh := time.Now()
 			llr := NewLogListRefresher(f)
 			ll, err := llr.Refresh()
+			afterRefresh := time.Now()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(ll, tc.wantLl); diff != "" {
-				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
+			if (ll == nil) != (tc.wantLl == nil) {
+				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, tc.wantLl != nil)
+			}
+			if ll == nil {
+				return
+			}
+			if diff := cmp.Diff(ll.List, tc.wantLl); diff != "" {
+				t.Errorf("llr.Refresh() LogList: diff -want +got\n%s", diff)
+			}
+			if diff := cmp.Diff(ll.JSON, []byte(tc.ll)); diff != "" {
+				t.Errorf("llr.Refresh() JSON: diff -want +got\n%s", diff)
+			}
+			if !beforeRefresh.Before(ll.DownloadTime) || !afterRefresh.After(ll.DownloadTime) {
+				t.Errorf("llr.Refresh() DownloadTime %s: outside of (%s, %s) interval", ll.DownloadTime, beforeRefresh, afterRefresh)
 			}
 		})
 	}
@@ -179,14 +193,28 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 				t.Fatalf("ioutil.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
 			}
 
+			beforeRefresh := time.Now()
 			ll, err := llr.Refresh()
+			afterRefresh := time.Now()
 			if gotErr, wantErr := err != nil, tc.errRegexp != nil; gotErr != wantErr {
 				t.Fatalf("llr.Refresh() = (_, %v), want err? %t", err, wantErr)
 			} else if gotErr && !tc.errRegexp.MatchString(err.Error()) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
-			if diff := cmp.Diff(tc.wantLl, ll); diff != "" {
+			if llNil, wantNil := ll == nil, tc.wantLl == nil; llNil != wantNil {
+				t.Fatalf("llr.Refresh() = (%v, _), expected nil? %t", ll, wantNil)
+			}
+			if ll == nil {
+				return
+			}
+			if diff := cmp.Diff(tc.wantLl, ll.List); diff != "" {
 				t.Errorf("llr.Refresh(): diff -want +got\n%s", diff)
+			}
+			if diff := cmp.Diff(ll.JSON, []byte(tc.llNext)); diff != "" {
+				t.Errorf("llr.Refresh() JSON: diff -want +got\n%s", diff)
+			}
+			if !beforeRefresh.Before(ll.DownloadTime) || !afterRefresh.After(ll.DownloadTime) {
+				t.Errorf("llr.Refresh() DownloadTime %s: outside of (%s, %s) interval", ll.DownloadTime, beforeRefresh, afterRefresh)
 			}
 		})
 	}

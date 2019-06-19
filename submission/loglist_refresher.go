@@ -30,9 +30,17 @@ const (
 	httpClientTimeout = 10 * time.Second
 )
 
+// LogListData wraps info on external LogList, keeping its JSON source and time
+// of download.
+type LogListData struct {
+	JSON         []byte
+	List         *loglist.LogList
+	DownloadTime time.Time
+}
+
 // LogListRefresher is interface for Log List updates watcher.
 type LogListRefresher interface {
-	Refresh() (*loglist.LogList, error)
+	Refresh() (*LogListData, error)
 	LastJSON() []byte
 	Source() string
 }
@@ -53,12 +61,14 @@ func NewLogListRefresher(llPath string) LogListRefresher {
 	}
 }
 
-// Refresh fetches the log list and returns it if it has changed.
-func (llr *logListRefresherImpl) Refresh() (*loglist.LogList, error) {
+// Refresh fetches the log list and returns its source, formed LogList and
+// timestamp if source has changed compared to previous Refresh.
+func (llr *logListRefresherImpl) Refresh() (*LogListData, error) {
 	llr.updateMu.Lock()
 	defer llr.updateMu.Unlock()
 	client := &http.Client{Timeout: httpClientTimeout}
 
+	t := time.Now()
 	json, err := x509util.ReadFileOrURL(llr.path, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q: %v", llr.path, err)
@@ -73,7 +83,7 @@ func (llr *logListRefresherImpl) Refresh() (*loglist.LogList, error) {
 		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}
 	llr.lastJSON = json
-	return ll, nil
+	return &LogListData{JSON: json, List: ll, DownloadTime: t}, nil
 }
 
 // LastJSON returns last version of Log list in JSON.
