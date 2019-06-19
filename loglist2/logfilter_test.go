@@ -14,6 +14,7 @@
 package loglist2
 
 import (
+	"log"
 	"testing"
 	"time"
 
@@ -133,7 +134,10 @@ func TestRootCompatible(t *testing.T) {
 }
 
 // stripErr is helper func for wrapping time.Parse
-func stripErr(t time.Time, _ error) time.Time {
+func stripErr(t time.Time, err error) time.Time {
+	if err != nil {
+		log.Fatal(err)
+	}
 	return t
 }
 
@@ -148,28 +152,28 @@ func TestTemporalCompatible(t *testing.T) {
 		want      LogList
 	}{
 		{
-			name:      "AllFit",
+			name:      "AllLogsFitTemporal",
 			in:        sampleLogList,
 			cert:      cert,
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
 			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "OperatorOff",
+			name:      "OperatorExcludedAllItsLogsMismatch",
 			in:        sampleLogList,
 			cert:      cert,
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2014")),
 			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "TwoLogsAfterCert",
+			name:      "TwoLogsAfterCertTimeExcluded",
 			in:        sampleLogList,
 			cert:      cert,
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2013")),
 			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "TwoLogsBeforeCert",
+			name:      "TwoLogsBeforeCertTimeExcluded",
 			in:        sampleLogList,
 			cert:      cert,
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),

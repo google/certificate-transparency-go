@@ -27,12 +27,11 @@ import (
 	"testing"
 	"time"
 
-	//"github.com/kylelemons/godebug/pretty"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 // parseValidUnixTime is helper func
-func parseValidUnixTime(sTime string) time.Time {
+func mustParseUnixTime(sTime string) time.Time {
 	tm, e := time.Parse(time.UnixDate, sTime)
 	if e != nil {
 		log.Fatal(e)
@@ -62,8 +61,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: parseValidUnixTime("Fri Mar 7 11:06:00 PST 2014"),
-						EndExclusive:   parseValidUnixTime("Sat Mar 7 12:00:00 PST 2015"),
+						StartInclusive: mustParseUnixTime("Fri Mar 7 11:06:00 PST 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
 					},
 					DNS: "aviator.ct.googleapis.com",
 				},
@@ -110,8 +109,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: parseValidUnixTime("Fri Nov 7 12:00:00 PST 2014"),
-						EndExclusive:   parseValidUnixTime("Sat Mar 7 12:00:00 PST 2015"),
+						StartInclusive: mustParseUnixTime("Fri Nov 7 12:00:00 PST 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
 					},
 					DNS: "dubious-bob.ct.googleapis.com",
 				},
