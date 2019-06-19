@@ -202,7 +202,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 				t.Fatalf("llr.Refresh() = (_, %q), want err to match regexp %q", err, tc.errRegexp)
 			}
 			if llNil, wantNil := ll == nil, tc.wantLl == nil; llNil != wantNil {
-				t.Fatalf("llr.Refresh() = (%v, _), expected value? %t", ll, !wantNil)
+				t.Fatalf("llr.Refresh() = (%v, _), expected nil? %t", ll, wantNil)
 			}
 			if ll == nil {
 				return
