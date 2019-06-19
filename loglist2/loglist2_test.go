@@ -20,14 +20,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/kylelemons/godebug/pretty"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
+
+// parseValidUnixTime is helper func
+func mustParseUnixTime(sTime string) time.Time {
+	tm, e := time.Parse(time.UnixDate, sTime)
+	if e != nil {
+		log.Fatal(e)
+	}
+	return tm
+}
 
 var sampleLogList = LogList{
 	Operators: []*Operator{
@@ -49,6 +59,10 @@ var sampleLogList = LogList{
 								SHA256RootHash: deb64("LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA="),
 							},
 						},
+					},
+					TemporalInterval: &TemporalInterval{
+						StartInclusive: mustParseUnixTime("Fri Mar 7 11:06:00 PST 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
 					},
 					DNS: "aviator.ct.googleapis.com",
 				},
@@ -94,6 +108,10 @@ var sampleLogList = LogList{
 							Timestamp: time.Unix(1460678400, 0).UTC(),
 						},
 					},
+					TemporalInterval: &TemporalInterval{
+						StartInclusive: mustParseUnixTime("Fri Nov 7 12:00:00 PST 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
+					},
 					DNS: "dubious-bob.ct.googleapis.com",
 				},
 			},
@@ -112,12 +130,12 @@ func TestJSONMarshal(t *testing.T) {
 			in:   sampleLogList,
 			want: `{"operators":[` +
 				`{"name":"Google","email":["google-ct-logs@googlegroups.com"],"logs":[` +
-				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"readonly":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}}},` +
+				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"readonly":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}},"temporal_interval":{"start_inclusive":"2014-03-07T11:06:00Z","end_exclusive":"2015-03-07T12:00:00Z"}},` +
 				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Racketeer' log","log_id":"7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g=","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","url":"https://ct.googleapis.com/racketeer/","dns":"racketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Rocketeer' log","log_id":"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","url":"https://ct.googleapis.com/rocketeer/","dns":"rocketeer.ct.googleapis.com","mmd":86400}]},` +
 				`{"name":"Bob's CT Log Shop","email":["bob@example.com"],"logs":[` +
-				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"https://log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}}}]}]}`,
+				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"https://log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2014-11-07T12:00:00Z","end_exclusive":"2015-03-07T12:00:00Z"}}]}]}`,
 		},
 	}
 
@@ -143,8 +161,9 @@ func TestJSONMarshal(t *testing.T) {
 			if err := json.Indent(&wantIndented, []byte(test.want), jsonPrefix, jsonIndent); err != nil {
 				t.Fatalf("json.Indent(test.want) = %q, want nil", err)
 			}
-			if diff := pretty.Compare(wantIndented.String(), string(got)); diff != "" {
-				t.Errorf("json.Marshal(): diff +got -want\n%s", diff)
+			dmp := diffmatchpatch.New()
+			if diffs := dmp.DiffMain(wantIndented.String(), string(got), false); len(diffs) > 1 {
+				t.Errorf("json.Marshal(): diff \n%s", dmp.DiffPrettyText(diffs))
 			}
 		})
 	}
