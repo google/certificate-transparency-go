@@ -23,7 +23,7 @@ import (
 	"github.com/google/certificate-transparency-go/schedule"
 )
 
-// LoglistManager runs loglist updates and keeps two latest versions of Log
+// LogListManager runs loglist updates and keeps two latest versions of Log
 // list.
 type LogListManager struct {
 	Errors    chan error
