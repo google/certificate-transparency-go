@@ -102,7 +102,7 @@ func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
 	return nil
 }
 
-// setLogWeight tries setting the weight for a single Log of the Log-group.
+// SetLogWeight tries setting the weight for a single Log of the Log-group.
 // Does not reset the weight and returns error if weight is non-positive and
 // its setting will result innto unability to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
@@ -126,7 +126,7 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	return nil
 }
 
-// getSubmissionSession produces list of log-URLs of the Log-group.
+// GetSubmissionSession produces list of log-URLs of the Log-group.
 // Order of the list is weighted random defined by Log-weights within the group
 func (group *LogGroupInfo) GetSubmissionSession() []string {
 	if len(group.LogURLs) == 0 {
