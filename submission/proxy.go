@@ -21,9 +21,12 @@ import (
 	"sync"
 	"time"
 
+	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
 )
 
@@ -50,6 +53,23 @@ func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder, mf moni
 	return func(ll *loglist.LogList) (*Distributor, error) {
 		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, lcBuilder, mf)
 	}
+}
+
+// ASN1MarshalSCTs serializes list of AssignedSCTs according to RFC6962 3.3
+func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
+	unassignedSCTs := make([]*ct.SignedCertificateTimestamp, 0, len(scts))
+	for _, sct := range scts {
+		unassignedSCTs = append(unassignedSCTs, sct.SCT)
+	}
+	sctList, err := x509util.MarshalSCTsIntoSCTList(unassignedSCTs)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := asn1.Marshal(sctList)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
 }
 
 // Proxy wraps Log List updates watcher and Distributor running on fresh Log List.
