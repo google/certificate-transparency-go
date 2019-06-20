@@ -861,6 +861,34 @@ func ExtractSCT(sctData *x509.SerializedSCT) (*ct.SignedCertificateTimestamp, er
 	return &sct, nil
 }
 
+// ParseSCTListIntoSCTs serializes SCTs into SCT list.
+func ParseSCTListIntoSCTs(scts []*ct.SignedCertificateTimestamp) (*x509.SignedCertificateTimestampList, error) {
+	var sctList x509.SignedCertificateTimestampList
+	sctList.SCTList = []x509.SerializedSCT{}
+	for i, sct := range scts {
+		sctData, err := EncodeSCT(sct)
+		if err != nil {
+			return nil, fmt.Errorf("error serializing SCT number %d: %s", i, err)
+		}
+		sctList.SCTList = append(sctList.SCTList, *sctData)
+	}
+	return &sctList, nil
+}
+
+// EncodeSCT serializes an SCT into a TLS-encoded SCT.
+func EncodeSCT(sct *ct.SignedCertificateTimestamp) (*x509.SerializedSCT, error) {
+	if sct == nil {
+		return nil, errors.New("SCT is nil")
+	}
+	var sctData x509.SerializedSCT
+	enc, err := tls.Marshal(sct)
+	if err != nil {
+		return nil, fmt.Errorf("error serializing SCT: %s", err)
+	}
+	sctData.Val = enc
+	return &sctData, nil
+}
+
 var pemCertificatePrefix = []byte("-----BEGIN CERTIFICATE")
 
 // ParseSCTsFromCertificate parses any SCTs that are embedded in the
