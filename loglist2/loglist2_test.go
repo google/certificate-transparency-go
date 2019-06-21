@@ -36,7 +36,7 @@ func mustParseUnixTime(sTime string) time.Time {
 	if e != nil {
 		log.Fatal(e)
 	}
-	return tm
+	return tm.UTC()
 }
 
 var sampleLogList = LogList{
@@ -163,6 +163,7 @@ func TestJSONMarshal(t *testing.T) {
 			}
 			dmp := diffmatchpatch.New()
 			if diffs := dmp.DiffMain(wantIndented.String(), string(got), false); len(diffs) > 1 {
+				t.Errorf("%v\n", diffs)
 				t.Errorf("json.Marshal(): diff \n%s", dmp.DiffPrettyText(diffs))
 			}
 		})
