@@ -36,7 +36,7 @@ func mustParseUnixTime(sTime string) time.Time {
 	if e != nil {
 		log.Fatal(e)
 	}
-	return tm
+	return tm.UTC()
 }
 
 var sampleLogList = LogList{
@@ -61,8 +61,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: mustParseUnixTime("Fri Mar 7 11:06:00 PST 2014"),
-						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
+						StartInclusive: mustParseUnixTime("Fri Mar 7 11:06:00 UTC 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 UTC 2015"),
 					},
 					DNS: "aviator.ct.googleapis.com",
 				},
@@ -109,8 +109,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: mustParseUnixTime("Fri Nov 7 12:00:00 PST 2014"),
-						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 PST 2015"),
+						StartInclusive: mustParseUnixTime("Fri Nov 7 12:00:00 UTC 2014"),
+						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 UTC 2015"),
 					},
 					DNS: "dubious-bob.ct.googleapis.com",
 				},
