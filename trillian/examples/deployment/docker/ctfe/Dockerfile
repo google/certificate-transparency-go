@@ -5,8 +5,7 @@ WORKDIR /go/src/github.com/google/certificate-transparency-go
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
-ARG GO111MODULE=auto
-ENV GO111MODULE=$GO111MODULE
+ENV GO111MODULE=on
 RUN go get ./trillian/ctfe/ct_server
 
 FROM gcr.io/distroless/base
