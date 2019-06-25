@@ -52,14 +52,14 @@ type logListRefresherImpl struct {
 	updateMu sync.RWMutex
 	lastJSON []byte
 	path     string
-	client   *http.Client
+	Client   *http.Client
 }
 
 // NewCustomLogListRefresher creates and inits a LogListRefresherImpl instance.
 func NewCustomLogListRefresher(client *http.Client, llPath string) LogListRefresher {
 	return &logListRefresherImpl{
 		path:   llPath,
-		client: client,
+		Client: client,
 	}
 }
 
@@ -68,7 +68,7 @@ func NewCustomLogListRefresher(client *http.Client, llPath string) LogListRefres
 func NewLogListRefresher(llPath string) LogListRefresher {
 	return &logListRefresherImpl{
 		path:   llPath,
-		client: &http.Client{Timeout: httpClientTimeout},
+		Client: &http.Client{Timeout: httpClientTimeout},
 	}
 }
 
@@ -79,7 +79,7 @@ func (llr *logListRefresherImpl) Refresh() (*LogListData, error) {
 	defer llr.updateMu.Unlock()
 
 	t := time.Now()
-	json, err := x509util.ReadFileOrURL(llr.path, llr.client)
+	json, err := x509util.ReadFileOrURL(llr.path, llr.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q: %v", llr.path, err)
 	}

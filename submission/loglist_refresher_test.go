@@ -18,7 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -87,6 +89,22 @@ func TestNewLogListRefresherNoFile(t *testing.T) {
 	llr := NewLogListRefresher("nofile.json")
 	if _, err := llr.Refresh(); !strings.Contains(err.Error(), wantErrSubstr) {
 		t.Errorf("llr.Refresh() = (_, %v), want err containing %q", err, wantErrSubstr)
+	}
+}
+
+func TestNewCustomLogListRefresher(t *testing.T) {
+	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(f)
+
+	client := &http.Client{Timeout: time.Second}
+
+	llr := NewCustomLogListRefresher(client, f)
+	gotClient := reflect.ValueOf(llr).Elem().FieldByName("Client").Interface().(*http.Client)
+	if gotClient != client {
+		t.Errorf("NewCustomLogListRefresher inits with client %v while expected client %v", gotClient, client)
 	}
 }
 
