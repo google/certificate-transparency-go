@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -92,19 +91,25 @@ func TestNewLogListRefresherNoFile(t *testing.T) {
 	}
 }
 
+type fakeTransport struct {
+  called bool
+}
+
+func (ft *fakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+  ft.called = true 
+  return nil, fmt.Errorf("fakeTransport got called")
+}
+
 func TestNewCustomLogListRefresher(t *testing.T) {
-	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
-	if err != nil {
-		panic(err)
+	transport := fakeTransport{}
+	client := &http.Client{Transport: &transport, Timeout: time.Second}
+
+	llr := NewCustomLogListRefresher(client, "https://loglist.net/")
+	if _, err := llr.Refresh(); err == nil {
+		t.Errorf("Expected llr.Refresh() to return error using fakeTransport, got none")
 	}
-	defer os.Remove(f)
-
-	client := &http.Client{Timeout: time.Second}
-
-	llr := NewCustomLogListRefresher(client, f)
-	gotClient := reflect.ValueOf(llr).Elem().FieldByName("Client").Interface().(*http.Client)
-	if gotClient != client {
-		t.Errorf("NewCustomLogListRefresher inits with client %v while expected client %v", gotClient, client)
+	if transport.called != true {
+		t.Errorf("NewCustomLogListRefresher initialized with fakeTransport didn't call it on Refresh()")
 	}
 }
 
