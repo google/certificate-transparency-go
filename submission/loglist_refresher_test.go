@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -87,6 +88,28 @@ func TestNewLogListRefresherNoFile(t *testing.T) {
 	llr := NewLogListRefresher("nofile.json")
 	if _, err := llr.Refresh(); !strings.Contains(err.Error(), wantErrSubstr) {
 		t.Errorf("llr.Refresh() = (_, %v), want err containing %q", err, wantErrSubstr)
+	}
+}
+
+type fakeTransport struct {
+	called bool
+}
+
+func (ft *fakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ft.called = true
+	return nil, fmt.Errorf("fakeTransport got called")
+}
+
+func TestNewCustomLogListRefresher(t *testing.T) {
+	transport := fakeTransport{}
+	client := &http.Client{Transport: &transport, Timeout: time.Second}
+
+	llr := NewCustomLogListRefresher(client, "https://loglist.net/")
+	if _, err := llr.Refresh(); err == nil {
+		t.Errorf("Expected llr.Refresh() to return error using fakeTransport, got none")
+	}
+	if transport.called != true {
+		t.Errorf("NewCustomLogListRefresher initialized with fakeTransport didn't call it on Refresh()")
 	}
 }
 
