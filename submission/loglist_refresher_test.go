@@ -92,12 +92,12 @@ func TestNewLogListRefresherNoFile(t *testing.T) {
 }
 
 type fakeTransport struct {
-  called bool
+	called bool
 }
 
 func (ft *fakeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-  ft.called = true 
-  return nil, fmt.Errorf("fakeTransport got called")
+	ft.called = true
+	return nil, fmt.Errorf("fakeTransport got called")
 }
 
 func TestNewCustomLogListRefresher(t *testing.T) {
