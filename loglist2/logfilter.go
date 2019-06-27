@@ -43,6 +43,25 @@ func (ll *LogList) SelectUsable() LogList {
 	return active
 }
 
+// SelectQualified creates a new LogList containing only qualified logs from
+// the original.
+func (ll *LogList) SelectQualified() LogList {
+	var active LogList
+	for _, op := range ll.Operators {
+		activeOp := *op
+		activeOp.Logs = []*Log{}
+		for _, l := range op.Logs {
+			if l.State != nil && l.State.Qualified != nil {
+				activeOp.Logs = append(activeOp.Logs, l)
+			}
+		}
+		if len(activeOp.Logs) > 0 {
+			active.Operators = append(active.Operators, &activeOp)
+		}
+	}
+	return active
+}
+
 // RootCompatible creates a new LogList containing only the logs of original
 // LogList that are compatible with the provided cert, according to
 // the passed in collection of per-log roots. Logs that are missing from

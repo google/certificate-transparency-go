@@ -66,6 +66,29 @@ func TestSelectUsable(t *testing.T) {
 	}
 }
 
+func TestSelectQualified(t *testing.T) {
+	tests := []struct {
+		name string
+		in   LogList
+		want LogList
+	}{
+		{
+			name: "Sample",
+			in:   sampleLogList,
+			want: subLogList(map[string]bool{}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := test.in.SelectUsable()
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("Extracting qualified logs out of %v diff: (-want +got)\n%s", test.in, diff)
+			}
+		})
+	}
+}
+
 func artificialRoots(source string) LogRoots {
 	roots := LogRoots{
 		"https://log.bob.io":                   ctfe.NewPEMCertPool(),
