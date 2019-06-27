@@ -30,18 +30,9 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-// mustParseUnixTime is helper func
-func mustParseUnixTime(sTime string) time.Time {
-	tm, e := time.Parse(time.UnixDate, sTime)
-	if e != nil {
-		log.Fatal(e)
-	}
-	return tm.UTC()
-}
-
-// mustParseRFC3339Time is helper func
-func mustParseRFC3339Time(sTime string) time.Time {
-	tm, e := time.Parse(time.RFC3339, sTime)
+// mustParseTime is helper func
+func mustParseTime(format string, sTime string) time.Time {
+	tm, e := time.Parse(format, sTime)
 	if e != nil {
 		log.Fatal(e)
 	}
@@ -70,8 +61,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: mustParseUnixTime("Fri Mar 7 11:06:00 UTC 2014"),
-						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 UTC 2015"),
+						StartInclusive: mustParseTime(time.UnixDate, "Fri Mar 7 11:06:00 UTC 2014"),
+						EndExclusive:   mustParseTime(time.UnixDate, "Sat Mar 7 12:00:00 UTC 2015"),
 					},
 					DNS: "aviator.ct.googleapis.com",
 				},
@@ -109,12 +100,12 @@ var sampleLogList = LogList{
 					MMD:         86400,
 					State: &LogStates{
 						Qualified: &LogState{
-							Timestamp: mustParseRFC3339Time("2018-02-27T00:00:00Z"),
+							Timestamp: mustParseTime(time.RFC3339, "2018-02-27T00:00:00Z"),
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: mustParseRFC3339Time("2020-01-01T00:00:00Z"),
-						EndExclusive:   mustParseRFC3339Time("2021-01-01T00:00:00Z"),
+						StartInclusive: mustParseTime(time.RFC3339, "2020-01-01T00:00:00Z"),
+						EndExclusive:   mustParseTime(time.RFC3339, "2021-01-01T00:00:00Z"),
 					},
 				},
 			},
@@ -135,8 +126,8 @@ var sampleLogList = LogList{
 						},
 					},
 					TemporalInterval: &TemporalInterval{
-						StartInclusive: mustParseUnixTime("Fri Nov 7 12:00:00 UTC 2014"),
-						EndExclusive:   mustParseUnixTime("Sat Mar 7 12:00:00 UTC 2015"),
+						StartInclusive: mustParseTime(time.UnixDate, "Fri Nov 7 12:00:00 UTC 2014"),
+						EndExclusive:   mustParseTime(time.UnixDate, "Sat Mar 7 12:00:00 UTC 2015"),
 					},
 					DNS: "dubious-bob.ct.googleapis.com",
 				},
