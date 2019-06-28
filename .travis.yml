@@ -9,6 +9,7 @@ go_import_path: github.com/google/certificate-transparency-go
 env:
   global:
   - GO111MODULE=on
+  - GOPROXY=https://proxy.golang.org
   matrix:
   - GOFLAGS=
   - GOFLAGS=-race                PRESUBMIT_OPTS="--no-linters"
