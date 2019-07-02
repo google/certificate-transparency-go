@@ -43,12 +43,12 @@ func TestSetUpInstance(t *testing.T) {
 
 	var tests = []struct {
 		desc    string
-		cfg     configpb.LogConfig
+		cfg     *configpb.LogConfig
 		wantErr string
 	}{
 		{
 			desc: "valid",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -57,7 +57,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "valid-mirror",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -67,7 +67,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-roots",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      1,
 				Prefix:     "log",
 				PrivateKey: privKey,
@@ -76,7 +76,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-roots-mirror",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:     1,
 				Prefix:    "log",
 				PublicKey: pubKey,
@@ -85,7 +85,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "missing-root-cert",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/bogus.cert"},
@@ -95,7 +95,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "missing-privkey",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -105,7 +105,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "privkey-wrong-password",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -115,7 +115,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "valid-ekus-1",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -125,7 +125,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "valid-ekus-2",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -137,7 +137,7 @@ func TestSetUpInstance(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			vCfg, err := ValidateLogConfig(&test.cfg)
+			vCfg, err := ValidateLogConfig(test.cfg)
 			if err != nil {
 				t.Fatalf("ValidateLogConfig(): %v", err)
 			}
@@ -181,11 +181,11 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 	}
 	var tests = []struct {
 		desc string
-		cfg  configpb.LogConfig
+		cfg  *configpb.LogConfig
 	}{
 		{
 			desc: "no validation opts",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "/log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -194,7 +194,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		},
 		{
 			desc: "notAfterStart only",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         1,
 				Prefix:        "/log",
 				RootsPemFile:  []string{"../testdata/fake-ca.cert"},
@@ -204,7 +204,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		},
 		{
 			desc: "notAfter range",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         1,
 				Prefix:        "/log",
 				RootsPemFile:  []string{"../testdata/fake-ca.cert"},
@@ -215,7 +215,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 		},
 		{
 			desc: "caOnly",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        1,
 				Prefix:       "/log",
 				RootsPemFile: []string{"../testdata/fake-ca.cert"},
@@ -227,7 +227,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			vCfg, err := ValidateLogConfig(&test.cfg)
+			vCfg, err := ValidateLogConfig(test.cfg)
 			if err != nil {
 				t.Fatalf("ValidateLogConfig(): %v", err)
 			}

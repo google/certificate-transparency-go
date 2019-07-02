@@ -35,7 +35,7 @@ var (
 	invalidTimestamp = &timestamp.Timestamp{Nanos: int32(1e9)}
 
 	// validSTH is an STH signed by "../testdata/ct-http-server.privkey.pem".
-	validSTH = configpb.SignedTreeHead{
+	validSTH = &configpb.SignedTreeHead{
 		TreeSize:          766,
 		Timestamp:         1538659276115,
 		Sha256RootHash:    mustDecodeBase64("rMWSvrYQ+n6kAmU6sMJuVV5LjoKBGK2OL719X5a+T9Y="),
@@ -75,33 +75,33 @@ func TestValidateLogConfig(t *testing.T) {
 	pubKey := mustReadPublicKey("../testdata/ct-http-server.pubkey.pem")
 	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 
-	corruptedSTH := validSTH
+	corruptedSTH := proto.Clone(validSTH).(*configpb.SignedTreeHead)
 	corruptedSTH.TreeSize = 1234
 
 	for _, tc := range []struct {
 		desc    string
-		cfg     configpb.LogConfig
+		cfg     *configpb.LogConfig
 		wantErr string
 	}{
 		{
 			desc:    "empty-log-ID",
 			wantErr: "empty log ID",
-			cfg:     configpb.LogConfig{},
+			cfg:     &configpb.LogConfig{},
 		},
 		{
 			desc:    "empty-public-key-mirror",
 			wantErr: "empty public key for mirror",
-			cfg:     configpb.LogConfig{LogId: 123, IsMirror: true},
+			cfg:     &configpb.LogConfig{LogId: 123, IsMirror: true},
 		},
 		{
 			desc:    "empty-public-key-frozen",
 			wantErr: "empty public key for frozen STH",
-			cfg:     configpb.LogConfig{LogId: 123, FrozenSth: &configpb.SignedTreeHead{}},
+			cfg:     &configpb.LogConfig{LogId: 123, FrozenSth: &configpb.SignedTreeHead{}},
 		},
 		{
 			desc:    "invalid-public-key-empty",
 			wantErr: "invalid public key",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: &keyspb.PublicKey{},
 				IsMirror:  true,
@@ -110,7 +110,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "invalid-public-key-abacaba",
 			wantErr: "invalid public key",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: &keyspb.PublicKey{Der: []byte("abacaba")},
 				IsMirror:  true,
@@ -119,12 +119,12 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "empty-private-key",
 			wantErr: "empty private key",
-			cfg:     configpb.LogConfig{LogId: 123},
+			cfg:     &configpb.LogConfig{LogId: 123},
 		},
 		{
 			desc:    "invalid-private-key",
 			wantErr: "invalid private key",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PrivateKey: &any.Any{},
 			},
@@ -132,7 +132,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "unnecessary-private-key",
 			wantErr: "unnecessary private key",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PublicKey:  pubKey,
 				PrivateKey: privKey,
@@ -142,7 +142,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "rejecting-all",
 			wantErr: "rejecting all certificates",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:           123,
 				RejectExpired:   true,
 				RejectUnexpired: true,
@@ -152,7 +152,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "unknown-ext-key-usage-1",
 			wantErr: "unknown extended key usage",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"wrong_usage"},
@@ -161,7 +161,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "unknown-ext-key-usage-2",
 			wantErr: "unknown extended key usage",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStomping"},
@@ -170,7 +170,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "unknown-ext-key-usage-3",
 			wantErr: "unknown extended key usage",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"Any "},
@@ -179,7 +179,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "invalid-start-timestamp",
 			wantErr: "invalid start timestamp",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterStart: invalidTimestamp,
@@ -188,7 +188,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "invalid-limit-timestamp",
 			wantErr: "invalid limit timestamp",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterLimit: invalidTimestamp,
@@ -197,7 +197,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "limit-before-start",
 			wantErr: "limit before start",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterStart: &timestamp.Timestamp{Seconds: 200},
@@ -207,7 +207,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "negative-maximum-merge",
 			wantErr: "negative maximum merge",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:            123,
 				PrivateKey:       privKey,
 				MaxMergeDelaySec: -100,
@@ -216,7 +216,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "negative-expected-merge",
 			wantErr: "negative expected merge",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:                 123,
 				PrivateKey:            privKey,
 				ExpectedMergeDelaySec: -100,
@@ -225,7 +225,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "expected-exceeds-max",
 			wantErr: "expected merge delay exceeds MMD",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:                 123,
 				PrivateKey:            privKey,
 				MaxMergeDelaySec:      50,
@@ -235,7 +235,7 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "invalid-frozen-STH",
 			wantErr: "invalid frozen STH",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: pubKey,
 				IsMirror:  true,
@@ -248,16 +248,16 @@ func TestValidateLogConfig(t *testing.T) {
 		{
 			desc:    "signature-verification-failed",
 			wantErr: "signature verification failed",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PublicKey:  pubKey,
 				PrivateKey: privKey,
-				FrozenSth:  &corruptedSTH,
+				FrozenSth:  corruptedSTH,
 			},
 		},
 		{
 			desc: "ok",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PrivateKey: privKey,
 			},
@@ -268,14 +268,14 @@ func TestValidateLogConfig(t *testing.T) {
 			// TODO(pavelkalinnikov): Decouple key protos validation and loading, and
 			// make this test fail.
 			desc: "ok-not-a-key",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PrivateKey: mustMarshalAny(&configpb.LogConfig{}),
 			},
 		},
 		{
 			desc: "ok-mirror",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: pubKey,
 				IsMirror:  true,
@@ -283,7 +283,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-ext-key-usages",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
 				ExtKeyUsages: []string{"ServerAuth", "ClientAuth", "OCSPSigning"},
@@ -291,7 +291,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-start-timestamp",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterStart: &timestamp.Timestamp{Seconds: 100},
@@ -299,7 +299,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-limit-timestamp",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 200},
@@ -307,7 +307,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-range-timestamp",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
 				NotAfterStart: &timestamp.Timestamp{Seconds: 300},
@@ -316,7 +316,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-merge-delay",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:                 123,
 				PrivateKey:            privKey,
 				MaxMergeDelaySec:      86400,
@@ -325,16 +325,16 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-frozen-STH",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				LogId:      123,
 				PublicKey:  pubKey,
 				PrivateKey: privKey,
-				FrozenSth:  &validSTH,
+				FrozenSth:  validSTH,
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			vc, err := ValidateLogConfig(&tc.cfg)
+			vc, err := ValidateLogConfig(tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
 				t.Errorf("ValidateLogConfig()=%v, want nil", err)
 			}
@@ -353,13 +353,13 @@ func TestValidateLogMultiConfig(t *testing.T) {
 	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	for _, tc := range []struct {
 		desc    string
-		cfg     configpb.LogMultiConfig
+		cfg     *configpb.LogMultiConfig
 		wantErr string
 	}{
 		{
 			desc:    "empty-backend-name",
 			wantErr: "empty backend name",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{BackendSpec: "testspec"},
@@ -370,7 +370,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "empty-backend-spec",
 			wantErr: "empty backend spec",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1"},
@@ -381,7 +381,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "duplicate-backend-name",
 			wantErr: "duplicate backend name",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "dup", BackendSpec: "testspec"},
@@ -393,7 +393,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "duplicate-backend-spec",
 			wantErr: "duplicate backend spec",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec"},
@@ -405,7 +405,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "invalid-log-config",
 			wantErr: "log config: empty log ID",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec"},
@@ -421,7 +421,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "empty-prefix",
 			wantErr: "empty prefix",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec"},
@@ -437,7 +437,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "duplicate-prefix",
 			wantErr: "duplicate prefix",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
@@ -455,7 +455,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "references-undefined-backend",
 			wantErr: "references undefined backend",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec"},
@@ -471,7 +471,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		{
 			desc:    "dup-tree-id-on-same-backend",
 			wantErr: "dup tree id",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
@@ -488,7 +488,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-all-distinct",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
@@ -507,7 +507,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "ok-dup-tree-ids-on-different-backends",
-			cfg: configpb.LogMultiConfig{
+			cfg: &configpb.LogMultiConfig{
 				Backends: &configpb.LogBackendSet{
 					Backend: []*configpb.LogBackend{
 						{Name: "log1", BackendSpec: "testspec1"},
@@ -526,7 +526,7 @@ func TestValidateLogMultiConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := ValidateLogMultiConfig(&tc.cfg)
+			_, err := ValidateLogMultiConfig(tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
 				t.Fatalf("ValidateLogMultiConfig()=%v, want nil", err)
 			}
