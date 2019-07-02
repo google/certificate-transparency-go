@@ -188,46 +188,46 @@ func loadPublicKey(path string) ([]byte, error) {
 func TestNotAfterForLog(t *testing.T) {
 	tests := []struct {
 		desc    string
-		cfg     configpb.LogConfig
+		cfg     *configpb.LogConfig
 		want    time.Time
 		wantErr string
 	}{
 		{
 			desc: "no-limits",
-			cfg:  configpb.LogConfig{},
+			cfg:  &configpb.LogConfig{},
 			want: time.Now().Add(24 * time.Hour),
 		},
 		{
 			desc: "malformed-start",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				NotAfterStart: &timestamp.Timestamp{Seconds: 1000, Nanos: -1},
 			},
 			wantErr: "failed to parse NotAfterStart",
 		},
 		{
 			desc: "malformed-limit",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 1000, Nanos: -1},
 			},
 			wantErr: "failed to parse NotAfterLimit",
 		},
 		{
 			desc: "start-no-limit",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				NotAfterStart: &timestamp.Timestamp{Seconds: 1230000000},
 			},
 			want: time.Date(2008, 12, 23, 2, 40, 0, 0, time.UTC).Add(24 * time.Hour),
 		},
 		{
 			desc: "limit-no-start",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 1230000000},
 			},
 			want: time.Date(2008, 12, 23, 2, 40, 0, 0, time.UTC).Add(-1 * time.Hour),
 		},
 		{
 			desc: "mid-range",
-			cfg: configpb.LogConfig{
+			cfg: &configpb.LogConfig{
 				NotAfterStart: &timestamp.Timestamp{Seconds: 1230000000},
 				NotAfterLimit: &timestamp.Timestamp{Seconds: 1230000000 + 86400},
 			},
@@ -236,7 +236,7 @@ func TestNotAfterForLog(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			got, err := NotAfterForLog(&test.cfg)
+			got, err := NotAfterForLog(test.cfg)
 			if err != nil {
 				if len(test.wantErr) == 0 {
 					t.Errorf("NotAfterForLog()=nil,%v, want _,nil", err)
