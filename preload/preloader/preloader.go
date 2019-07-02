@@ -200,7 +200,7 @@ func main() {
 		if err != nil {
 			glog.Exitf("Failed to load temporal log config: %v", err)
 		}
-		submitLogClient, err = client.NewTemporalLogClient(*cfg, &http.Client{Transport: transport})
+		submitLogClient, err = client.NewTemporalLogClient(cfg, &http.Client{Transport: transport})
 		if err != nil {
 			glog.Exitf("Failed to create client for destination temporal log: %v", err)
 		}
