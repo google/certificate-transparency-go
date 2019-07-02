@@ -869,7 +869,7 @@ func MarshalSCTsIntoSCTList(scts []*ct.SignedCertificateTimestamp) (*x509.Signed
 		if sct == nil {
 			return nil, fmt.Errorf("SCT number %d is nil", i)
 		}
-		encd, err := tls.Marshal(sct)
+		encd, err := tls.Marshal(*sct)
 		if err != nil {
 			return nil, fmt.Errorf("error serializing SCT number %d: %s", i, err)
 		}
