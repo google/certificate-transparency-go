@@ -76,50 +76,50 @@ func TestValidateMigrationConfig(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc    string
-		cfg     configpb.MigrationConfig
+		cfg     *configpb.MigrationConfig
 		wantErr string
 	}{
 		{
 			desc:    "missing-source-uri",
-			cfg:     configpb.MigrationConfig{},
+			cfg:     &configpb.MigrationConfig{},
 			wantErr: "missing CT log URI",
 		},
 		{
 			desc:    "missing-pub-key",
-			cfg:     configpb.MigrationConfig{SourceUri: ctURI},
+			cfg:     &configpb.MigrationConfig{SourceUri: ctURI},
 			wantErr: "missing public key",
 		},
 		{
 			desc:    "missing-backend",
-			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
+			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
 			wantErr: "missing log backend name",
 		},
 		{
 			desc:    "wrong-log-ID",
-			cfg:     configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
+			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
 			wantErr: "log ID must be positive",
 		},
 		{
 			desc: "wrong-batch-size",
-			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
+			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
 				LogBackendName: back, LogId: 10},
 			wantErr: "batch size must be positive",
 		},
 		{
 			desc: "unknown-identity-function",
-			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
+			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
 				LogBackendName: back, LogId: 10, BatchSize: 100},
 			wantErr: "unknown identity function",
 		},
 		{
 			desc: "ok",
-			cfg: configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
+			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
 				LogBackendName: back, LogId: 10, BatchSize: 100,
 				IdentityFunction: configpb.IdentityFunction_SHA256_CERT_DATA},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := ValidateMigrationConfig(&tc.cfg)
+			err := ValidateMigrationConfig(tc.cfg)
 			if len(tc.wantErr) == 0 && err != nil {
 				t.Errorf("ValidateMigrationConfig()=%v, want nil", err)
 			}
