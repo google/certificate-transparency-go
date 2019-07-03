@@ -192,6 +192,12 @@ func main() {
 		}
 	})
 
+	// Export a healthz target.
+	corsMux.HandleFunc("/healthz", func(resp http.ResponseWriter, req *http.Request) {
+		//TODO(al): Wire this up to tell the truth.
+		resp.Write([]byte("ok"))
+	})
+
 	if metricsAt != *httpEndpoint {
 		// Run a separate handler for metrics.
 		go func() {
