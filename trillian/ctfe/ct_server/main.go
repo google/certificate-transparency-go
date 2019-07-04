@@ -194,7 +194,7 @@ func main() {
 
 	// Export a healthz target.
 	corsMux.HandleFunc("/healthz", func(resp http.ResponseWriter, req *http.Request) {
-		//TODO(al): Wire this up to tell the truth.
+		// TODO(al): Wire this up to tell the truth.
 		resp.Write([]byte("ok"))
 	})
 
