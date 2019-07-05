@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/x509"
+	"golang.org/x/crypto/ed25519"
 )
 
 func ExampleCertificate_Verify() {
@@ -129,6 +130,8 @@ AIU+2GKjyT3iMuzZxxFxPFMCAwEAAQ==
 		fmt.Println("pub is of type DSA:", pub)
 	case *ecdsa.PublicKey:
 		fmt.Println("pub is of type ECDSA:", pub)
+	case ed25519.PublicKey:
+		fmt.Println("pub is of type Ed25519:", pub)
 	default:
 		panic("unknown type of public key")
 	}
