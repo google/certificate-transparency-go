@@ -43,7 +43,7 @@ func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout 
 
 // Run starts regular Log list updates.
 func (s *ProxyServer) Run(logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
-	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
+	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval, func(){})
 }
 
 // SCTBatch represents JSON response to add-pre-chain method of proxy.
