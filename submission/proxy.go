@@ -75,6 +75,7 @@ func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 // Proxy wraps Log List updates watcher and Distributor running on fresh Log List.
 type Proxy struct {
 	Errors chan error
+	Init   chan bool
 
 	llRefreshInterval    time.Duration
 	rootsRefreshInterval time.Duration
@@ -100,7 +101,7 @@ func NewProxy(llm *LogListManager, db DistributorBuilder) *Proxy {
 
 // Run starts regular LogList checks and associated Distributor initialization.
 // Calls onInit when init is complete.
-func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration, onInit func()) {
+func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
 	init := false
 	p.llRefreshInterval = llRefresh
 	p.rootsRefreshInterval = rootsRefresh
@@ -116,7 +117,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 					p.Errors <- err
 				} else if !init {
 					init = true
-					onInit()
+					p.Init <- true
 				}
 			case err := <-p.llWatcher.Errors:
 				p.Errors <- err

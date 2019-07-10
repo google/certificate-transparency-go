@@ -95,7 +95,7 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 
 	llr := NewLogListRefresher(f)
 	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
-	p.Run(context.Background(), time.Hour, time.Hour, func() { fmt.Print("init complete") })
+	p.Run(context.Background(), time.Hour, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
