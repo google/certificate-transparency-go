@@ -115,8 +115,8 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 				if err := p.restartDistributor(ctx, llData.List); err != nil {
 					p.Errors <- err
 				} else if !init {
-					init = true;
-					onInit();
+					init = true
+					onInit()
 				}
 			case err := <-p.llWatcher.Errors:
 				p.Errors <- err
