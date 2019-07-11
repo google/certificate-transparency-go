@@ -213,7 +213,7 @@ func TestVerifySCT(t *testing.T) {
 		}
 
 		err = VerifySCT(pk, chain, &sct, test.embedded)
-		if gotErr := (err != nil); gotErr != test.wantErr {
+		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("%s: VerifySCT(_,_,_, %t) = %v, want error? %t", test.desc, test.embedded, err, test.wantErr)
 		}
 	}

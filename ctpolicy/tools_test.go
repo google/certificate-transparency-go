@@ -47,7 +47,7 @@ func TestWeightedRandomSampleDef(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			gotItem, err := weightedRandomSample(tc.weights)
-			if gotErr := (err != nil); gotErr != tc.wantErr {
+			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("weightedRandomSample(%v) = (_, error: %v), want err? %t", tc.weights, err, tc.wantErr)
 			}
 			if gotItem != tc.wantItem {
@@ -75,7 +75,7 @@ func TestWeightedRandomSampleInDef(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			gotItem, err := weightedRandomSample(tc.weights)
-			if gotErr := (err != nil); gotErr != tc.wantErr {
+			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("weightedRandomSample(%v) = (_, error: %v), want err? %t", tc.weights, err, tc.wantErr)
 			}
 			for _, i := range tc.wantOneOf {

@@ -79,7 +79,7 @@ func main() {
 				glog.Errorf("%s: failed to get cert chain: %v", arg, err)
 				continue
 			}
-			glog.Errorf("Found %d external SCTs for %q, of which %d were validated", (valid + invalid), arg, valid)
+			glog.Errorf("Found %d external SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
 			totalInvalid += invalid
 		} else {
 			// Treat the argument as a certificate file to load.
@@ -100,7 +100,7 @@ func main() {
 		}
 		// Check the chain for embedded SCTs.
 		valid, invalid = checkChain(ctx, lf, chain, ll, hc)
-		glog.Errorf("Found %d embedded SCTs for %q, of which %d were validated", (valid + invalid), arg, valid)
+		glog.Errorf("Found %d embedded SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
 		totalInvalid += invalid
 	}
 	if totalInvalid > 0 {

@@ -50,12 +50,12 @@ func getTestCertPEMLongOriginal() *x509.Certificate {
 
 func sampleLogList(t *testing.T) *loglist.LogList {
 	t.Helper()
-	var loglist loglist.LogList
-	err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist)
+	var ll loglist.LogList
+	err := json.Unmarshal([]byte(testdata.SampleLogList), &ll)
 	if err != nil {
 		t.Fatalf("Unable to Unmarshal testdata.SampleLogList %v", err)
 	}
-	return &loglist
+	return &ll
 }
 
 func TestLifetimeInMonths(t *testing.T) {

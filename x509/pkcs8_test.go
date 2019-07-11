@@ -45,13 +45,13 @@ var pkcs8P521PrivateKeyHex = `3081ee020100301006072a8648ce3d020106052b8104002304
 //   -----BEGIN PRIVATE KEY-----
 //   MC4CAQAwBQYDK2VwBCIEINTuctv5E1hK1bbY8fdp+K06/nwoy/HU++CXqI9EdVhC
 //   -----END PRIVATE KEY-----
-var pkcs8Ed25519PrivateKeyHex = ("302e" + // SEQUENCE len=46
+var pkcs8Ed25519PrivateKeyHex = "302e" + // SEQUENCE len=46
 	"0201" + "00" + // INTEGER len=1 value=0
 	("3005" + // SEQUENCE len=5
 		"0603" + "2b6570") + // OID len=3
 	("0422" + // OCTET STRING len=34
 		("0420" + // OCTET STRING len=32
-			"d4ee72dbf913584ad5b6d8f1f769f8ad3afe7c28cbf1d4fbe097a88f44755842")))
+			"d4ee72dbf913584ad5b6d8f1f769f8ad3afe7c28cbf1d4fbe097a88f44755842"))
 
 func TestPKCS8(t *testing.T) {
 	tests := []struct {

@@ -107,7 +107,7 @@ func min(a, b int) int {
 	return b
 }
 
-// sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
+// Len implements sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
 // Sort will sort the chains contained within the chainSlice.  The chains will
 // be sorted in order of the first certificate in the chain, i.e. their leaf
 // certificate.  If two chains have equal leaf certificates, they will be sorted

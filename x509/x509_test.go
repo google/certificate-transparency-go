@@ -569,28 +569,28 @@ UfUJESblkeQVpcnndMfnsHSahCVd96k=
 */
 
 var wantSCTs = []string{
-	("00" + // Version: v1(0)
+	"00" + // Version: v1(0)
 		"bbd9dfbc1f8a71b593942397aa927b473857950aab52e81a909664368e1ed185" + // LogID: Google Skydiver
 		"0000015a1e1ddc08" + // Timestamp
 		"0000" + // No Extensions
 		("04" + "03" + // SHA-256, ECDSA
 			("0047" +
-				"3045022100f77e1ffa0a9dc8e38a6829f840ec89218c89ef97ca82f49928a32701ecd7c496022032285cf05d00a7580853b5940b15a05749d4c5e5a9df89a9fa0d083e7349d4a7"))),
+				"3045022100f77e1ffa0a9dc8e38a6829f840ec89218c89ef97ca82f49928a32701ecd7c496022032285cf05d00a7580853b5940b15a05749d4c5e5a9df89a9fa0d083e7349d4a7")),
 
-	("00" + // Version: v1(0)
+	"00" + // Version: v1(0)
 		"a4b90990b418581487bb13a2cc67700a3c359804f91bdfb8e377cd0ec80ddc10" + // LogID: Google Pilot
 		"0000015a1e1ddc1a" +
 		"0000" + // No Extensions
 		("04" + "03" + // SHA-256, ECDSA
 			("0047" +
-				"304502200e39bbda5f7a2acd1e7f0ad311c30947c28a1412149a34618985c581203bc184022100c035dd988924bf7949d6d77e4634f35cc0488e9f51dc88b51ae98e18a7bc22a7"))),
-	("00" + // Version: v1(0)
+				"304502200e39bbda5f7a2acd1e7f0ad311c30947c28a1412149a34618985c581203bc184022100c035dd988924bf7949d6d77e4634f35cc0488e9f51dc88b51ae98e18a7bc22a7")),
+	"00" + // Version: v1(0)
 		"5614069a2fd7c2ecd3f5e1bd44b23ec74676b9bc99115cc0ef949855d689d0dd" + // LogID: Digicert Log Server
 		"0000015a1e1ddc40" + // Timestamp
 		"0000" + // No Extensions
 		("04" + "03" + // SHA-256, ECDSA
 			("0047" +
-				"3045022047dee60ad1893bda1d92787b88256c67ed67cee7d6941fda555ec81314ab45da022100ffe5bea8271577784755a609af23baed26026d40629d4e7fea37bc7832ce10ce"))),
+				"3045022047dee60ad1893bda1d92787b88256c67ed67cee7d6941fda555ec81314ab45da022100ffe5bea8271577784755a609af23baed26026d40629d4e7fea37bc7832ce10ce")),
 }
 
 func TestParseCertificateSCTs(t *testing.T) {
@@ -611,11 +611,11 @@ func TestParseCertificateSCTs(t *testing.T) {
 }
 
 func parseCIDR(s string) *net.IPNet {
-	_, net, err := net.ParseCIDR(s)
+	_, n, err := net.ParseCIDR(s)
 	if err != nil {
 		panic(err)
 	}
-	return net
+	return n
 }
 
 func parseURI(s string) *url.URL {
@@ -2322,11 +2322,11 @@ func TestEmptyNameConstraints(t *testing.T) {
 }
 
 func TestPKIXNameString(t *testing.T) {
-	pem, err := hex.DecodeString(certBytes)
+	p, err := hex.DecodeString(certBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	certs, err := ParseCertificates(pem)
+	certs, err := ParseCertificates(p)
 	if IsFatal(err) {
 		t.Fatal(err)
 	}

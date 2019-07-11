@@ -92,7 +92,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 
 			roots, err := lc.GetAcceptedRoots(rctx)
 			if err != nil {
-				res.Err = fmt.Errorf("Roots refresh for %s: couldn't collect roots. %s", logURL, err)
+				res.Err = fmt.Errorf("roots refresh for %s: couldn't collect roots. %s", logURL, err)
 				ch <- res
 				return
 			}
@@ -100,7 +100,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
 				if x509.IsFatal(err) {
-					errS := fmt.Errorf("Roots refresh for %s: unable to parse root cert: %s", logURL, err)
+					errS := fmt.Errorf("roots refresh for %s: unable to parse root cert: %s", logURL, err)
 					if res.Err != nil {
 						res.Err = fmt.Errorf("%s\n%s", res.Err, errS)
 					} else {
@@ -247,7 +247,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if isPrecert {
 			inputType = "pre-"
 		}
-		return nil, fmt.Errorf("For add-%schain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
+		return nil, fmt.Errorf("add-%schain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
 	}
 
 	// Set up policy structs.
@@ -281,15 +281,15 @@ type LogClientBuilder func(*loglist.Log) (client.AddLogClient, error)
 
 // BuildLogClient is default (non-mock) LogClientBuilder.
 func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
-	url, err := url.Parse(log.URL)
+	u, err := url.Parse(log.URL)
 	if err != nil {
 		return nil, err
 	}
-	if url.Scheme == "" {
-		url.Scheme = "https"
+	if u.Scheme == "" {
+		u.Scheme = "https"
 	}
 	hc := &http.Client{Timeout: time.Second * 10}
-	return client.New(url.String(), hc, jsonclient.Options{PublicKeyDER: log.Key})
+	return client.New(u.String(), hc, jsonclient.Options{PublicKeyDER: log.Key})
 }
 
 // NewDistributor creates and inits a Distributor instance.

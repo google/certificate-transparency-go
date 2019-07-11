@@ -936,15 +936,15 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 		err = err1
 		return
 	case timeType:
-		var time time.Time
+		var tm time.Time
 		var err1 error
 		if universalTag == TagUTCTime {
-			time, err1 = parseUTCTime(innerBytes)
+			tm, err1 = parseUTCTime(innerBytes)
 		} else {
-			time, err1 = parseGeneralizedTime(innerBytes)
+			tm, err1 = parseGeneralizedTime(innerBytes)
 		}
 		if err1 == nil {
-			v.Set(reflect.ValueOf(time))
+			v.Set(reflect.ValueOf(tm))
 		}
 		err = err1
 		return

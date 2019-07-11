@@ -36,7 +36,7 @@ func TestFixedBackendsResolver(t *testing.T) {
 	for _, test := range tests {
 		fbr := FixedBackendResolver{}
 		got, err := fbr.Resolve(test.target)
-		if gotErr := (err != nil); gotErr != test.wantErr {
+		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("FixedBackendResolver.Resolve(%q)=(%v,%v); want (_,err=%v)", test.target, got, err, test.wantErr)
 		}
 		if err != nil {

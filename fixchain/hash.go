@@ -60,7 +60,7 @@ type bag struct {
 	certs []*x509.Certificate
 }
 
-// sort.Sort(data Interface) for bag - uses data.Len, data.Less & data.Swap
+// Len implements sort.Sort(data Interface) for bag - uses data.Len, data.Less & data.Swap
 func (b bag) Len() int { return len(b.certs) }
 func (b bag) Less(i, j int) bool {
 	ci := b.certs[i].Raw
