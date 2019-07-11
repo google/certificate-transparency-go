@@ -27,8 +27,7 @@ type LogRoots map[string]*ctfe.PEMCertPool
 // Compatible creates a new LogList containing only Logs matching the temporal,
 // root-acceptance and Log-status conditions.
 func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots, lstat LogStatus) LogList {
-	var active LogList
-	active = ll.TemporalCompatible(cert)
+	active := ll.TemporalCompatible(cert)
 	active = active.RootCompatible(certRoot, roots)
 	return active.SelectByStatus(lstat)
 }
