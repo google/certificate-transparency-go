@@ -40,6 +40,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
@@ -205,8 +207,7 @@ func TestPostHandlersRejectGet(t *testing.T) {
 
 			resp, err := http.Get(s.URL + "/ct/v1/" + path)
 			if err != nil {
-				t.Errorf("http.Get(%s)=(_,%q); want (_,nil)", path, err)
-				return
+				t.Fatalf("http.Get(%s)=(_,%q); want (_,nil)", path, err)
 			}
 			if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
 				t.Errorf("http.Get(%s)=(%d,nil); want (%d,nil)", path, got, want)
@@ -227,8 +228,7 @@ func TestGetHandlersRejectPost(t *testing.T) {
 
 			resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", nil)
 			if err != nil {
-				t.Errorf("http.Post(%s)=(_,%q); want (_,nil)", path, err)
-				return
+				t.Fatalf("http.Post(%s)=(_,%q); want (_,nil)", path, err)
 			}
 			if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
 				t.Errorf("http.Post(%s)=(%d,nil); want (%d,nil)", path, got, want)
@@ -272,34 +272,38 @@ func TestPostHandlersFailure(t *testing.T) {
 
 func TestHandlers(t *testing.T) {
 	path := "/test-prefix/ct/v1/add-chain"
-	var tests = []string{
+	info := setupTest(t, nil, nil)
+	defer info.mockCtrl.Finish()
+	for _, test := range []string{
 		"/test-prefix/",
 		"test-prefix/",
 		"/test-prefix",
 		"test-prefix",
-	}
-	info := setupTest(t, nil, nil)
-	defer info.mockCtrl.Finish()
-	for _, test := range tests {
-		handlers := info.li.Handlers(test)
-		if h, ok := handlers[path]; !ok {
-			t.Errorf("Handlers(%s)[%q]=%+v; want _", test, path, h)
-		} else if h.Name != "AddChain" {
-			t.Errorf("Handlers(%s)[%q].Name=%q; want 'AddChain'", test, path, h.Name)
-		}
-		// Check each entrypoint has a handler
-		if got, want := len(handlers), len(Entrypoints); got != want {
-			t.Errorf("len(Handlers(%s))=%d; want %d", test, got, want)
-		}
-	outer:
-		for _, ep := range Entrypoints {
-			for _, v := range handlers {
-				if v.Name == ep {
-					continue outer
-				}
+	} {
+		t.Run(test, func(t *testing.T) {
+			handlers := info.li.Handlers(test)
+			if h, ok := handlers[path]; !ok {
+				t.Errorf("Handlers(%s)[%q]=%+v; want _", test, path, h)
+			} else if h.Name != "AddChain" {
+				t.Errorf("Handlers(%s)[%q].Name=%q; want 'AddChain'", test, path, h.Name)
 			}
-			t.Errorf("Handlers(%s) missing entry with .Name=%q", test, ep)
-		}
+			// Check each entrypoint has a handler
+			if got, want := len(handlers), len(Entrypoints); got != want {
+				t.Fatalf("len(Handlers(%s))=%d; want %d", test, got, want)
+			}
+
+			// We want to see the same set of handler names that we think we registered.
+			var hNames []EntrypointName
+			for _, v := range handlers {
+				hNames = append(hNames, v.Name)
+			}
+
+			if !cmp.Equal(Entrypoints, hNames, cmpopts.SortSlices(func(n1, n2 EntrypointName) bool {
+				return n1 < n2
+			})) {
+				t.Errorf("Handler names mismatch got: %v, want: %v", hNames, Entrypoints)
+			}
+		})
 	}
 }
 
