@@ -58,7 +58,7 @@ func TestSelectUsable(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.SelectUsable()
+			got := test.in.SelectByStatus(UsableLogStatus)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Extracting active logs out of %v diff: (-want +got)\n%s", test.in, diff)
 			}
@@ -81,7 +81,7 @@ func TestSelectQualified(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.SelectQualified()
+			got := test.in.SelectByStatus(QualifiedLogStatus)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Extracting qualified logs out of %v diff: (-want +got)\n%s", test.in, diff)
 			}
