@@ -128,14 +128,14 @@ func TestProxyInitState(t *testing.T) {
 	for {
 		select {
 		case <-ctx.Done():
-			t.Errorf("p.Run() expected to send init signal, got none")
-			return
+			t.Fatalf("p.Run() expected to send init signal, got none")
 		case b := <-p.Init:
 			if b != true {
-				t.Errorf("p.Run() expected to send 'true' init signal, got false")
+				t.Fatalf("p.Run() expected to send 'true' init signal, got false")
 			}
 			return
-		case <-p.Errors:
+		case e := <-p.Errors:
+			t.Log(e)
 		}
 	}
 }

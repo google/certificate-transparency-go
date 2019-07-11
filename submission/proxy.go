@@ -101,7 +101,7 @@ func NewProxy(llm *LogListManager, db DistributorBuilder) *Proxy {
 }
 
 // Run starts regular LogList checks and associated Distributor initialization.
-// Calls onInit when init is complete.
+// Sends true via Init channel when init is complete.
 func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
 	init := false
 	p.llRefreshInterval = llRefresh
@@ -119,6 +119,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 				} else if !init {
 					init = true
 					p.Init <- true
+					close(p.Init)
 				}
 			case err := <-p.llWatcher.Errors:
 				p.Errors <- err

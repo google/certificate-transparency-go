@@ -41,7 +41,7 @@ func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout 
 	return s
 }
 
-// Run starts regular Log list updates.
+// Run starts regular Log list updates. Blocks until initialization happens.
 func (s *ProxyServer) Run(logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
 	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
 	<-s.p.Init
