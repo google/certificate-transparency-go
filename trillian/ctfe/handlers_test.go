@@ -199,18 +199,19 @@ func TestPostHandlersRejectGet(t *testing.T) {
 
 	// Anything in the post handler list should reject GET
 	for path, handler := range info.postHandlers() {
-		s := httptest.NewServer(handler)
-		defer s.Close()
+		t.Run(path, func(t *testing.T) {
+			s := httptest.NewServer(handler)
+			defer s.Close()
 
-		resp, err := http.Get(s.URL + "/ct/v1/" + path)
-		if err != nil {
-			t.Errorf("http.Get(%s)=(_,%q); want (_,nil)", path, err)
-			continue
-		}
-		if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
-			t.Errorf("http.Get(%s)=(%d,nil); want (%d,nil)", path, got, want)
-		}
-
+			resp, err := http.Get(s.URL + "/ct/v1/" + path)
+			if err != nil {
+				t.Errorf("http.Get(%s)=(_,%q); want (_,nil)", path, err)
+				return
+			}
+			if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
+				t.Errorf("http.Get(%s)=(%d,nil); want (%d,nil)", path, got, want)
+			}
+		})
 	}
 }
 
@@ -220,17 +221,19 @@ func TestGetHandlersRejectPost(t *testing.T) {
 
 	// Anything in the get handler list should reject POST.
 	for path, handler := range info.getHandlers() {
-		s := httptest.NewServer(handler)
-		defer s.Close()
+		t.Run(path, func(t *testing.T) {
+			s := httptest.NewServer(handler)
+			defer s.Close()
 
-		resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", nil)
-		if err != nil {
-			t.Errorf("http.Post(%s)=(_,%q); want (_,nil)", path, err)
-			continue
-		}
-		if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
-			t.Errorf("http.Post(%s)=(%d,nil); want (%d,nil)", path, got, want)
-		}
+			resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", nil)
+			if err != nil {
+				t.Errorf("http.Post(%s)=(_,%q); want (_,nil)", path, err)
+				return
+			}
+			if got, want := resp.StatusCode, http.StatusMethodNotAllowed; got != want {
+				t.Errorf("http.Post(%s)=(%d,nil); want (%d,nil)", path, got, want)
+			}
+		})
 	}
 }
 
@@ -250,19 +253,20 @@ func TestPostHandlersFailure(t *testing.T) {
 	info := setupTest(t, []string{cttestonly.FakeCACertPEM}, nil)
 	defer info.mockCtrl.Finish()
 	for path, handler := range info.postHandlers() {
-		s := httptest.NewServer(handler)
-		defer s.Close()
+		t.Run(path, func(t *testing.T) {
+			s := httptest.NewServer(handler)
 
-		for _, test := range tests {
-			resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body)
-			if err != nil {
-				t.Errorf("http.Post(%s,%s)=(_,%q); want (_,nil)", path, test.descr, err)
-				continue
+			for _, test := range tests {
+				resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body)
+				if err != nil {
+					t.Errorf("http.Post(%s,%s)=(_,%q); want (_,nil)", path, test.descr, err)
+					continue
+				}
+				if resp.StatusCode != test.want {
+					t.Errorf("http.Post(%s,%s)=(%d,nil); want (%d,nil)", path, test.descr, resp.StatusCode, test.want)
+				}
 			}
-			if resp.StatusCode != test.want {
-				t.Errorf("http.Post(%s,%s)=(%d,nil); want (%d,nil)", path, test.descr, resp.StatusCode, test.want)
-			}
-		}
+		})
 	}
 }
 

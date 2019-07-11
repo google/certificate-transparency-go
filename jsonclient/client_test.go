@@ -414,44 +414,46 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		ts := MockServer(t, test.failCount, test.retryAfter)
-		defer ts.Close()
+		t.Run(test.uri, func(t *testing.T) {
+			ts := MockServer(t, test.failCount, test.retryAfter)
+			defer ts.Close()
 
-		logClient, err := New(ts.URL, &http.Client{}, Options{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		mb := mockBackoff{}
-		logClient.backoff = &mb
-		ctx := context.Background()
-		if test.deadlineSecs >= 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(test.deadlineSecs)*time.Second))
-			defer cancel()
-		}
-
-		var got TestStruct
-		httpRsp, _, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &got)
-		if test.wantErr != "" {
-			if err == nil {
-				t.Errorf("PostAndParseWithRetry()=%+v,nil; want error %q", got, test.wantErr)
-			} else if !strings.Contains(err.Error(), test.wantErr) {
-				t.Errorf("PostAndParseWithRetry()=nil,%q; want error %q", err.Error(), test.wantErr)
-			} else if _, isRspError := err.(RspError); !isRspError && err != context.DeadlineExceeded {
-				// We expect all non-nil errors to be either a RspError instance or to
-				// be the context DeadlineExceeded error.
-				t.Errorf("PostAndParseWithRetry()=%T; want jsonClient.RspError or context.DeadlineExceeded", err)
+			logClient, err := New(ts.URL, &http.Client{}, Options{})
+			if err != nil {
+				t.Fatal(err)
 			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("PostAndParseWithRetry()=nil,%q; want no error", err.Error())
-		} else if httpRsp.StatusCode != http.StatusOK {
-			t.Errorf("PostAndParseWithRetry() got status %d; want OK(404)", httpRsp.StatusCode)
-		}
-		if test.expectedBackoff > 0 && !fuzzyDurationEquals(test.expectedBackoff, mb.override, time.Second) {
-			t.Errorf("Unexpected backoff override set: got: %s, wanted: %s", mb.override, test.expectedBackoff)
-		}
+			mb := mockBackoff{}
+			logClient.backoff = &mb
+			ctx := context.Background()
+			if test.deadlineSecs >= 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(time.Duration(test.deadlineSecs)*time.Second))
+				defer cancel()
+			}
+
+			var got TestStruct
+			httpRsp, _, err := logClient.PostAndParseWithRetry(ctx, test.uri, test.request, &got)
+			if test.wantErr != "" {
+				if err == nil {
+					t.Errorf("PostAndParseWithRetry()=%+v,nil; want error %q", got, test.wantErr)
+				} else if !strings.Contains(err.Error(), test.wantErr) {
+					t.Errorf("PostAndParseWithRetry()=nil,%q; want error %q", err.Error(), test.wantErr)
+				} else if _, isRspError := err.(RspError); !isRspError && err != context.DeadlineExceeded {
+					// We expect all non-nil errors to be either a RspError instance or to
+					// be the context DeadlineExceeded error.
+					t.Errorf("PostAndParseWithRetry()=%T; want jsonClient.RspError or context.DeadlineExceeded", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("PostAndParseWithRetry()=nil,%q; want no error", err.Error())
+			} else if httpRsp.StatusCode != http.StatusOK {
+				t.Errorf("PostAndParseWithRetry() got status %d; want OK(404)", httpRsp.StatusCode)
+			}
+			if test.expectedBackoff > 0 && !fuzzyDurationEquals(test.expectedBackoff, mb.override, time.Second) {
+				t.Errorf("Unexpected backoff override set: got: %s, wanted: %s", mb.override, test.expectedBackoff)
+			}
+		})
 	}
 }
 
