@@ -110,3 +110,32 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 		}
 	}
 }
+
+func TestProxyInitState(t *testing.T) {
+	f, err := createTempFile(testdata.SampleLogList)
+	if err != nil {
+		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList, err)
+	}
+	defer os.Remove(f)
+
+	llr := NewLogListRefresher(f)
+	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
+	p.Run(context.Background(), time.Hour, time.Hour)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Errorf("p.Run() expected to send init signal, got none")
+			return
+		case b := <-p.Init:
+			if b != true {
+				t.Errorf("p.Run() expected to send 'true' init signal, got false")
+			}
+			return
+		case <-p.Errors:
+		}
+	}
+}

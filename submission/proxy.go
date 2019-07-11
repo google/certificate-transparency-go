@@ -94,6 +94,7 @@ func NewProxy(llm *LogListManager, db DistributorBuilder) *Proxy {
 	p.llWatcher = llm
 	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
+	p.Init = make(chan bool, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
 
 	return &p
