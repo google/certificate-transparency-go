@@ -24,34 +24,24 @@ import (
 // root-certificates.
 type LogRoots map[string]*ctfe.PEMCertPool
 
-// SelectUsable creates a new LogList containing only usable logs from
-// the original.
-func (ll *LogList) SelectUsable() LogList {
+// Compatible creates a new LogList containing only Logs matching the temporal,
+// root-acceptance and Log-status conditions.
+func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots, lstat LogStatus) LogList {
 	var active LogList
-	for _, op := range ll.Operators {
-		activeOp := *op
-		activeOp.Logs = []*Log{}
-		for _, l := range op.Logs {
-			if l.State != nil && l.State.Usable != nil {
-				activeOp.Logs = append(activeOp.Logs, l)
-			}
-		}
-		if len(activeOp.Logs) > 0 {
-			active.Operators = append(active.Operators, &activeOp)
-		}
-	}
-	return active
+	active = ll.TemporalCompatible(cert)
+	active = active.RootCompatible(certRoot, roots)
+	return active.SelectByStatus(lstat)
 }
 
-// SelectQualified creates a new LogList containing only qualified logs from
-// the original.
-func (ll *LogList) SelectQualified() LogList {
+// SelectByStatus creates a new LogList containing only logs with status
+// provided from the original.
+func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
 	var active LogList
 	for _, op := range ll.Operators {
 		activeOp := *op
 		activeOp.Logs = []*Log{}
 		for _, l := range op.Logs {
-			if l.State != nil && l.State.Qualified != nil {
+			if l.State.LogStatus() == lstat {
 				activeOp.Logs = append(activeOp.Logs, l)
 			}
 		}
@@ -68,7 +58,7 @@ func (ll *LogList) SelectQualified() LogList {
 // the collection are treated as always compatible and included, even if
 // an empty cert root is passed in.
 // Cert-root when provided is expected to be CA-cert.
-func (ll *LogList) RootCompatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots) LogList {
+func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) LogList {
 	var compatible LogList
 
 	// Check whether root is a CA-cert.
@@ -109,6 +99,9 @@ func (ll *LogList) RootCompatible(cert *x509.Certificate, certRoot *x509.Certifi
 // NotBefore and TemporalInterval matching.
 func (ll *LogList) TemporalCompatible(cert *x509.Certificate) LogList {
 	var compatible LogList
+	if cert == nil {
+		return compatible
+	}
 
 	for _, op := range ll.Operators {
 		compatibleOp := *op
