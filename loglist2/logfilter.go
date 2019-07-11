@@ -24,34 +24,15 @@ import (
 // root-certificates.
 type LogRoots map[string]*ctfe.PEMCertPool
 
-// SelectUsable creates a new LogList containing only usable logs from
-// the original.
-func (ll *LogList) SelectUsable() LogList {
+// SelectByStatus creates a new LogList containing only logs with status
+// provided from the original.
+func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
 	var active LogList
 	for _, op := range ll.Operators {
 		activeOp := *op
 		activeOp.Logs = []*Log{}
 		for _, l := range op.Logs {
-			if l.State != nil && l.State.Usable != nil {
-				activeOp.Logs = append(activeOp.Logs, l)
-			}
-		}
-		if len(activeOp.Logs) > 0 {
-			active.Operators = append(active.Operators, &activeOp)
-		}
-	}
-	return active
-}
-
-// SelectQualified creates a new LogList containing only qualified logs from
-// the original.
-func (ll *LogList) SelectQualified() LogList {
-	var active LogList
-	for _, op := range ll.Operators {
-		activeOp := *op
-		activeOp.Logs = []*Log{}
-		for _, l := range op.Logs {
-			if l.State != nil && l.State.Qualified != nil {
+			if l.State.LogStatus() == lstat {
 				activeOp.Logs = append(activeOp.Logs, l)
 			}
 		}
