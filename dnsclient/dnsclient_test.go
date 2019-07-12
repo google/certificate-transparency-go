@@ -156,6 +156,7 @@ func TestGetSTH(t *testing.T) {
 				} else if !strings.Contains(err.Error(), test.wantErr) {
 					t.Fatalf("GetSTH()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
+				return
 			}
 			if test.wantErr != "" {
 				t.Errorf("GetSTH()=%+v,nil; want _, err containing %q", got, test.wantErr)
@@ -283,6 +284,7 @@ func TestGetSTHConsistency(t *testing.T) {
 				} else if !strings.Contains(err.Error(), test.wantErr) {
 					t.Fatalf("GetSTHConsistency()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
+				return
 			}
 			if test.wantErr != "" {
 				t.Errorf("GetSTHConsistency()=_,nil; want _,err containing %q", test.wantErr)
@@ -434,6 +436,7 @@ func TestGetProofByHash(t *testing.T) {
 				} else if !strings.Contains(err.Error(), test.wantErr) {
 					t.Fatalf("GetProofByHash()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
+				return
 			}
 			if test.wantErr != "" {
 				t.Errorf("GetProofByHash()=_,nil; want _,err containing %q", test.wantErr)
@@ -451,7 +454,7 @@ func TestGetProofByHash(t *testing.T) {
 func dehex(in string) []byte {
 	data, err := hex.DecodeString(in)
 	if err != nil {
-		glog.Exitf("error in hard-coded test data %q", in)
+		glog.Exitf("error in hard-coded test data %q: %v", in, err)
 	}
 	return data
 }
