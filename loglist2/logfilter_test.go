@@ -203,11 +203,20 @@ func TestTemporallyCompatible(t *testing.T) {
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
 			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
+		{
+			name:      "NilCert",
+			in:        sampleLogList,
+			cert:      nil,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
+			want:      subLogList(map[string]bool{}),
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			test.cert.NotBefore = test.notBefore
+			if (test.cert != nil) {
+				test.cert.NotBefore = test.notBefore
+			}
 			got := test.in.TemporallyCompatible(test.cert)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Getting NotBefore-compatible logs diff: (-want +got)\n%s", diff)

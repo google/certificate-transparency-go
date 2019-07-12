@@ -96,6 +96,7 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 // TemporallyCompatible creates a new LogList containing only the logs of
 // original LogList that are compatible with the provided cert, according to
 // NotBefore and TemporalInterval matching.
+// Returns empty LogList if nil-cert is provided.
 func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 	var compatible LogList
 	if cert == nil {
