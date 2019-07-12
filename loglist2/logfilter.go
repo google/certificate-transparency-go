@@ -24,6 +24,14 @@ import (
 // root-certificates.
 type LogRoots map[string]*ctfe.PEMCertPool
 
+// Compatible creates a new LogList containing only Logs matching the temporal,
+// root-acceptance and Log-status conditions.
+func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots, lstat LogStatus) LogList {
+	active := ll.TemporallyCompatible(cert)
+	active = active.RootCompatible(certRoot, roots)
+	return active.SelectByStatus(lstat)
+}
+
 // SelectByStatus creates a new LogList containing only logs with status
 // provided from the original.
 func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
@@ -49,7 +57,7 @@ func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
 // the collection are treated as always compatible and included, even if
 // an empty cert root is passed in.
 // Cert-root when provided is expected to be CA-cert.
-func (ll *LogList) RootCompatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots) LogList {
+func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) LogList {
 	var compatible LogList
 
 	// Check whether root is a CA-cert.
@@ -85,11 +93,15 @@ func (ll *LogList) RootCompatible(cert *x509.Certificate, certRoot *x509.Certifi
 	return compatible
 }
 
-// TemporalCompatible creates a new LogList containing only the logs of
+// TemporallyCompatible creates a new LogList containing only the logs of
 // original LogList that are compatible with the provided cert, according to
 // NotBefore and TemporalInterval matching.
-func (ll *LogList) TemporalCompatible(cert *x509.Certificate) LogList {
+// Returns empty LogList if nil-cert is provided.
+func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 	var compatible LogList
+	if cert == nil {
+		return compatible
+	}
 
 	for _, op := range ll.Operators {
 		compatibleOp := *op

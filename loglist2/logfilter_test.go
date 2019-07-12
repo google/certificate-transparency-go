@@ -52,7 +52,7 @@ func TestSelectUsable(t *testing.T) {
 		{
 			name: "Sample",
 			in:   sampleLogList,
-			want: subLogList(map[string]bool{"ct.googleapis.com/icarus/": true}),
+			want: subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}),
 		},
 	}
 
@@ -130,7 +130,7 @@ func TestRootCompatible(t *testing.T) {
 			want:     subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
 		},
 		{
-			name:     "UnRootedChain",
+			name:     "Non-RootedChain",
 			in:       sampleLogList,
 			cert:     cert,
 			rootCert: cert,
@@ -149,7 +149,7 @@ func TestRootCompatible(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.RootCompatible(test.cert, test.rootCert, test.roots)
+			got := test.in.RootCompatible(test.rootCert, test.roots)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Getting compatible logs diff: (-want +got)\n%s", diff)
 			}
@@ -165,7 +165,7 @@ func stripErr(t time.Time, err error) time.Time {
 	return t
 }
 
-func TestTemporalCompatible(t *testing.T) {
+func TestTemporallyCompatible(t *testing.T) {
 	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
 
 	tests := []struct {
@@ -176,7 +176,7 @@ func TestTemporalCompatible(t *testing.T) {
 		want      LogList
 	}{
 		{
-			name:      "AllLogsFitTemporal",
+			name:      "AllLogsFitTemporally",
 			in:        sampleLogList,
 			cert:      cert,
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
@@ -203,14 +203,87 @@ func TestTemporalCompatible(t *testing.T) {
 			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
 			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
+		{
+			name:      "NilCert",
+			in:        sampleLogList,
+			cert:      nil,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
+			want:      subLogList(map[string]bool{}),
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			test.cert.NotBefore = test.notBefore
-			got := test.in.TemporalCompatible(test.cert)
+			if test.cert != nil {
+				test.cert.NotBefore = test.notBefore
+			}
+			got := test.in.TemporallyCompatible(test.cert)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Getting NotBefore-compatible logs diff: (-want +got)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCompatible(t *testing.T) {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
+	caCert, _ := x509util.CertificateFromPEM([]byte(testdata.CACertPEM))
+
+	tests := []struct {
+		name      string
+		in        LogList
+		notBefore time.Time
+		cert      *x509.Certificate
+		rootCert  *x509.Certificate
+		roots     LogRoots
+		want      LogList
+	}{
+		{
+			name:      "RootedChain",
+			in:        sampleLogList,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			cert:      cert,
+			rootCert:  caCert,
+			roots:     artificialRoots(testdata.CACertPEM),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
+		},
+		{
+			name:      "RootedChainNoRootAccepted",
+			in:        sampleLogList,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			cert:      cert,
+			rootCert:  caCert,
+			roots:     artificialRoots(testdata.TestPreCertPEM),
+			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}), // icarus has no root info.
+		},
+		{
+			name:      "Non-RootedChain",
+			in:        sampleLogList,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			cert:      cert,
+			rootCert:  cert,
+			roots:     artificialRoots(testdata.CACertPEM),
+			want:      subLogList(map[string]bool{}),
+		},
+		{
+			name:      "EmptyChain",
+			in:        sampleLogList,
+			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			cert:      nil,
+			rootCert:  nil,
+			roots:     artificialRoots(testdata.CACertPEM),
+			want:      subLogList(map[string]bool{}),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.cert != nil {
+				test.cert.NotBefore = test.notBefore
+			}
+			got := test.in.Compatible(test.cert, test.rootCert, test.roots, UsableLogStatus)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("Getting compatible logs diff: (-want +got)\n%s", diff)
 			}
 		})
 	}
