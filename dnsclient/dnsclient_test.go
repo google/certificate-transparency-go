@@ -39,10 +39,11 @@ type testRsp struct {
 	err error
 }
 
-func testClient(rsp testRsp) *DNSClient {
+func testClient(t *testing.T, rsp testRsp) *DNSClient {
+	t.Helper()
 	dc, err := New("test.example.com", jsonclient.Options{PublicKeyDER: rocketeerPubKey})
 	if err != nil {
-		panic("failed to build hard-coded test client")
+		t.Fatal("failed to build hard-coded test client")
 	}
 	dc.resolve = func(ctx context.Context, name string) ([]string, error) { return rsp.txt, rsp.err }
 	return dc
@@ -148,7 +149,7 @@ func TestGetSTH(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dc := testClient(test.rsp)
+			dc := testClient(t, test.rsp)
 			got, err := dc.GetSTH(ctx)
 			if err != nil {
 				if test.wantErr == "" {
