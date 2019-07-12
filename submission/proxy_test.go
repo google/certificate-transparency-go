@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,6 +112,22 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	}
 }
 
+func updateFile(name string, data string) error {
+	f, err := os.OpenFile(name, os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("os.OpenFile(%q) = (_, %q), want (_, nil)", name, err)
+	}
+	defer f.Close()
+	_, err = f.WriteString(data)
+	if err != nil {
+		return fmt.Errorf("for file %q WriteString(%q) = (_, %q), want (_, nil)", name, data, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	return nil
+}
+
 func TestProxyInitState(t *testing.T) {
 	f, err := createTempFile(testdata.SampleLogList)
 	if err != nil {
@@ -125,15 +142,40 @@ func TestProxyInitState(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+Init:
 	for {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("p.Run() expected to send init signal, got none")
-		case b := <-p.Init:
+		case b, ok := <-p.Init:
+			if !ok {
+				t.Fatalf("p.Run() expected to send 'true' init signal via Init channel, but channel is closed")
+			}
 			if b != true {
 				t.Fatalf("p.Run() expected to send 'true' init signal, got false")
 			}
+			break Init
+		case e := <-p.Errors:
+			t.Log(e)
+		}
+	}
+
+	sampleLogListUpdate := strings.Replace(testdata.SampleLogList, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
+	err = updateFile(f, sampleLogListUpdate)
+	if err != nil {
+		t.Fatalf("unable to update Log-list data file: %q", err)
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	p.llWatcher.RefreshLogListAndNotify(ctx)
+	for {
+		select {
+		case <-ctx.Done():
 			return
+		case _, ok := <-p.Init:
+			if ok {
+				t.Fatalf("p.Refresh() after initial p.Run() invoked init-status signal, expected none")
+			}
 		case e := <-p.Errors:
 			t.Log(e)
 		}

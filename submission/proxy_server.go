@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 )
@@ -44,7 +45,10 @@ func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout 
 // Run starts regular Log list updates. Blocks until initialization happens.
 func (s *ProxyServer) Run(logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
 	s.p.Run(context.Background(), logListRefreshInterval, rootsRefreshInterval)
-	<-s.p.Init
+	_, ok := <-s.p.Init
+	if !ok {
+		glog.Fatalf("unable to initialize Proxy")
+	}
 }
 
 // SCTBatch represents JSON response to add-pre-chain method of proxy.

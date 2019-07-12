@@ -157,6 +157,17 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist.LogList) err
 	return nil
 }
 
+// Refresh runs standalone Log-list refresh request.
+func (p *Proxy) Refresh(ctx context.Context) {
+	p.distMu.Lock()
+	defer p.distMu.Unlock()
+	if p.dist == nil {
+		p.Errors <- fmt.Errorf("Calling Refresh() on non-initialized proxy, call Run() first")
+		return
+	}
+	p.llWatcher.RefreshLogListAndNotify(ctx)
+}
+
 // AddPreChain passes call to underlying Distributor instance.
 func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
 	if p.dist == nil {
