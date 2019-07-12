@@ -214,7 +214,7 @@ func TestTemporallyCompatible(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if (test.cert != nil) {
+			if test.cert != nil {
 				test.cert.NotBefore = test.notBefore
 			}
 			got := test.in.TemporallyCompatible(test.cert)
