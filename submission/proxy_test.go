@@ -17,6 +17,7 @@ package submission
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -112,22 +113,6 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	}
 }
 
-func updateFile(name string, data string) error {
-	f, err := os.OpenFile(name, os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("os.OpenFile(%q) = (_, %q), want (_, nil)", name, err)
-	}
-	defer f.Close()
-	_, err = f.WriteString(data)
-	if err != nil {
-		return fmt.Errorf("for file %q WriteString(%q) = (_, %q), want (_, nil)", name, data, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("%v", err)
-	}
-	return nil
-}
-
 func TestProxyInitState(t *testing.T) {
 	f, err := createTempFile(testdata.SampleLogList)
 	if err != nil {
@@ -137,7 +122,7 @@ func TestProxyInitState(t *testing.T) {
 
 	llr := NewLogListRefresher(f)
 	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
-	p.Run(context.Background(), time.Hour, time.Hour)
+	p.Run(context.Background(), time.Millisecond, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -161,13 +146,11 @@ Init:
 	}
 
 	sampleLogListUpdate := strings.Replace(testdata.SampleLogList, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
-	err = updateFile(f, sampleLogListUpdate)
-	if err != nil {
+	if err := ioutil.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
 		t.Fatalf("unable to update Log-list data file: %q", err)
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	p.llWatcher.RefreshLogListAndNotify(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -176,8 +159,7 @@ Init:
 			if ok {
 				t.Fatalf("p.Refresh() after initial p.Run() invoked init-status signal, expected none")
 			}
-		case e := <-p.Errors:
-			t.Log(e)
+		case <-p.Errors:
 		}
 	}
 }

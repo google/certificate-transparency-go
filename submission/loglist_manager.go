@@ -52,16 +52,16 @@ func NewLogListManager(llr LogListRefresher) *LogListManager {
 func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 	llm.llRefreshInterval = llRefresh
 	go schedule.Every(ctx, llm.llRefreshInterval, func(ctx context.Context) {
-		llm.RefreshLogListAndNotify(ctx)
+		llm.refreshLogListAndNotify(ctx)
 	})
 }
 
-// RefreshLogListAndNotify runs single Log-list refresh and propagates data and
+// refreshLogListAndNotify runs single Log-list refresh and propagates data and
 // errors to corresponding channels
-func (llm *LogListManager) RefreshLogListAndNotify(ctx context.Context) {
+func (llm *LogListManager) refreshLogListAndNotify(ctx context.Context) {
 	if ll, err := llm.RefreshLogList(ctx); err != nil {
 		llm.Errors <- err
-	} else if ll != nil {
+	} else {
 		llm.LLUpdates <- llm.ProduceClientLogList()
 	}
 }
