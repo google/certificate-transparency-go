@@ -93,6 +93,20 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		return nil, errors.New("rejecting unexpired certificate")
 	}
 
+	// Check for unwanted extension types, if required.
+	if len(validationOpts.rejectExtIds) != 0 {
+		badIDs := make(map[string]bool)
+		for _, id := range validationOpts.rejectExtIds {
+			badIDs[id.String()] = true
+		}
+		for idx, ext := range cert.Extensions {
+			extOid := ext.Id.String()
+			if _, ok := badIDs[extOid]; ok {
+				return nil, fmt.Errorf("rejecting certificate containing extension %v at index %d", extOid, idx)
+			}
+		}
+	}
+
 	// We can now do the verification.  Use fairly lax options for verification, as
 	// CT is intended to observe certificates rather than police them.
 	verifyOpts := x509.VerifyOptions{
