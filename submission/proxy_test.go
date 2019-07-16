@@ -157,7 +157,7 @@ Init:
 			return
 		case _, ok := <-p.Init:
 			if ok {
-				t.Fatalf("p.Refresh() after initial p.Run() invoked init-status signal, expected none")
+				t.Fatalf("p.Refresh() after initial p.Run() sent signal into Init-channel, expected none")
 			}
 		case <-p.Errors:
 		}

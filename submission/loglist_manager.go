@@ -51,15 +51,13 @@ func NewLogListManager(llr LogListRefresher) *LogListManager {
 // to have readers listening.
 func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 	llm.llRefreshInterval = llRefresh
-	go schedule.Every(ctx, llm.llRefreshInterval, func(ctx context.Context) {
-		llm.refreshLogListAndNotify(ctx)
-	})
+	go schedule.Every(ctx, llm.llRefreshInterval, llm.refreshLogListAndNotify)
 }
 
 // refreshLogListAndNotify runs single Log-list refresh and propagates data and
 // errors to corresponding channels
 func (llm *LogListManager) refreshLogListAndNotify(ctx context.Context) {
-	if ll, err := llm.RefreshLogList(ctx); err != nil {
+	if _, err := llm.RefreshLogList(ctx); err != nil {
 		llm.Errors <- err
 	} else {
 		llm.LLUpdates <- llm.ProduceClientLogList()
