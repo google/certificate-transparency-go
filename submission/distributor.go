@@ -247,7 +247,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if isPrecert {
 			inputType = "pre-"
 		}
-		return nil, fmt.Errorf("add-%schain method %scertificate expected, got %scertificate", methodType, methodType, inputType)
+		return nil, fmt.Errorf("add-%schain method expected %scertificate, got %scertificate", methodType, methodType, inputType)
 	}
 
 	// Set up policy structs.
