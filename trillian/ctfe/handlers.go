@@ -220,6 +220,8 @@ type CertValidationOpts struct {
 	acceptOnlyCA bool
 	// extKeyUsages contains the list of EKUs to use during chain verification
 	extKeyUsages []x509.ExtKeyUsage
+	// rejectExtIds contains a list of X.509 extension IDs to reject during chain verification.
+	rejectExtIds []asn1.ObjectIdentifier
 }
 
 // NewCertValidationOpts builds validation options based on parameters.
