@@ -126,7 +126,7 @@ message LogConfig {
   SignedTreeHead frozen_sth = 16;
 
   // A list of X.509 extension OIDs which should cause submissions to be rejected.
-  repeated string reject_extensions = 17;
+  repeated string reject_extensions = 18;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
