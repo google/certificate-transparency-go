@@ -96,23 +96,11 @@ func (f *Fixer) updateCounters(chains [][]*x509.Certificate, ferrs []*FixError) 
 	atomic.AddUint32(&f.reconstructed, 1)
 }
 
-type chainSlice struct {
-	chains [][]*x509.Certificate
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// Len implements sort.Sort(data Interface) for chainSlice - uses data.Len, data.Less & data.Swap.
-// Sort will sort the chains contained within the chainSlice.  The chains will
-// be sorted in order of the first certificate in the chain, i.e. their leaf
-// certificate.  If two chains have equal leaf certificates, they will be sorted
-// by the second certificate in the chain, and so on.  By this logic, a chain
-// that is a subchain of another chain beginning at the leaf of the other chain,
+// chainSlice contains chains of certificates. Applying Sort will sort in
+// order of the first certificate in the chain, i.e. their leaf certificate.
+// If two chains have equal leaf certificates, they will be sorted by the
+// second certificate in the chain, and so on.  By this logic, a chain that
+// is a subchain of another chain beginning at the leaf of the other chain,
 // will come before the other chain after sorting.
 //
 // Example:
@@ -128,7 +116,21 @@ func min(a, b int) int {
 // A -> B -> C
 // A -> C
 // D
+type chainSlice struct {
+	chains [][]*x509.Certificate
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Len implements sort.Sort(data Interface) for chainSlice.
 func (c chainSlice) Len() int { return len(c.chains) }
+
+// Less implements sort.Sort interface for chainSlice.
 func (c chainSlice) Less(i, j int) bool {
 	chi := c.chains[i]
 	chj := c.chains[j]
@@ -139,6 +141,8 @@ func (c chainSlice) Less(i, j int) bool {
 	}
 	return len(chi) < len(chj)
 }
+
+// Swap implements sort.Sort interface for chainSlice.
 func (c chainSlice) Swap(i, j int) {
 	t := c.chains[i]
 	c.chains[i] = c.chains[j]
