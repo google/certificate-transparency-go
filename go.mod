@@ -3,7 +3,6 @@ module github.com/google/certificate-transparency-go
 go 1.12
 
 require (
-	bitbucket.org/creachadair/shell v0.0.6 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/coreos/bbolt v1.3.2 // indirect
