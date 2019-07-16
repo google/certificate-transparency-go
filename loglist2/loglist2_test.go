@@ -72,7 +72,12 @@ var sampleLogList = LogList{
 					Key:         deb64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA=="),
 					URL:         "https://ct.googleapis.com/icarus/",
 					MMD:         86400,
-					DNS:         "icarus.ct.googleapis.com",
+					State: &LogStates{
+						Usable: &LogState{
+							Timestamp: mustParseTime(time.RFC3339, "2018-02-27T00:00:00Z"),
+						},
+					},
+					DNS: "icarus.ct.googleapis.com",
 				},
 				{
 					Description: "Google 'Racketeer' log",
@@ -148,7 +153,7 @@ func TestJSONMarshal(t *testing.T) {
 			want: `{"operators":[` +
 				`{"name":"Google","email":["google-ct-logs@googlegroups.com"],"logs":[` +
 				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"readonly":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}},"temporal_interval":{"start_inclusive":"2014-03-07T11:06:00Z","end_exclusive":"2015-03-07T12:00:00Z"}},` +
-				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400},` +
+				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400,"state":{"usable":{"timestamp":"2018-02-27T00:00:00Z"}}},` +
 				`{"description":"Google 'Racketeer' log","log_id":"7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g=","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","url":"https://ct.googleapis.com/racketeer/","dns":"racketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Rocketeer' log","log_id":"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","url":"https://ct.googleapis.com/rocketeer/","dns":"rocketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Argon2020' log","log_id": "sh4FzIuizYogTodm+Su5iiUgZ2va+nDnsklTLe+LkF4=","key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6Tx2p1yKY4015NyIYvdrk36es0uAc1zA4PQ+TGRY+3ZjUTIYY9Wyu+3q/147JG4vNVKLtDWarZwVqGkg6lAYzA==","url":"https://ct.googleapis.com/logs/argon2020/","dns":"argon2020.ct.googleapis.com","mmd":86400,"state":{"qualified":{"timestamp":"2018-02-27T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2020-01-01T00:00:00Z","end_exclusive":"2021-01-01T00:00:00Z"}}]},` +
@@ -435,7 +440,8 @@ func TestLogStatesString(t *testing.T) {
 		want   string
 	}{
 		{name: "ReadOnly", logURL: "https://ct.googleapis.com/aviator/", want: "ReadOnlyLogStatus"},
-		{name: "Empty", logURL: "https://ct.googleapis.com/icarus/", want: "UndefinedLogStatus"},
+		{name: "Empty", logURL: "https://ct.googleapis.com/racketeer/", want: "UndefinedLogStatus"},
+		{name: "Usable", logURL: "https://ct.googleapis.com/icarus/", want: "UsableLogStatus"},
 		{name: "Retired", logURL: "https://log.bob.io", want: "RetiredLogStatus"},
 	}
 
