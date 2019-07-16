@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
@@ -38,10 +39,11 @@ type testRsp struct {
 	err error
 }
 
-func testClient(rsp testRsp) *DNSClient {
+func testClient(t *testing.T, rsp testRsp) *DNSClient {
+	t.Helper()
 	dc, err := New("test.example.com", jsonclient.Options{PublicKeyDER: rocketeerPubKey})
 	if err != nil {
-		panic("failed to build hard-coded test client")
+		t.Fatal("failed to build hard-coded test client")
 	}
 	dc.resolve = func(ctx context.Context, name string) ([]string, error) { return rsp.txt, rsp.err }
 	return dc
@@ -147,13 +149,13 @@ func TestGetSTH(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dc := testClient(test.rsp)
+			dc := testClient(t, test.rsp)
 			got, err := dc.GetSTH(ctx)
 			if err != nil {
 				if test.wantErr == "" {
-					t.Errorf("GetSTH()=nil,%v; want _, nil", err)
+					t.Fatalf("GetSTH()=nil,%v; want _, nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
-					t.Errorf("GetSTH()=nil,%v; want _, err containing %q", err, test.wantErr)
+					t.Fatalf("GetSTH()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
 				return
 			}
@@ -167,15 +169,16 @@ func TestGetSTH(t *testing.T) {
 	}
 }
 
-func testMultiClient(rsps []testRsp) *DNSClient {
+func testMultiClient(t *testing.T, rsps []testRsp) *DNSClient {
+	t.Helper()
 	dc, err := New("a.b.c", jsonclient.Options{})
 	if err != nil {
-		panic("failed to build hard-coded test client")
+		t.Fatal("failed to build hard-coded test client")
 	}
 	next := 0
 	dc.resolve = func(ctx context.Context, name string) ([]string, error) {
 		if next > len(rsps) {
-			panic("fell off the end of hard-coded test data")
+			t.Fatal("fell off the end of hard-coded test data")
 		}
 		which := next
 		next++
@@ -274,13 +277,13 @@ func TestGetSTHConsistency(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dc := testMultiClient(test.rsps)
+			dc := testMultiClient(t, test.rsps)
 			proof, err := dc.GetSTHConsistency(ctx, 100, 200)
 			if err != nil {
 				if test.wantErr == "" {
-					t.Errorf("GetSTHConsistency()=nil,%v; want _, nil", err)
+					t.Fatalf("GetSTHConsistency()=nil,%v; want _, nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
-					t.Errorf("GetSTHConsistency()=nil,%v; want _, err containing %q", err, test.wantErr)
+					t.Fatalf("GetSTHConsistency()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
 				return
 			}
@@ -426,13 +429,13 @@ func TestGetProofByHash(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dc := testMultiClient(test.rsps)
+			dc := testMultiClient(t, test.rsps)
 			got, err := dc.GetProofByHash(ctx, hash, 200)
 			if err != nil {
 				if test.wantErr == "" {
-					t.Errorf("GetProofByHash()=nil,%v; want _, nil", err)
+					t.Fatalf("GetProofByHash()=nil,%v; want _, nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
-					t.Errorf("GetProofByHash()=nil,%v; want _, err containing %q", err, test.wantErr)
+					t.Fatalf("GetProofByHash()=nil,%v; want _, err containing %q", err, test.wantErr)
 				}
 				return
 			}
@@ -452,7 +455,7 @@ func TestGetProofByHash(t *testing.T) {
 func dehex(in string) []byte {
 	data, err := hex.DecodeString(in)
 	if err != nil {
-		panic(fmt.Sprintf("error in hard-coded test data %q", in))
+		glog.Exitf("error in hard-coded test data %q: %v", in, err)
 	}
 	return data
 }
