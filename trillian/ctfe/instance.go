@@ -20,9 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
@@ -133,7 +136,29 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		acceptOnlyCA:    cfg.AcceptOnlyCa,
 		extKeyUsages:    vCfg.KeyUsages,
 	}
+	var err error
+	validationOpts.rejectExtIds, err = parseOIDs(cfg.RejectExtensions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse RejectExtensions: %v", err)
+	}
 
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
 	return logInfo, nil
+}
+
+func parseOIDs(oids []string) ([]asn1.ObjectIdentifier, error) {
+	ret := make([]asn1.ObjectIdentifier, 0, len(oids))
+	for _, s := range oids {
+		bits := strings.Split(s, ".")
+		var oid asn1.ObjectIdentifier
+		for _, n := range bits {
+			p, err := strconv.Atoi(n)
+			if err != nil {
+				return nil, err
+			}
+			oid = append(oid, p)
+		}
+		ret = append(ret, oid)
+	}
+	return ret, nil
 }

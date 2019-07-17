@@ -45,7 +45,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 18
+// NEXT_ID: 19
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -124,6 +124,10 @@ message LogConfig {
   // be signed by this log's private key, and will be verified using the public
   // key specified in this config.
   SignedTreeHead frozen_sth = 16;
+
+  // A list of X.509 extension OIDs, in dotted string form (e.g. "2.3.4.5")
+  // which should cause submissions to be rejected.
+  repeated string reject_extensions = 18;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so

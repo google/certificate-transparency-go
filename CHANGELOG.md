@@ -14,6 +14,10 @@ have been changed so that their behaviour reflects their name:
   - `reject_unexpired` only allows expired certificates (i.e. it now rejects
     not-yet-valid certificates).
 
+A `reject_extensions` configuration field for the CTFE was added, this allows
+submissions to be rejected if they contain an extesion with any of the
+specified OIDs.
+
 
 ## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
 

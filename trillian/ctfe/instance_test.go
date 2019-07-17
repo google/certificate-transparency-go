@@ -133,6 +133,27 @@ func TestSetUpInstance(t *testing.T) {
 				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStamping"},
 			},
 		},
+		{
+			desc: "valid-reject-ext",
+			cfg: &configpb.LogConfig{
+				LogId:            1,
+				Prefix:           "log",
+				RootsPemFile:     []string{"../testdata/fake-ca.cert"},
+				PrivateKey:       privKey,
+				RejectExtensions: []string{"1.2.3.4", "5.6.7.8"},
+			},
+		},
+		{
+			desc: "invalid-reject-ext",
+			cfg: &configpb.LogConfig{
+				LogId:            1,
+				Prefix:           "log",
+				RootsPemFile:     []string{"../testdata/fake-ca.cert"},
+				PrivateKey:       privKey,
+				RejectExtensions: []string{"1.2.3.4", "one.banana.two.bananas"},
+			},
+			wantErr: "one",
+		},
 	}
 
 	for _, test := range tests {

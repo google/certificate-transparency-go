@@ -108,6 +108,9 @@ func TestValidateChain(t *testing.T) {
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeRootCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.CACertPEM)) {
+		t.Fatal("failed to load CA root")
+	}
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
 		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
@@ -118,6 +121,7 @@ func TestValidateChain(t *testing.T) {
 		chain       [][]byte
 		wantErr     bool
 		wantPathLen int
+		modifyOpts  func(v *CertValidationOpts)
 	}{
 		{
 			desc:    "missing-intermediate-cert",
@@ -174,9 +178,49 @@ func TestValidateChain(t *testing.T) {
 			chain:   pemFileToDERChain(t, "../testdata/subleaf.misordered.chain"),
 			wantErr: true,
 		},
+		{
+			desc:  "reject-non-existent-ext-id",
+			chain: pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{99, 99, 99, 99}}
+			},
+			wantPathLen: 3,
+		},
+		{
+			desc:  "reject-non-existent-ext-id-precert",
+			chain: pemsToDERChain(t, []string{testonly.PrecertPEMValid}),
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{99, 99, 99, 99}}
+			},
+			wantPathLen: 2,
+		},
+		{
+			desc:    "reject-ext-id",
+			chain:   pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			wantErr: true,
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{2, 5, 29, 14}}
+			},
+		},
+		{
+			desc:    "reject-ext-id-precert",
+			chain:   pemsToDERChain(t, []string{testonly.PrecertPEMValid}),
+			wantErr: true,
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{2, 5, 29, 14}}
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
+			validateOpts := validateOpts
+			if test.modifyOpts != nil {
+				test.modifyOpts(&validateOpts)
+			}
 			gotPath, err := ValidateChain(test.chain, validateOpts)
 			if err != nil {
 				if !test.wantErr {

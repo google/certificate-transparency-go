@@ -15,4 +15,4 @@
 // Package configpb holds a config protobuf for the CT personality.
 package configpb
 
-//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian)  --go_out=:$GOPATH/src config.proto"
+//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian)  --go_out=paths=source_relative:. config.proto"
