@@ -180,7 +180,8 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithDeadline(logCtx, getRPCDeadlineTime(a.Info))
 	defer cancel()
 
-	statusCode, err := a.Handler(ctx, a.Info, w, r)
+	var err error
+	statusCode, err = a.Handler(ctx, a.Info, w, r)
 	a.Info.RequestLog.Status(ctx, statusCode)
 	glog.V(2).Infof("%s: %s <= st=%d", a.Info.LogPrefix, a.Name, statusCode)
 	rspsCounter.Inc(label0, label1, strconv.Itoa(statusCode))
