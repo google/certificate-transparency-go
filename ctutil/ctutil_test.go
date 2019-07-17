@@ -251,23 +251,23 @@ func TestContainsSCT(t *testing.T) {
 			// Parse cert
 			cert, err := x509util.CertificateFromPEM([]byte(test.certPEM))
 			if err != nil {
-				t.Fatalf("%s: error parsing certificate: %s", test.desc, err)
+				t.Fatalf("error parsing certificate: %s", err)
 			}
 
 			// Parse SCT
 			var sct ct.SignedCertificateTimestamp
 			if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
-				t.Fatalf("%s: error tls-unmarshalling sct: %s", test.desc, err)
+				t.Fatalf("error tls-unmarshalling sct: %s", err)
 			}
 
 			// Test ContainsSCT()
 			got, err := ContainsSCT(cert, &sct)
 			if err != nil {
-				t.Fatalf("%s: ContainsSCT(_,_) = false, %s, want no error", test.desc, err)
+				t.Fatalf("ContainsSCT(_,_) = false, %s, want no error", err)
 			}
 
 			if got != test.want {
-				t.Errorf("%s: ContainsSCT(_,_) = %t, nil, want %t, nil", test.desc, got, test.want)
+				t.Errorf("ContainsSCT(_,_) = %t, nil, want %t, nil", got, test.want)
 			}
 		})
 	}

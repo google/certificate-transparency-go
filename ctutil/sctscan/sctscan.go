@@ -98,13 +98,13 @@ func main() {
 	}
 	s := scanner.NewScanner(logClient, scanOpts)
 
-	if s.Scan(ctx,
+	if err := s.Scan(ctx,
 		func(entry *ct.RawLogEntry) {
 			checkCertWithEmbeddedSCT(ctx, logsByHash, *inclusion, entry)
 		},
 		func(entry *ct.RawLogEntry) {
 			glog.Errorf("Internal error: found pre-cert! %+v", entry)
-		}) != nil {
+		}); err != nil {
 		glog.Exitf("Scan failed: %v", err)
 	}
 }

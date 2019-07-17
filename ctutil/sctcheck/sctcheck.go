@@ -173,7 +173,7 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			glog.Errorf("conn.Close()=%v", err)
+			glog.Errorf("conn.Close()=%q", err)
 		}
 	}()
 
