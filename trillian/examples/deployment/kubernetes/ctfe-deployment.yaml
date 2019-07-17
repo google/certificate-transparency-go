@@ -45,7 +45,7 @@ spec:
           - containerPort: 6962
             name: http
           - containerPort: 6963
-            name: metrics
+            name: http-metrics
           volumeMounts:
           - name: ctfe-config-volume
             mountPath: /ctfe-config
