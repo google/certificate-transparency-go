@@ -139,7 +139,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	var err error
 	validationOpts.rejectExtIds, err = parseOIDs(cfg.RejectExtensions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse RejectExtensions: %v", err)
 	}
 
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))

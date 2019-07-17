@@ -235,7 +235,8 @@ type LogConfig struct {
 	// be signed by this log's private key, and will be verified using the public
 	// key specified in this config.
 	FrozenSth *SignedTreeHead `protobuf:"bytes,16,opt,name=frozen_sth,json=frozenSth,proto3" json:"frozen_sth,omitempty"`
-	// A list of X.509 extension OIDs which should cause submissions to be rejected.
+	// A list of X.509 extension OIDs, in dotted string form (e.g. "2.3.4.5")
+	// which should cause submissions to be rejected.
 	RejectExtensions     []string `protobuf:"bytes,18,rep,name=reject_extensions,json=rejectExtensions,proto3" json:"reject_extensions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

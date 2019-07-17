@@ -94,6 +94,8 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 	}
 
 	// Check for unwanted extension types, if required.
+	// TODO(al): Refactor CertValidationOpts c'tor to a builder pattern and
+	// pre-calc this in there
 	if len(validationOpts.rejectExtIds) != 0 {
 		badIDs := make(map[string]bool)
 		for _, id := range validationOpts.rejectExtIds {

@@ -108,6 +108,9 @@ func TestValidateChain(t *testing.T) {
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeRootCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.CACertPEM)) {
+		t.Fatal("failed to load CA root")
+	}
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
 		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
@@ -176,6 +179,24 @@ func TestValidateChain(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			desc:  "reject-non-existent-ext-id",
+			chain: pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{99, 99, 99, 99}}
+			},
+			wantPathLen: 3,
+		},
+		{
+			desc:  "reject-non-existent-ext-id-precert",
+			chain: pemsToDERChain(t, []string{testonly.PrecertPEMValid}),
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject SubjectKeyIdentifier extension
+				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{99, 99, 99, 99}}
+			},
+			wantPathLen: 2,
+		},
+		{
 			desc:    "reject-ext-id",
 			chain:   pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
 			wantErr: true,
@@ -186,7 +207,7 @@ func TestValidateChain(t *testing.T) {
 		},
 		{
 			desc:    "reject-ext-id-precert",
-			chain:   pemsToDERChain(t, []string{testonly.PrecertPEMValid, testonly.FakeIntermediateCertPEM}),
+			chain:   pemsToDERChain(t, []string{testonly.PrecertPEMValid}),
 			wantErr: true,
 			modifyOpts: func(v *CertValidationOpts) {
 				// reject SubjectKeyIdentifier extension
