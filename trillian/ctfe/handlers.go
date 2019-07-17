@@ -180,20 +180,20 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithDeadline(logCtx, getRPCDeadlineTime(a.Info))
 	defer cancel()
 
-	st, err := a.Handler(ctx, a.Info, w, r)
-	a.Info.RequestLog.Status(ctx, st)
-	glog.V(2).Infof("%s: %s <= st=%d", a.Info.LogPrefix, a.Name, st)
-	rspsCounter.Inc(label0, label1, strconv.Itoa(st))
+	statusCode, err := a.Handler(ctx, a.Info, w, r)
+	a.Info.RequestLog.Status(ctx, statusCode)
+	glog.V(2).Infof("%s: %s <= st=%d", a.Info.LogPrefix, a.Name, statusCode)
+	rspsCounter.Inc(label0, label1, strconv.Itoa(statusCode))
 	if err != nil {
 		glog.Warningf("%s: %s handler error: %v", a.Info.LogPrefix, a.Name, err)
-		a.Info.SendHTTPError(w, st, err)
+		a.Info.SendHTTPError(w, statusCode, err)
 		return
 	}
 
 	// Additional check, for consistency the handler must return an error for non-200 st
-	if st != http.StatusOK {
-		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Info.LogPrefix, a.Name, st, err)
-		a.Info.SendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, st: %d", st))
+	if statusCode != http.StatusOK {
+		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Info.LogPrefix, a.Name, statusCode, err)
+		a.Info.SendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, st: %d", statusCode))
 		return
 	}
 }
