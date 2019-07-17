@@ -17,7 +17,9 @@ package submission
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -120,22 +122,44 @@ func TestProxyInitState(t *testing.T) {
 
 	llr := NewLogListRefresher(f)
 	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
-	p.Run(context.Background(), time.Hour, time.Hour)
+	p.Run(context.Background(), time.Millisecond, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+Init:
 	for {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("p.Run() expected to send init signal, got none")
-		case b := <-p.Init:
+		case b, ok := <-p.Init:
+			if !ok {
+				t.Fatalf("p.Run() expected to send 'true' init signal via Init channel, but channel is closed")
+			}
 			if b != true {
 				t.Fatalf("p.Run() expected to send 'true' init signal, got false")
 			}
-			return
+			break Init
 		case e := <-p.Errors:
 			t.Log(e)
+		}
+	}
+
+	sampleLogListUpdate := strings.Replace(testdata.SampleLogList, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
+	if err := ioutil.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
+		t.Fatalf("unable to update Log-list data file: %q", err)
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case _, ok := <-p.Init:
+			if ok {
+				t.Fatalf("p.Refresh() after initial p.Run() sent signal into Init-channel, expected none")
+			}
+		case <-p.Errors:
 		}
 	}
 }
