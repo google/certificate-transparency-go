@@ -127,8 +127,8 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 		return
 	}
 
-	json := json.NewEncoder(rw)
-	if err := json.Encode(*rp); err != nil {
+	encoder := json.NewEncoder(rw)
+	if err := encoder.Encode(*rp); err != nil {
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
 		return
 	}

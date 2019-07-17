@@ -158,7 +158,7 @@ func (e *Errors) VerboseError() string {
 
 // Fatal indicates whether e includes a fatal error
 func (e *Errors) Fatal() bool {
-	return (e.FirstFatal() != nil)
+	return e.FirstFatal() != nil
 }
 
 // Empty indicates whether e has no errors.

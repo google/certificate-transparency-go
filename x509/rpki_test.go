@@ -235,12 +235,12 @@ func TestParseRPKIASIdentifiers(t *testing.T) {
 	}{
 		{
 			desc: "ValidASRange",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantAS: &ASIdentifiers{
 				ASIDRanges: []ASIDRange{
 					{Min: 0, Max: 0x00ffffffff},
@@ -249,28 +249,28 @@ func TestParseRPKIASIdentifiers(t *testing.T) {
 		},
 		{
 			desc: "ValidASNumbers",
-			in: ("300b" + // SEQUENCE
+			in: "300b" + // SEQUENCE
 				("a009" + // Tag:0 Class:Context-specific Compound:Y
 					("3007" + // SEQUENCE OF ASIdOrRange
 						"0201" + "01" + // INTEGER
-						"0202" + "0123"))), // INTEGER
+						"0202" + "0123")), // INTEGER
 			wantAS: &ASIdentifiers{ASIDs: []int{1, 0x123}},
 		},
 		{
 			desc: "ValidASInherit",
-			in: ("3004" + // SEQUENCE
+			in: "3004" + // SEQUENCE
 				("8002" + // Tag:0 Class:Context-specific Compound:N
-					"0500")), // NULL
+					"0500"), // NULL
 			wantAS: &ASIdentifiers{InheritFromIssuer: true},
 		},
 		{
 			desc: "ValidRDIRange",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a10e" + // Tag:1 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantRDI: &ASIdentifiers{
 				ASIDRanges: []ASIDRange{
 					{Min: 0, Max: 0x00ffffffff},
@@ -279,74 +279,74 @@ func TestParseRPKIASIdentifiers(t *testing.T) {
 		},
 		{
 			desc: "InvalidASRange",
-			in: ("3110" + // SET not SEQUENCE
+			in: "3110" + // SET not SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantErr: "failed to asn1.Unmarshal ASIdentifiers extension",
 		},
 		{
 			desc: "TrailingASRange",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
 							"0205" + "00ffffffff"))) + // INTEGER
-				"ff"),
+				"ff",
 			wantErr: "trailing data after ASIdentifiers extension",
 		},
 		{
 			desc: "InvalidAsIdsOrRanges",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("310c" + // SET not SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantErr: "failed to asn1.Unmarshal ASIdentifiers.asIdsOrRanges",
 		},
 		{
 			desc: "TrailingAsIdsOrRanges",
-			in: ("3011" + // SEQUENCE
+			in: "3011" + // SEQUENCE
 				("a00f" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("300a" + // SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")) + "ff")), // INTEGER
+							"0205" + "00ffffffff")) + "ff"), // INTEGER
 			wantErr: "trailing data after ASIdentifiers.asIdsOrRanges",
 		},
 		{
 			desc: "InvalidAsIdsOrRangesType",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("310a" + // SET not SEQUENCE (ASRange)
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantAS:  &ASIdentifiers{},
 			wantErr: "unexpected value in ASIdentifiers.asIdsOrRanges[0]",
 		},
 		{
 			desc: "InvalidASRange",
-			in: ("3010" + // SEQUENCE
+			in: "3010" + // SEQUENCE
 				("a00e" + // Tag:0 Class:Context-specific Compound:Y
 					("300c" + // SEQUENCE OF ASIdOrRange
 						("100a" + // SEQUENCE (ASRange) but not Constructed:Y
 							"0201" + "00" + // INTEGER
-							"0205" + "00ffffffff")))), // INTEGER
+							"0205" + "00ffffffff"))), // INTEGER
 			wantAS:  &ASIdentifiers{},
 			wantErr: "failed to asn1.Unmarshal ASIdentifiers.asIdsOrRanges[0].range",
 		},
 		{
 			desc: "InvalidASId",
-			in: ("300b" + // SEQUENCE
+			in: "300b" + // SEQUENCE
 				("a009" + // Tag:0 Class:Context-specific Compound:Y
 					("3007" + // SEQUENCE OF ASIdOrRange
 						"8201" + "01" + // INTEGER but Constructed:Y
-						"0202" + "0123"))), // INTEGER
+						"0202" + "0123")), // INTEGER
 			wantAS:  &ASIdentifiers{ASIDs: []int{0x123}},
 			wantErr: "failed to asn1.Unmarshal ASIdentifiers.asIdsOrRanges[0].id",
 		},

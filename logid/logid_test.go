@@ -53,7 +53,7 @@ func TestFromBytes(t *testing.T) {
 
 	for _, test := range tests {
 		got, err := FromBytes(toBytes(test.in, test.size))
-		if gotErr := (err != nil); gotErr != test.wantErr {
+		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("FromBytes(%q): got err? %t, want? %t (err=%v)", test.in, gotErr, test.wantErr, err)
 		}
 		if err == nil && !reflect.DeepEqual(&got, test.want) {
@@ -79,7 +79,7 @@ func TestFromB64(t *testing.T) {
 
 	for _, test := range tests {
 		got, err := FromB64(test.in)
-		if gotErr := (err != nil); gotErr != test.wantErr {
+		if gotErr := err != nil; gotErr != test.wantErr {
 			t.Errorf("FromB64(%q): got err? %t, want? %t (err=%v)", test.in, gotErr, test.wantErr, err)
 		}
 		if err == nil && !reflect.DeepEqual(&got, test.want) {

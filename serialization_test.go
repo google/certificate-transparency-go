@@ -515,10 +515,10 @@ func TestLogEntryFromLeaf(t *testing.T) {
 		} else if test.wantErr != "" {
 			t.Errorf("LogEntryFromLeaf(%d) = _, nil; want _, err containing %q", i, test.wantErr)
 		}
-		if gotCert := (got != nil && got.X509Cert != nil); gotCert != test.wantCert {
+		if gotCert := got != nil && got.X509Cert != nil; gotCert != test.wantCert {
 			t.Errorf("LogEntryFromLeaf(%d).X509Cert = %v; want %v", i, gotCert, test.wantCert)
 		}
-		if gotPrecert := (got != nil && got.Precert != nil); gotPrecert != test.wantPrecert {
+		if gotPrecert := got != nil && got.Precert != nil; gotPrecert != test.wantPrecert {
 			t.Errorf("LogEntryFromLeaf(%d).Precert = %v; want %v", i, gotPrecert, test.wantPrecert)
 		}
 	}

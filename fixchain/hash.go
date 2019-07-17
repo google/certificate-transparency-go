@@ -56,12 +56,16 @@ func hashBag(chain []*x509.Certificate) [hashSize]byte {
 	return hashChain(b.certs)
 }
 
+// bag is a collection of certificates that can contain duplicates.
+// Applying sort will order them by their raw representation.
 type bag struct {
 	certs []*x509.Certificate
 }
 
-// sort.Sort(data Interface) for bag - uses data.Len, data.Less & data.Swap
+// Len implements sort.Sort(data Interface) for bag.
 func (b bag) Len() int { return len(b.certs) }
+
+// Less implements sort.Sort(data Interface) for bag.
 func (b bag) Less(i, j int) bool {
 	ci := b.certs[i].Raw
 	cj := b.certs[j].Raw
@@ -78,6 +82,8 @@ func (b bag) Less(i, j int) bool {
 	}
 	return false
 }
+
+// Swap implements sort.Sort(data Interface) for bag.
 func (b bag) Swap(i, j int) {
 	t := b.certs[i]
 	b.certs[i] = b.certs[j]

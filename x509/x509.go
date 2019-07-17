@@ -164,7 +164,7 @@ func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	pkix := pkixPublicKey{
+	pk := pkixPublicKey{
 		Algo: publicKeyAlgorithm,
 		BitString: asn1.BitString{
 			Bytes:     publicKeyBytes,
@@ -172,7 +172,7 @@ func MarshalPKIXPublicKey(pub interface{}) ([]byte, error) {
 		},
 	}
 
-	ret, _ := asn1.Marshal(pkix)
+	ret, _ := asn1.Marshal(pk)
 	return ret, nil
 }
 

@@ -105,11 +105,11 @@ func newNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
 }
 
 func sampleLogList() *loglist.LogList {
-	var loglist loglist.LogList
-	if err := json.Unmarshal([]byte(testdata.SampleLogList), &loglist); err != nil {
+	var ll loglist.LogList
+	if err := json.Unmarshal([]byte(testdata.SampleLogList), &ll); err != nil {
 		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
 	}
-	return &loglist
+	return &ll
 }
 
 func sampleValidLogList() *loglist.LogList {
@@ -326,7 +326,7 @@ func TestDistributorAddChain(t *testing.T) {
 
 			scts, err := dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
 
-			if gotErr := (err != nil); gotErr != tc.wantErr {
+			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("dist.AddChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
 			} else if gotErr {
 				return
@@ -422,7 +422,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 
 			scts, err := dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
 
-			if gotErr := (err != nil); gotErr != tc.wantErr {
+			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("dist.AddPreChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
 			} else if gotErr {
 				return
@@ -487,7 +487,7 @@ func TestDistributorAddTypeMismatch(t *testing.T) {
 			if tc.asPreChain {
 				pre = "Pre"
 			}
-			if gotErr := (err != nil); gotErr != tc.wantErr {
+			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("dist.Add%sChain(from %q) = (_, error: %v), want err? %t", pre, tc.pemChainFile, err, tc.wantErr)
 			} else if gotErr {
 				return
