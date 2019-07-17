@@ -18,6 +18,36 @@ A `reject_extensions` configuration field for the CTFE was added, this allows
 submissions to be rejected if they contain an extesion with any of the
 specified OIDs.
 
+#### Flags
+
+Removed default values for `--metrics_endpoint` and `--log_rpc_server` flags.
+This makes it easier to get the documented "unset" behaviour.
+
+#### Kubernetes
+
+Updated prometheus-to-sd to v0.5.2.
+
+### Log Lists
+
+A new package has been created for parsing, searching and creating JSON log
+lists compatible with the
+[v2 schema](http://www.gstatic.com/ct/log_list/v2_beta/log_list_schema.json):
+`github.com/google/certificate-transparency-go/loglist2`.
+
+### Docker Images
+
+Our Docker images have been updated to use Go 1.11 and [Distroless base
+images](https://github.com/GoogleContainerTools/distroless).
+
+The CTFE Docker image now sets `ENTRYPOINT`.
+
+### Utilities / Libraries
+
+The `x509.ParseTBSCertificate()`, `x509.ParseCertificate()` and
+`x509.ParseCertificates()` functions will now return `x509.NonFatalErrors` if
+ASN.1 parsing fails in strict mode but succeeds in lax mode. Previously, it only
+attempted strict mode parsing.
+
 
 ## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
 
