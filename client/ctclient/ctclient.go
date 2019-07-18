@@ -268,7 +268,7 @@ func findTimestamp(ctx context.Context, logClient *client.LogClient) {
 	idx := sort.Search(int(sth.TreeSize), func(idx int) bool {
 		glog.V(1).Infof("check timestamp at index %d", idx)
 		entry := getEntry(int64(idx))
-		return entry.Leaf.TimestampedEntry.Timestamp >= uint64(target)
+		return (entry.Leaf.TimestampedEntry.Timestamp >= uint64(target))
 	})
 	when := ct.TimestampToTime(uint64(target))
 	if idx >= int(sth.TreeSize) {

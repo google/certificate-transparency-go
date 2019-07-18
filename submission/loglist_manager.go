@@ -74,7 +74,7 @@ func (llm *LogListManager) GetTwoLatestLogLists() (*LogListData, *LogListData) {
 // RefreshLogList reads Log List one time and runs updates if necessary.
 func (llm *LogListManager) RefreshLogList(ctx context.Context) (*LogListData, error) {
 	if llm.llr == nil {
-		return nil, fmt.Errorf("the LogListManager has no LogListRefresher")
+		return nil, fmt.Errorf("Log list manager has no log-list watcher to refresh Log List")
 	}
 	ll, err := llm.llr.Refresh()
 	if err != nil {

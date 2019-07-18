@@ -23,10 +23,10 @@ import (
 )
 
 func TestLoadSingleCertFromPEMs(t *testing.T) {
-	for _, p := range []string{testonly.CACertPEM, testonly.CACertPEMWithOtherStuff, testonly.CACertPEMDuplicated} {
+	for _, pem := range []string{testonly.CACertPEM, testonly.CACertPEMWithOtherStuff, testonly.CACertPEMDuplicated} {
 		pool := NewPEMCertPool()
 
-		ok := pool.AppendCertsFromPEM([]byte(p))
+		ok := pool.AppendCertsFromPEM([]byte(pem))
 		if !ok {
 			t.Fatal("Expected to append a certificate ok")
 		}
@@ -37,10 +37,10 @@ func TestLoadSingleCertFromPEMs(t *testing.T) {
 }
 
 func TestBadOrEmptyCertificateRejected(t *testing.T) {
-	for _, p := range []string{testonly.UnknownBlockTypePEM, testonly.CACertPEMBad} {
+	for _, pem := range []string{testonly.UnknownBlockTypePEM, testonly.CACertPEMBad} {
 		pool := NewPEMCertPool()
 
-		ok := pool.AppendCertsFromPEM([]byte(p))
+		ok := pool.AppendCertsFromPEM([]byte(pem))
 		if ok {
 			t.Fatal("Expected appending no certs")
 		}

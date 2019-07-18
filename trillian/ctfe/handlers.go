@@ -147,7 +147,7 @@ type AppHandler struct {
 // ServeHTTP for an AppHandler invokes the underlying handler function but
 // does additional common error and stats processing.
 func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var statusCode int
+	var status int
 	label0 := strconv.FormatInt(a.Info.logID, 10)
 	label1 := string(a.Name)
 	reqsCounter.Inc(label0, label1)
@@ -156,7 +156,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.Info.RequestLog.LogPrefix(logCtx, a.Info.LogPrefix)
 	defer func() {
 		latency := a.Info.TimeSource.Now().Sub(startTime).Seconds()
-		rspLatency.Observe(latency, label0, label1, strconv.Itoa(statusCode))
+		rspLatency.Observe(latency, label0, label1, strconv.Itoa(status))
 	}()
 	glog.V(2).Infof("%s: request %v %q => %s", a.Info.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
@@ -181,6 +181,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithDeadline(logCtx, getRPCDeadlineTime(a.Info))
 	defer cancel()
 
+<<<<<<< HEAD
 	var err error
 	statusCode, err = a.Handler(ctx, a.Info, w, r)
 	a.Info.RequestLog.Status(ctx, statusCode)
@@ -196,6 +197,22 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if statusCode != http.StatusOK {
 		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Info.LogPrefix, a.Name, statusCode, err)
 		a.Info.SendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, st: %d", statusCode))
+=======
+	status, err := a.Handler(ctx, a.Info, w, r)
+	a.Info.RequestLog.Status(ctx, status)
+	glog.V(2).Infof("%s: %s <= status=%d", a.Info.LogPrefix, a.Name, status)
+	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
+	if err != nil {
+		glog.Warningf("%s: %s handler error: %v", a.Info.LogPrefix, a.Name, err)
+		a.Info.SendHTTPError(w, status, err)
+		return
+	}
+
+	// Additional check, for consistency the handler must return an error for non-200 status
+	if status != http.StatusOK {
+		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.Info.LogPrefix, a.Name, status, err)
+		a.Info.SendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, status: %d", status))
+>>>>>>> parent of add54b7... Fix var / package collisions and extra parens (#565)
 		return
 	}
 }
@@ -343,7 +360,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	return ph
 }
 
-// SendHTTPError generates a custom error page to give more information on why something didn't work
+// Generates a custom error page to give more information on why something didn't work
 func (li *logInfo) SendHTTPError(w http.ResponseWriter, statusCode int, err error) {
 	errorBody := http.StatusText(statusCode)
 	if !li.instanceOpts.MaskInternalErrors || statusCode != http.StatusInternalServerError {

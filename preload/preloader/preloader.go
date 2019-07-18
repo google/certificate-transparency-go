@@ -180,7 +180,7 @@ func main() {
 		PrecertOnly: *precertsOnly,
 		NumWorkers:  *numWorkers,
 	}
-	s := scanner.NewScanner(fetchLogClient, opts)
+	scanner := scanner.NewScanner(fetchLogClient, opts)
 
 	bufferSize := 10 * *parallelSubmit
 	certs := make(chan *ct.LogEntry, bufferSize)
@@ -241,7 +241,7 @@ func main() {
 		}
 		precerts <- entry
 	}
-	s.Scan(ctx, addChainFunc, addPreChainFunc)
+	scanner.Scan(ctx, addChainFunc, addPreChainFunc)
 
 	close(certs)
 	close(precerts)

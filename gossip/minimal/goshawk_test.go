@@ -133,16 +133,16 @@ func TestValidateSTH(t *testing.T) {
 	}
 	s := httptest.NewServer(handler)
 	defer s.Close()
-	cl, err := client.New(s.URL+"/ct/v1/get-sth-consistency", nil, jsonclient.Options{PublicKey: argonKey})
+	client, err := client.New(s.URL+"/ct/v1/get-sth-consistency", nil, jsonclient.Options{PublicKey: argonKey})
 	if err != nil {
-		t.Fatalf("failed to create cl: %v", err)
+		t.Fatalf("failed to create client: %v", err)
 	}
 	o := originLog{
 		reporter: &incident.LoggingReporter{},
 		logConfig: logConfig{
 			Name: "argon2018",
 			URL:  "http://ct.googleapis.com/logs/argon2018",
-			Log:  cl,
+			Log:  client,
 		},
 	}
 	sthInfo1 := x509ext.LogSTHInfo{

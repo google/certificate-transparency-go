@@ -169,7 +169,7 @@ func TestAddingSubRanges(t *testing.T) {
 			now = now.Add(time.Second)
 
 			err := tr.AddSubRange(a.first, a.last)
-			if gotErr := err != nil; gotErr != a.wantErr {
+			if gotErr := (err != nil); gotErr != a.wantErr {
 				t.Errorf("%s: %d: AddSubRange(%d, %d): got err? %t, want? %t (err %v)", test.desc, i, a.first, a.last, gotErr, a.wantErr, err)
 			}
 

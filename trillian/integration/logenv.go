@@ -76,7 +76,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	wg.Add(1)
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
 		defer wg.Done()
-		cl := trillian.NewTrillianLogClient(env.ClientConn)
+		client := trillian.NewTrillianLogClient(env.ClientConn)
 		for _, cfg := range cfgs {
 			vCfg, err := ctfe.ValidateLogConfig(cfg)
 			if err != nil {
@@ -84,7 +84,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 			}
 			opts := ctfe.InstanceOptions{
 				Validated:     vCfg,
-				Client:        cl,
+				Client:        client,
 				Deadline:      10 * time.Second,
 				MetricFactory: prometheus.MetricFactory{},
 				RequestLog:    new(ctfe.DefaultRequestLog),

@@ -215,12 +215,12 @@ func main() {
 		Matcher:    matcher,
 		NumWorkers: *numWorkers,
 	}
-	s := scanner.NewScanner(logClient, opts)
+	scanner := scanner.NewScanner(logClient, opts)
 
 	ctx := context.Background()
 	if *printChains {
-		s.Scan(ctx, logFullChain, logFullChain)
+		scanner.Scan(ctx, logFullChain, logFullChain)
 	} else {
-		s.Scan(ctx, logCertInfo, logPrecertInfo)
+		scanner.Scan(ctx, logCertInfo, logPrecertInfo)
 	}
 }

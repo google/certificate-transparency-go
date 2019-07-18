@@ -176,9 +176,9 @@ func mustCreateSignatureVerifiers(t *testing.T) SignatureVerifierMap {
 
 func sctFeedbackFromString(t *testing.T, s string) SCTFeedback {
 	t.Helper()
-	decoder := json.NewDecoder(strings.NewReader(s))
+	json := json.NewDecoder(strings.NewReader(s))
 	var f SCTFeedback
-	if err := decoder.Decode(&f); err != nil {
+	if err := json.Decode(&f); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
 	return f
@@ -186,9 +186,9 @@ func sctFeedbackFromString(t *testing.T, s string) SCTFeedback {
 
 func sthPollinationFromString(t *testing.T, s string) STHPollination {
 	t.Helper()
-	decoder := json.NewDecoder(strings.NewReader(s))
+	json := json.NewDecoder(strings.NewReader(s))
 	var f STHPollination
-	if err := decoder.Decode(&f); err != nil {
+	if err := json.Decode(&f); err != nil {
 		t.Fatalf("Failed to parse JSON: %v", err)
 	}
 	return f

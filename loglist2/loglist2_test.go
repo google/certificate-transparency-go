@@ -226,10 +226,10 @@ func TestFindLogByURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			l := sampleLogList.FindLogByURL(test.in)
+			log := sampleLogList.FindLogByURL(test.in)
 			got := ""
-			if l != nil {
-				got = l.Description
+			if log != nil {
+				got = log.Description
 			}
 			if got != test.want {
 				t.Errorf("FindLogByURL(%q)=%q, want %q", test.in, got, test.want)
@@ -262,10 +262,10 @@ func TestFindLogByKeyhash(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var hash [sha256.Size]byte
 			copy(hash[:], test.in)
-			l := sampleLogList.FindLogByKeyHash(hash)
+			log := sampleLogList.FindLogByKeyHash(hash)
 			got := ""
-			if l != nil {
-				got = l.Description
+			if log != nil {
+				got = log.Description
 			}
 			if got != test.want {
 				t.Errorf("FindLogByKeyHash(%x)=%q, want %q", test.in, got, test.want)
@@ -305,8 +305,8 @@ func TestFindLogByKeyhashPrefix(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logs := sampleLogList.FindLogByKeyHashPrefix(test.in)
 			got := make([]string, len(logs))
-			for i, l := range logs {
-				got[i] = l.Description
+			for i, log := range logs {
+				got[i] = log.Description
 			}
 			sort.Strings(got)
 			if !reflect.DeepEqual(got, test.want) {
@@ -335,10 +335,10 @@ func TestFindLogByKey(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			l := sampleLogList.FindLogByKey(test.in)
+			log := sampleLogList.FindLogByKey(test.in)
 			got := ""
-			if l != nil {
-				got = l.Description
+			if log != nil {
+				got = log.Description
 			}
 			if got != test.want {
 				t.Errorf("FindLogByKey(%x)=%q, want %q", test.in, got, test.want)
@@ -403,8 +403,8 @@ func TestFuzzyFindLog(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logs := sampleLogList.FuzzyFindLog(test.in)
 			got := make([]string, len(logs))
-			for i, l := range logs {
-				got[i] = l.Description
+			for i, log := range logs {
+				got[i] = log.Description
 			}
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("FuzzyFindLog(%q)=%v, want %v", test.in, got, test.want)
@@ -447,8 +447,8 @@ func TestLogStatesString(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			l := sampleLogList.FindLogByURL(test.logURL)
-			if got := l.State.String(); got != test.want {
+			log := sampleLogList.FindLogByURL(test.logURL)
+			if got := log.State.String(); got != test.want {
 				t.Errorf("%q:  Log.State.String() = %s, want %s", test.logURL, got, test.want)
 			}
 		})

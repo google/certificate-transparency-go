@@ -123,7 +123,7 @@ func TestToSignedTreeHead(t *testing.T) {
 				TreeHeadSignature: mustHexDecode(test.signature),
 			}
 			sth, err := sthResponse.ToSignedTreeHead()
-			if gotErr := err != nil; gotErr != test.wantErr {
+			if gotErr := (err != nil); gotErr != test.wantErr {
 				t.Errorf("GetSTHResponse.ToSignedTreeHead() = %+v, %v, want err? %t", sth, err, test.wantErr)
 			}
 		})
