@@ -9,23 +9,34 @@ Not yet released.
 The `reject_expired` and `reject_unexpired` configuration fields for the CTFE
 have been changed so that their behaviour reflects their name:
 
-  - `reject_expired` only rejects expired certificates (i.e. it now allows
+-   `reject_expired` only rejects expired certificates (i.e. it now allows
     not-yet-valid certificates).
-  - `reject_unexpired` only allows expired certificates (i.e. it now rejects
+-   `reject_unexpired` only allows expired certificates (i.e. it now rejects
     not-yet-valid certificates).
 
 A `reject_extensions` configuration field for the CTFE was added, this allows
-submissions to be rejected if they contain an extesion with any of the
+submissions to be rejected if they contain an extension with any of the
 specified OIDs.
+
+A `frozen_sth` configuration field for the CTFE was added. This STH will be
+served permanently. It must be signed by the log's private key.
 
 #### Flags
 
 Removed default values for `--metrics_endpoint` and `--log_rpc_server` flags.
 This makes it easier to get the documented "unset" behaviour.
 
+#### Metrics
+
+The CTFE exports these new metrics:
+
+-   `is_mirror` - set to 1 for mirror logs (copies of logs hosted elsewhere)
+
 #### Kubernetes
 
 Updated prometheus-to-sd to v0.5.2.
+
+A dedicated node pool is no longer required by the Kubernetes manifests.
 
 ### Log Lists
 
@@ -36,18 +47,85 @@ lists compatible with the
 
 ### Docker Images
 
-Our Docker images have been updated to use Go 1.11 and [Distroless base
-images](https://github.com/GoogleContainerTools/distroless).
+Our Docker images have been updated to use Go 1.11 and
+[Distroless base images](https://github.com/GoogleContainerTools/distroless).
 
 The CTFE Docker image now sets `ENTRYPOINT`.
 
 ### Utilities / Libraries
 
-The `x509.ParseTBSCertificate()`, `x509.ParseCertificate()` and
-`x509.ParseCertificates()` functions will now return `x509.NonFatalErrors` if
-ASN.1 parsing fails in strict mode but succeeds in lax mode. Previously, it only
+#### jsonclient
+
+The `jsonclient` package now copes with empty HTTP responses. The user-agent
+header it sends can now be specified.
+
+#### x509 and asn1 forks
+
+Merged upstream changes from Go 1.12 into the `asn1` and `x509` packages.
+
+Added a "lax" tag to `asn1` that applies recursively and makes some checks more
+relaxed:
+
+-   parsePrintableString() copes with invalid PrintableString contents, e.g. use
+    of tagPrintableString when the string data is really ISO8859-1.
+-   checkInteger() allows integers that are not minimally encoded (and so are
+    not correct DER).
+-   OIDs are allowed to be empty.
+
+The following `x509` functions will now return `x509.NonFatalErrors` if ASN.1
+parsing fails in strict mode but succeeds in lax mode. Previously, they only
 attempted strict mode parsing.
 
+-   `x509.ParseTBSCertificate()`
+-   `x509.ParseCertificate()`
+-   `x509.ParseCertificates()`
+
+The `x509` package will now treat a negative RSA modulus as a non-fatal error.
+
+The `x509` package now supports RSASES-OAEP and Ed25519 keys.
+
+#### ctclient
+
+The `ctclient` tool now defaults to using
+[all_logs_list.json](https://www.gstatic.com/ct/log_list/all_logs_list.json)
+instead of [log_list.json](https://www.gstatic.com/ct/log_list/log_list.json).
+This can be overridden using the `--log_list` flag.
+
+It can now perform inclusion checks on pre-certificates.
+
+It has these new commands:
+
+-   `bisect` - Finds a log entry given a timestamp.
+
+It has these new flags:
+
+-   `--skip_https_verify` - Skips verification of the HTTPS connection
+-   `--timestamp` - Timestamp to use for `bisect` and `inclusion` commands (for
+    `inclusion`, only if --leaf_hash is not used)
+-   `--chain` - Displays the entire certificate chain
+
+It now accepts hex or base64-encoded strings for the `--tree_hash`,
+`--prev_hash` and `--leaf_hash` flags.
+
+#### certcheck
+
+The `certcheck` tool has these new flags:
+
+-   `--check_time` - Check current validity of certificate (replaces
+    `--timecheck`)
+-   `--check_name` - Check validity of certificate name
+-   `--check_eku` - Check validity of EKU nesting
+-   `--check_path_len` - Check validity of path length constraint
+-   `--check_name_constraint` - Check name constraints
+-   `--check_unknown_critical_exts` - Check for unknown critical extensions
+    (replaces `--ignore_unknown_critical_exts`)
+
+#### sctcheck
+
+The `sctcheck` tool has these new flags:
+
+-   `--check_inclusion` - Checks that the SCT was honoured (i.e. the
+    corresponding certificate was included in the issuing CT log)
 
 ## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
 
