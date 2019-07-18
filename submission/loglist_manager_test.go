@@ -16,7 +16,9 @@ package submission
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,6 +60,52 @@ func TestFirstRefresh(t *testing.T) {
 	defer cancel()
 
 	llm.Run(ctx, 3*time.Second)
+	select {
+	case <-llm.LLUpdates:
+		return
+	case err := <-llm.Errors:
+		t.Errorf("llm.Run() returned error %q while expected none", err)
+	case <-ctx.Done():
+		t.Errorf("llm.Run() on stub LogListRefresher expected to emit update, got none")
+	}
+}
+
+func TestSecondRefresh(t *testing.T) {
+	f, err := createTempFile(testdata.SampleLogList)
+	if err != nil {
+		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList, err)
+	}
+	defer os.Remove(f)
+
+	llr := NewLogListRefresher(f)
+	llm := NewLogListManager(llr)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	halfCtx, halfCancel := context.WithTimeout(context.Background(), time.Second)
+	defer halfCancel()
+
+	llm.Run(ctx, 300*time.Millisecond)
+	readFirst := false
+First:
+	for {
+		select {
+		case <-llm.LLUpdates:
+			if !readFirst {
+				readFirst = true
+			} else {
+				t.Errorf("llm.Run() emitted Log-list update when no updates happened")
+			}
+		case err := <-llm.Errors:
+			t.Errorf("llm.Run() returned error %q while expected none", err)
+		case <-halfCtx.Done():
+			break First
+		}
+	}
+
+	sampleLogListUpdate := strings.Replace(testdata.SampleLogList, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
+	if err := ioutil.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
+		t.Fatalf("unable to update Log-list data file: %q", err)
+	}
 	select {
 	case <-llm.LLUpdates:
 		return
