@@ -36,14 +36,14 @@ import (
 
 var (
 	// Metrics are per-log, per-endpoint and some per-response-status code.
-	once        sync.Once
+	distOnce    sync.Once
 	reqsCounter monitoring.Counter   // logurl, ep => value
 	rspsCounter monitoring.Counter   // logurl, ep, sc => value
 	rspLatency  monitoring.Histogram // logurl, ep => value
 )
 
-// initMetrics initializes all the exported metrics.
-func initMetrics(mf monitoring.MetricFactory) {
+// distInitMetrics initializes all the exported metrics.
+func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logurl", "ep")
@@ -316,6 +316,6 @@ func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCli
 	if mf == nil {
 		mf = monitoring.InertMetricFactory{}
 	}
-	once.Do(func() { initMetrics(mf) })
+	distOnce.Do(func() { distInitMetrics(mf) })
 	return &d, nil
 }
