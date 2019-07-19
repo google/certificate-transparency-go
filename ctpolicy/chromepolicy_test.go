@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
@@ -79,6 +81,69 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 	return gi
 }
 
+func wantedGroups2(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
+	gi := LogPolicyData{
+		"Google-operated": {
+			Name: "Google-operated",
+			LogURLs: map[string]bool{
+				"https://ct.googleapis.com/logs/argon2020/": true,
+				"https://ct.googleapis.com/aviator/":        true,
+				"https://ct.googleapis.com/icarus/":         true,
+				"https://ct.googleapis.com/rocketeer/":      true,
+				"https://ct.googleapis.com/racketeer/":      true,
+			},
+			MinInclusions: goog,
+			IsBase:        false,
+			LogWeights: map[string]float32{
+				"https://ct.googleapis.com/logs/argon2020/": 1.0,
+				"https://ct.googleapis.com/aviator/":        1.0,
+				"https://ct.googleapis.com/icarus/":         1.0,
+				"https://ct.googleapis.com/rocketeer/":      1.0,
+				"https://ct.googleapis.com/racketeer/":      1.0,
+			},
+		},
+		"Non-Google-operated": {
+			Name: "Non-Google-operated",
+			LogURLs: map[string]bool{
+				"https://log.bob.io": true,
+			},
+			MinInclusions: nonGoog,
+			IsBase:        false,
+			LogWeights: map[string]float32{
+				"https://log.bob.io": 1.0,
+			},
+		},
+		BaseName: {
+			Name: BaseName,
+			LogURLs: map[string]bool{
+				"https://ct.googleapis.com/logs/argon2020/": true,
+				"https://ct.googleapis.com/aviator/":        true,
+				"https://ct.googleapis.com/icarus/":         true,
+				"https://ct.googleapis.com/rocketeer/":      true,
+				"https://ct.googleapis.com/racketeer/":      true,
+				"https://log.bob.io":                        true,
+			},
+			MinInclusions: base,
+			IsBase:        true,
+			LogWeights: map[string]float32{
+				"https://ct.googleapis.com/logs/argon2020/": 1.0,
+				"https://ct.googleapis.com/aviator/":        1.0,
+				"https://ct.googleapis.com/icarus/":         1.0,
+				"https://ct.googleapis.com/rocketeer/":      1.0,
+				"https://ct.googleapis.com/racketeer/":      1.0,
+				"https://log.bob.io":                        1.0,
+			},
+		},
+	}
+	if minusBob {
+		delete(gi[BaseName].LogURLs, "https://log.bob.io")
+		delete(gi[BaseName].LogWeights, "https://log.bob.io")
+		delete(gi["Non-Google-operated"].LogURLs, "https://log.bob.io")
+		delete(gi["Non-Google-operated"].LogWeights, "https://log.bob.io")
+	}
+	return gi
+}
+
 func TestCheckChromePolicy(t *testing.T) {
 	tests := []struct {
 		name string
@@ -113,8 +178,52 @@ func TestCheckChromePolicy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := policy.LogsByGroup(test.cert, sampleLogList)
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("LogsByGroup returned %v, want %v", got, test.want)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
+			}
+			if err != nil {
+				t.Errorf("LogsByGroup returned an error when not expected: %v", err)
+			}
+		})
+	}
+}
+
+func TestCheckChromePolicy2(t *testing.T) {
+	tests := []struct {
+		name string
+		cert *x509.Certificate
+		want LogPolicyData
+	}{
+		{
+			name: "Short",
+			cert: getTestCertPEMShort(),
+			want: wantedGroups2(1, 1, 2, false),
+		},
+		{
+			name: "2-year",
+			cert: getTestCertPEM2Years(),
+			want: wantedGroups2(1, 1, 3, false),
+		},
+		{
+			name: "3-year",
+			cert: getTestCertPEM3Years(),
+			want: wantedGroups2(1, 1, 4, false),
+		},
+		{
+			name: "Long",
+			cert: getTestCertPEMLongOriginal(),
+			want: wantedGroups2(1, 1, 5, false),
+		},
+	}
+
+	var policy ChromeCTPolicy
+	sampleLogList := sampleLogList2(t)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := policy.LogsByGroup2(test.cert, sampleLogList)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
 			}
 			if err != nil {
 				t.Errorf("LogsByGroup returned an error when not expected: %v", err)

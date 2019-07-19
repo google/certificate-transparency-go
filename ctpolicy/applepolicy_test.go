@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 func wantedAppleGroups(count int) LogPolicyData {
@@ -39,6 +41,33 @@ func wantedAppleGroups(count int) LogPolicyData {
 				"ct.googleapis.com/rocketeer/": 1.0,
 				"ct.googleapis.com/racketeer/": 1.0,
 				"log.bob.io":                   1.0,
+			},
+		},
+	}
+	return gi
+}
+
+func wantedAppleGroups2(count int) LogPolicyData {
+	gi := LogPolicyData{
+		BaseName: {
+			Name: BaseName,
+			LogURLs: map[string]bool{
+				"https://ct.googleapis.com/aviator/":        true,
+				"https://ct.googleapis.com/icarus/":         true,
+				"https://ct.googleapis.com/rocketeer/":      true,
+				"https://ct.googleapis.com/racketeer/":      true,
+				"https://ct.googleapis.com/logs/argon2020/": true,
+				"https://log.bob.io":                        true,
+			},
+			MinInclusions: count,
+			IsBase:        true,
+			LogWeights: map[string]float32{
+				"https://ct.googleapis.com/aviator/":        1.0,
+				"https://ct.googleapis.com/icarus/":         1.0,
+				"https://ct.googleapis.com/rocketeer/":      1.0,
+				"https://ct.googleapis.com/racketeer/":      1.0,
+				"https://ct.googleapis.com/logs/argon2020/": 1.0,
+				"https://log.bob.io":                        1.0,
 			},
 		},
 	}
@@ -81,6 +110,50 @@ func TestCheckApplePolicy(t *testing.T) {
 			groups, err := policy.LogsByGroup(test.cert, sampleLogList)
 			if !reflect.DeepEqual(groups, test.want) {
 				t.Errorf("LogsByGroup returned %v, want %v", groups, test.want)
+			}
+			if err != nil {
+				t.Errorf("LogsByGroup returned an error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCheckApplePolicy2(t *testing.T) {
+	tests := []struct {
+		name string
+		cert *x509.Certificate
+		want LogPolicyData
+	}{
+		{
+			name: "Short",
+			cert: getTestCertPEMShort(),
+			want: wantedAppleGroups2(2),
+		},
+		{
+			name: "2-year",
+			cert: getTestCertPEM2Years(),
+			want: wantedAppleGroups2(3),
+		},
+		{
+			name: "3-year",
+			cert: getTestCertPEM3Years(),
+			want: wantedAppleGroups2(4),
+		},
+		{
+			name: "Long",
+			cert: getTestCertPEMLongOriginal(),
+			want: wantedAppleGroups2(5),
+		},
+	}
+
+	var policy AppleCTPolicy
+	sampleLogList := sampleLogList2(t)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			groups, err := policy.LogsByGroup2(test.cert, sampleLogList)
+			if diff := pretty.Compare(test.want, groups); diff != "" {
+				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
 			}
 			if err != nil {
 				t.Errorf("LogsByGroup returned an error: %v", err)
