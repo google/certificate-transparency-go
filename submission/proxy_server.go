@@ -26,6 +26,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/trillian/monitoring"
 )
 
 // ProxyServer wraps Proxy and handles HTTP-requests for it.
@@ -35,9 +36,9 @@ type ProxyServer struct {
 }
 
 // NewProxyServer creates ProxyServer instance. Call Run() to init.
-func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout time.Duration) *ProxyServer {
+func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout time.Duration, mf monitoring.MetricFactory) *ProxyServer {
 	s := &ProxyServer{addTimeout: reqTimeout}
-	s.p = NewProxy(NewLogListManager(NewLogListRefresher(logListPath)), dBuilder)
+	s.p = NewProxy(NewLogListManager(NewLogListRefresher(logListPath)), dBuilder, mf)
 	return s
 }
 

@@ -39,6 +39,16 @@ const (
 	AppleCTPolicy
 )
 
+var (
+	proxyOnce      sync.Once
+	logListUpdates monitoring.Counter
+)
+
+// proxyInitMetrics initializes all the exported metrics.
+func proxyInitMetrics(mf monitoring.MetricFactory) {
+	logListUpdates = mf.NewCounter("log_list_updates", "Number of Log-list updates")
+}
+
 // DistributorBuilder builds distributor instance for a given Log list.
 type DistributorBuilder func(*loglist.LogList) (*Distributor, error)
 
@@ -89,13 +99,18 @@ type Proxy struct {
 }
 
 // NewProxy creates an inactive Proxy instance. Call Run() to activate.
-func NewProxy(llm *LogListManager, db DistributorBuilder) *Proxy {
+func NewProxy(llm *LogListManager, db DistributorBuilder, mf monitoring.MetricFactory) *Proxy {
 	var p Proxy
 	p.llWatcher = llm
 	p.distributorBuilder = db
 	p.Errors = make(chan error, 1)
 	p.Init = make(chan bool, 1)
 	p.rootsRefreshInterval = 24 * time.Hour
+
+	if mf == nil {
+		mf = monitoring.InertMetricFactory{}
+	}
+	proxyOnce.Do(func() { proxyInitMetrics(mf) })
 
 	return &p
 }
@@ -114,6 +129,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 			case <-ctx.Done():
 				return
 			case llData := <-p.llWatcher.LLUpdates:
+				logListUpdates.Inc()
 				if err := p.restartDistributor(ctx, llData.List); err != nil {
 					p.Errors <- err
 				} else if !init {

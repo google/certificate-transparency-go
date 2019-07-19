@@ -48,8 +48,10 @@ func stubLogListManager() *LogListManager {
 	return NewLogListManager(stubLogListRefresher{})
 }
 
+var imf monitoring.InertMetricFactory
+
 func TestProxyRefreshLLErr(t *testing.T) {
-	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, monitoring.InertMetricFactory{}))
+	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, NewStubLogClient, imf), imf)
 
 	_, err := p.llWatcher.RefreshLogList(context.Background())
 	if err == nil {
@@ -58,7 +60,7 @@ func TestProxyRefreshLLErr(t *testing.T) {
 }
 
 func TestProxyBrokenDistributor(t *testing.T) {
-	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, newNoLogClient, monitoring.InertMetricFactory{}))
+	p := NewProxy(stubLogListManager(), GetDistributorBuilder(ChromeCTPolicy, newNoLogClient, imf), imf)
 
 	_, err := p.llWatcher.RefreshLogList(context.Background())
 	if err == nil {
@@ -96,7 +98,7 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
+	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
 	p.Run(context.Background(), time.Hour, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -121,7 +123,7 @@ func TestProxyInitState(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, monitoring.InertMetricFactory{}))
+	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
 	p.Run(context.Background(), time.Millisecond, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
