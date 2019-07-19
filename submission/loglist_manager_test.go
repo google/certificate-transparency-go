@@ -64,7 +64,7 @@ func TestFirstRefresh(t *testing.T) {
 	case <-llm.LLUpdates:
 		return
 	case err := <-llm.Errors:
-		t.Errorf("llm.Run() returned error %q while expected none", err)
+		t.Errorf("llm.Run() emitted error %q while expected none", err)
 	case <-ctx.Done():
 		t.Errorf("llm.Run() on stub LogListRefresher expected to emit update, got none")
 	}
@@ -96,8 +96,11 @@ First:
 				t.Errorf("llm.Run() emitted Log-list update when no updates happened")
 			}
 		case err := <-llm.Errors:
-			t.Errorf("llm.Run() returned error %q while expected none", err)
+			t.Errorf("llm.Run() remitted error %q while expected none", err)
 		case <-halfCtx.Done():
+			if !readFirst {
+				t.Errorf("llm.Run() emitted Log-list update when no updates happened")
+			}
 			break First
 		}
 	}
@@ -110,7 +113,7 @@ First:
 	case <-llm.LLUpdates:
 		return
 	case err := <-llm.Errors:
-		t.Errorf("llm.Run() returned error %q while expected none", err)
+		t.Errorf("llm.Run() emitted error %q while expected none", err)
 	case <-ctx.Done():
 		t.Errorf("llm.Run() on stub LogListRefresher expected to emit update, got none")
 	}
