@@ -57,9 +57,9 @@ func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 // refreshLogListAndNotify runs single Log-list refresh and propagates data and
 // errors to corresponding channels
 func (llm *LogListManager) refreshLogListAndNotify(ctx context.Context) {
-	if _, err := llm.RefreshLogList(ctx); err != nil {
+	if lld, err := llm.RefreshLogList(ctx); err != nil {
 		llm.Errors <- err
-	} else {
+	} else if lld != nil {
 		llm.LLUpdates <- llm.ProduceClientLogList()
 	}
 }
