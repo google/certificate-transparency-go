@@ -40,13 +40,13 @@ const (
 )
 
 var (
-	proxyOnce    sync.Once
-	llUpdCounter monitoring.Counter
+	proxyOnce      sync.Once
+	logListUpdates monitoring.Counter
 )
 
 // proxyInitMetrics initializes all the exported metrics.
 func proxyInitMetrics(mf monitoring.MetricFactory) {
-	llUpdCounter = mf.NewCounter("log_list_updates", "Number of Log-list updates")
+	logListUpdates = mf.NewCounter("log_list_updates", "Number of Log-list updates")
 }
 
 // DistributorBuilder builds distributor instance for a given Log list.
@@ -129,7 +129,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 			case <-ctx.Done():
 				return
 			case llData := <-p.llWatcher.LLUpdates:
-				llUpdCounter.Inc()
+				logListUpdates.Inc()
 				if err := p.restartDistributor(ctx, llData.List); err != nil {
 					p.Errors <- err
 				} else if !init {
