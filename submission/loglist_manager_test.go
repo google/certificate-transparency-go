@@ -99,7 +99,7 @@ First:
 			t.Errorf("llm.Run() remitted error %q while expected none", err)
 		case <-halfCtx.Done():
 			if !readFirst {
-				t.Errorf("llm.Run() emitted Log-list update when no updates happened")
+				t.Errorf("llm.Run() didn't emit any Log-list updates on init. Expected one")
 			}
 			break First
 		}
