@@ -16,6 +16,7 @@ package ctpolicy
 
 import (
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -37,6 +38,25 @@ func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglis
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
+	groups := LogPolicyData{baseGroup.Name: baseGroup}
+	return groups, err
+}
+
+// LogsByGroup2 describes submission requirements for embedded SCTs according to
+// https://support.apple.com/en-us/HT205280. Returns data even when error emitted.
+func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
+	var incCount int
+	switch m := lifetimeInMonths(cert); {
+	case m < 15:
+		incCount = 2
+	case m <= 27:
+		incCount = 3
+	case m <= 39:
+		incCount = 4
+	default:
+		incCount = 5
+	}
+	baseGroup, err := BaseGroupFor2(approved, incCount)
 	groups := LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }
