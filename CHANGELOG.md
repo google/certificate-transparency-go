@@ -21,7 +21,15 @@ specified OIDs.
 A `frozen_sth` configuration field for the CTFE was added. This STH will be
 served permanently. It must be signed by the log's private key.
 
+A `/healthz` URL has been added which responds with HTTP 200 OK and the string
+"ok" when the server is up.
+
 #### Flags
+
+The `ct_server` binary has these new flags:
+
+-   `mask_internal_errors` - Removes error strings from HTTP 500 responses
+    (Internal Server Error)
 
 Removed default values for `--metrics_endpoint` and `--log_rpc_server` flags.
 This makes it easier to get the documented "unset" behaviour.
@@ -31,6 +39,8 @@ This makes it easier to get the documented "unset" behaviour.
 The CTFE exports these new metrics:
 
 -   `is_mirror` - set to 1 for mirror logs (copies of logs hosted elsewhere)
+-   `frozen_sth_timestamp` - time of the frozen Signed Tree Head in milliseconds
+    since the epoch
 
 #### Kubernetes
 
@@ -99,10 +109,12 @@ It has these new commands:
 
 It has these new flags:
 
+-   `--chain` - Displays the entire certificate chain
+-   `--dns_server` - The DNS server to direct queries to (system resolver by
+    default)
 -   `--skip_https_verify` - Skips verification of the HTTPS connection
 -   `--timestamp` - Timestamp to use for `bisect` and `inclusion` commands (for
     `inclusion`, only if --leaf_hash is not used)
--   `--chain` - Displays the entire certificate chain
 
 It now accepts hex or base64-encoded strings for the `--tree_hash`,
 `--prev_hash` and `--leaf_hash` flags.
@@ -119,6 +131,7 @@ The `certcheck` tool has these new flags:
 -   `--check_name_constraint` - Check name constraints
 -   `--check_unknown_critical_exts` - Check for unknown critical extensions
     (replaces `--ignore_unknown_critical_exts`)
+-   `--strict` - Set non-zero exit code for non-fatal errors in parsing
 
 #### sctcheck
 
