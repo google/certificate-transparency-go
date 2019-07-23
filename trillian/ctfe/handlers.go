@@ -147,7 +147,7 @@ type AppHandler struct {
 // ServeHTTP for an AppHandler invokes the underlying handler function but
 // does additional common error and stats processing.
 func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var status int
+	var statusCode int
 	label0 := strconv.FormatInt(a.Info.logID, 10)
 	label1 := string(a.Name)
 	reqsCounter.Inc(label0, label1)
@@ -156,7 +156,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.Info.RequestLog.LogPrefix(logCtx, a.Info.LogPrefix)
 	defer func() {
 		latency := a.Info.TimeSource.Now().Sub(startTime).Seconds()
-		rspLatency.Observe(latency, label0, label1, strconv.Itoa(status))
+		rspLatency.Observe(latency, label0, label1, strconv.Itoa(statusCode))
 	}()
 	glog.V(2).Infof("%s: request %v %q => %s", a.Info.LogPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.Method {
