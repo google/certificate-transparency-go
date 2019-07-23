@@ -1,6 +1,6 @@
 # Important Notice
 
-This is a Fork of a Go Package. The original source can be found on
+This is a fork of the `encoding/asn1` Go package. The original source can be found on
 [Github](https://github.com/golang/go).
 
 Be careful about making local modifications to this code as it will
