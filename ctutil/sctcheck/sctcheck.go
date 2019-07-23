@@ -171,7 +171,11 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("failed to dial %q: %v", host, err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			glog.Errorf("conn.Close()=%q", err)
+		}
+	}()
 
 	goChain := conn.ConnectionState().PeerCertificates
 	glog.Infof("Found chain of length %d", len(goChain))
