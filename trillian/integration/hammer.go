@@ -141,6 +141,10 @@ type HammerConfig struct {
 	MaxRetryDuration time.Duration
 	// RequestDeadline indicates the deadline to set on each request to the log.
 	RequestDeadline time.Duration
+	// DuplicateChance sets the probability of attempting to add a duplicate when
+	// calling add[-pre]-chain (as the N in 1-in-N). Set to 0 to disable sending
+	// duplicates.
+	DuplicateChance int
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -381,9 +385,8 @@ func (s *hammerState) getChain() (Choice, []ct.ASN1Cert, error) {
 	s.chainMu.Lock()
 	defer s.chainMu.Unlock()
 
-	// TODO(drysdale): restore LastCert as an option
-	choices := []Choice{NewCert, FirstCert}
-	choice := choices[rand.Intn(len(choices))]
+	choice := s.chooseCertToAdd()
+	// Override choice if necessary
 	if s.lastChain == nil {
 		choice = NewCert
 	}
@@ -489,13 +492,21 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	return nil
 }
 
+// chooseCertToAdd determines whether to add a new or pre-existing cert.
+func (s *hammerState) chooseCertToAdd() Choice {
+	if s.cfg.DuplicateChance > 0 && rand.Intn(s.cfg.DuplicateChance) == 0 {
+		// TODO(drysdale): restore LastCert as an option
+		return FirstCert
+	}
+	return NewCert
+}
+
 func (s *hammerState) getPreChain() (Choice, []ct.ASN1Cert, []byte, error) {
 	s.chainMu.Lock()
 	defer s.chainMu.Unlock()
 
-	// TODO(drysdale): restore LastCert as an option
-	choices := []Choice{NewCert, FirstCert}
-	choice := choices[rand.Intn(len(choices))]
+	choice := s.chooseCertToAdd()
+	// Override choice if necessary
 	if s.lastPreChain == nil {
 		choice = NewCert
 	}

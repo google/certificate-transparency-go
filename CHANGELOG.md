@@ -140,6 +140,13 @@ The `sctcheck` tool has these new flags:
 -   `--check_inclusion` - Checks that the SCT was honoured (i.e. the
     corresponding certificate was included in the issuing CT log)
 
+#### ct_hammer
+
+The `ct_hammer` tool has these new flags:
+
+-   `--duplicate_chance` - Allows setting the probability of the hammer sending
+    a duplicate submission.
+
 ## v1.0.21 - CTFE Logging / Path Options. Mirroring. RPKI. Non Fatal X.509 error improvements
 
 Published 2018-08-20 10:11:04 +0000 UTC
