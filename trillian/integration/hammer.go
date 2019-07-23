@@ -492,7 +492,7 @@ func (s *hammerState) addChainInvalid(ctx context.Context) error {
 	return nil
 }
 
-// chooseAddType determines whether to add a new or pre-existing cert.
+// chooseCertToAdd determines whether to add a new or pre-existing cert.
 func (s *hammerState) chooseCertToAdd() Choice {
 	if s.cfg.DuplicateChance > 0 && rand.Intn(s.cfg.DuplicateChance) == 0 {
 		// TODO(drysdale): restore LastCert as an option
