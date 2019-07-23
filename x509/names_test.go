@@ -24,16 +24,16 @@ func TestParseGeneralNames(t *testing.T) {
 		wantErr string
 	}{
 		{
-			data: "3012" +
-				("8210" + "7777772e676f6f676c652e636f2e756b"),
+			data: ("3012" +
+				("8210" + "7777772e676f6f676c652e636f2e756b")),
 			want: GeneralNames{
 				DNSNames: []string{"www.google.co.uk"},
 			},
 		},
 		{
-			data: "3024" +
+			data: ("3024" +
 				("8210" + "7777772e676f6f676c652e636f2e756b") +
-				("8610" + "7777772e676f6f676c652e636f2e756b"),
+				("8610" + "7777772e676f6f676c652e636f2e756b")),
 			want: GeneralNames{
 				DNSNames: []string{"www.google.co.uk"},
 				URIs:     []string{"www.google.co.uk"},
@@ -52,7 +52,7 @@ func TestParseGeneralNames(t *testing.T) {
 			wantErr: "trailing data",
 		},
 		{
-			data:    "3005" + ("8703" + "010203"),
+			data:    ("3005" + ("8703" + "010203")),
 			wantErr: "invalid IP length",
 		},
 	}
@@ -86,9 +86,9 @@ func TestParseGeneralName(t *testing.T) {
 		wantErr  string
 	}{
 		{
-			data: "a008" +
+			data: ("a008" +
 				("0603" + "551d0e") + // OID: subject-key-id
-				("0a01" + "01"), // enum=1
+				("0a01" + "01")), // enum=1
 			want: GeneralNames{
 				OtherNames: []OtherName{
 					{
@@ -105,30 +105,30 @@ func TestParseGeneralName(t *testing.T) {
 			},
 		},
 		{
-			data: "8008" +
+			data: ("8008" +
 				("0603" + "551d0e") + // OID: subject-key-id
-				("0a01" + "01"), // enum=1
+				("0a01" + "01")), // enum=1
 			wantErr: "not compound",
 		},
 		{
-			data: "a005" +
-				("0603" + "551d0e"), // OID: subject-key-id
+			data: ("a005" +
+				("0603" + "551d0e")), // OID: subject-key-id
 			wantErr: "sequence truncated",
 		},
 		{
-			data: "8110" + "77777740676f6f676c652e636f2e756b",
+			data: ("8110" + "77777740676f6f676c652e636f2e756b"),
 			want: GeneralNames{
 				EmailAddresses: []string{"www@google.co.uk"},
 			},
 		},
 		{
-			data: "8210" + "7777772e676f6f676c652e636f2e756b",
+			data: ("8210" + "7777772e676f6f676c652e636f2e756b"),
 			want: GeneralNames{
 				DNSNames: []string{"www.google.co.uk"},
 			},
 		},
 		{
-			data: "844b" +
+			data: ("844b" +
 				("3049" +
 					("310b" +
 						("3009" +
@@ -141,7 +141,7 @@ func TestParseGeneralName(t *testing.T) {
 					("3125" +
 						("3023" +
 							("0603" + "550403") +
-							("131c" + "476f6f676c6520496e7465726e657420417574686f72697479204732")))), // "GoogleInternet Authority G2"
+							("131c" + "476f6f676c6520496e7465726e657420417574686f72697479204732"))))), // "GoogleInternet Authority G2"
 			want: GeneralNames{
 				DirectoryNames: []pkix.Name{
 					{
@@ -158,59 +158,59 @@ func TestParseGeneralName(t *testing.T) {
 			},
 		},
 		{
-			data:    "8410" + "7777772e676f6f676c652e636f2e756b",
+			data:    ("8410" + "7777772e676f6f676c652e636f2e756b"),
 			wantErr: "failed to unmarshal GeneralNames.directoryName",
 		},
 		{
-			data: "8610" + "7777772e676f6f676c652e636f2e756b",
+			data: ("8610" + "7777772e676f6f676c652e636f2e756b"),
 			want: GeneralNames{
 				URIs: []string{"www.google.co.uk"},
 			},
 		},
 		{
-			data: "8704" + "01020304",
+			data: ("8704" + "01020304"),
 			want: GeneralNames{
 				IPNets: []net.IPNet{{IP: net.IP{1, 2, 3, 4}}},
 			},
 		},
 		{
-			data:     "8708" + "01020304ffffff00",
+			data:     ("8708" + "01020304ffffff00"),
 			withMask: true,
 			want: GeneralNames{
 				IPNets: []net.IPNet{{IP: net.IP{1, 2, 3, 4}, Mask: net.IPMask{0xff, 0xff, 0xff, 0x00}}},
 			},
 		},
 		{
-			data: "8710" + "01020304111213142122232431323334",
+			data: ("8710" + "01020304111213142122232431323334"),
 			want: GeneralNames{
 				IPNets: []net.IPNet{{IP: net.IP{1, 2, 3, 4, 0x11, 0x12, 0x13, 0x14, 0x21, 0x22, 0x23, 0x24, 0x31, 0x32, 0x33, 0x34}}},
 			},
 		},
 		{
-			data:    "8703" + "010203",
+			data:    ("8703" + "010203"),
 			wantErr: "invalid IP length",
 		},
 		{
-			data:     "8707" + "01020304ffffff",
+			data:     ("8707" + "01020304ffffff"),
 			withMask: true,
 			wantErr:  "invalid IP/mask length",
 		},
 		{
-			data: "8803" + "551d0e", // OID: subject-key-id
+			data: ("8803" + "551d0e"), // OID: subject-key-id
 			want: GeneralNames{
 				RegisteredIDs: []asn1.ObjectIdentifier{OIDExtensionSubjectKeyId},
 			},
 		},
 		{
-			data:    "8803" + "551d8e",
+			data:    ("8803" + "551d8e"),
 			wantErr: "syntax error",
 		},
 		{
-			data:    "9003" + "551d8e",
+			data:    ("9003" + "551d8e"),
 			wantErr: "unknown tag",
 		},
 		{
-			data:    "8803",
+			data:    ("8803"),
 			wantErr: "data truncated",
 		},
 	}
