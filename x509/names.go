@@ -48,8 +48,8 @@ type GeneralNames struct {
 
 // Len returns the total number of names in a GeneralNames object.
 func (gn GeneralNames) Len() int {
-	return len(gn.DNSNames) + len(gn.EmailAddresses) + len(gn.DirectoryNames) +
-		len(gn.URIs) + len(gn.IPNets) + len(gn.RegisteredIDs) + len(gn.OtherNames)
+	return (len(gn.DNSNames) + len(gn.EmailAddresses) + len(gn.DirectoryNames) +
+		len(gn.URIs) + len(gn.IPNets) + len(gn.RegisteredIDs) + len(gn.OtherNames))
 }
 
 // Empty indicates whether a GeneralNames object is empty.
@@ -133,7 +133,7 @@ func parseGeneralName(data []byte, gname *GeneralNames, withMask bool) ([]byte, 
 		vlen := len(v.Bytes)
 		if withMask {
 			switch vlen {
-			case 2 * net.IPv4len, 2 * net.IPv6len:
+			case (2 * net.IPv4len), (2 * net.IPv6len):
 				ipNet := net.IPNet{IP: v.Bytes[0 : vlen/2], Mask: v.Bytes[vlen/2:]}
 				gname.IPNets = append(gname.IPNets, ipNet)
 			default:
