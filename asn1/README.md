@@ -1,0 +1,7 @@
+# Important Notice
+
+This is a Fork of a Go Package. The original source can be found on
+[Github](https://github.com/golang/go).
+
+Be careful about making local modifications to this code as it will
+make maintenance harder in future.
