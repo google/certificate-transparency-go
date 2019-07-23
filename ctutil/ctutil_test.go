@@ -58,32 +58,32 @@ func TestLeafHash(t *testing.T) {
 			// Parse chain
 			chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 			if err != nil {
-				t.Fatalf("%s: error parsing certificate chain: %s", test.desc, err)
+				t.Fatalf("error parsing certificate chain: %s", err)
 			}
 
 			// Parse SCT
 			var sct ct.SignedCertificateTimestamp
 			if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
-				t.Fatalf("%s: error tls-unmarshalling sct: %s", test.desc, err)
+				t.Fatalf("error tls-unmarshalling sct: %s", err)
 			}
 
 			// Test LeafHash()
 			wantSl, err := base64.StdEncoding.DecodeString(test.want)
 			if err != nil {
-				t.Fatalf("%s: error base64-decoding leaf hash %q: %s", test.desc, test.want, err)
+				t.Fatalf("error base64-decoding leaf hash %q: %s", test.want, err)
 			}
 			var want [32]byte
 			copy(want[:], wantSl)
 
 			got, err := LeafHash(chain, &sct, test.embedded)
 			if got != want || err != nil {
-				t.Errorf("%s: LeafHash(_,_) = %v, %v, want %v, nil", test.desc, got, err, want)
+				t.Errorf("LeafHash(_,_) = %v, %v, want %v, nil", got, err, want)
 			}
 
 			// Test LeafHashB64()
 			gotB64, err := LeafHashB64(chain, &sct, test.embedded)
 			if gotB64 != test.want || err != nil {
-				t.Errorf("%s: LeafHashB64(_,_) = %v, %v, want %v, nil", test.desc, gotB64, err, test.want)
+				t.Errorf("LeafHashB64(_,_) = %v, %v, want %v, nil", gotB64, err, test.want)
 			}
 		})
 	}
@@ -125,7 +125,7 @@ func TestLeafHashErrors(t *testing.T) {
 			// Parse chain
 			chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 			if err != nil {
-				t.Fatalf("%s: error parsing certificate chain: %s", test.desc, err)
+				t.Fatalf("error parsing certificate chain: %s", err)
 			}
 
 			// Parse SCT
@@ -133,20 +133,20 @@ func TestLeafHashErrors(t *testing.T) {
 			if test.sct != nil {
 				sct = &ct.SignedCertificateTimestamp{}
 				if _, err = tls.Unmarshal(test.sct, sct); err != nil {
-					t.Fatalf("%s: error tls-unmarshalling sct: %s", test.desc, err)
+					t.Fatalf("error tls-unmarshalling sct: %s", err)
 				}
 			}
 
 			// Test LeafHash()
 			got, err := LeafHash(chain, sct, test.embedded)
 			if got != emptyHash || err == nil {
-				t.Errorf("%s: LeafHash(_,_) = %s, %v, want %v, error", test.desc, got, err, emptyHash)
+				t.Errorf("LeafHash(_,_) = %s, %v, want %v, error", got, err, emptyHash)
 			}
 
 			// Test LeafHashB64()
 			gotB64, err := LeafHashB64(chain, sct, test.embedded)
 			if gotB64 != "" || err == nil {
-				t.Errorf("%s: LeafHashB64(_,_) = %s, %v, want \"\", error", test.desc, gotB64, err)
+				t.Errorf("LeafHashB64(_,_) = %s, %v, want \"\", error", gotB64, err)
 			}
 		})
 	}
@@ -196,24 +196,24 @@ func TestVerifySCT(t *testing.T) {
 			// Parse chain
 			chain, err := x509util.CertificatesFromPEM([]byte(test.chainPEM))
 			if err != nil {
-				t.Fatalf("%s: error parsing certificate chain: %s", test.desc, err)
+				t.Fatalf("error parsing certificate chain: %s", err)
 			}
 
 			// Parse SCT
 			var sct ct.SignedCertificateTimestamp
 			if _, err = tls.Unmarshal(test.sct, &sct); err != nil {
-				t.Fatalf("%s: error tls-unmarshalling sct: %s", test.desc, err)
+				t.Fatalf("error tls-unmarshalling sct: %s", err)
 			}
 
 			// Test VerifySCT()
 			pk, err := ct.PublicKeyFromB64(testdata.LogPublicKeyB64)
 			if err != nil {
-				t.Errorf("%s: error parsing public key: %s", test.desc, err)
+				t.Errorf("error parsing public key: %s", err)
 			}
 
 			err = VerifySCT(pk, chain, &sct, test.embedded)
 			if gotErr := err != nil; gotErr != test.wantErr {
-				t.Errorf("%s: VerifySCT(_,_,_, %t) = %v, want error? %t", test.desc, test.embedded, err, test.wantErr)
+				t.Errorf("VerifySCT(_,_,_, %t) = %v, want error? %t", test.embedded, err, test.wantErr)
 			}
 		})
 	}
