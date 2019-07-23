@@ -88,6 +88,7 @@ var (
 	getRootsBias          = flag.Int("get_roots", 1, "Bias for get-roots operations")
 	getEntryAndProofBias  = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
 	invalidChance         = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
+	dupeChance            = flag.Int("duplicate_chance", 10, "Chance of generating a duplicate submission, as the N in 1-in-N (0 for never)")
 )
 
 func newLimiter(rate int) integration.Limiter {
@@ -304,6 +305,7 @@ func main() {
 			IgnoreErrors:        *ignoreErrors,
 			MaxRetryDuration:    *maxRetry,
 			RequestDeadline:     *reqDeadline,
+			DuplicateChance:     *dupeChance,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()

@@ -306,3 +306,55 @@ func loadTestKeys(t *testing.T) *testKeys {
 		signer:    signer,
 	}
 }
+
+func TestChooseCertToAdd(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		dupeInN int
+		wantNew bool
+		wantOld bool
+	}{
+		{
+			desc:    "all new",
+			dupeInN: 0,
+			wantNew: true,
+		},
+		{
+			desc:    "all old",
+			dupeInN: 1,
+			wantOld: true,
+		},
+		{
+			desc:    "mix",
+			dupeInN: 2,
+			wantNew: true,
+			wantOld: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			state := hammerState{cfg: &HammerConfig{DuplicateChance: test.dupeInN}}
+			var gotNew, gotOld bool
+			for i := 0; i < 100; i++ {
+				switch state.chooseCertToAdd() {
+				case NewCert:
+					gotNew = true
+				case FirstCert, LastCert:
+					gotOld = true
+				}
+			}
+			if gotNew && !test.wantNew {
+				t.Errorf("got NewCert but expected none")
+			}
+			if !gotNew && test.wantNew {
+				t.Errorf("got no NewCerts but expected some")
+			}
+			if gotOld && !test.wantOld {
+				t.Errorf("got First/Last cert but expected none")
+			}
+			if !gotOld && test.wantOld {
+				t.Errorf("got no First/Last cert but expected some")
+			}
+		})
+	}
+
+}
