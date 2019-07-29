@@ -66,7 +66,7 @@ func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *logli
 		return nil, err
 	}
 	groups := LogPolicyData{baseGroup.Name: baseGroup}
-	return groups, err
+	return groups, nil
 }
 
 // Name returns label for the submission policy.
