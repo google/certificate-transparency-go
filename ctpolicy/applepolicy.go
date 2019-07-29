@@ -24,8 +24,8 @@ import (
 type AppleCTPolicy struct{}
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. Returns an error if loglist provided is
-	// not sufficient to satisfy policy.
+// https://support.apple.com/en-us/HT205280. // Returns an error if it's not
+// possible to satisfy the policy with the provided loglist.
 func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
@@ -43,12 +43,12 @@ func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglis
 		return nil, err
 	}
 	groups := LogPolicyData{baseGroup.Name: baseGroup}
-	return groups, err
+	return groups, nil
 }
 
 // LogsByGroup2 describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. Returns an error if loglist provided is
-	// not sufficient to satisfy policy.
+// https://support.apple.com/en-us/HT205280. Returns an error if it's not
+// possible to satisfy the policy with the provided loglist.
 func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {

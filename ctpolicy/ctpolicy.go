@@ -190,8 +190,8 @@ func (groups LogPolicyData) TotalLogs() int {
 // CTPolicy interface describes requirements determined for logs in terms of
 // per-group-submit.
 type CTPolicy interface {
-	// LogsByGroup provides info on Log-grouping. Returns an error if loglist provided is
-	// not sufficient to satisfy policy.
+	// LogsByGroup provides info on Log-grouping. Returns an error if it's not
+	// possible to satisfy the policy with the provided loglist.
 	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
 	LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error)
 	Name() string

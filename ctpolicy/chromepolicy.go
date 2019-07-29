@@ -26,7 +26,7 @@ type ChromeCTPolicy struct {
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
 // https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
-// Returns an error if loglist provided is not sufficient to satisfy policy.
+// Returns an error if it's not possible to satisfy the policy with the provided loglist.
 func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
 	googGroup.populate(approved, func(log *loglist.Log) bool { return log.GoogleOperated() })
@@ -65,7 +65,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
 // https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
-// Returns an error if loglist provided is not sufficient to satisfy policy.
+// Returns an error if it's not possible to satisfy the policy with the provided loglist.
 func (chromeP ChromeCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
 	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
 	googGroup.populate2(approved, func(op *loglist2.Operator) bool { return op.GoogleOperated() })
