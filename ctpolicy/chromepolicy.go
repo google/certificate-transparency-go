@@ -24,20 +24,29 @@ import (
 type ChromeCTPolicy struct {
 }
 
+// updateIfNotNil picks err argument iff it is not nil, oldErr otherwise.
+func updateIfNotNil(oldErr error, err error) error {
+	if err != nil {
+		return err
+	}
+	return oldErr
+}
+
 // LogsByGroup describes submission requirements for embedded SCTs according to
 // https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
+// Error warns on inability to reach minimal number of Logs requirement due to
+// inadequate number of Logs within LogList.
 func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var outerror error
 	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
 	googGroup.populate(approved, func(log *loglist.Log) bool { return log.GoogleOperated() })
-	if err := googGroup.setMinInclusions(1); err != nil {
-		outerror = err
-	}
+	err := googGroup.setMinInclusions(1)
+	outerror = updateIfNotNil(outerror, err)
+
 	nonGoogGroup := LogGroupInfo{Name: "Non-Google-operated", IsBase: false}
 	nonGoogGroup.populate(approved, func(log *loglist.Log) bool { return !log.GoogleOperated() })
-	if err := nonGoogGroup.setMinInclusions(1); err != nil {
-		outerror = err
-	}
+	err = nonGoogGroup.setMinInclusions(1)
+	outerror = updateIfNotNil(outerror, err)
 
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
@@ -51,9 +60,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
-	if err != nil {
-		outerror = err
-	}
+	outerror = updateIfNotNil(outerror, err)
 	groups := LogPolicyData{
 		googGroup.Name:    &googGroup,
 		nonGoogGroup.Name: &nonGoogGroup,
@@ -64,18 +71,19 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
 // https://github.com/chromium/ct-policy/blob/master/ct_policy.md#qualifying-certificate.
+// Error warns on inability to reach minimal number of Logs requirement due to
+// inadequate number of Logs within LogList.
 func (chromeP ChromeCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
 	var outerror error
 	googGroup := LogGroupInfo{Name: "Google-operated", IsBase: false}
 	googGroup.populate2(approved, func(op *loglist2.Operator) bool { return op.GoogleOperated() })
-	if err := googGroup.setMinInclusions(1); err != nil {
-		outerror = err
-	}
+	err := googGroup.setMinInclusions(1)
+	outerror = updateIfNotNil(outerror, err)
+
 	nonGoogGroup := LogGroupInfo{Name: "Non-Google-operated", IsBase: false}
 	nonGoogGroup.populate2(approved, func(op *loglist2.Operator) bool { return !op.GoogleOperated() })
-	if err := nonGoogGroup.setMinInclusions(1); err != nil {
-		outerror = err
-	}
+	err = nonGoogGroup.setMinInclusions(1)
+	outerror = updateIfNotNil(outerror, err)
 
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
@@ -89,9 +97,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *log
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor2(approved, incCount)
-	if err != nil {
-		outerror = err
-	}
+	outerror = updateIfNotNil(outerror, err)
 	groups := LogPolicyData{
 		googGroup.Name:    &googGroup,
 		nonGoogGroup.Name: &nonGoogGroup,

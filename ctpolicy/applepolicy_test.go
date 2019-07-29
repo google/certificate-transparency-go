@@ -152,11 +152,11 @@ func TestCheckApplePolicy2(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			groups, err := policy.LogsByGroup2(test.cert, sampleLogList)
-			if diff := pretty.Compare(test.want, groups); diff != "" {
-				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
-			}
 			if err != nil {
 				t.Errorf("LogsByGroup returned an error: %v", err)
+			}
+			if diff := pretty.Compare(test.want, groups); diff != "" {
+				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
 			}
 		})
 	}

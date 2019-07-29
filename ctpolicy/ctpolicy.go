@@ -193,6 +193,8 @@ type CTPolicy interface {
 	// LogsByGroup provides info on Log-grouping. Returns an error if loglist provided is
 	// not sufficient to satisfy policy.
 	// The data output is formed even when error returned.
+	// Error warns on inability to reach minimal number of Logs requirement due to
+	// inadequate number of Logs within LogList.
 	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
 	LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error)
 	Name() string
