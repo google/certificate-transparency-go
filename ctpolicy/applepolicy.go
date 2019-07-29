@@ -24,9 +24,8 @@ import (
 type AppleCTPolicy struct{}
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. Returns data even when error emitted.
-// Error warns on inability to reach minimal number of Logs requirement due to
-// inadequate number of Logs within LogList.
+// https://support.apple.com/en-us/HT205280. Returns an error if loglist provided is
+	// not sufficient to satisfy policy.
 func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
@@ -40,14 +39,16 @@ func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglis
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
+	if err != nil {
+		return nil, err
+	}
 	groups := LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }
 
 // LogsByGroup2 describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. Returns data even when error emitted.
-// Error warns on inability to reach minimal number of Logs requirement due to
-// inadequate number of Logs within LogList.
+// https://support.apple.com/en-us/HT205280. Returns an error if loglist provided is
+	// not sufficient to satisfy policy.
 func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
@@ -61,6 +62,9 @@ func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *logli
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor2(approved, incCount)
+	if err != nil {
+		return nil, err
+	}
 	groups := LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }
