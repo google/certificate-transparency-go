@@ -40,7 +40,7 @@ func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
 		activeOp := *op
 		activeOp.Logs = []*Log{}
 		for _, l := range op.Logs {
-			if l.State.LogStatus() == lstat {
+			if l.State == nil || l.State.LogStatus() == lstat {
 				activeOp.Logs = append(activeOp.Logs, l)
 			}
 		}

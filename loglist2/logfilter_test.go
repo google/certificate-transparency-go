@@ -52,7 +52,7 @@ func TestSelectUsable(t *testing.T) {
 		{
 			name: "Sample",
 			in:   sampleLogList,
-			want: subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true}),
+			want: subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestSelectQualified(t *testing.T) {
 		{
 			name: "Sample",
 			in:   sampleLogList,
-			want: subLogList(map[string]bool{"https://ct.googleapis.com/logs/argon2020/": true}),
+			want: subLogList(map[string]bool{"https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true, "https://ct.googleapis.com/logs/argon2020/": true}),
 		},
 	}
 
