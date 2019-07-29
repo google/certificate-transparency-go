@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/x509"
@@ -49,17 +48,7 @@ func getTestCertPEMLongOriginal() *x509.Certificate {
 	return cert
 }
 
-func sampleLogList(t *testing.T) *loglist.LogList {
-	t.Helper()
-	var ll loglist.LogList
-	err := json.Unmarshal([]byte(testdata.SampleLogList), &ll)
-	if err != nil {
-		t.Fatalf("Unable to Unmarshal testdata.SampleLogList %v", err)
-	}
-	return &ll
-}
-
-func sampleLogList2(t *testing.T) *loglist2.LogList {
+func sampleLogList(t *testing.T) *loglist2.LogList {
 	t.Helper()
 	var ll loglist2.LogList
 	err := json.Unmarshal([]byte(testdata.SampleLogList2), &ll)

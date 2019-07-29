@@ -14,7 +14,6 @@
 package ctpolicy
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -23,65 +22,6 @@ import (
 )
 
 func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
-	gi := LogPolicyData{
-		"Google-operated": {
-			Name: "Google-operated",
-			LogURLs: map[string]bool{
-				"ct.googleapis.com/aviator/":   true,
-				"ct.googleapis.com/icarus/":    true,
-				"ct.googleapis.com/rocketeer/": true,
-				"ct.googleapis.com/racketeer/": true,
-			},
-			MinInclusions: goog,
-			IsBase:        false,
-			LogWeights: map[string]float32{
-				"ct.googleapis.com/aviator/":   1.0,
-				"ct.googleapis.com/icarus/":    1.0,
-				"ct.googleapis.com/rocketeer/": 1.0,
-				"ct.googleapis.com/racketeer/": 1.0,
-			},
-		},
-		"Non-Google-operated": {
-			Name: "Non-Google-operated",
-			LogURLs: map[string]bool{
-				"log.bob.io": true,
-			},
-			MinInclusions: nonGoog,
-			IsBase:        false,
-			LogWeights: map[string]float32{
-				"log.bob.io": 1.0,
-			},
-		},
-		BaseName: {
-			Name: BaseName,
-			LogURLs: map[string]bool{
-				"ct.googleapis.com/aviator/":   true,
-				"ct.googleapis.com/icarus/":    true,
-				"ct.googleapis.com/rocketeer/": true,
-				"ct.googleapis.com/racketeer/": true,
-				"log.bob.io":                   true,
-			},
-			MinInclusions: base,
-			IsBase:        true,
-			LogWeights: map[string]float32{
-				"ct.googleapis.com/aviator/":   1.0,
-				"ct.googleapis.com/icarus/":    1.0,
-				"ct.googleapis.com/rocketeer/": 1.0,
-				"ct.googleapis.com/racketeer/": 1.0,
-				"log.bob.io":                   1.0,
-			},
-		},
-	}
-	if minusBob {
-		delete(gi[BaseName].LogURLs, "log.bob.io")
-		delete(gi[BaseName].LogWeights, "log.bob.io")
-		delete(gi["Non-Google-operated"].LogURLs, "log.bob.io")
-		delete(gi["Non-Google-operated"].LogWeights, "log.bob.io")
-	}
-	return gi
-}
-
-func wantedGroups2(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
 	gi := LogPolicyData{
 		"Google-operated": {
 			Name: "Google-operated",
@@ -188,50 +128,6 @@ func TestCheckChromePolicy(t *testing.T) {
 	}
 }
 
-func TestCheckChromePolicy2(t *testing.T) {
-	tests := []struct {
-		name string
-		cert *x509.Certificate
-		want LogPolicyData
-	}{
-		{
-			name: "Short",
-			cert: getTestCertPEMShort(),
-			want: wantedGroups2(1, 1, 2, false),
-		},
-		{
-			name: "2-year",
-			cert: getTestCertPEM2Years(),
-			want: wantedGroups2(1, 1, 3, false),
-		},
-		{
-			name: "3-year",
-			cert: getTestCertPEM3Years(),
-			want: wantedGroups2(1, 1, 4, false),
-		},
-		{
-			name: "Long",
-			cert: getTestCertPEMLongOriginal(),
-			want: wantedGroups2(1, 1, 5, false),
-		},
-	}
-
-	var policy ChromeCTPolicy
-	sampleLogList := sampleLogList2(t)
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := policy.LogsByGroup2(test.cert, sampleLogList)
-			if diff := pretty.Compare(test.want, got); diff != "" {
-				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
-			}
-			if err != nil {
-				t.Errorf("LogsByGroup returned an error when not expected: %v", err)
-			}
-		})
-	}
-}
-
 func TestCheckChromePolicyWarnings(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -261,20 +157,20 @@ func TestCheckChromePolicyWarnings(t *testing.T) {
 			name:    "Long",
 			cert:    getTestCertPEMLongOriginal(),
 			want:    wantedGroups(1, 1, 5, true),
-			warning: "trying to assign 5 minimal inclusion number while only 4 logs are part of group \"All-logs\"",
+			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
 		},
 	}
 
 	var policy ChromeCTPolicy
 	sampleLogList := sampleLogList(t)
 	// Removing Bob-log.
-	sampleLogList.Logs = sampleLogList.Logs[:4]
+	sampleLogList.Operators = sampleLogList.Operators[:1]
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := policy.LogsByGroup(test.cert, sampleLogList)
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("LogsByGroup returned %v, want %v", got, test.want)
+			if diff := pretty.Compare(test.want, got); diff != "" {
+				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
 			}
 			if err == nil && len(test.warning) > 0 {
 				t.Errorf("LogsByGroup returned no error when expected")

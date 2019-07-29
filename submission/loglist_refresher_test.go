@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/go-cmp/cmp"
 )
@@ -51,7 +51,7 @@ func ExampleLogListRefresher() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	f, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
+	f, err := createTempFile(`{"operators": [{"name":"Google"}]}`)
 	if err != nil {
 		panic(err)
 	}
@@ -73,14 +73,14 @@ func ExampleLogListRefresher() {
 
 	select {
 	case ll := <-llChan:
-		fmt.Printf("Log Operators: %v\n", ll.List.Operators)
+		fmt.Printf("# Log Operators: %d\n", len(ll.List.Operators))
 	case err := <-errChan:
 		panic(err)
 	case <-ctx.Done():
 		panic("Context expired")
 	}
 	// Output:
-	// Log Operators: [{0 Google}]
+	// # Log Operators: 1
 }
 
 func TestNewLogListRefresherNoFile(t *testing.T) {
@@ -117,13 +117,13 @@ func TestNewLogListRefresher(t *testing.T) {
 	testCases := []struct {
 		name      string
 		ll        string
-		wantLl    *loglist.LogList
+		wantLl    *loglist2.LogList
 		errRegexp *regexp.Regexp
 	}{
 		{
 			name:   "SuccessfulRead",
 			ll:     `{"operators": [{"id":0,"name":"Google"}]}`,
-			wantLl: &loglist.LogList{Operators: []loglist.Operator{{ID: 0, Name: "Google"}}},
+			wantLl: &loglist2.LogList{Operators: []*loglist2.Operator{{Name: "Google"}}},
 		},
 		{
 			name:      "CannotParseInput",
@@ -173,7 +173,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 		name      string
 		ll        string
 		llNext    string
-		wantLl    *loglist.LogList
+		wantLl    *loglist2.LogList
 		errRegexp *regexp.Regexp
 	}{
 		{
@@ -187,7 +187,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			name:      "LogListUpdated",
 			ll:        `{"operators": [{"id":0,"name":"Google"}]}`,
 			llNext:    `{"operators": [{"id":0,"name":"GoogleOps"}]}`,
-			wantLl:    &loglist.LogList{Operators: []loglist.Operator{{ID: 0, Name: "GoogleOps"}}},
+			wantLl:    &loglist2.LogList{Operators: []*loglist2.Operator{{Name: "GoogleOps"}}},
 			errRegexp: nil,
 		},
 		{

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -51,18 +50,7 @@ func (group *LogGroupInfo) setMinInclusions(i int) error {
 	return nil
 }
 
-func (group *LogGroupInfo) populate(ll *loglist.LogList, included func(log *loglist.Log) bool) {
-	group.LogURLs = make(map[string]bool)
-	group.LogWeights = make(map[string]float32)
-	for _, l := range ll.Logs {
-		if included(&l) {
-			group.LogURLs[l.URL] = true
-			group.LogWeights[l.URL] = 1.0
-		}
-	}
-}
-
-func (group *LogGroupInfo) populate2(ll *loglist2.LogList, included func(op *loglist2.Operator) bool) {
+func (group *LogGroupInfo) populate(ll *loglist2.LogList, included func(op *loglist2.Operator) bool) {
 	group.LogURLs = make(map[string]bool)
 	group.LogWeights = make(map[string]float32)
 	for _, op := range ll.Operators {
@@ -195,23 +183,14 @@ type CTPolicy interface {
 	// The data output is formed even when error returned.
 	// Error warns on inability to reach minimal number of Logs requirement due to
 	// inadequate number of Logs within LogList.
-	LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error)
-	LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error)
+	LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error)
 	Name() string
 }
 
 // BaseGroupFor creates and propagates all-log group.
-func BaseGroupFor(approved *loglist.LogList, incCount int) (*LogGroupInfo, error) {
+func BaseGroupFor(approved *loglist2.LogList, incCount int) (*LogGroupInfo, error) {
 	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
-	baseGroup.populate(approved, func(log *loglist.Log) bool { return true })
-	err := baseGroup.setMinInclusions(incCount)
-	return &baseGroup, err
-}
-
-// BaseGroupFor creates and propagates all-log group.
-func BaseGroupFor2(approved *loglist2.LogList, incCount int) (*LogGroupInfo, error) {
-	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
-	baseGroup.populate2(approved, func(op *loglist2.Operator) bool { return true })
+	baseGroup.populate(approved, func(op *loglist2.Operator) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return &baseGroup, err
 }
