@@ -201,6 +201,16 @@ func (ls *LogStates) Active() (*LogState, *ReadOnlyLogState) {
 	}
 }
 
+// GoogleOperated returns whether Operator is considered to be Google.
+func (op *Operator) GoogleOperated() bool {
+	for _, email := range op.Email {
+		if strings.Contains(email, "google-ct-logs@googlegroups") {
+			return true
+		}
+	}
+	return false
+}
+
 // NewFromJSON creates a LogList from JSON encoded data.
 func NewFromJSON(llData []byte) (*LogList, error) {
 	var ll LogList

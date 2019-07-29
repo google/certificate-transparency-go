@@ -27,6 +27,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/x509"
@@ -241,6 +242,12 @@ func buildStubCTPolicy(n int) stubCTPolicy {
 
 func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
+	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
+	return groups, err
+}
+
+func (stubP stubCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
+	baseGroup, err := ctpolicy.BaseGroupFor2(approved, stubP.baseNum)
 	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }

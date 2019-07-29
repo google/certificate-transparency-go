@@ -509,6 +509,30 @@ func TestLogStatesActive(t *testing.T) {
 	}
 }
 
+func changeOperatorEmail(op Operator, email string) Operator {
+	op.Email = make([]string, 1)
+	op.Email[0] = email
+	return op
+}
+
+func TestGoogleOperated(t *testing.T) {
+	var tests = []struct {
+		in  Operator
+		out bool
+	}{
+		{in: *(sampleLogList.Operators[0]), out: true},
+		{in: *sampleLogList.Operators[1], out: false},
+		{in: changeOperatorEmail(*sampleLogList.Operators[1], "google-ct-logs@googlegroups"), out: true},
+		{in: changeOperatorEmail(*sampleLogList.Operators[0], "operator@googlegroups"), out: false},
+	}
+	for _, test := range tests {
+		isGoog := test.in.GoogleOperated()
+		if isGoog != test.out {
+			t.Errorf("GoogleOperated status for %s is %t, want %t", test.in.Name, isGoog, test.out)
+		}
+	}
+}
+
 func deb64(b string) []byte {
 	data, err := base64.StdEncoding.DecodeString(b)
 	if err != nil {
