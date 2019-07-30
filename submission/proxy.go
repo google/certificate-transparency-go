@@ -127,6 +127,9 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 		for {
 			select {
 			case <-ctx.Done():
+				if init {
+					close(p.Init)
+				}
 				return
 			case llData := <-p.llWatcher.LLUpdates:
 				logListUpdates.Inc()
