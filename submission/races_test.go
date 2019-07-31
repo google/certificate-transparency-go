@@ -155,10 +155,18 @@ func TestGetSCTs(t *testing.T) {
 			if tc.resultTrail != nil {
 				evaluateSCTs(t, res, tc.resultTrail)
 			}
-			if tc.errRegexp != nil {
-				if !tc.errRegexp.MatchString(err.Error()) {
-					t.Errorf("Error %q did not match expected regexp %q", err, tc.errRegexp)
+			if tc.errRegexp == nil {
+				if err != nil {
+					t.Fatalf("GetSCTs() got err=%q want nil", err)
 				}
+				return
+			}
+			// If we reach here then we expected an error.
+			if err == nil {
+				t.Fatalf("GetSCTs() got err=nil want err matching: %q", tc.errRegexp)
+			}
+			if !tc.errRegexp.MatchString(err.Error()) {
+				t.Errorf("GetSCTs() got err=%q want err matching: %q", err, tc.errRegexp)
 			}
 		})
 	}

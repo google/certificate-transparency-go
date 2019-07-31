@@ -138,25 +138,25 @@ func TestCheckChromePolicyWarnings(t *testing.T) {
 		{
 			name:    "Short",
 			cert:    getTestCertPEMShort(),
-			want:    wantedGroups(1, 1, 2, true),
+			want:    LogPolicyData{},
 			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
 		},
 		{
 			name:    "2-year",
 			cert:    getTestCertPEM2Years(),
-			want:    wantedGroups(1, 1, 3, true),
+			want:    LogPolicyData{},
 			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
 		},
 		{
 			name:    "3-year",
 			cert:    getTestCertPEM3Years(),
-			want:    wantedGroups(1, 1, 4, true),
+			want:    LogPolicyData{},
 			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
 		},
 		{
 			name:    "Long",
 			cert:    getTestCertPEMLongOriginal(),
-			want:    wantedGroups(1, 1, 5, true),
+			want:    LogPolicyData{},
 			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
 		},
 	}
@@ -168,6 +168,7 @@ func TestCheckChromePolicyWarnings(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			got, err := policy.LogsByGroup(test.cert, sampleLogList)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
