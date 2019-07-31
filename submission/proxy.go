@@ -127,7 +127,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 		for {
 			select {
 			case <-ctx.Done():
-				if init {
+				if !init {
 					close(p.Init)
 				}
 				return
