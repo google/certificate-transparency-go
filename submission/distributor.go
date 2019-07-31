@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	//logging "log"
-
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
