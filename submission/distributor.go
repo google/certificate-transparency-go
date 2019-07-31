@@ -23,10 +23,12 @@ import (
 	"sync"
 	"time"
 
+	//logging "log"
+
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
@@ -56,13 +58,13 @@ const (
 
 // Distributor operates policy-based submission across Logs.
 type Distributor struct {
-	ll *loglist.LogList
+	ll *loglist2.LogList
 
 	mu sync.RWMutex
 
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
-	logRoots   loglist.LogRoots
+	logRoots   loglist2.LogRoots
 	rootPool   *ctfe.PEMCertPool
 
 	rootDataFull bool
@@ -115,7 +117,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	}
 
 	// Collect get-roots results for every Log-client.
-	freshRoots := make(loglist.LogRoots)
+	freshRoots := make(loglist2.LogRoots)
 	errors := make(map[string]error)
 	for range d.logClients {
 		r := <-ch
@@ -211,7 +213,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 	}
 
 	var parsedChain []*x509.Certificate
-	var compatibleLogs loglist.LogList
+	var compatibleLogs loglist2.LogList
 
 	d.mu.RLock()
 	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
@@ -219,7 +221,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 
 	if err == nil {
 		parsedChain = rootedChain
-		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
+		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots, loglist2.UsableLogStatus)
 	} else if d.isRootDataFull() {
 		// Could not verify the chain while root info for logs is complete.
 		d.mu.RUnlock()
@@ -230,7 +232,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if err != nil {
 			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
-		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots)
+		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots, loglist2.UsableLogStatus)
 	}
 	d.mu.RUnlock()
 
@@ -277,10 +279,10 @@ func (d *Distributor) AddChain(ctx context.Context, rawChain [][]byte) ([]*Assig
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.
-type LogClientBuilder func(*loglist.Log) (client.AddLogClient, error)
+type LogClientBuilder func(*loglist2.Log) (client.AddLogClient, error)
 
 // BuildLogClient is default (non-mock) LogClientBuilder.
-func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func BuildLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	u, err := url.Parse(log.URL)
 	if err != nil {
 		return nil, err
@@ -296,22 +298,24 @@ func BuildLogClient(log *loglist.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
+func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
-	active := ll.ActiveLogs()
+	active := ll.SelectByStatus(loglist2.UsableLogStatus)
 	d.ll = &active
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
-	d.logRoots = make(loglist.LogRoots)
+	d.logRoots = make(loglist2.LogRoots)
 	d.rootPool = ctfe.NewPEMCertPool()
 
 	// Build clients for each of the Logs. Also build log-to-id map.
-	for _, log := range d.ll.Logs {
-		lc, err := lcBuilder(&log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
+	for _, op := range d.ll.Operators {
+		for _, log := range op.Logs {
+			lc, err := lcBuilder(log)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
+			}
+			d.logClients[log.URL] = lc
 		}
-		d.logClients[log.URL] = lc
 	}
 	if mf == nil {
 		mf = monitoring.InertMetricFactory{}

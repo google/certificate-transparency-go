@@ -51,6 +51,7 @@ var (
 			`"key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==",` +
 			`"url":"https://ct.googleapis.com/rocketeer/",` +
 			`"dns":"rocketeer.ct.googleapis.com",` +
+			`"state":{"usable":{"timestamp":"2018-02-27T00:00:00Z"}},` +
 			`"mmd":86400` +
 			`},` +
 			`{"description":"Google 'Argon2020' log",` +

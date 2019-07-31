@@ -25,7 +25,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/trillian/monitoring"
 )
@@ -86,14 +86,14 @@ func (m stubNoRootsLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Ce
 	return nil, fmt.Errorf("stubNoRootsLogClient cannot provide roots")
 }
 
-func buildStubNoRootsLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func buildStubNoRootsLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	return stubNoRootsLogClient{logURL: log.URL}, nil
 }
 
 func TestProxyRefreshRootsErr(t *testing.T) {
-	f, err := createTempFile(testdata.SampleLogList)
+	f, err := createTempFile(testdata.SampleLogList2)
 	if err != nil {
-		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList, err)
+		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList2, err)
 	}
 	defer os.Remove(f)
 
@@ -104,7 +104,7 @@ func TestProxyRefreshRootsErr(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	// number of active Logs within sampleLogList
-	var numLogs = 3
+	var numLogs = 2
 	for i := 0; i < numLogs; i++ {
 		select {
 		case <-ctx.Done():

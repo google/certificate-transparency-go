@@ -15,7 +15,6 @@
 package ctpolicy
 
 import (
-	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -24,9 +23,9 @@ import (
 type AppleCTPolicy struct{}
 
 // LogsByGroup describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. // Returns an error if it's not
+// https://support.apple.com/en-us/HT205280. Returns an error if it's not
 // possible to satisfy the policy with the provided loglist.
-func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (LogPolicyData, error) {
+func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
 	var incCount int
 	switch m := lifetimeInMonths(cert); {
 	case m < 15:
@@ -39,29 +38,6 @@ func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglis
 		incCount = 5
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
-	if err != nil {
-		return nil, err
-	}
-	groups := LogPolicyData{baseGroup.Name: baseGroup}
-	return groups, nil
-}
-
-// LogsByGroup2 describes submission requirements for embedded SCTs according to
-// https://support.apple.com/en-us/HT205280. Returns an error if it's not
-// possible to satisfy the policy with the provided loglist.
-func (appleP AppleCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error) {
-	var incCount int
-	switch m := lifetimeInMonths(cert); {
-	case m < 15:
-		incCount = 2
-	case m <= 27:
-		incCount = 3
-	case m <= 39:
-		incCount = 4
-	default:
-		incCount = 5
-	}
-	baseGroup, err := BaseGroupFor2(approved, incCount)
 	if err != nil {
 		return nil, err
 	}

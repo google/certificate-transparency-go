@@ -26,7 +26,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
-	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
@@ -37,7 +36,7 @@ import (
 	"github.com/google/trillian/monitoring"
 )
 
-func newLocalStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func newLocalStubLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	return newRootedStubLogClient(log, RootsCerts)
 }
 
@@ -75,22 +74,22 @@ func ExampleDistributor() {
 		fmt.Printf("%s\n", *sct)
 	}
 	// Output:
-	// {ct.googleapis.com/rocketeer/ {Version:0 LogId:Y3QuZ29vZ2xlYXBpcy5jb20vcm9ja2V0ZWVyLwAAAAA= Timestamp:1234 Extensions:'' Signature:{{SHA256 ECDSA} []}}}
+	// {https://ct.googleapis.com/rocketeer/ {Version:0 LogId:aHR0cHM6Ly9jdC5nb29nbGVhcGlzLmNvbS9yb2NrZXQ= Timestamp:1234 Extensions:'' Signature:{{SHA256 ECDSA} []}}}
 }
 
 var (
 	RootsCerts = map[string][]rootInfo{
-		"ct.googleapis.com/aviator/": {
+		"https://ct.googleapis.com/aviator/": {
 			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
 			rootInfo{filename: "testdata/some.cert"},
 		},
-		"ct.googleapis.com/rocketeer/": {
+		"https://ct.googleapis.com/rocketeer/": {
 			rootInfo{filename: "../trillian/testdata/fake-ca.cert"},
 			rootInfo{filename: "../trillian/testdata/fake-ca-1.cert"},
 			rootInfo{filename: "testdata/some.cert"},
 			rootInfo{filename: "testdata/another.cert"},
 		},
-		"ct.googleapis.com/icarus/": {
+		"https://ct.googleapis.com/icarus/": {
 			rootInfo{raw: []byte("invalid000")},
 			rootInfo{filename: "testdata/another.cert"},
 		},
@@ -101,34 +100,35 @@ var (
 )
 
 // newNoLogClient is LogClientBuilder that always fails.
-func newNoLogClient(_ *loglist.Log) (client.AddLogClient, error) {
+func newNoLogClient(_ *loglist2.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad log-client builder")
 }
 
-func sampleLogList() *loglist.LogList {
-	var ll loglist.LogList
-	if err := json.Unmarshal([]byte(testdata.SampleLogList), &ll); err != nil {
+func sampleLogList() *loglist2.LogList {
+	var ll loglist2.LogList
+	if err := json.Unmarshal([]byte(testdata.SampleLogList2), &ll); err != nil {
 		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
 	}
 	return &ll
 }
 
-func sampleValidLogList() *loglist.LogList {
+func sampleValidLogList() *loglist2.LogList {
 	ll := sampleLogList()
 	// Id of invalid Log description Racketeer
-	inval := 3
-	ll.Logs = append(ll.Logs[:inval], ll.Logs[inval+1:]...)
+	inval := 2
+	ll.Operators[0].Logs = append(ll.Operators[0].Logs[:inval], ll.Operators[0].Logs[inval+1:]...)
 	return ll
 }
 
-func sampleUncollectableLogList() *loglist.LogList {
+func sampleUncollectableLogList() *loglist2.LogList {
 	ll := sampleValidLogList()
 	// Append loglist that is unable to provide roots on request.
-	ll.Logs = append(ll.Logs, loglist.Log{
+	ll.Operators[0].Logs = append(ll.Operators[0].Logs, &loglist2.Log{
 		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
-		MaximumMergeDelay: 123, OperatedBy: []int{0},
-		URL:            "uncollectable-roots/log/",
-		DNSAPIEndpoint: "uncollectavle.ct.googleapis.com",
+		URL:   "uncollectable-roots/log/",
+		DNS:   "uncollectavle.ct.googleapis.com",
+		MMD:   123,
+		State: &loglist2.LogStates{Usable: &loglist2.LogState{}},
 	})
 	return ll
 }
@@ -136,7 +136,7 @@ func sampleUncollectableLogList() *loglist.LogList {
 func TestNewDistributorLogClients(t *testing.T) {
 	testCases := []struct {
 		name      string
-		ll        *loglist.LogList
+		ll        *loglist2.LogList
 		lcBuilder LogClientBuilder
 		errRegexp *regexp.Regexp
 	}{
@@ -153,7 +153,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",
-			ll:        &loglist.LogList{},
+			ll:        &loglist2.LogList{},
 			lcBuilder: newNoLogClient,
 		},
 	}
@@ -177,7 +177,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
 		name     string
-		ll       *loglist.LogList
+		ll       *loglist2.LogList
 		rootNum  map[string]int
 		wantErrs int
 	}{
@@ -185,14 +185,14 @@ func TestNewDistributorRootPools(t *testing.T) {
 			name: "InactiveZeroRoots",
 			ll:   sampleValidLogList(),
 			// aviator is not active; 1 of 2 icarus roots is not x509 struct
-			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1},
+			rootNum:  map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 4, "https://ct.googleapis.com/icarus/": 1},
 			wantErrs: 1,
 		},
 		{
 			name: "CouldNotCollect",
 			ll:   sampleUncollectableLogList(),
 			// aviator is not active; uncollectable client cannot provide roots
-			rootNum:  map[string]int{"ct.googleapis.com/aviator/": 0, "ct.googleapis.com/rocketeer/": 4, "ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0},
+			rootNum:  map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 4, "https://ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0},
 			wantErrs: 2,
 		},
 	}
@@ -240,14 +240,8 @@ func buildStubCTPolicy(n int) stubCTPolicy {
 	return stubCTPolicy{baseNum: n}
 }
 
-func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist.LogList) (ctpolicy.LogPolicyData, error) {
+func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
-	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
-	return groups, err
-}
-
-func (stubP stubCTPolicy) LogsByGroup2(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
-	baseGroup, err := ctpolicy.BaseGroupFor2(approved, stubP.baseNum)
 	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }
@@ -259,7 +253,7 @@ func (stubP stubCTPolicy) Name() string {
 func TestDistributorAddChain(t *testing.T) {
 	testCases := []struct {
 		name         string
-		ll           *loglist.LogList
+		ll           *loglist2.LogList
 		plc          ctpolicy.CTPolicy
 		pemChainFile string
 		getRoots     bool
@@ -309,8 +303,8 @@ func TestDistributorAddChain(t *testing.T) {
 			getRoots:     true,
 			scts: []*AssignedSCT{
 				{
-					LogURL: "ct.googleapis.com/rocketeer/",
-					SCT:    testSCT("ct.googleapis.com/rocketeer/"),
+					LogURL: "https://ct.googleapis.com/rocketeer/",
+					SCT:    testSCT("https://ct.googleapis.com/rocketeer/"),
 				},
 			},
 			wantErr: false,
@@ -325,9 +319,9 @@ func TestDistributorAddChain(t *testing.T) {
 			defer cancel()
 
 			if tc.getRoots {
-				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["https://ct.googleapis.com/icarus/"] == nil {
 					// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
-					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'https://ct.googleapis.com/icarus/'", errs)
 				}
 			}
 
@@ -355,7 +349,7 @@ func TestDistributorAddChain(t *testing.T) {
 func TestDistributorAddPreChain(t *testing.T) {
 	testCases := []struct {
 		name         string
-		ll           *loglist.LogList
+		ll           *loglist2.LogList
 		plc          ctpolicy.CTPolicy
 		pemChainFile string
 		getRoots     bool
@@ -405,8 +399,8 @@ func TestDistributorAddPreChain(t *testing.T) {
 			getRoots:     true,
 			scts: []*AssignedSCT{
 				{
-					LogURL: "ct.googleapis.com/rocketeer/",
-					SCT:    testSCT("ct.googleapis.com/rocketeer/"),
+					LogURL: "https://ct.googleapis.com/rocketeer/",
+					SCT:    testSCT("https://ct.googleapis.com/rocketeer/"),
 				},
 			},
 			wantErr: false,
@@ -421,9 +415,9 @@ func TestDistributorAddPreChain(t *testing.T) {
 			defer cancel()
 
 			if tc.getRoots {
-				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+				if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["https://ct.googleapis.com/icarus/"] == nil {
 					// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
-					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+					t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'https://ct.googleapis.com/icarus/'", errs)
 				}
 			}
 
@@ -477,9 +471,9 @@ func TestDistributorAddTypeMismatch(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 
-			if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["ct.googleapis.com/icarus/"] == nil {
+			if errs := dist.RefreshRoots(ctx); len(errs) != 1 || errs["https://ct.googleapis.com/icarus/"] == nil {
 				// 1 error is expected, because the Icarus log has an invalid root (see RootCerts).
-				t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'ct.googleapis.com/icarus/'", errs)
+				t.Fatalf("dist.RefreshRoots() = %v, want 1 error for 'https://ct.googleapis.com/icarus/'", errs)
 			}
 
 			var scts []*AssignedSCT

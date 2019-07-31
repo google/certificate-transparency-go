@@ -14,7 +14,6 @@
 package ctpolicy
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -23,31 +22,6 @@ import (
 )
 
 func wantedAppleGroups(count int) LogPolicyData {
-	gi := LogPolicyData{
-		BaseName: {
-			Name: BaseName,
-			LogURLs: map[string]bool{
-				"ct.googleapis.com/aviator/":   true,
-				"ct.googleapis.com/icarus/":    true,
-				"ct.googleapis.com/rocketeer/": true,
-				"ct.googleapis.com/racketeer/": true,
-				"log.bob.io":                   true,
-			},
-			MinInclusions: count,
-			IsBase:        true,
-			LogWeights: map[string]float32{
-				"ct.googleapis.com/aviator/":   1.0,
-				"ct.googleapis.com/icarus/":    1.0,
-				"ct.googleapis.com/rocketeer/": 1.0,
-				"ct.googleapis.com/racketeer/": 1.0,
-				"log.bob.io":                   1.0,
-			},
-		},
-	}
-	return gi
-}
-
-func wantedAppleGroups2(count int) LogPolicyData {
 	gi := LogPolicyData{
 		BaseName: {
 			Name: BaseName,
@@ -108,50 +82,6 @@ func TestCheckApplePolicy(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			groups, err := policy.LogsByGroup(test.cert, sampleLogList)
-			if !reflect.DeepEqual(groups, test.want) {
-				t.Errorf("LogsByGroup returned %v, want %v", groups, test.want)
-			}
-			if err != nil {
-				t.Errorf("LogsByGroup returned an error: %v", err)
-			}
-		})
-	}
-}
-
-func TestCheckApplePolicy2(t *testing.T) {
-	tests := []struct {
-		name string
-		cert *x509.Certificate
-		want LogPolicyData
-	}{
-		{
-			name: "Short",
-			cert: getTestCertPEMShort(),
-			want: wantedAppleGroups2(2),
-		},
-		{
-			name: "2-year",
-			cert: getTestCertPEM2Years(),
-			want: wantedAppleGroups2(3),
-		},
-		{
-			name: "3-year",
-			cert: getTestCertPEM3Years(),
-			want: wantedAppleGroups2(4),
-		},
-		{
-			name: "Long",
-			cert: getTestCertPEMLongOriginal(),
-			want: wantedAppleGroups2(5),
-		},
-	}
-
-	var policy AppleCTPolicy
-	sampleLogList := sampleLogList2(t)
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			groups, err := policy.LogsByGroup2(test.cert, sampleLogList)
 			if err != nil {
 				t.Errorf("LogsByGroup returned an error: %v", err)
 			}

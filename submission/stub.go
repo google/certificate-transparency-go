@@ -21,7 +21,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
 )
@@ -94,16 +94,16 @@ func testSCT(logURL string) *ct.SignedCertificateTimestamp {
 	}
 }
 
-func newRootedStubLogClient(log *loglist.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
+func newRootedStubLogClient(log *loglist2.Log, rCerts map[string][]rootInfo) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: rCerts}, nil
 }
 
-func newEmptyStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func newEmptyStubLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	return newRootedStubLogClient(log, map[string][]rootInfo{})
 }
 
 // NewStubLogClient is builder for log-client stubs. Used for dry-runs and
 // testing.
-func NewStubLogClient(log *loglist.Log) (client.AddLogClient, error) {
+func NewStubLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	return stubLogClient{logURL: log.URL, rootsCerts: map[string][]rootInfo{log.URL: {}}}, nil
 }
