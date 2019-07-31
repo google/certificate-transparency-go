@@ -183,12 +183,12 @@ func checkCertWithEmbeddedSCT(ctx context.Context, logsByKey map[[sha256.Size]by
 			sth := logInfo.LastSTH()
 			if sth != nil {
 				delta = time.Duration(sth.Timestamp-sct.Timestamp) * time.Millisecond
+				if delta < logInfo.MMD {
+					glog.Warningf("[%d] Failed to verify SCT[%d] inclusion proof (%v), but Log's MMD has not passed %d -> %d < %v", entry.Index, i, err, sct.Timestamp, sth.Timestamp, logInfo.MMD)
+					continue
+				}
 			}
-			if delta < logInfo.MMD {
-				glog.Warningf("[%d] Failed to verify SCT[%d] inclusion proof (%v), but Log's MMD has not passed %d -> %d < %v", entry.Index, i, err, sct.Timestamp, sth.Timestamp, logInfo.MMD)
-			} else {
-				glog.Errorf("[%d] Failed to verify SCT[%d] inclusion proof: %v", entry.Index, i, err)
-			}
+			glog.Errorf("[%d] Failed to verify SCT[%d] inclusion proof: %v", entry.Index, i, err)
 		} else {
 			glog.V(1).Infof("[%d] Checked SCT[%d] inclusion against log %q, at index %d", entry.Index, i, logInfo.Description, index)
 		}
