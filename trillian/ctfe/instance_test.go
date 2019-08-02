@@ -183,6 +183,10 @@ func equivalentTimes(a *time.Time, b *timestamp.Timestamp) bool {
 	if a == nil && b == nil {
 		return true
 	}
+	if a == nil {
+		// b can't be nil as it would have returned above.
+		return false
+	}
 	tsA, err := ptypes.TimestampProto(*a)
 	if err != nil {
 		return false
