@@ -75,7 +75,7 @@ func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encoded, err := asn1.Marshal(*sctList)
+	encoded, err := asn1.Marshal(sctList)
 	if err != nil {
 		return nil, err
 	}

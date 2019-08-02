@@ -862,7 +862,7 @@ func ExtractSCT(sctData *x509.SerializedSCT) (*ct.SignedCertificateTimestamp, er
 }
 
 // MarshalSCTsIntoSCTList serializes SCTs into SCT list.
-func MarshalSCTsIntoSCTList(scts []*ct.SignedCertificateTimestamp) (*x509.SignedCertificateTimestampList, error) {
+func MarshalSCTsIntoSCTList(scts []*ct.SignedCertificateTimestamp) ([]byte, error) {
 	var sctList x509.SignedCertificateTimestampList
 	sctList.SCTList = []x509.SerializedSCT{}
 	for i, sct := range scts {
@@ -876,7 +876,11 @@ func MarshalSCTsIntoSCTList(scts []*ct.SignedCertificateTimestamp) (*x509.Signed
 		sctData := x509.SerializedSCT{Val: encd}
 		sctList.SCTList = append(sctList.SCTList, sctData)
 	}
-	return &sctList, nil
+	encd, err := tls.Marshal(sctList)
+	if err != nil {
+		return nil, err
+	}
+	return encd, nil
 }
 
 var pemCertificatePrefix = []byte("-----BEGIN CERTIFICATE")

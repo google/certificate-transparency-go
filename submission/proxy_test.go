@@ -174,8 +174,8 @@ func TestASN1MarshalSCT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to tls-unmarshal test certificate proof: %s", err)
 	}
-	assignedSCT := AssignedSCT {LogURL: "ct.googleapis.com/racketeer/", SCT: &sct}
-	assignedSCTs := []*AssignedSCT {&assignedSCT}
+	assignedSCT := AssignedSCT{LogURL: "ct.googleapis.com/racketeer/", SCT: &sct}
+	assignedSCTs := []*AssignedSCT{&assignedSCT}
 	_, err = ASN1MarshalSCTs(assignedSCTs)
 	if err != nil {
 		t.Fatalf("ASN1MarshalSCT() returned error %v", err)
