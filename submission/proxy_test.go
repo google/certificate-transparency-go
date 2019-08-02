@@ -27,6 +27,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/monitoring"
 )
 
@@ -163,5 +164,20 @@ Init:
 			}
 		case <-p.Errors:
 		}
+	}
+}
+
+func TestASN1MarshalSCT(t *testing.T) {
+	rawSCT := testdata.TestCertProof
+	var sct ct.SignedCertificateTimestamp
+	_, err := tls.Unmarshal(rawSCT, &sct)
+	if err != nil {
+		t.Fatalf("failed to tls-unmarshal test certificate proof: %s", err)
+	}
+	assignedSCT := AssignedSCT {LogURL: "ct.googleapis.com/racketeer/", SCT: &sct}
+	assignedSCTs := []*AssignedSCT {&assignedSCT}
+	_, err = ASN1MarshalSCTs(assignedSCTs)
+	if err != nil {
+		t.Fatalf("ASN1MarshalSCT() returned error %v", err)
 	}
 }
