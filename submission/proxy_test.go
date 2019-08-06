@@ -15,7 +15,9 @@
 package submission
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -168,6 +170,7 @@ Init:
 }
 
 func TestASN1MarshalSCT(t *testing.T) {
+	want, _ := hex.DecodeString("047a0078007600df1c2ec11500945247a96168325ddc5c7959e8f7c6d388fc002e0bbd3f74d7640000013ddb27ded900000403004730450220606e10ae5c2d5a1b0aed49dc4937f48de71a4e9784e9c208dfbfe9ef536cf7f2022100beb29c72d7d06d61d06bdb38a069469aa86fe12e18bb7cc45689a2c0187ef5a5")
 	rawSCT := testdata.TestCertProof
 	var sct ct.SignedCertificateTimestamp
 	_, err := tls.Unmarshal(rawSCT, &sct)
@@ -176,8 +179,11 @@ func TestASN1MarshalSCT(t *testing.T) {
 	}
 	assignedSCT := AssignedSCT{LogURL: "ct.googleapis.com/racketeer/", SCT: &sct}
 	assignedSCTs := []*AssignedSCT{&assignedSCT}
-	_, err = ASN1MarshalSCTs(assignedSCTs)
+	got, err := ASN1MarshalSCTs(assignedSCTs)
 	if err != nil {
 		t.Fatalf("ASN1MarshalSCT() returned error %v", err)
+	}
+	if !(bytes.Equal(got, want)) {
+		t.Fatalf("ASN1MarshalSCT() returned unexpected output: \n got: %x\nwant: %x", got, want)
 	}
 }

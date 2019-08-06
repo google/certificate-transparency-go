@@ -26,6 +26,7 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
 )
@@ -75,7 +76,12 @@ func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encoded, err := asn1.Marshal(sctList)
+	encdSCTList, err := tls.Marshal(*sctList)
+	if err != nil {
+		fmt.Printf("Err on tls: %v\n", err)
+		return nil, err
+	}
+	encoded, err := asn1.Marshal(encdSCTList)
 	if err != nil {
 		return nil, err
 	}
