@@ -85,7 +85,6 @@ func (m stubNoRootsLogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Ce
 }
 
 func (m stubNoRootsLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Cert, error) {
-	//fmt.Printf("No roots get accepted roots")
 	return nil, fmt.Errorf("stubNoRootsLogClient cannot provide roots")
 }
 
@@ -169,21 +168,85 @@ Init:
 	}
 }
 
-func TestASN1MarshalSCT(t *testing.T) {
-	want, _ := hex.DecodeString("047a0078007600df1c2ec11500945247a96168325ddc5c7959e8f7c6d388fc002e0bbd3f74d7640000013ddb27ded900000403004730450220606e10ae5c2d5a1b0aed49dc4937f48de71a4e9784e9c208dfbfe9ef536cf7f2022100beb29c72d7d06d61d06bdb38a069469aa86fe12e18bb7cc45689a2c0187ef5a5")
+// Helper func building slice of N AssignedSCTs.
+func buildAssignedSCTs(t *testing.T, n int) []*AssignedSCT {
 	rawSCT := testdata.TestCertProof
 	var sct ct.SignedCertificateTimestamp
 	_, err := tls.Unmarshal(rawSCT, &sct)
 	if err != nil {
 		t.Fatalf("failed to tls-unmarshal test certificate proof: %s", err)
 	}
-	assignedSCT := AssignedSCT{LogURL: "ct.googleapis.com/racketeer/", SCT: &sct}
-	assignedSCTs := []*AssignedSCT{&assignedSCT}
-	got, err := ASN1MarshalSCTs(assignedSCTs)
-	if err != nil {
-		t.Fatalf("ASN1MarshalSCT() returned error %v", err)
+	sampleLogURL := "ct.googleapis.com/racketeer/"
+	assignedSCT := AssignedSCT{LogURL: sampleLogURL, SCT: &sct}
+	assignedSCTs := make([]*AssignedSCT, n)
+	for i := 0; i < n; i++ {
+		assignedSCTs[i] = &assignedSCT
 	}
-	if !(bytes.Equal(got, want)) {
-		t.Fatalf("ASN1MarshalSCT() returned unexpected output: \n got: %x\nwant: %x", got, want)
+	return assignedSCTs
+}
+
+// Helper func building slice of 1 AssignedSCTs containing one nil.
+func buildNilAssignedSCT() []*AssignedSCT {
+	sampleLogURL := "ct.googleapis.com/racketeer/"
+	assignedNilSCT := AssignedSCT{LogURL: sampleLogURL, SCT: nil}
+	assignedSCTs := []*AssignedSCT{&assignedNilSCT}
+	return assignedSCTs
+}
+
+func decodeValidHex(t *testing.T, s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatalf("Unable to hex-Decode %s", s)
+		return nil
+	}
+	return b
+}
+
+func TestASN1MarshalSCT(t *testing.T) {
+	tests := []struct {
+		name    string
+		scts    []*AssignedSCT
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name:    "OneSCT",
+			scts:    buildAssignedSCTs(t, 1),
+			want:    decodeValidHex(t, "047a0078007600df1c2ec11500945247a96168325ddc5c7959e8f7c6d388fc002e0bbd3f74d7640000013ddb27ded900000403004730450220606e10ae5c2d5a1b0aed49dc4937f48de71a4e9784e9c208dfbfe9ef536cf7f2022100beb29c72d7d06d61d06bdb38a069469aa86fe12e18bb7cc45689a2c0187ef5a5"),
+			wantErr: false,
+		},
+		{
+			name:    "NoSCT",
+			scts:    buildAssignedSCTs(t, 0),
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "TwoSCTs",
+			scts:    buildAssignedSCTs(t, 2),
+			want:    decodeValidHex(t, "0481f200f0007600df1c2ec11500945247a96168325ddc5c7959e8f7c6d388fc002e0bbd3f74d7640000013ddb27ded900000403004730450220606e10ae5c2d5a1b0aed49dc4937f48de71a4e9784e9c208dfbfe9ef536cf7f2022100beb29c72d7d06d61d06bdb38a069469aa86fe12e18bb7cc45689a2c0187ef5a5007600df1c2ec11500945247a96168325ddc5c7959e8f7c6d388fc002e0bbd3f74d7640000013ddb27ded900000403004730450220606e10ae5c2d5a1b0aed49dc4937f48de71a4e9784e9c208dfbfe9ef536cf7f2022100beb29c72d7d06d61d06bdb38a069469aa86fe12e18bb7cc45689a2c0187ef5a5"),
+			wantErr: false,
+		},
+		{
+			name:    "NilSCT",
+			scts:    buildNilAssignedSCT(),
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := ASN1MarshalSCTs(test.scts)
+			if (err != nil) && !test.wantErr {
+				t.Fatalf("ASN1MarshalSCT() returned error %v", err)
+			}
+			if (err == nil) && test.wantErr {
+				t.Fatalf("ASN1MarshalSCT() expected to return error, got none")
+			}
+			if !(bytes.Equal(got, test.want)) {
+				t.Fatalf("ASN1MarshalSCT() returned unexpected output: \n got: %x\nwant: %x", got, test.want)
+			}
+		})
 	}
 }

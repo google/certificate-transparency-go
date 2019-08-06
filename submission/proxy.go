@@ -68,6 +68,9 @@ func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder, mf moni
 
 // ASN1MarshalSCTs serializes list of AssignedSCTs according to RFC6962 3.3
 func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
+	if len(scts) == 0 {
+		return nil, fmt.Errorf("ASN1MarshalSCTs requires positive number of SCTs, 0 provided")
+	}
 	unassignedSCTs := make([]*ct.SignedCertificateTimestamp, 0, len(scts))
 	for _, sct := range scts {
 		unassignedSCTs = append(unassignedSCTs, sct.SCT)
@@ -78,7 +81,6 @@ func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	}
 	encdSCTList, err := tls.Marshal(*sctList)
 	if err != nil {
-		fmt.Printf("Err on tls: %v\n", err)
 		return nil, err
 	}
 	encoded, err := asn1.Marshal(encdSCTList)
