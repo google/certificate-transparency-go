@@ -26,6 +26,7 @@ import (
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
 )
@@ -67,6 +68,9 @@ func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder, mf moni
 
 // ASN1MarshalSCTs serializes list of AssignedSCTs according to RFC6962 3.3
 func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
+	if len(scts) == 0 {
+		return nil, fmt.Errorf("ASN1MarshalSCTs requires positive number of SCTs, 0 provided")
+	}
 	unassignedSCTs := make([]*ct.SignedCertificateTimestamp, 0, len(scts))
 	for _, sct := range scts {
 		unassignedSCTs = append(unassignedSCTs, sct.SCT)
@@ -75,7 +79,11 @@ func ASN1MarshalSCTs(scts []*AssignedSCT) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encoded, err := asn1.Marshal(sctList)
+	encdSCTList, err := tls.Marshal(*sctList)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := asn1.Marshal(encdSCTList)
 	if err != nil {
 		return nil, err
 	}
