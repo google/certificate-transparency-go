@@ -125,6 +125,7 @@ func NewProxy(llm *LogListManager, db DistributorBuilder, mf monitoring.MetricFa
 
 // Run starts regular LogList checks and associated Distributor initialization.
 // Sends true via Init channel when init is complete.
+// Terminates upon context cancellation.
 func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh time.Duration) {
 	init := false
 	p.llRefreshInterval = llRefresh
