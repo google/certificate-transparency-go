@@ -142,7 +142,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 			case llData := <-p.llWatcher.LLUpdates:
 				logListUpdates.Inc()
 				if err := p.restartDistributor(ctx, llData.List); err != nil {
-					glog.Errorf("Unable to use Log-list:\n %v\n, %v", llData.JSON, err)
+					glog.Errorf("Unable to use Log-list:\n %v\n %v", err, llData.JSON)
 				} else if !init {
 					init = true
 					p.Init <- true
@@ -169,7 +169,7 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist2.LogList) er
 	go schedule.Every(refreshCtx, p.rootsRefreshInterval, func(ectx context.Context) {
 		if errs := d.RefreshRoots(ectx); len(errs) > 0 {
 			for _, err := range errs {
-				glog.Warning(err.Error())
+				glog.Warning(err)
 			}
 		}
 	})
