@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
@@ -61,7 +62,7 @@ func main() {
 	mf := prometheus.MetricFactory{}
 
 	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb, mf), *addPreChainTimeout, mf)
-	s.Run(*logListRefreshInterval, *rootsRefreshInterval)
+	s.Run(context.Background(), *logListRefreshInterval, *rootsRefreshInterval)
 	http.HandleFunc("/ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain)
 	http.HandleFunc("/ct/v1/proxy/add-chain/", s.HandleAddChain)
 	http.Handle("/metrics", promhttp.Handler())
