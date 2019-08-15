@@ -54,7 +54,7 @@ func (s *ProxyServer) Run(ctx context.Context, logListRefreshInterval time.Durat
 			case <-ctx.Done():
 				return
 			case err := <-s.p.Errors:
-				glog.Errorf("%v\n", err)
+				glog.Errorf("%v", err)
 			}
 		}
 	}()
