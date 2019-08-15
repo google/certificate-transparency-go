@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/trillian/monitoring"
@@ -46,18 +45,6 @@ func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout 
 // Run starts regular Log list updates. Blocks until initialization happens.
 func (s *ProxyServer) Run(ctx context.Context, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
 	s.p.Run(ctx, logListRefreshInterval, rootsRefreshInterval)
-
-	// start listening to proxy errs
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-s.p.Errors:
-				glog.Errorf("%v", err)
-			}
-		}
-	}()
 
 	<-s.p.Init
 }

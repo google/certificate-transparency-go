@@ -92,31 +92,6 @@ func buildStubNoRootsLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 	return stubNoRootsLogClient{logURL: log.URL}, nil
 }
 
-func TestProxyRefreshRootsErr(t *testing.T) {
-	f, err := createTempFile(testdata.SampleLogList2)
-	if err != nil {
-		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList2, err)
-	}
-	defer os.Remove(f)
-
-	llr := NewLogListRefresher(f)
-	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
-	p.Run(context.Background(), time.Hour, time.Hour)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	// number of active Logs within sampleLogList
-	var numLogs = 2
-	for i := 0; i < numLogs; i++ {
-		select {
-		case <-ctx.Done():
-			t.Errorf("p.RefreshLogList() on noRootsDistributorFactory expected to emit error for each Log, got %d", i)
-			return
-		case <-p.Errors:
-		}
-	}
-}
-
 func TestProxyInitState(t *testing.T) {
 	f, err := createTempFile(testdata.SampleLogList)
 	if err != nil {
@@ -144,8 +119,6 @@ Init:
 				t.Fatalf("p.Run() expected to send 'true' init signal, got false")
 			}
 			break Init
-		case e := <-p.Errors:
-			t.Log(e)
 		}
 	}
 
@@ -163,7 +136,6 @@ Init:
 			if ok {
 				t.Fatalf("p.Refresh() after initial p.Run() sent signal into Init-channel, expected none")
 			}
-		case <-p.Errors:
 		}
 	}
 }
