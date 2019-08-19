@@ -59,7 +59,7 @@ This document uses the
 which is set up according to the
 [instructions in the Trillian repo](https://github.com/google/trillian#mysql-setup);
 these instructions configure the Trillian database according to its
-[core schema file](http://github.com/google/trillian/blob/master//storage/mysql/storage.sql).
+[core schema file](http://github.com/google/trillian/blob/master/storage/mysql/schema/storage.sql).
 
 
 **Cross-check**: At this point, manually connecting to the MySQL database should
