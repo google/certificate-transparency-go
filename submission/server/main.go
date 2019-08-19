@@ -32,7 +32,7 @@ import (
 // Flags.
 var (
 	httpEndpoint           = flag.String("http_endpoint", "localhost:5951", "Endpoint for HTTP (host:port)")
-	logListPath            = flag.String("loglist_path", "https://www.gstatic.com/ct/log_list/log_list.json", "Path for list of CT Logs in JSON format")
+	logListPath            = flag.String("loglist_path", "https://www.gstatic.com/ct/log_list/v2/log_list.json", "Path for list of CT Logs in JSON format")
 	logListRefreshInterval = flag.Duration("loglist_refresh_interval", 24*time.Hour, "Interval between consecutive reads of Log-list")
 	rootsRefreshInterval   = flag.Duration("roots_refresh_interval", 24*time.Hour, "Interval between consecutive get-roots calls")
 	policyType             = flag.String("policy_type", "chrome", "CT-policy <chrome|apple>")
