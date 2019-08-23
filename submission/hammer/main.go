@@ -44,6 +44,7 @@ var (
 )
 
 func main() {
+	flag.Parse()
 	certData, err := ioutil.ReadFile("submission/hammer/testdata/precert.der")
 	if err != nil {
 		log.Fatal(err)
