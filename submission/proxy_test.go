@@ -101,7 +101,7 @@ func TestProxyInitState(t *testing.T) {
 
 	llr := NewLogListRefresher(f)
 	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
-	p.Run(context.Background(), time.Millisecond, time.Hour)
+	p.Run(context.Background(), 100*time.Millisecond, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

@@ -26,22 +26,24 @@ type LogRoots map[string]*ctfe.PEMCertPool
 
 // Compatible creates a new LogList containing only Logs matching the temporal,
 // root-acceptance and Log-status conditions.
-func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots, lstat LogStatus) LogList {
+func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots) LogList {
 	active := ll.TemporallyCompatible(cert)
-	active = active.RootCompatible(certRoot, roots)
-	return active.SelectByStatus(lstat)
+	return active.RootCompatible(certRoot, roots)
 }
 
 // SelectByStatus creates a new LogList containing only logs with status
 // provided from the original.
-func (ll *LogList) SelectByStatus(lstat LogStatus) LogList {
+func (ll *LogList) SelectByStatus(lstats []LogStatus) LogList {
 	var active LogList
 	for _, op := range ll.Operators {
 		activeOp := *op
 		activeOp.Logs = []*Log{}
 		for _, l := range op.Logs {
-			if l.State.LogStatus() == lstat {
-				activeOp.Logs = append(activeOp.Logs, l)
+			for _, lstat := range lstats {
+				if l.State.LogStatus() == lstat {
+					activeOp.Logs = append(activeOp.Logs, l)
+					break
+				}
 			}
 		}
 		if len(activeOp.Logs) > 0 {
