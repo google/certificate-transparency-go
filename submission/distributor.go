@@ -219,7 +219,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 
 	if err == nil {
 		parsedChain = rootedChain
-		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots, loglist2.UsableLogStatus)
+		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
 	} else if d.isRootDataFull() {
 		// Could not verify the chain while root info for logs is complete.
 		d.mu.RUnlock()
@@ -230,7 +230,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if err != nil {
 			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
-		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots, loglist2.UsableLogStatus)
+		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots)
 	}
 	d.mu.RUnlock()
 
@@ -298,7 +298,9 @@ func BuildLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 // the local copy of the roots up-to-date.
 func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
-	active := ll.SelectByStatus(loglist2.UsableLogStatus)
+	usableStat := make([]loglist2.LogStatus, 1)
+	usableStat[0] = loglist2.UsableLogStatus
+	active := ll.SelectByStatus(usableStat)
 	d.ll = &active
 	d.policy = plc
 	d.logClients = make(map[string]client.AddLogClient)
