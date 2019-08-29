@@ -50,7 +50,7 @@ var (
 // proxyInitMetrics initializes all the exported metrics.
 func proxyInitMetrics(mf monitoring.MetricFactory) {
 	logListUpdates = mf.NewCounter("log_list_updates", "Number of Log-list updates")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "ep")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of policy-multiplexed add-responses in seconds", "ep")
 }
 
 // DistributorBuilder builds distributor instance for a given Log list.
