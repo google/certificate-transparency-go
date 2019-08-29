@@ -203,7 +203,7 @@ func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), "add-pre-chain")
+		rspLatency.Observe(time.Since(start).Seconds(), "add-chain")
 	}(time.Now())
 	return p.dist.AddChain(ctx, rawChain)
 }
