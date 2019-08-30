@@ -66,7 +66,7 @@ func ExampleDistributor() {
 		panic("Context expired")
 	}
 
-	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf-pre.chain"))
+	scts, err := d.AddPreChain(ctx, pemFileToDERChain("../trillian/testdata/subleaf-pre.chain"), false /* loadPendingLogs */)
 	if err != nil {
 		panic(err)
 	}
@@ -325,7 +325,7 @@ func TestDistributorAddChain(t *testing.T) {
 				}
 			}
 
-			scts, err := dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+			scts, err := dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile), false /* loadPendingLogs */)
 
 			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("dist.AddChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
@@ -421,7 +421,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 				}
 			}
 
-			scts, err := dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+			scts, err := dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile), true /* loadPendingLogs */)
 
 			if gotErr := err != nil; gotErr != tc.wantErr {
 				t.Fatalf("dist.AddPreChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
@@ -479,9 +479,9 @@ func TestDistributorAddTypeMismatch(t *testing.T) {
 			var scts []*AssignedSCT
 			var err error
 			if tc.asPreChain {
-				scts, err = dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+				scts, err = dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile), false /* loadPendingLogs */)
 			} else {
-				scts, err = dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile))
+				scts, err = dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile), false /* loadPendingLogs */)
 			}
 
 			pre := ""

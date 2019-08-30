@@ -187,23 +187,24 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist2.LogList) er
 }
 
 // AddPreChain passes call to underlying Distributor instance.
-func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
+
 	defer func(start time.Time) {
 		rspLatency.Observe(time.Since(start).Seconds(), "add-pre-chain")
 	}(time.Now())
-	return p.dist.AddPreChain(ctx, rawChain)
+	return p.dist.AddPreChain(ctx, rawChain, loadPendingLogs)
 }
 
 // AddChain passes call to underlying Distributor instance.
-func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
 	defer func(start time.Time) {
 		rspLatency.Observe(time.Since(start).Seconds(), "add-chain")
 	}(time.Now())
-	return p.dist.AddChain(ctx, rawChain)
+	return p.dist.AddChain(ctx, rawChain, loadPendingLogs)
 }
