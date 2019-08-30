@@ -36,17 +36,17 @@ import (
 
 var (
 	// Metrics are per-log, per-endpoint and some per-response-status code.
-	distOnce    sync.Once
-	reqsCounter monitoring.Counter   // logurl, ep => value
-	rspsCounter monitoring.Counter   // logurl, ep, sc => value
-	rspLatency  monitoring.Histogram // logurl, ep => value
+	distOnce      sync.Once
+	reqsCounter   monitoring.Counter   // logurl, ep => value
+	rspsCounter   monitoring.Counter   // logurl, ep, sc => value
+	logRspLatency monitoring.Histogram // logurl, ep => value
 )
 
 // distInitMetrics initializes all the exported metrics.
 func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logurl", "ep")
+	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
 const (
@@ -178,7 +178,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), logURL, endpoint)
+		logRspLatency.Observe(time.Since(start).Seconds(), logURL, endpoint)
 	}(time.Now())
 	reqsCounter.Inc(logURL, endpoint)
 	addChain := lc.AddChain
