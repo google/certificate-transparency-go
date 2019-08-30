@@ -327,13 +327,11 @@ func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	var d Distributor
 	// Divide Logs by statuses.
 	d.ll = ll
-	usableStat := make([]loglist2.LogStatus, 1)
-	usableStat[0] = loglist2.UsableLogStatus
+	usableStat := []loglist2.LogStatus{loglist2.UsableLogStatus}
 	active := ll.SelectByStatus(usableStat)
 	d.usableLl = &active
-	pendingQualifiedStat := make([]loglist2.LogStatus, 2)
-	pendingQualifiedStat[0] = loglist2.PendingLogStatus
-	pendingQualifiedStat[1] = loglist2.QualifiedLogStatus
+	pendingQualifiedStat := []loglist2.LogStatus{
+		loglist2.PendingLogStatus, loglist2.QualifiedLogStatus}
 	pending := ll.SelectByStatus(pendingQualifiedStat)
 	d.pendingQualifiedLl = &pending
 
