@@ -44,11 +44,13 @@ const (
 var (
 	proxyOnce      sync.Once
 	logListUpdates monitoring.Counter
+	rspLatency     monitoring.Histogram // ep => value
 )
 
 // proxyInitMetrics initializes all the exported metrics.
 func proxyInitMetrics(mf monitoring.MetricFactory) {
 	logListUpdates = mf.NewCounter("log_list_updates", "Number of Log-list updates")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of policy-multiplexed add-responses in seconds", "ep")
 }
 
 // DistributorBuilder builds distributor instance for a given Log list.
@@ -189,6 +191,10 @@ func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte, loadPendingL
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
+
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), "add-pre-chain")
+	}(time.Now())
 	return p.dist.AddPreChain(ctx, rawChain, loadPendingLogs)
 }
 
@@ -197,5 +203,8 @@ func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte, loadPendingLogs
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), "add-chain")
+	}(time.Now())
 	return p.dist.AddChain(ctx, rawChain, loadPendingLogs)
 }
