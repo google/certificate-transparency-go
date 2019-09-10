@@ -17,7 +17,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.1
-	github.com/golangci/golangci-lint v1.17.1
+	github.com/golangci/golangci-lint v1.17.2-0.20190910081718-bad04bb7378f
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-cmp v0.3.0
 	github.com/google/monologue v0.0.0-20190606152607-4b11a32b5934
@@ -54,7 +54,7 @@ require (
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a
-	golang.org/x/net v0.0.0-20190606173856-1492cefac77f
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	google.golang.org/api v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20190605220351-eb0b1bdb6ae6
 	google.golang.org/grpc v1.21.1
