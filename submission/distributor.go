@@ -177,6 +177,10 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 		status = http.StatusBadRequest // default to this if status code unavailable
 		if err, ok := rspErr.(client.RspError); ok {
 			status = err.StatusCode
+			if (err.Err != nil && status == http.StatusOK) {
+				// got SCT response, but it's either cannot be decoded or cannot be verified
+				status = http.StatusVariantAlsoNegotiates
+			}
 		}
 	}
 	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
