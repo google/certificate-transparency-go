@@ -66,10 +66,7 @@ func NewCustomLogListRefresher(client *http.Client, llPath string) LogListRefres
 // NewLogListRefresher creates and inits a LogListRefresherImpl instance using
 // default http.Client
 func NewLogListRefresher(llPath string) LogListRefresher {
-	return &logListRefresherImpl{
-		path:   llPath,
-		client: &http.Client{Timeout: httpClientTimeout},
-	}
+	return NewCustomLogListRefresher(&http.Client{Timeout: httpClientTimeout}, llPath)
 }
 
 // Refresh fetches the log list and returns its source, formed LogList and

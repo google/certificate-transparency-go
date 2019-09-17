@@ -21,7 +21,24 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/trillian/monitoring"
 )
+
+var (
+	logRefOnce          sync.Once
+	logListSinceRefresh monitoring.Gauge // updates every minute
+)
+
+func incTimeSinceRefresh(_ context.Context) {
+	logListSinceRefresh.Inc()
+}
+
+// logRefInitMetrics initializes all the exported metrics.
+func logRefInitMetrics(ctx context.Context, mf monitoring.MetricFactory) {
+	logListSinceRefresh = mf.NewGauge("log_list_since_refresh", "Time since last Log-list refresh in minutes")
+	go schedule.Every(ctx, time.Minute, incTimeSinceRefresh)
+
+}
 
 // LogListManager runs loglist updates and keeps two latest versions of Log
 // list.
@@ -35,14 +52,20 @@ type LogListManager struct {
 	latestLL   *LogListData
 	previousLL *LogListData
 	mu         sync.Mutex // guards latestLL and previousLL
+
+	mtf monitoring.MetricFactory
 }
 
 // NewLogListManager creates and inits a LogListManager instance.
-func NewLogListManager(llr LogListRefresher) *LogListManager {
+func NewLogListManager(llr LogListRefresher, mf monitoring.MetricFactory) *LogListManager {
+	if mf == nil {
+		mf = monitoring.InertMetricFactory{}
+	}
 	return &LogListManager{
 		Errors:    make(chan error, 1),
 		LLUpdates: make(chan LogListData, 1),
 		llr:       llr,
+		mtf:       mf,
 	}
 }
 
@@ -52,6 +75,7 @@ func NewLogListManager(llr LogListRefresher) *LogListManager {
 func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 	llm.llRefreshInterval = llRefresh
 	go schedule.Every(ctx, llm.llRefreshInterval, llm.refreshLogListAndNotify)
+	logRefOnce.Do(func() { logRefInitMetrics(ctx, llm.mtf) })
 }
 
 // refreshLogListAndNotify runs single Log-list refresh and propagates data and
@@ -61,6 +85,7 @@ func (llm *LogListManager) refreshLogListAndNotify(ctx context.Context) {
 		llm.Errors <- err
 	} else if lld != nil {
 		llm.LLUpdates <- llm.ProduceClientLogList()
+		logListSinceRefresh.Set(0)
 	}
 }
 
