@@ -39,6 +39,7 @@ var (
 	distOnce      sync.Once
 	reqsCounter   monitoring.Counter   // logurl, ep => value
 	rspsCounter   monitoring.Counter   // logurl, ep, sc => value
+	errCounter    monitoring.Counter   // logurl, ep, status => value
 	logRspLatency monitoring.Histogram // logurl, ep => value
 )
 
@@ -46,6 +47,7 @@ var (
 func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
+	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "statuscode")
 	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
@@ -177,13 +179,24 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 		status = http.StatusBadRequest // default to this if status code unavailable
 		if err, ok := rspErr.(client.RspError); ok {
 			status = err.StatusCode
-			if err.Err != nil && status == http.StatusOK {
-				// got SCT response, but it's either cannot be decoded or cannot be verified
-				status = http.StatusVariantAlsoNegotiates
-			}
 		}
 	}
-	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
+	errCounter.Inc(logURL, endpoint, strconv.Itoa(status))
+}
+
+// incErrCounter increments corresponding errCounter if any error occurred during
+// submission to a Log.
+func incErrCounter(logURL string, endpoint string, rspErr error) {
+	if rspErr == nil {
+		return
+	}
+	if err, ok := rspErr.(client.RspError); ok {
+		if err.Err != nil && err.StatusCode == http.StatusOK {
+			errCounter.Inc(logURL, endpoint, "invalid_sct")
+			return
+		}
+	}
+	errCounter.Inc(logURL, endpoint, "connection_failed")
 }
 
 // SubmitToLog implements Submitter interface.
@@ -209,6 +222,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 	sct, err := addChain(ctx, chain)
 	incRspsCounter(logURL, endpoint, err)
+	incErrCounter(logURL, endpoint, err)
 	return sct, err
 }
 
