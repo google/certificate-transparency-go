@@ -26,7 +26,7 @@ import (
 
 var (
 	logRefOnce          sync.Once
-	logListSinceRefresh monitoring.Gauge // updates every minute
+	logListSinceRefresh monitoring.Counter // updates every hour
 )
 
 func incTimeSinceRefresh(context.Context) {
@@ -36,7 +36,7 @@ func incTimeSinceRefresh(context.Context) {
 // logRefInitMetrics initializes all the exported metrics.
 func logRefInitMetrics(ctx context.Context, mf monitoring.MetricFactory) {
 	logListSinceRefresh = mf.NewGauge("log_list_since_refresh", "Time since last Log-list refresh in minutes")
-	go schedule.Every(ctx, time.Minute, incTimeSinceRefresh)
+	go schedule.Every(ctx, time.Hour, incTimeSinceRefresh)
 }
 
 // LogListManager runs loglist updates and keeps two latest versions of Log
@@ -84,7 +84,7 @@ func (llm *LogListManager) refreshLogListAndNotify(ctx context.Context) {
 		llm.Errors <- err
 	} else if lld != nil {
 		llm.LLUpdates <- llm.ProduceClientLogList()
-		logListSinceRefresh.Set(0)
+		logListSinceRefresh = llm.mtf.NewGauge("log_list_since_refresh", "Time since last Log-list refresh in minutes")
 	}
 }
 
