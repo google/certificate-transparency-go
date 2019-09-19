@@ -204,7 +204,6 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 		addChain = lc.AddPreChain
 	}
 	sct, err := addChain(ctx, chain)
-	// err /no-err
 	incRspsCounter(logURL, endpoint, err)
 	return sct, err
 }
