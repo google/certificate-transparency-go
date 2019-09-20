@@ -47,7 +47,7 @@ var (
 func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
-	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "statuscode")
+	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "errtype")
 	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
@@ -181,7 +181,7 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 			status = err.StatusCode
 		}
 	}
-	errCounter.Inc(logURL, endpoint, strconv.Itoa(status))
+	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
 }
 
 // incErrCounter increments corresponding errCounter if any error occurred during
@@ -190,13 +190,15 @@ func incErrCounter(logURL string, endpoint string, rspErr error) {
 	if rspErr == nil {
 		return
 	}
-	if err, ok := rspErr.(client.RspError); ok {
-		if err.Err != nil && err.StatusCode == http.StatusOK {
-			errCounter.Inc(logURL, endpoint, "invalid_sct")
-			return
-		}
+	err, ok := rspErr.(client.RspError)
+	switch true {
+	case !ok:
+		errCounter.Inc(logURL, endpoint, "unknown_error")
+	case err.Err != nil && err.StatusCode == http.StatusOK:
+		errCounter.Inc(logURL, endpoint, "invalid_sct")
+	case err.Err != nil: // err.StatusCode != http.StatusOK.
+		errCounter.Inc(logURL, endpoint, "connection_error")
 	}
-	errCounter.Inc(logURL, endpoint, "connection_failed")
 }
 
 // SubmitToLog implements Submitter interface.
