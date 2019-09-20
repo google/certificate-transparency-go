@@ -29,10 +29,6 @@ var (
 	logListLastRefresh monitoring.Gauge // Unix time
 )
 
-func incTimeSinceRefresh(context.Context) {
-	logListLastRefresh.Inc()
-}
-
 // logRefInitMetrics initializes all the exported metrics.
 func logRefInitMetrics(ctx context.Context, mf monitoring.MetricFactory) {
 	logListLastRefresh = mf.NewGauge("log_list_last_refresh", "Timestamp for last successful Log-list refresh")
