@@ -48,7 +48,7 @@ func (llr stubLogListRefresher) Source() string {
 }
 
 func stubLogListManager() *LogListManager {
-	return NewLogListManager(stubLogListRefresher{})
+	return NewLogListManager(stubLogListRefresher{}, nil)
 }
 
 var imf monitoring.InertMetricFactory
@@ -100,7 +100,7 @@ func TestProxyInitState(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	p := NewProxy(NewLogListManager(llr), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
+	p := NewProxy(NewLogListManager(llr, nil), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)
 	p.Run(context.Background(), 100*time.Millisecond, time.Hour)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
