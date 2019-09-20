@@ -191,7 +191,7 @@ func incErrCounter(logURL string, endpoint string, rspErr error) {
 		return
 	}
 	err, ok := rspErr.(client.RspError)
-	switch true {
+	switch {
 	case !ok:
 		errCounter.Inc(logURL, endpoint, "unknown_error")
 	case err.Err != nil && err.StatusCode == http.StatusOK:
