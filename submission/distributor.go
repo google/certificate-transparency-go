@@ -39,6 +39,7 @@ var (
 	distOnce      sync.Once
 	reqsCounter   monitoring.Counter   // logurl, ep => value
 	rspsCounter   monitoring.Counter   // logurl, ep, sc => value
+	errCounter    monitoring.Counter   // logurl, ep, status => value
 	logRspLatency monitoring.Histogram // logurl, ep => value
 )
 
@@ -46,6 +47,7 @@ var (
 func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
+	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "errtype")
 	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
@@ -182,6 +184,23 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
 }
 
+// incErrCounter increments corresponding errCounter if any error occurred during
+// submission to a Log.
+func incErrCounter(logURL string, endpoint string, rspErr error) {
+	if rspErr == nil {
+		return
+	}
+	err, ok := rspErr.(client.RspError)
+	switch {
+	case !ok:
+		errCounter.Inc(logURL, endpoint, "unknown_error")
+	case err.Err != nil && err.StatusCode == http.StatusOK:
+		errCounter.Inc(logURL, endpoint, "invalid_sct")
+	case err.Err != nil: // err.StatusCode != http.StatusOK.
+		errCounter.Inc(logURL, endpoint, "connection_error")
+	}
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert, asPreChain bool) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
@@ -205,6 +224,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 	sct, err := addChain(ctx, chain)
 	incRspsCounter(logURL, endpoint, err)
+	incErrCounter(logURL, endpoint, err)
 	return sct, err
 }
 
