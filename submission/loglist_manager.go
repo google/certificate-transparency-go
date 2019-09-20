@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	logRefOnce          sync.Once
+	logRefOnce         sync.Once
 	logListLastRefresh monitoring.Gauge // Unix time
 )
 
