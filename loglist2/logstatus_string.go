@@ -4,9 +4,22 @@ package loglist2
 
 import "strconv"
 
-const _LogStatus_name = "UndefinedLogStatusPendingLogStatusQualifiedLogStatusUsableLogStatusReadOnlyLogStatusRetiredLogStatusRejectedLogStatus"
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[UndefinedLogStatus-0]
+	_ = x[RejectedLogStatus-1]
+	_ = x[RetiredLogStatus-2]
+	_ = x[ReadOnlyLogStatus-3]
+	_ = x[PendingLogStatus-4]
+	_ = x[QualifiedLogStatus-5]
+	_ = x[UsableLogStatus-6]
+}
 
-var _LogStatus_index = [...]uint8{0, 18, 34, 52, 67, 84, 100, 117}
+const _LogStatus_name = "UndefinedLogStatusRejectedLogStatusRetiredLogStatusReadOnlyLogStatusPendingLogStatusQualifiedLogStatusUsableLogStatus"
+
+var _LogStatus_index = [...]uint8{0, 18, 35, 51, 68, 84, 102, 117}
 
 func (i LogStatus) String() string {
 	if i < 0 || i >= LogStatus(len(_LogStatus_index)-1) {

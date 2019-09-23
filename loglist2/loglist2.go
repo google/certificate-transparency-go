@@ -102,12 +102,12 @@ type LogStatus int
 // LogStatus values
 const (
 	UndefinedLogStatus LogStatus = iota
+	RejectedLogStatus
+	RetiredLogStatus
+	ReadOnlyLogStatus
 	PendingLogStatus
 	QualifiedLogStatus
 	UsableLogStatus
-	ReadOnlyLogStatus
-	RetiredLogStatus
-	RejectedLogStatus
 )
 
 //go:generate stringer -type=LogStatus
