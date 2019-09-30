@@ -31,7 +31,7 @@ var (
 
 // logRefInitMetrics initializes all the exported metrics.
 func logRefInitMetrics(ctx context.Context, mf monitoring.MetricFactory) {
-	logListLastRefresh = mf.NewGauge("log_list_last_refresh", "Timestamp for last successful Log-list refresh")
+	logListLastRefresh = mf.NewGauge("log_list_last_refresh", "Unix timestamp for last successful Log-list refresh")
 }
 
 // LogListManager runs loglist updates and keeps two latest versions of Log
@@ -68,8 +68,8 @@ func NewLogListManager(llr LogListRefresher, mf monitoring.MetricFactory) *LogLi
 // to have readers listening.
 func (llm *LogListManager) Run(ctx context.Context, llRefresh time.Duration) {
 	llm.llRefreshInterval = llRefresh
-	go schedule.Every(ctx, llm.llRefreshInterval, llm.refreshLogListAndNotify)
 	logRefOnce.Do(func() { logRefInitMetrics(ctx, llm.mtf) })
+	go schedule.Every(ctx, llm.llRefreshInterval, llm.refreshLogListAndNotify)
 }
 
 // refreshLogListAndNotify runs single Log-list refresh and propagates data and
