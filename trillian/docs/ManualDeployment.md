@@ -311,7 +311,7 @@ can be started.
 
  - The `--log_config` option gives the location of the configuration file.
  - The `--log_rpc_server` option gives the location of the Trillian log server;
-   it should match the `--rpc_endpoint` for the [log server](#trilian-services).
+   it should match the `--rpc_endpoint` for the [log server](#trillian-services).
  - The `--http_endpoint` option indicates the port that the CTFE should respond
    to HTTP(S) requests on.
 
