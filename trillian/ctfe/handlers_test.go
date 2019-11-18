@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -186,6 +187,7 @@ func (info handlerTestInfo) getHandlers() map[string]AppHandler {
 		"get-entries":         {Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet},
 		"get-roots":           {Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet},
 		"get-entry-and-proof": {Info: info.li, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet},
+		"x-get-index-by-hash": {Info: info.li, Handler: getIndexByHash, Name: "GetIndexByHash", Method: http.MethodGet},
 	}
 }
 
@@ -2228,6 +2230,118 @@ func TestGetEntryAndProof(t *testing.T) {
 		if diff := pretty.Compare(&resp, test.wantRsp); diff != "" {
 			t.Errorf("getEntryAndProof(%q) diff:\n%v", test.req, diff)
 		}
+	}
+}
+
+func TestGetIndexByHash(t *testing.T) {
+	var tests = []struct {
+		desc          string
+		req           string
+		want          int
+		wantQuotaUser string
+		wantRsp       *ct.GetIndexByHashResponse
+		rpcRsp        *trillian.GetLeavesByHashResponse
+		rpcErr        error
+		errStr        string
+	}{
+		{
+			desc: "no hash",
+			req:  "",
+			want: http.StatusBadRequest,
+		},
+		{
+			desc: "invalid b64",
+			req:  "<BAD BASE64 !!!!!!>",
+			want: http.StatusBadRequest,
+		},
+		{
+			desc: "backend error",
+			req:  "bGVhZgo=",
+			rpcErr: status.Error(codes.PermissionDenied, "should be 403"),
+			want: http.StatusForbidden,
+		},
+		{
+			desc: "nothing found",
+			req:  "bGVhZgo=",
+			rpcRsp: &trillian.GetLeavesByHashResponse{
+				Leaves: []*trillian.LogLeaf{},
+			},
+			want: http.StatusNotFound,
+		},
+		{
+			desc: "ok",
+			req:  "bGVhZgo=",
+			rpcRsp: &trillian.GetLeavesByHashResponse{
+				Leaves: []*trillian.LogLeaf{{LeafIndex: 493}},
+			},
+			want: http.StatusOK,
+			wantRsp: &ct.GetIndexByHashResponse{
+				LeafIndex: 493,
+			},
+		},
+		{
+			desc: "ok with quota",
+			req:  "bGVhZgo=",
+			rpcRsp: &trillian.GetLeavesByHashResponse{
+				Leaves: []*trillian.LogLeaf{{LeafIndex: 236}},
+			},
+			wantQuotaUser: "user",
+			want: http.StatusOK,
+			wantRsp: &ct.GetIndexByHashResponse{
+				LeafIndex: 236,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			info := setupTest(t, nil, nil)
+			defer info.mockCtrl.Finish()
+			handler := AppHandler{Info: info.li, Handler: getIndexByHash, Name: "GetIndexByHash", Method: http.MethodGet}
+
+			info.setRemoteQuotaUser(test.wantQuotaUser)
+			req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/x-get-index-by-hash?hash=%s", test.req), nil)
+			if err != nil {
+				t.Errorf("Failed to create request: %v", err)
+				return
+			}
+
+			if test.rpcRsp != nil || test.rpcErr != nil {
+				// Don't fail on decode here because we want the test to reach the parsing
+				// code in the handler.
+				decoded, _ := base64.StdEncoding.DecodeString(test.req);
+				req := &trillian.GetLeavesByHashRequest{LogId: 0x42, LeafHash:[][]byte{decoded}}
+				if len(test.wantQuotaUser) > 0 {
+					req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+				}
+				info.client.EXPECT().GetLeavesByHash(deadlineMatcher(), cmpMatcher{req}).Return(test.rpcRsp, test.rpcErr)
+			}
+
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+			if got := w.Code; got != test.want {
+				t.Errorf("getIndexByHash(%s)=%d; want %d", test.req, got, test.want)
+			}
+			if test.errStr != "" {
+				if body := w.Body.String(); !strings.Contains(body, test.errStr) {
+					t.Errorf("getIndexByHash(%q)=%q; want to find %q", test.req, body, test.errStr)
+				}
+				return
+			}
+			if test.want != http.StatusOK {
+				return
+			}
+
+			var resp ct.GetIndexByHashResponse
+			if err = json.NewDecoder(w.Body).Decode(&resp); err != nil {
+				t.Errorf("Failed to unmarshal json response %s: %v", w.Body.Bytes(), err)
+				return
+			}
+			// The result we expect after a roundtrip in the successful get entry and proof test
+			if diff := pretty.Compare(&resp, test.wantRsp); diff != "" {
+				t.Errorf("getIndexByHash(%q) diff:\n%v", test.req, diff)
+			}
+		})
 	}
 }
 

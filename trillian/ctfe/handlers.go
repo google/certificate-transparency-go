@@ -95,6 +95,7 @@ const (
 	GetEntriesName        = EntrypointName("GetEntries")
 	GetRootsName          = EntrypointName("GetRoots")
 	GetEntryAndProofName  = EntrypointName("GetEntryAndProof")
+	GetIndexByHashName    = EntrypointName("GetIndexByHash")
 )
 
 var (
@@ -130,7 +131,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
-var Entrypoints = []EntrypointName{AddChainName, AddPreChainName, GetSTHName, GetSTHConsistencyName, GetProofByHashName, GetEntriesName, GetRootsName, GetEntryAndProofName}
+var Entrypoints = []EntrypointName{AddChainName, AddPreChainName, GetSTHName, GetSTHConsistencyName, GetProofByHashName, GetEntriesName, GetRootsName, GetEntryAndProofName, GetIndexByHashName}
 
 // PathHandlers maps from a path to the relevant AppHandler instance.
 type PathHandlers map[string]AppHandler
@@ -333,6 +334,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetEntriesPath:        AppHandler{Info: li, Handler: getEntries, Name: GetEntriesName, Method: http.MethodGet},
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
+		prefix + ct.GetIndexByHashPath:    AppHandler{Info: li, Handler: getIndexByHash, Name: GetIndexByHashName, Method: http.MethodGet},
 	}
 	// Remove endpoints not provided by mirrors.
 	if li.instanceOpts.Validated.Config.IsMirror {
@@ -883,6 +885,53 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 
 		// Probably too late for this as headers might have been written but we don't know for sure
 		return http.StatusInternalServerError, fmt.Errorf("failed to write get-entry-and-proof resp: %s", err)
+	}
+
+	return http.StatusOK, nil
+}
+
+func getIndexByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	// Accept any non empty hash that decodes from base64 and let the backend validate it further
+	hash := r.FormValue(getProofParamHash)
+	if len(hash) == 0 {
+		return http.StatusBadRequest, errors.New("get-index-by-hash: missing / empty hash param for get-proof-by-hash")
+	}
+	leafHash, err := base64.StdEncoding.DecodeString(hash)
+	if err != nil {
+		return http.StatusBadRequest, fmt.Errorf("get-index-by-hash: invalid base64 hash: %s", err)
+	}
+
+	li.RequestLog.LeafHash(ctx, leafHash)
+
+	logReq := &trillian.GetLeavesByHashRequest{
+		LogId:    li.logID,
+		ChargeTo:  li.chargeUser(r),
+		LeafHash: [][]byte{leafHash},
+	}
+	resp, err := li.rpcClient.GetLeavesByHash(ctx, logReq)
+	if err != nil {
+		return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByHash request failed: %s", err)
+	}
+
+	if len(resp.GetLeaves()) == 0 {
+		return http.StatusNotFound, errors.New("no matching leaf found for hash")
+	}
+
+	// Build and marshal the response to the client
+	jsonRsp := ct.GetIndexByHashResponse{
+		LeafIndex: resp.GetLeaves()[0].LeafIndex,
+	}
+
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	jsonData, err := json.Marshal(&jsonRsp)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-index-by-hash resp: %s", err)
+	}
+
+	_, err = w.Write(jsonData)
+	if err != nil {
+		// Probably too late for this as headers might have been written but we don't know for sure
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-index-by-hash resp: %s", err)
 	}
 
 	return http.StatusOK, nil

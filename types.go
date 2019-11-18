@@ -440,8 +440,8 @@ const (
 	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
 	GetRootsPath          = "/ct/v1/get-roots"
 	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
-
-	AddJSONPath = "/ct/v1/add-json" // Experimental addition
+	GetIndexByHashPath    = "/ct/v1/x-get-index-by-hash" // Experimental addition.
+	AddJSONPath           = "/ct/v1/add-json" // Experimental addition.
 )
 
 // AddChainRequest represents the JSON request body sent to the add-chain and
@@ -542,4 +542,10 @@ type GetEntryAndProofResponse struct {
 	LeafInput []byte   `json:"leaf_input"` // the entry itself
 	ExtraData []byte   `json:"extra_data"` // any chain provided when the entry was added to the log
 	AuditPath [][]byte `json:"audit_path"` // the corresponding proof
+}
+
+// GetIndexByHashResponse represents a JSON response to our experimental API
+// to look up a leaf sequence number. This is not currently part of RFC 6962.
+type GetIndexByHashResponse struct {
+	LeafIndex int64    `json:"leaf_index"` // The 0-based index of the end entity corresponding to the "hash" parameter.
 }
