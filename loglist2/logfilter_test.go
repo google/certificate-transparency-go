@@ -58,7 +58,9 @@ func TestSelectUsable(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.SelectByStatus(UsableLogStatus)
+			usableStat := make([]LogStatus, 1)
+			usableStat[0] = UsableLogStatus
+			got := test.in.SelectByStatus(usableStat)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Extracting active logs out of %v diff: (-want +got)\n%s", test.in, diff)
 			}
@@ -66,7 +68,7 @@ func TestSelectUsable(t *testing.T) {
 	}
 }
 
-func TestSelectQualified(t *testing.T) {
+func TestSelectPendingAndQualified(t *testing.T) {
 	tests := []struct {
 		name string
 		in   LogList
@@ -81,7 +83,10 @@ func TestSelectQualified(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := test.in.SelectByStatus(QualifiedLogStatus)
+			stats := make([]LogStatus, 2)
+			stats[0] = PendingLogStatus
+			stats[1] = QualifiedLogStatus
+			got := test.in.SelectByStatus(stats)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Extracting qualified logs out of %v diff: (-want +got)\n%s", test.in, diff)
 			}
@@ -281,7 +286,7 @@ func TestCompatible(t *testing.T) {
 			if test.cert != nil {
 				test.cert.NotBefore = test.notBefore
 			}
-			got := test.in.Compatible(test.cert, test.rootCert, test.roots, UsableLogStatus)
+			got := test.in.Compatible(test.cert, test.rootCert, test.roots)
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("Getting compatible logs diff: (-want +got)\n%s", diff)
 			}

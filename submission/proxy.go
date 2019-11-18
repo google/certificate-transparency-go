@@ -44,11 +44,13 @@ const (
 var (
 	proxyOnce      sync.Once
 	logListUpdates monitoring.Counter
+	rspLatency     monitoring.Histogram // ep => value
 )
 
 // proxyInitMetrics initializes all the exported metrics.
 func proxyInitMetrics(mf monitoring.MetricFactory) {
 	logListUpdates = mf.NewCounter("log_list_updates", "Number of Log-list updates")
+	rspLatency = mf.NewHistogram("http_latency", "Latency of policy-multiplexed add-responses in seconds", "ep")
 }
 
 // DistributorBuilder builds distributor instance for a given Log list.
@@ -185,17 +187,24 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist2.LogList) er
 }
 
 // AddPreChain passes call to underlying Distributor instance.
-func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
-	return p.dist.AddPreChain(ctx, rawChain)
+
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), "add-pre-chain")
+	}(time.Now())
+	return p.dist.AddPreChain(ctx, rawChain, loadPendingLogs)
 }
 
 // AddChain passes call to underlying Distributor instance.
-func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
+func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
 	if p.dist == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
-	return p.dist.AddChain(ctx, rawChain)
+	defer func(start time.Time) {
+		rspLatency.Observe(time.Since(start).Seconds(), "add-chain")
+	}(time.Now())
+	return p.dist.AddChain(ctx, rawChain, loadPendingLogs)
 }

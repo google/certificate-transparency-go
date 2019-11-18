@@ -31,20 +31,22 @@ import (
 
 // ProxyServer wraps Proxy and handles HTTP-requests for it.
 type ProxyServer struct {
-	p          *Proxy
-	addTimeout time.Duration
+	p               *Proxy
+	addTimeout      time.Duration
+	loadPendingLogs bool
 }
 
 // NewProxyServer creates ProxyServer instance. Call Run() to init.
 func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout time.Duration, mf monitoring.MetricFactory) *ProxyServer {
 	s := &ProxyServer{addTimeout: reqTimeout}
-	s.p = NewProxy(NewLogListManager(NewLogListRefresher(logListPath)), dBuilder, mf)
+	s.p = NewProxy(NewLogListManager(NewLogListRefresher(logListPath), mf), dBuilder, mf)
 	return s
 }
 
 // Run starts regular Log list updates in the background, running until the
 // context is canceled. Blocks until initialization happens.
-func (s *ProxyServer) Run(ctx context.Context, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration) {
+func (s *ProxyServer) Run(ctx context.Context, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration, loadPendingLogs bool) {
+	s.loadPendingLogs = loadPendingLogs
 	s.p.Run(ctx, logListRefreshInterval, rootsRefreshInterval)
 
 	<-s.p.Init
@@ -86,9 +88,9 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 
 	var scts []*AssignedSCT
 	if asPreChain {
-		scts, err = s.p.AddPreChain(ctx, addChainReq.Chain)
+		scts, err = s.p.AddPreChain(ctx, addChainReq.Chain, s.loadPendingLogs)
 	} else {
-		scts, err = s.p.AddChain(ctx, addChainReq.Chain)
+		scts, err = s.p.AddChain(ctx, addChainReq.Chain, s.loadPendingLogs)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)

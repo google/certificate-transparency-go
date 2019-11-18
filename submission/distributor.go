@@ -36,17 +36,19 @@ import (
 
 var (
 	// Metrics are per-log, per-endpoint and some per-response-status code.
-	distOnce    sync.Once
-	reqsCounter monitoring.Counter   // logurl, ep => value
-	rspsCounter monitoring.Counter   // logurl, ep, sc => value
-	rspLatency  monitoring.Histogram // logurl, ep => value
+	distOnce      sync.Once
+	reqsCounter   monitoring.Counter   // logurl, ep => value
+	rspsCounter   monitoring.Counter   // logurl, ep, sc => value
+	errCounter    monitoring.Counter   // logurl, ep, status => value
+	logRspLatency monitoring.Histogram // logurl, ep => value
 )
 
 // distInitMetrics initializes all the exported metrics.
 func distInitMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logurl", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
-	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logurl", "ep")
+	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "errtype")
+	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
 }
 
 const (
@@ -54,9 +56,26 @@ const (
 	getRootsTimeout = time.Second * 10
 )
 
+// pendingLogsPolicy is policy stub used for spreading submissions across
+// Pending and Qualified Logs.
+type pendingLogsPolicy struct {
+}
+
+func (stubP pendingLogsPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
+	baseGroup, err := ctpolicy.BaseGroupFor(approved, 1)
+	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
+	return groups, err
+}
+
+func (stubP pendingLogsPolicy) Name() string {
+	return "Pending/Qualified Policy"
+}
+
 // Distributor operates policy-based submission across Logs.
 type Distributor struct {
-	ll *loglist2.LogList
+	ll                 *loglist2.LogList
+	usableLl           *loglist2.LogList
+	pendingQualifiedLl *loglist2.LogList
 
 	mu sync.RWMutex
 
@@ -67,7 +86,8 @@ type Distributor struct {
 
 	rootDataFull bool
 
-	policy ctpolicy.CTPolicy
+	policy            ctpolicy.CTPolicy
+	pendingLogsPolicy ctpolicy.CTPolicy
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -164,6 +184,23 @@ func incRspsCounter(logURL string, endpoint string, rspErr error) {
 	rspsCounter.Inc(logURL, endpoint, strconv.Itoa(status))
 }
 
+// incErrCounter increments corresponding errCounter if any error occurred during
+// submission to a Log.
+func incErrCounter(logURL string, endpoint string, rspErr error) {
+	if rspErr == nil {
+		return
+	}
+	err, ok := rspErr.(client.RspError)
+	switch {
+	case !ok:
+		errCounter.Inc(logURL, endpoint, "unknown_error")
+	case err.Err != nil && err.StatusCode == http.StatusOK:
+		errCounter.Inc(logURL, endpoint, "invalid_sct")
+	case err.Err != nil: // err.StatusCode != http.StatusOK.
+		errCounter.Inc(logURL, endpoint, "connection_error")
+	}
+}
+
 // SubmitToLog implements Submitter interface.
 func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct.ASN1Cert, asPreChain bool) (*ct.SignedCertificateTimestamp, error) {
 	lc, ok := d.logClients[logURL]
@@ -178,7 +215,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 
 	defer func(start time.Time) {
-		rspLatency.Observe(time.Since(start).Seconds(), logURL, endpoint)
+		logRspLatency.Observe(time.Since(start).Seconds(), logURL, endpoint)
 	}(time.Now())
 	reqsCounter.Inc(logURL, endpoint)
 	addChain := lc.AddChain
@@ -187,6 +224,7 @@ func (d *Distributor) SubmitToLog(ctx context.Context, logURL string, chain []ct
 	}
 	sct, err := addChain(ctx, chain)
 	incRspsCounter(logURL, endpoint, err)
+	incErrCounter(logURL, endpoint, err)
 	return sct, err
 }
 
@@ -205,7 +243,7 @@ func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
 
 // addSomeChain is helper calling one of AddChain or AddPreChain based
 // on asPreChain param.
-func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPreChain bool) ([]*AssignedSCT, error) {
+func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool, asPreChain bool) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
 		return nil, fmt.Errorf("distributor unable to process empty chain")
 	}
@@ -219,7 +257,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 
 	if err == nil {
 		parsedChain = rootedChain
-		compatibleLogs = d.ll.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots, loglist2.UsableLogStatus)
+		compatibleLogs = d.usableLl.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
 	} else if d.isRootDataFull() {
 		// Could not verify the chain while root info for logs is complete.
 		d.mu.RUnlock()
@@ -230,7 +268,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 		if err != nil {
 			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
-		compatibleLogs = d.ll.Compatible(parsedChain[0], nil, d.logRoots, loglist2.UsableLogStatus)
+		compatibleLogs = d.usableLl.Compatible(parsedChain[0], nil, d.logRoots)
 	}
 	d.mu.RUnlock()
 
@@ -259,21 +297,30 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, asPre
 	for i, c := range parsedChain {
 		chain[i] = ct.ASN1Cert{Data: c.Raw}
 	}
+	if loadPendingLogs {
+		go func() {
+			pendingGroup, err := d.pendingLogsPolicy.LogsByGroup(parsedChain[0], d.pendingQualifiedLl)
+			if err != nil {
+				return
+			}
+			GetSCTs(ctx, d, chain, asPreChain, pendingGroup)
+		}()
+	}
 	return GetSCTs(ctx, d, chain, asPreChain, groups)
 }
 
 // AddPreChain runs add-pre-chain calls across subset of logs according to
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
-func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
-	return d.addSomeChain(ctx, rawChain, true)
+func (d *Distributor) AddPreChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
+	return d.addSomeChain(ctx, rawChain, loadPendingLogs, true)
 }
 
 // AddChain runs add-chain calls across subset of logs according to
 // Distributor's policy. May emit both SCTs array and error when SCTs
 // collected do not satisfy the policy.
-func (d *Distributor) AddChain(ctx context.Context, rawChain [][]byte) ([]*AssignedSCT, error) {
-	return d.addSomeChain(ctx, rawChain, false)
+func (d *Distributor) AddChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
+	return d.addSomeChain(ctx, rawChain, loadPendingLogs, false)
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.
@@ -298,26 +345,46 @@ func BuildLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 // the local copy of the roots up-to-date.
 func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
-	active := ll.SelectByStatus(loglist2.UsableLogStatus)
-	d.ll = &active
+	// Divide Logs by statuses.
+	d.ll = ll
+	usableStat := []loglist2.LogStatus{loglist2.UsableLogStatus}
+	active := ll.SelectByStatus(usableStat)
+	d.usableLl = &active
+	pendingQualifiedStat := []loglist2.LogStatus{
+		loglist2.PendingLogStatus, loglist2.QualifiedLogStatus}
+	pending := ll.SelectByStatus(pendingQualifiedStat)
+	d.pendingQualifiedLl = &pending
+
 	d.policy = plc
+	d.pendingLogsPolicy = pendingLogsPolicy{}
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist2.LogRoots)
 	d.rootPool = ctfe.NewPEMCertPool()
 
 	// Build clients for each of the Logs. Also build log-to-id map.
-	for _, op := range d.ll.Operators {
-		for _, log := range op.Logs {
-			lc, err := lcBuilder(log)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
-			}
-			d.logClients[log.URL] = lc
-		}
+	if err := d.buildLogClients(lcBuilder, d.usableLl); err != nil {
+		return nil, err
 	}
+	d.buildLogClients(lcBuilder, d.pendingQualifiedLl)
+
 	if mf == nil {
 		mf = monitoring.InertMetricFactory{}
 	}
 	distOnce.Do(func() { distInitMetrics(mf) })
 	return &d, nil
+}
+
+// buildLogClients builds clients for every Log provided and adds them into
+// Distributor internals.
+func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist2.LogList) error {
+	for _, op := range ll.Operators {
+		for _, log := range op.Logs {
+			lc, err := lcBuilder(log)
+			if err != nil {
+				return fmt.Errorf("failed to create log client for %s: %v", log.URL, err)
+			}
+			d.logClients[log.URL] = lc
+		}
+	}
+	return nil
 }

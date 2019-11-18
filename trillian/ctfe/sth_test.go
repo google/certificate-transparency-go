@@ -201,7 +201,7 @@ func TestLogSTHGetter(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			rpcCl := mockclient.NewMockTrillianLogClient(ctrl)
 			if tc.slr != nil || tc.slrErr != nil {
-				rpcCl.EXPECT().GetLatestSignedLogRoot(gomock.Any(), &trillian.GetLatestSignedLogRootRequest{LogId: 99}).Return(tc.slr, tc.slrErr)
+				rpcCl.EXPECT().GetLatestSignedLogRoot(gomock.Any(), cmpMatcher{&trillian.GetLatestSignedLogRootRequest{LogId: 99}}).Return(tc.slr, tc.slrErr)
 			}
 
 			sthg := LogSTHGetter{li: &logInfo{rpcClient: rpcCl, logID: 99, signer: &fakeSigner{sig: tc.sig, err: tc.sigErr}}}
@@ -237,7 +237,7 @@ func TestMirrorSTHGetter(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			rpcCl := mockclient.NewMockTrillianLogClient(ctrl)
 			if tc.slr != nil || tc.slrErr != nil {
-				rpcCl.EXPECT().GetLatestSignedLogRoot(gomock.Any(), &trillian.GetLatestSignedLogRootRequest{LogId: 99}).Return(tc.slr, tc.slrErr)
+				rpcCl.EXPECT().GetLatestSignedLogRoot(gomock.Any(), cmpMatcher{&trillian.GetLatestSignedLogRootRequest{LogId: 99}}).Return(tc.slr, tc.slrErr)
 			}
 
 			sthg := MirrorSTHGetter{li: &logInfo{rpcClient: rpcCl, logID: 99}, st: tc.ms}

@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/trillian/monitoring"
 )
 
 func TestNoLLRefresher(t *testing.T) {
-	llm := NewLogListManager(nil)
+	llm := NewLogListManager(nil, nil)
 	_, err := llm.RefreshLogList(context.Background())
 	if err == nil {
 		t.Errorf("llm.RefreshLogList() on nil LogListRefresher expected to get error, got none")
@@ -34,7 +35,7 @@ func TestNoLLRefresher(t *testing.T) {
 }
 
 func TestNoLLRefresherAfterRun(t *testing.T) {
-	llm := NewLogListManager(nil)
+	llm := NewLogListManager(nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -55,7 +56,7 @@ func TestFirstRefresh(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	llm := NewLogListManager(llr)
+	llm := NewLogListManager(llr, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -78,7 +79,7 @@ func TestSecondRefresh(t *testing.T) {
 	defer os.Remove(f)
 
 	llr := NewLogListRefresher(f)
-	llm := NewLogListManager(llr)
+	llm := NewLogListManager(llr, monitoring.InertMetricFactory{})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	halfCtx, halfCancel := context.WithTimeout(context.Background(), time.Second)

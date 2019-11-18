@@ -34,6 +34,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
 	"github.com/google/certificate-transparency-go/trillian/testdata"
@@ -419,7 +420,7 @@ func TestAddChainWhitespace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.descr, func(t *testing.T) {
 			if test.want == http.StatusOK {
-				info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, nil)
+				info.client.EXPECT().QueueLeaves(deadlineMatcher(), cmpMatcher{req}).Return(&rsp, nil)
 			}
 
 			recorder := httptest.NewRecorder()
@@ -554,7 +555,7 @@ func TestAddChain(t *testing.T) {
 				if len(test.wantQuotaUsers) > 0 {
 					req.ChargeTo = &trillian.ChargeTo{User: test.wantQuotaUsers}
 				}
-				info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
+				info.client.EXPECT().QueueLeaves(deadlineMatcher(), cmpMatcher{req}).Return(&rsp, test.err)
 			}
 
 			recorder := makeAddChainRequest(t, info.li, chain)
@@ -679,7 +680,7 @@ func TestAddPrechain(t *testing.T) {
 				if len(test.wantQuotaUser) != 0 {
 					req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 				}
-				info.client.EXPECT().QueueLeaves(deadlineMatcher(), req).Return(&rsp, test.err)
+				info.client.EXPECT().QueueLeaves(deadlineMatcher(), cmpMatcher{req}).Return(&rsp, test.err)
 			}
 
 			recorder := makeAddPrechainRequest(t, info.li, chain)
@@ -783,7 +784,7 @@ func TestGetSTH(t *testing.T) {
 			if len(test.wantQuotaUser) != 0 {
 				srReq.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
-			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), srReq).Return(test.rpcRsp, test.rpcErr)
+			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), cmpMatcher{srReq}).Return(test.rpcRsp, test.rpcErr)
 			req, err := http.NewRequest("GET", "http://example.com/ct/v1/get-sth", nil)
 			if err != nil {
 				t.Errorf("Failed to create request: %v", err)
@@ -1045,14 +1046,14 @@ func runTestGetEntries(t *testing.T) {
 					glbrr = test.glbrr
 				}
 				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: slr, Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), glbrr).Return(&rsp, test.rpcErr)
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{glbrr}).Return(&rsp, test.rpcErr)
 			} else {
 				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}, ChargeTo: chargeTo}
 				if test.glbir != nil {
 					glbir = test.glbir
 				}
 				rsp := trillian.GetLeavesByIndexResponse{SignedLogRoot: slr, Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), glbir).Return(&rsp, test.rpcErr)
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{glbir}).Return(&rsp, test.rpcErr)
 			}
 		}
 
@@ -1188,9 +1189,9 @@ func runTestGetEntriesRanges(t *testing.T) {
 				chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
 			if *getByRange {
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}).Return(nil, errors.New("RPCMADE"))
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
 			} else {
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}).Return(nil, errors.New("RPCMADE"))
+				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
 			}
 		}
 
@@ -1872,7 +1873,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			if len(test.wantQuotaUser) > 0 {
 				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
-			info.client.EXPECT().GetConsistencyProof(deadlineMatcher(), &req).Return(test.rpcRsp, test.rpcErr)
+			info.client.EXPECT().GetConsistencyProof(deadlineMatcher(), cmpMatcher{&req}).Return(test.rpcRsp, test.rpcErr)
 		}
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
@@ -2200,7 +2201,7 @@ func TestGetEntryAndProof(t *testing.T) {
 			if len(test.wantQuotaUser) > 0 {
 				req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
-			info.client.EXPECT().GetEntryAndProof(deadlineMatcher(), req).Return(test.rpcRsp, test.rpcErr)
+			info.client.EXPECT().GetEntryAndProof(deadlineMatcher(), cmpMatcher{req}).Return(test.rpcRsp, test.rpcErr)
 		}
 
 		w := httptest.NewRecorder()
@@ -2351,4 +2352,15 @@ func mustMarshalRoot(t *testing.T, lr *types.LogRootV1) *trillian.SignedLogRoot 
 	return &trillian.SignedLogRoot{
 		LogRoot: rootBytes,
 	}
+}
+
+// cmpMatcher is a custom gomock.Matcher that uses cmp.Equal combined with a
+// cmp.Comparer that knows how to properly compare proto.Message types.
+type cmpMatcher struct{ want interface{} }
+
+func (m cmpMatcher) Matches(got interface{}) bool {
+	return cmp.Equal(got, m.want, cmp.Comparer(proto.Equal))
+}
+func (m cmpMatcher) String() string {
+	return fmt.Sprintf("equals %v", m.want)
 }
