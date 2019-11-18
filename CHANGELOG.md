@@ -4,6 +4,14 @@
 
 Not yet released; provisionally v1.1.1 (may change).
 
+### CTFE
+
+An experimental http handler has been added `x-get-index-by-hash`. This allows
+a leaf index to be looked up from its hash. It avoids the overhead of obtaining
+a proof if only the index is required. This is not an RFC 6962 required
+feature but has been useful in cases like implementing the experimental CT
+over DNS protocol.
+
 ## v1.1.0
 
 Published 2019-11-14 15:00:00 +0000 UTC
