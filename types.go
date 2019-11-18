@@ -441,7 +441,7 @@ const (
 	GetRootsPath          = "/ct/v1/get-roots"
 	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
 	GetIndexByHashPath    = "/ct/v1/x-get-index-by-hash" // Experimental addition.
-	AddJSONPath           = "/ct/v1/add-json" // Experimental addition.
+	AddJSONPath           = "/ct/v1/add-json"            // Experimental addition.
 )
 
 // AddChainRequest represents the JSON request body sent to the add-chain and
@@ -547,5 +547,5 @@ type GetEntryAndProofResponse struct {
 // GetIndexByHashResponse represents a JSON response to our experimental API
 // to look up a leaf sequence number. This is not currently part of RFC 6962.
 type GetIndexByHashResponse struct {
-	LeafIndex int64    `json:"leaf_index"` // The 0-based index of the end entity corresponding to the "hash" parameter.
+	LeafIndex int64 `json:"leaf_index"` // The 0-based index of the end entity corresponding to the "hash" parameter.
 }

@@ -905,7 +905,7 @@ func getIndexByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 
 	logReq := &trillian.GetLeavesByHashRequest{
 		LogId:    li.logID,
-		ChargeTo:  li.chargeUser(r),
+		ChargeTo: li.chargeUser(r),
 		LeafHash: [][]byte{leafHash},
 	}
 	resp, err := li.rpcClient.GetLeavesByHash(ctx, logReq)

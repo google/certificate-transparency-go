@@ -2255,10 +2255,10 @@ func TestGetIndexByHash(t *testing.T) {
 			want: http.StatusBadRequest,
 		},
 		{
-			desc: "backend error",
-			req:  "bGVhZgo=",
+			desc:   "backend error",
+			req:    "bGVhZgo=",
 			rpcErr: status.Error(codes.PermissionDenied, "should be 403"),
-			want: http.StatusForbidden,
+			want:   http.StatusForbidden,
 		},
 		{
 			desc: "nothing found",
@@ -2286,7 +2286,7 @@ func TestGetIndexByHash(t *testing.T) {
 				Leaves: []*trillian.LogLeaf{{LeafIndex: 236}},
 			},
 			wantQuotaUser: "user",
-			want: http.StatusOK,
+			want:          http.StatusOK,
 			wantRsp: &ct.GetIndexByHashResponse{
 				LeafIndex: 236,
 			},
@@ -2309,8 +2309,8 @@ func TestGetIndexByHash(t *testing.T) {
 			if test.rpcRsp != nil || test.rpcErr != nil {
 				// Don't fail on decode here because we want the test to reach the parsing
 				// code in the handler.
-				decoded, _ := base64.StdEncoding.DecodeString(test.req);
-				req := &trillian.GetLeavesByHashRequest{LogId: 0x42, LeafHash:[][]byte{decoded}}
+				decoded, _ := base64.StdEncoding.DecodeString(test.req)
+				req := &trillian.GetLeavesByHashRequest{LogId: 0x42, LeafHash: [][]byte{decoded}}
 				if len(test.wantQuotaUser) > 0 {
 					req.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 				}
@@ -2337,7 +2337,7 @@ func TestGetIndexByHash(t *testing.T) {
 				t.Errorf("Failed to unmarshal json response %s: %v", w.Body.Bytes(), err)
 				return
 			}
-			// The result we expect after a roundtrip in the successful get entry and proof test
+			// The result we expect after a roundtrip in the successful test.
 			if diff := pretty.Compare(&resp, test.wantRsp); diff != "" {
 				t.Errorf("getIndexByHash(%q) diff:\n%v", test.req, diff)
 			}
