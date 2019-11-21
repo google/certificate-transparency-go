@@ -2,7 +2,15 @@
 
 ## HEAD
 
-Not yet released.
+Not yet released; provisionally v1.1.1 (may change).
+
+### JSONClient
+
+- `PostAndParseWithRetry` error logging now includes log URI in messages.
+
+## v1.1.0
+
+Published 2019-11-14 15:00:00 +0000 UTC
 
 ### CTFE
 
