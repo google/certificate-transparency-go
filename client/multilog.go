@@ -43,14 +43,16 @@ func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, er
 		return nil, errors.New("log config filename empty")
 	}
 
-	cfgText, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read log config: %v", err)
 	}
 
 	var cfg configpb.TemporalLogConfig
-	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse log config: %v", err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
+			return nil, fmt.Errorf("failed to parse TemporalLogConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
 
 	if len(cfg.Shard) == 0 {
