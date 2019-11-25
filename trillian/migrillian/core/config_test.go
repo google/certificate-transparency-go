@@ -25,26 +25,34 @@ import (
 )
 
 const (
-	filename    = "../testdata/config.pb.txt"
-	badFilename = "../testdata/not-config.pb.txt"
-
 	ctURI = "https://ct.googleapis.com/testtube"
 	back  = "example_backend_name"
 )
 
 func TestLoadConfigFromFileValid(t *testing.T) {
-	cfg, err := LoadConfigFromFile(filename)
-	if err != nil {
-		t.Fatalf("LoadConfigFromFile(): %v", err)
-	}
-	if cfg == nil {
-		t.Fatal("Config is nil")
-	}
-	if _, err := ValidateConfig(cfg); err != nil {
-		t.Fatalf("Loaded invalid config: %v", err)
-	}
-	if got, want := len(cfg.Backends.Backend), 2; got != want {
-		t.Errorf("Wrong number of backends %d, want %d", got, want)
+	for _, tc := range []struct {
+		desc         string
+		filename     string
+		wantBackends int
+	}{
+		{desc: "text proto", filename: "../testdata/config.pb.txt", wantBackends: 2},
+		{desc: "binary proto", filename: "../testdata/config.pb", wantBackends: 2},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, err := LoadConfigFromFile(tc.filename)
+			if err != nil {
+				t.Fatalf("LoadConfigFromFile(): %v", err)
+			}
+			if cfg == nil {
+				t.Fatal("Config is nil")
+			}
+			if _, err := ValidateConfig(cfg); err != nil {
+				t.Fatalf("Loaded invalid config: %v", err)
+			}
+			if got, want := len(cfg.Backends.Backend), tc.wantBackends; got != want {
+				t.Errorf("Wrong number of backends %d, want %d", got, want)
+			}
+		})
 	}
 }
 
@@ -55,7 +63,7 @@ func TestLoadConfigFromFileErrors(t *testing.T) {
 		wantErr  string
 	}{
 		{desc: "no-such-file", filename: "does-not-exist", wantErr: "no such file"},
-		{desc: "wrong-format", filename: badFilename, wantErr: "failed to parse"},
+		{desc: "wrong-format", filename: "../testdata/not-config.pb.txt", wantErr: "failed to parse"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, err := LoadConfigFromFile(tc.filename)
