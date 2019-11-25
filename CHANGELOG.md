@@ -2,7 +2,13 @@
 
 ## HEAD
 
-Not yet released; provisionally v1.1.1 (may change).
+Not yet released; provisionally v1.2.0 (may change).
+
+### Libraries
+
+#### x509 fork
+
+Merged upstream Go 1.13 changes.
 
 ### JSONClient
 
