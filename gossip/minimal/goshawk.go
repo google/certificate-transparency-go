@@ -331,15 +331,18 @@ func NewGoshawkFromFile(ctx context.Context, filename string, hc *http.Client, f
 // http.Client instances for source logs and destination hubs, for example to
 // allow gossip checking across (some kinds of) network boundaries.
 func NewBoundaryGoshawkFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, fetchOpts FetchOptions) (*Goshawk, error) {
-	cfgText, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	var cfgProto configpb.GoshawkConfig
-	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
-		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfgProto); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfgProto); binErr != nil {
+			return nil, fmt.Errorf("failed to parse GoshawkConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
+
 	cfg, err := NewBoundaryGoshawk(ctx, &cfgProto, hcLog, hcHub, fetchOpts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)
