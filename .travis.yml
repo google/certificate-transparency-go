@@ -10,16 +10,16 @@ env:
   global:
   - GO111MODULE=on
   - GOPROXY=https://proxy.golang.org
-  matrix:
+  jobs:
   - GOFLAGS=
   - GOFLAGS=-race                PRESUBMIT_OPTS="--no-linters"
   - GOFLAGS=      WITH_ETCD=true PRESUBMIT_OPTS="--no-linters --coverage"
   - GOFLAGS=-race WITH_ETCD=true PRESUBMIT_OPTS="--no-linters"
-    # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
+  # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
   - GOFLAGS='-race --tags=pkcs11' WITH_PKCS11=true PRESUBMIT_OPTS="--no-linters"
 
 
-matrix:
+jobs:
   fast_finish: true
 
 cache:
