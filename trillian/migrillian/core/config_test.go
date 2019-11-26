@@ -35,7 +35,7 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 		filename     string
 		wantBackends int
 	}{
-		{desc: "text proto", filename: "../testdata/config.pb.txt", wantBackends: 2},
+		{desc: "text proto", filename: "../testdata/config.textproto", wantBackends: 2},
 		{desc: "binary proto", filename: "../testdata/config.pb", wantBackends: 2},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestLoadConfigFromFileErrors(t *testing.T) {
 		wantErr  string
 	}{
 		{desc: "no-such-file", filename: "does-not-exist", wantErr: "no such file"},
-		{desc: "wrong-format", filename: "../testdata/not-config.pb.txt", wantErr: "failed to parse"},
+		{desc: "wrong-format", filename: "../testdata/not-config.textproto", wantErr: "failed to parse"},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, err := LoadConfigFromFile(tc.filename)
