@@ -1,5 +1,4 @@
 version: ~> 1.0
-sudo: true  # required for CI push into Kubernetes.
 os: linux
 dist: xenial
 language: go
