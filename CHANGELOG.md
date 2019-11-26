@@ -10,6 +10,11 @@ Not yet released; provisionally v1.2.0 (may change).
 
 Merged upstream Go 1.13 changes.
 
+### Configuration Files
+
+Configuration files that previously had to be text-encoded Protobuf messages can
+now alternatively be binary-encoded instead.
+
 ### JSONClient
 
 - `PostAndParseWithRetry` error logging now includes log URI in messages.

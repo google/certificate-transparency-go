@@ -27,8 +27,10 @@ func TestNewGossiperFromFile(t *testing.T) {
 		filename string
 		wantErr  string
 	}{
-		{name: "OKCT", filename: "testdata/ct-test.cfg"},
-		{name: "OKHub", filename: "testdata/hub-test.cfg"},
+		{name: "OKCTTextProto", filename: "testdata/ct-test.cfg"},
+		{name: "OKCTBinaryProto", filename: "testdata/ct-test.pb"},
+		{name: "OKHubTextProto", filename: "testdata/hub-test.cfg"},
+		{name: "OKHubBinaryProto", filename: "testdata/hub-test.pb"},
 		{name: "EmptyFilename", filename: "", wantErr: "no such file"},
 		{name: "MissingFile", filename: "testdata/nofile", wantErr: "no such file"},
 		{name: "FailToParse", filename: "testdata/Makefile", wantErr: "failed to parse"},

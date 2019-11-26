@@ -38,7 +38,8 @@ func TestNewGoshawkFromFile(t *testing.T) {
 		filename string
 		wantErr  string
 	}{
-		{name: "OK", filename: "testdata/goshawk.cfg"},
+		{name: "OKTextProto", filename: "testdata/goshawk.cfg"},
+		{name: "OKBinaryProto", filename: "testdata/goshawk.pb"},
 		{name: "EmptyFilename", filename: "", wantErr: "no such file"},
 		{name: "MissingFile", filename: "testdata/nofile", wantErr: "no such file"},
 		{name: "FailToParse", filename: "testdata/Makefile", wantErr: "failed to parse"},

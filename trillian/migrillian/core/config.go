@@ -27,14 +27,17 @@ import (
 // LoadConfigFromFile reads MigrillianConfig from the given filename, which
 // should contain text-protobuf encoded configuration data.
 func LoadConfigFromFile(filename string) (*configpb.MigrillianConfig, error) {
-	text, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 	var cfg configpb.MigrillianConfig
-	if err := proto.UnmarshalText(string(text), &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %v", err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
+			return nil, fmt.Errorf("failed to parse MigrillianConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
+
 	return &cfg, nil
 }
 
