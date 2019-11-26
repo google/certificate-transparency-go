@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	filename    = "../testdata/config.pb.txt"
-	badFilename = "../testdata/not-config.pb.txt"
+	filename    = "../testdata/config.textproto"
+	badFilename = "../testdata/not-config.textproto"
 
 	ctURI = "https://ct.googleapis.com/testtube"
 	back  = "example_backend_name"
