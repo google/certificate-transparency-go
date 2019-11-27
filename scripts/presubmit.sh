@@ -78,7 +78,7 @@ main() {
     tr '\n' ' ')"
 
   # Prevent the creation of proto files with .txt extensions.
-  bad_protos="$(find . -name '*.pb.txt' -o -name '*.proto.txt')"
+  bad_protos="$(find . -name '*.pb.txt' -o -name '*.proto.txt' -print)"
   if [[ "${bad_protos}" != "" ]]; then
     echo "Text-based protos must use the .textproto extension:"
     echo $bad_protos
