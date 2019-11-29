@@ -4,6 +4,14 @@
 
 Not yet released; provisionally v1.2.0 (may change).
 
+### CTFE
+
+#### Flags
+
+The `ct_server` binary changed the default of these flags:
+
+-   `by_range` - Now defaults to `true`
+
 ### Libraries
 
 #### x509 fork

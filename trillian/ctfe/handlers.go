@@ -46,7 +46,7 @@ import (
 )
 
 // TODO(drysdale): remove this flag once everything has migrated to ByRange
-var getByRange = flag.Bool("by_range", false, "Use trillian.GetEntriesByRange for get-entries processing")
+var getByRange = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
 
 const (
 	// HTTP content type header
