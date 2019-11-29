@@ -69,6 +69,8 @@ var (
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
 )
 
+const unknownRemoteUser = "UNKNOWN_REMOTE"
+
 // nolint:staticcheck
 func main() {
 	flag.Parse()
@@ -276,7 +278,13 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	}
 	if *quotaRemote {
 		glog.Info("Enabling quota for requesting IP")
-		opts.RemoteQuotaUser = realip.FromRequest
+		opts.RemoteQuotaUser = func(r *http.Request) string {
+			var remoteUser = realip.FromRequest(r)
+			if remoteUser == "" {
+				return unknownRemoteUser
+			}
+			return remoteUser
+		}
 	}
 	if *quotaIntermediate {
 		glog.Info("Enabling quota for intermediate certificates")
