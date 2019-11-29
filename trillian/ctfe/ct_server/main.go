@@ -280,7 +280,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		glog.Info("Enabling quota for requesting IP")
 		opts.RemoteQuotaUser = func(r *http.Request) string {
 			var remoteUser = realip.FromRequest(r)
-			if remoteUser == "" {
+			if len(remoteUser) == 0 {
 				return unknownRemoteUser
 			}
 			return remoteUser
