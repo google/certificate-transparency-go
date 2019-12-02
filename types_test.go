@@ -15,7 +15,9 @@
 package ct
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -62,6 +64,80 @@ func TestUnmarshalMerkleTreeLeaf(t *testing.T) {
 		if got.TimestampedEntry.EntryType != test.want {
 			t.Errorf("tls.Unmarshal(%s, &MerkleTreeLeaf)=EntryType=%v,nil; want LeafType=%v", test.in, got.TimestampedEntry.EntryType, test.want)
 		}
+	}
+}
+
+func mustB64Decode(s string) []byte {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		fmt.Println(s)
+		panic(err)
+	}
+	return b
+}
+
+func TestToSignedCertificateTimestamp(t *testing.T) {
+	// From the sct:
+	// {"sct_version":0,"id":"CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA=","timestamp":1512556025588,"extensions":"","signature":"BAMARjBEAiAJAPO7EKykH4eOQ81kTzKCb4IEWzcxTBdbdRCHLFPLFAIgBEoGXDUtcIaF3M5HWI+MxwkCQbvqR9TSGUHDCZoOr3Q="}
+	validLogID := "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA="
+	longLogID := "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA0"
+	shortLogID := "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyf=="
+	validSCTSignature := "BAMARjBEAiAJAPO7EKykH4eOQ81kTzKCb4IEWzcxTBdbdRCHLFPLFAIgBEoGXDUtcIaF3M5HWI+MxwkCQbvqR9TSGUHDCZoOr3Q="
+	longSCTSignature := "BAMARjBEAiAJAPO7EKykH4eOQ81kTzKCb4IEWzcxTBdbdRCHLFPLFAIgBEoGXDUtcIaF3M5HWI+MxwkCQbvqR9TSGUHDCZoOr3Q0"
+
+	tests := []struct {
+		desc      string
+		logID     string
+		exts      string
+		signature string
+		wantErr   bool
+	}{
+		{
+			desc:      "success",
+			logID:     validLogID,
+			signature: validSCTSignature,
+		},
+		{
+			desc:      "log ID too long",
+			logID:     longLogID,
+			signature: validSCTSignature,
+			wantErr:   true,
+		},
+		{
+			desc:      "log ID too short",
+			logID:     shortLogID,
+			signature: validSCTSignature,
+			wantErr:   true,
+		},
+		{
+			desc:      "extensions not base64",
+			logID:     validLogID,
+			exts:      "This is not Base64",
+			signature: validSCTSignature,
+			wantErr:   true,
+		},
+		{
+			desc:      "signature trailing data",
+			logID:     validLogID,
+			signature: longSCTSignature,
+			wantErr:   true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			sctResponse := &AddChainResponse{
+				SCTVersion: 0,
+				ID:         mustB64Decode(test.logID),
+				Timestamp:  1512556025588,
+				Extensions: test.exts,
+				Signature:  mustB64Decode(test.signature),
+			}
+			sct, err := sctResponse.ToSignedCertificateTimestamp()
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Errorf("AddChainResponse.ToSignedCertificateTimestamp() = %+v, %v, want err? %t", sct, err, test.wantErr)
+			}
+		})
 	}
 }
 
