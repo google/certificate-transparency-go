@@ -99,8 +99,9 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 		}
 		http.Handle("/metrics", promhttp.Handler())
 		if err := server.Serve(listener); err != nil {
-			// Can't return the error so terminate with a failure.
-			glog.Fatalf("server.Serve()=%v", err)
+			// An error is expected when the server shuts down. If it fails to
+			// actually serve then tests will fail.
+			glog.Infof("server.Serve()=%v", err)
 		}
 	}(logEnv, &server, listener, cfgs)
 	return &CTLogEnv{
