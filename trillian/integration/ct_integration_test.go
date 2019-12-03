@@ -145,7 +145,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 		},
 	}
 
-	env, err := NewCTLogEnv(ctx, cfgs, 2, "TestInProcessCTIntegration")
+	env, err := NewCTLogEnv(ctx, cfgs, 2)
 	if err != nil {
 		t.Fatalf("Failed to launch test environment: %v", err)
 	}

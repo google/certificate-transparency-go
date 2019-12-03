@@ -47,9 +47,9 @@ type CTLogEnv struct {
 // NewCTLogEnv creates a fresh DB, log server, and CT personality.
 // testID should be unique to each unittest package so as to allow parallel tests.
 // Created logIDs will be set to cfgs.
-func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
+func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers int) (*CTLogEnv, error) {
 	// Start log server and signer.
-	logEnv, err := integration.NewLogEnv(ctx, numSequencers, testID)
+	logEnv, err := integration.NewLogEnvWithGRPCOptions(ctx, numSequencers, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LogEnv: %v", err)
 	}
@@ -98,7 +98,10 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 			}
 		}
 		http.Handle("/metrics", promhttp.Handler())
-		server.Serve(listener)
+		if err := server.Serve(listener); err != nil {
+			// Can't return the error so terminate with a failure.
+			glog.Fatalf("server.Serve()=%v", err)
+		}
 	}(logEnv, &server, listener, cfgs)
 	return &CTLogEnv{
 		logEnv:       logEnv,
@@ -111,7 +114,9 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 
 // Close shuts down the servers.
 func (env *CTLogEnv) Close() {
-	env.ctListener.Close()
+	if err := env.ctListener.Close(); err != nil {
+		glog.Warningf("ctListener.Close()=%v", err)
+	}
 	env.wg.Wait()
 	env.logEnv.Close()
 }
