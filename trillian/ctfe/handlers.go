@@ -895,8 +895,6 @@ func getRPCDeadlineTime(li *logInfo) time.Time {
 
 // verifyAddChain is used by add-chain and add-pre-chain. It does the checks that the supplied
 // cert is of the correct type and chains to a trusted root.
-// TODO(Martin2112): This may not implement all the RFC requirements. Check what is provided
-// by fixchain (called by this code) plus the ones here to make sure that it is compliant.
 func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) ([]*x509.Certificate, error) {
 	// We already checked that the chain is not empty so can move on to verification
 	validPath, err := ValidateChain(req.Chain, li.validationOpts)

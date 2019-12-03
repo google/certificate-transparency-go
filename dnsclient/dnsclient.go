@@ -201,8 +201,6 @@ func (c *DNSClient) GetProofByHash(ctx context.Context, hash []byte, treeSize ui
 	}, nil
 }
 
-// TODO(drysdale): add an expectedProofSize parameter and pre-calculate the sizes
-// of proof that are expected.
 func (c *DNSClient) getProof(ctx context.Context, base string) ([][]byte, error) {
 	var proof [][]byte
 	for index := 0; index <= 255; {

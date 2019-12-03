@@ -75,8 +75,7 @@ message GossipConfig {
   // The private key that will be used to sign synthetic leaf certificates
   // that chain to the root_cert.
   google.protobuf.Any private_key = 4;
-  // Number of buffered STHs allowed.
-  // TODO(drysdale): investigate sensible ranges for this.
+  // Number of buffered STHs allowed. Must not be negative.
   int32 buffer_size = 5;
 }
 
