@@ -20,7 +20,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
-	github.com/golangci/golangci-lint v1.21.0
+	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/google/go-cmp v0.3.1
 	github.com/google/monologue v0.0.0-20191105172128-0324c8b45f6f
 	github.com/google/trillian v1.3.3
