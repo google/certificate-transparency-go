@@ -1,25 +1,20 @@
-FROM golang:1.11.13 as dependency_resolved_ct
-
+FROM golang:1.11.13 as builder
 RUN ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
-
-RUN apt update -qq && apt upgrade -y
-RUN apt install -qq unzip tree
+RUN apt update -qq
+RUN apt install -y unzip tree 
 
 # install protobuffer compiler
-WORKDIR /opt/protoc
-RUN wget -q https://github.com/protocolbuffers/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip
-RUN unzip -qq protoc-3.5.1-linux-x86_64.zip
-
+ADD https://github.com/protocolbuffers/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip /opt/protoc
 ENV PATH "${PATH}:/opt/protoc/bin"
 
-FROM dependency_resolved_ct as skeletal_ct
+FROM builder as ct_no_deps
 
 # install certificate transparency
-WORKDIR /go/src
 RUN go get github.com/zorawar87/certificate-transparency-go
 WORKDIR /go/src/github.com/zorawar87/certificate-transparency-go
 
 # turn on go modules and resolve dependencies
+FROM ct_no_deps as skeletal_ct
 ENV GO111MODULE=on
 RUN go install \
     github.com/golangci/golangci-lint/cmd/golangci-lint \
@@ -29,12 +24,21 @@ RUN go install \
     go.etcd.io/etcd \
     go.etcd.io/etcd/etcdctl
 
+# install db integration
 FROM skeletal_ct
-RUN go generate
+RUN go generate && echo "Certificate Transparency Repo Setup: OK"
+RUN apt install -y vim default-mysql-client-core lsof
 
-RUN echo "Certificate Transparency Repo Setup: OK"
+WORKDIR /go/src/github.com/zorawar87/certificate-transparency-go/trillian
+RUN go build ./...
+RUN go test ./...
 
-RUN echo "#!/bin/bash"    > /usr/local/bin/shell.sh
-RUN echo "/usr/bin/bash" >> /usr/local/bin/shell.sh
-RUN chmod 777 /usr/local/bin/shell.sh
-CMD /usr/local/bin/shell.sh
+ENV MYSQL_HOST db
+ENV MYSQL_ROOT_PASSWORD beeblebrox
+RUN echo $MYSQL_HOST $MYSQL_ROOT_PASSWORD
+#RUN mysql -hdb -p3306 -uroot -pbeeblebrox
+#RUN ../scripts/resetctdb.sh --force --verbose
+#RUN ./integration/integration_test.sh
+
+
+CMD "bash"
