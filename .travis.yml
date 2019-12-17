@@ -39,8 +39,8 @@ install:
       unzip protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.21.0
   - GOPROXY=direct go install
-     github.com/golangci/golangci-lint/cmd/golangci-lint
      github.com/golang/protobuf/proto
      github.com/golang/protobuf/protoc-gen-go
      github.com/golang/mock/mockgen
