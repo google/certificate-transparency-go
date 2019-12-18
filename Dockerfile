@@ -4,7 +4,8 @@ RUN apt update -qq
 RUN apt install -y unzip tree 
 
 # install protobuffer compiler
-ADD https://github.com/protocolbuffers/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip /opt/protoc
+ADD https://github.com/protocolbuffers/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip /opt/
+RUN unzip -qq /opt/protoc-3.5.1-linux-x86_64.zip -d /opt/protoc
 ENV PATH "${PATH}:/opt/protoc/bin"
 
 FROM builder as ct_no_deps
