@@ -25,6 +25,8 @@ import (
 	"github.com/google/certificate-transparency-go/gossip/minimal"
 )
 
+// NewStateManager creates a ScanStateManager that stores its state in the given
+// database.
 func NewStateManager(ctx context.Context, db *sql.DB) (minimal.ScanStateManager, error) {
 	m := mysqlStateManager{ScanState: minimal.ScanState{}, db: db}
 	if err := m.restore(ctx); err != nil {

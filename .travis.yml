@@ -1,4 +1,4 @@
-sudo: true  # required for CI push into Kubernetes.
+version: ~> 1.0
 os: linux
 dist: xenial
 language: go
@@ -10,16 +10,16 @@ env:
   global:
   - GO111MODULE=on
   - GOPROXY=https://proxy.golang.org
-  matrix:
+  jobs:
   - GOFLAGS=
   - GOFLAGS=-race                PRESUBMIT_OPTS="--no-linters"
   - GOFLAGS=      WITH_ETCD=true PRESUBMIT_OPTS="--no-linters --coverage"
   - GOFLAGS=-race WITH_ETCD=true PRESUBMIT_OPTS="--no-linters"
-    # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
+  # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
   - GOFLAGS='-race --tags=pkcs11' WITH_PKCS11=true PRESUBMIT_OPTS="--no-linters"
 
 
-matrix:
+jobs:
   fast_finish: true
 
 cache:
@@ -39,8 +39,8 @@ install:
       unzip protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip
     )
   - export PATH=$(pwd)/../protoc/bin:$PATH
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.21.0
   - GOPROXY=direct go install
-     github.com/golangci/golangci-lint/cmd/golangci-lint
      github.com/golang/protobuf/proto
      github.com/golang/protobuf/protoc-gen-go
      github.com/golang/mock/mockgen

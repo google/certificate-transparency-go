@@ -2,7 +2,26 @@
 
 ## HEAD
 
-Not yet released; provisionally v1.1.1 (may change).
+Not yet released; provisionally v1.2.0 (may change).
+
+### CTFE
+
+#### Flags
+
+The `ct_server` binary changed the default of these flags:
+
+-   `by_range` - Now defaults to `true`
+
+### Libraries
+
+#### x509 fork
+
+Merged upstream Go 1.13 changes.
+
+### Configuration Files
+
+Configuration files that previously had to be text-encoded Protobuf messages can
+now alternatively be binary-encoded instead.
 
 ### JSONClient
 

@@ -201,8 +201,7 @@ type GossipConfig struct {
 	// The private key that will be used to sign synthetic leaf certificates
 	// that chain to the root_cert.
 	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
-	// Number of buffered STHs allowed.
-	// TODO(drysdale): investigate sensible ranges for this.
+	// Number of buffered STHs allowed. Must not be negative.
 	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

@@ -12,6 +12,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509/pkix"
+
+	// TODO(robpercival): change this to crypto/ed25519 when Go 1.13 is min version
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -25,11 +27,21 @@ type pkcs8 struct {
 	// optional attributes omitted.
 }
 
-// ParsePKCS8PrivateKey parses an unencrypted, PKCS#8 private key.
-// See RFC 5208.
+// ParsePKCS8PrivateKey parses an unencrypted private key in PKCS#8, ASN.1 DER form.
+//
+// It returns a *rsa.PrivateKey, a *ecdsa.PrivateKey, or a ed25519.PrivateKey.
+// More types might be supported in the future.
+//
+// This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
 func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 	var privKey pkcs8
 	if _, err := asn1.Unmarshal(der, &privKey); err != nil {
+		if _, err := asn1.Unmarshal(der, &ecPrivateKey{}); err == nil {
+			return nil, errors.New("x509: failed to parse private key (use ParseECPrivateKey instead for this key format)")
+		}
+		if _, err := asn1.Unmarshal(der, &pkcs1PrivateKey{}); err == nil {
+			return nil, errors.New("x509: failed to parse private key (use ParsePKCS1PrivateKey instead for this key format)")
+		}
 		return nil, err
 	}
 	switch {
@@ -53,22 +65,29 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 		return key, nil
 
 	case privKey.Algo.Algorithm.Equal(OIDPublicKeyEd25519):
-		key, err = ParseEd25519PrivateKey(privKey.PrivateKey)
-		if err != nil {
-			return nil, errors.New("x509: failed to parse Ed25519 private key embedded in PKCS#8: " + err.Error())
+		if l := len(privKey.Algo.Parameters.FullBytes); l != 0 {
+			return nil, errors.New("x509: invalid Ed25519 private key parameters")
 		}
-		return key, nil
+		var curvePrivateKey []byte
+		if _, err := asn1.Unmarshal(privKey.PrivateKey, &curvePrivateKey); err != nil {
+			return nil, fmt.Errorf("x509: invalid Ed25519 private key: %v", err)
+		}
+		if l := len(curvePrivateKey); l != ed25519.SeedSize {
+			return nil, fmt.Errorf("x509: invalid Ed25519 private key length: %d", l)
+		}
+		return ed25519.NewKeyFromSeed(curvePrivateKey), nil
 
 	default:
 		return nil, fmt.Errorf("x509: PKCS#8 wrapping contained private key with unknown algorithm: %v", privKey.Algo.Algorithm)
 	}
 }
 
-// MarshalPKCS8PrivateKey converts a private key to PKCS#8 encoded form.
-// The following key types are supported: *rsa.PrivateKey, *ecdsa.PrivateKey.
-// Unsupported key types result in an error.
+// MarshalPKCS8PrivateKey converts an RSA private key to PKCS#8, ASN.1 DER form.
 //
-// See RFC 5208.
+// The following key types are currently supported: *rsa.PrivateKey, *ecdsa.PrivateKey
+// and ed25519.PrivateKey. Unsupported key types result in an error.
+//
+// This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
 func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	var privKey pkcs8
 
@@ -83,7 +102,7 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 	case *ecdsa.PrivateKey:
 		oid, ok := OIDFromNamedCurve(k.Curve)
 		if !ok {
-			return nil, errors.New("x509: unknown curve while marshalling to PKCS#8")
+			return nil, errors.New("x509: unknown curve while marshaling to PKCS#8")
 		}
 
 		oidBytes, err := asn1.Marshal(oid)
@@ -103,34 +122,18 @@ func MarshalPKCS8PrivateKey(key interface{}) ([]byte, error) {
 		}
 
 	case ed25519.PrivateKey:
-		privKey.Algo = pkix.AlgorithmIdentifier{Algorithm: OIDPublicKeyEd25519}
-		var err error
-		if privKey.PrivateKey, err = MarshalEd25519PrivateKey(k); err != nil {
-			return nil, fmt.Errorf("x509: failed to marshal Ed25519 private key while building PKCS#8: %v", err)
+		privKey.Algo = pkix.AlgorithmIdentifier{
+			Algorithm: OIDPublicKeyEd25519,
 		}
+		curvePrivateKey, err := asn1.Marshal(k.Seed())
+		if err != nil {
+			return nil, fmt.Errorf("x509: failed to marshal private key: %v", err)
+		}
+		privKey.PrivateKey = curvePrivateKey
 
 	default:
-		return nil, fmt.Errorf("x509: unknown key type while marshalling PKCS#8: %T", key)
+		return nil, fmt.Errorf("x509: unknown key type while marshaling PKCS#8: %T", key)
 	}
 
 	return asn1.Marshal(privKey)
-}
-
-// MarshalEd25519PrivateKey converts an Ed25519 private key to ASN.1 DER encoded form
-// (as an OCTET STRING holding the key seed, as per RFC 8410 section 7).
-func MarshalEd25519PrivateKey(key ed25519.PrivateKey) ([]byte, error) {
-	return asn1.Marshal(key.Seed())
-}
-
-// ParseEd25519PrivateKey returns an Ed25519 private key from its ASN.1 DER encoded form
-// (as an OCTET STRING holding the key seed, as per RFC 8410 section 7).
-func ParseEd25519PrivateKey(der []byte) (ed25519.PrivateKey, error) {
-	var keySeed []byte
-	if _, err := asn1.Unmarshal(der, &keySeed); err != nil {
-		return nil, err
-	}
-	if len(keySeed) != ed25519.SeedSize {
-		return nil, fmt.Errorf("x509: ed25519 seed length should be %d bytes, got %d", ed25519.SeedSize, len(keySeed))
-	}
-	return ed25519.NewKeyFromSeed(keySeed), nil
 }

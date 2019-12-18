@@ -53,15 +53,18 @@ func NewGossiperFromFile(ctx context.Context, filename string, hc *http.Client, 
 // http.Client instances for source logs and destination hubs, for example to
 // allow gossiping across (some kinds of) network boundaries.
 func NewBoundaryGossiperFromFile(ctx context.Context, filename string, hcLog, hcHub *http.Client, mf monitoring.MetricFactory) (*Gossiper, error) {
-	cfgText, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	var cfgProto configpb.GossipConfig
-	if err := proto.UnmarshalText(string(cfgText), &cfgProto); err != nil {
-		return nil, fmt.Errorf("%s: failed to parse gossip config: %v", filename, err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfgProto); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfgProto); binErr != nil {
+			return nil, fmt.Errorf("failed to parse GossipConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
+
 	cfg, err := NewBoundaryGossiper(ctx, &cfgProto, hcLog, hcHub, mf)
 	if err != nil {
 		return nil, fmt.Errorf("%s: config error: %v", filename, err)

@@ -42,16 +42,19 @@ type ValidatedLogConfig struct {
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
-// filename, which should contain text-protobuf encoded configuration data.
+// filename, which should contain text or binary-encoded protobuf configuration
+// data.
 func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
-	cfgText, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	var cfg configpb.LogConfigSet
-	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse log config: %v", err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
+			return nil, fmt.Errorf("failed to parse LogConfigSet from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
 
 	if len(cfg.Config) == 0 {
@@ -75,17 +78,19 @@ func ToMultiLogConfig(cfg []*configpb.LogConfig, beSpec string) *configpb.LogMul
 }
 
 // MultiLogConfigFromFile creates a LogMultiConfig proto from the given
-// filename, which should contain text-protobuf encoded configuration data.
+// filename, which should contain text or binary-encoded protobuf configuration data.
 // Does not do full validation of the config but checks that it is non empty.
 func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
-	cfgText, err := ioutil.ReadFile(filename)
+	cfgBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
 	var cfg configpb.LogMultiConfig
-	if err := proto.UnmarshalText(string(cfgText), &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse multi-backend log config: %v", err)
+	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
+			return nil, fmt.Errorf("failed to parse LogMultiConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
+		}
 	}
 
 	if len(cfg.LogConfigs.GetConfig()) == 0 || len(cfg.Backends.GetBackend()) == 0 {

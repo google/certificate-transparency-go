@@ -41,6 +41,8 @@ var (
 	rspsCounter   monitoring.Counter   // logurl, ep, sc => value
 	errCounter    monitoring.Counter   // logurl, ep, status => value
 	logRspLatency monitoring.Histogram // logurl, ep => value
+	// Per-log
+	lastGetRootsSuccess monitoring.Gauge // Unix time
 )
 
 // distInitMetrics initializes all the exported metrics.
@@ -49,6 +51,7 @@ func distInitMetrics(mf monitoring.MetricFactory) {
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logurl", "ep", "httpstatus")
 	errCounter = mf.NewCounter("err_count", "Number of errors", "logurl", "ep", "errtype")
 	logRspLatency = mf.NewHistogram("http_log_latency", "Latency of responses in seconds", "logurl", "ep")
+	lastGetRootsSuccess = mf.NewGauge("last_get_roots_success", "Unix timestamp for last successful get-roots request", "logurl")
 }
 
 const (
@@ -146,6 +149,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 		// Roots get update even if some returned roots couldn't get parsed.
 		if r.Roots != nil {
 			freshRoots[r.LogURL] = r.Roots
+			lastGetRootsSuccess.Set(float64(time.Now().Unix()), r.LogURL)
 		}
 	}
 
