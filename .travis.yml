@@ -13,6 +13,11 @@ env:
 jobs:
   fast_finish: true
   include:
+    - name: "go.mod check"
+      before_install: skip
+      install: skip
+      before_script: go mod tidy -v
+      script: git diff --exit-code -- go.mod go.sum
     - name: "default build"
       env:
       - GOFLAGS=""
