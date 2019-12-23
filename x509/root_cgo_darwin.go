@@ -284,14 +284,11 @@ import (
 )
 
 func loadSystemRoots() (*CertPool, error) {
-	roots := NewCertPool()
-
 	var data, untrustedData C.CFDataRef
 	err := C.CopyPEMRootsCTX509(&data, &untrustedData, C.bool(debugDarwinRoots))
 	if err == -1 {
 		return nil, errors.New("crypto/x509: failed to load darwin system roots with cgo")
 	}
-
 	defer C.CFRelease(C.CFTypeRef(data))
 	defer C.CFRelease(C.CFTypeRef(untrustedData))
 
