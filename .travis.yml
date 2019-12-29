@@ -5,22 +5,44 @@ language: go
 go: "1.11.x"
 go_import_path: github.com/google/certificate-transparency-go
 
-
 env:
   global:
   - GO111MODULE=on
   - GOPROXY=https://proxy.golang.org
-  jobs:
-  - GOFLAGS=
-  - GOFLAGS=-race                PRESUBMIT_OPTS="--no-linters"
-  - GOFLAGS=      WITH_ETCD=true PRESUBMIT_OPTS="--no-linters --coverage"
-  - GOFLAGS=-race WITH_ETCD=true PRESUBMIT_OPTS="--no-linters"
-  # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
-  - GOFLAGS='-race --tags=pkcs11' WITH_PKCS11=true PRESUBMIT_OPTS="--no-linters"
-
 
 jobs:
   fast_finish: true
+  include:
+    - name: "go.mod check"
+      before_install: skip
+      install: skip
+      before_script: go mod tidy -v
+      script: git diff --exit-code -- go.mod go.sum
+    - name: "default build"
+      env:
+      - GOFLAGS=""
+    - name: "build with race detection"
+      env:
+      - GOFLAGS="-race"
+      - PRESUBMIT_OPTS="--no-linters"
+    - name: "build with etcd and coverage report"
+      env:
+      - WITH_ETCD=true
+      - PRESUBMIT_OPTS="--no-linters --coverage"
+      after_success:
+      - cp /tmp/coverage.txt .
+      - bash <(curl -s https://codecov.io/bash)
+    - name: "build with etcd and race detection"
+      env:
+      - WITH_ETCD=true
+      - GOFLAGS="-race"
+      - PRESUBMIT_OPTS="--no-linters"
+    # The CT integration tests do not currently use a pkcs11 key. This only tests the build.
+    - name: "build with PKCS#11 support and race detection"
+      env:
+      - WITH_PKCS11=true
+      - GOFLAGS="-race --tags=pkcs11"
+      - PRESUBMIT_OPTS="--no-linters"
 
 cache:
   directories:
@@ -72,6 +94,3 @@ script:
   - HAMMER_OPTS="--operations=1500" ./trillian/integration/ct_hammer_test.sh
   - set +e
 
-after_success:
-  - cp /tmp/coverage.txt .
-  - bash <(curl -s https://codecov.io/bash)
