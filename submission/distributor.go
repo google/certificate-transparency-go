@@ -169,13 +169,6 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	return errors
 }
 
-// IsRootDataFull returns true if root certificates have been obtained for all Logs.
-func (d *Distributor) isRootDataFull() bool {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.rootDataFull
-}
-
 // incRspsCounter extracts HTTP status code and increments corresponding rspsCounter.
 func incRspsCounter(logURL string, endpoint string, rspErr error) {
 	status := http.StatusOK
