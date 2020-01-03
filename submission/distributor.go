@@ -252,29 +252,31 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		return nil, fmt.Errorf("distributor unable to process empty chain")
 	}
 
-	var parsedChain []*x509.Certificate
-	var compatibleLogs loglist2.LogList
-
-	d.mu.RLock()
-	vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
-	rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
-
-	if err == nil {
-		parsedChain = rootedChain
-		compatibleLogs = d.usableLl.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots)
-	} else if d.isRootDataFull() {
-		// Could not verify the chain while root info for logs is complete.
-		d.mu.RUnlock()
-		return nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
-	} else {
-		// Chain might be rooted to the Log which has no root-info yet.
-		parsedChain, err = parseRawChain(rawChain)
-		if err != nil {
-			return nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+	// Helper function establishing responsibility of locking while determining log list and root chain.
+	compatibleLogsAndChain := func() (loglist2.LogList, []*x509.Certificate, error) {
+		d.mu.RLock()
+		defer d.mu.RUnlock()
+		vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
+		rootedChain, err := ctfe.ValidateChain(rawChain, vOpts)
+		if err == nil {
+			return d.usableLl.Compatible(rootedChain[0], rootedChain[len(rootedChain)-1], d.logRoots), rootedChain, nil
 		}
-		compatibleLogs = d.usableLl.Compatible(parsedChain[0], nil, d.logRoots)
+		if d.rootDataFull {
+			// Could not verify the chain while root info for logs is complete.
+			return loglist2.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+		}
+
+		// Chain might be rooted to the Log which has no root-info yet.
+		parsedChain, err := parseRawChain(rawChain)
+		if err != nil {
+			return loglist2.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+		}
+		return d.usableLl.Compatible(parsedChain[0], nil, d.logRoots), parsedChain, nil
 	}
-	d.mu.RUnlock()
+	compatibleLogs, parsedChain, err := compatibleLogsAndChain()
+	if err != nil {
+		return nil, err
+	}
 
 	// Distinguish between precerts and certificates.
 	isPrecert, err := ctfe.IsPrecertificate(parsedChain[0])
