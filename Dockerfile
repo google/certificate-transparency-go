@@ -1,11 +1,15 @@
 FROM golang:1.11 as builder
 
 # install certificate transparency
-RUN go get github.com/zorawar87/certificate-transparency-go
+RUN go get -u -t github.com/zorawar87/certificate-transparency-go
 WORKDIR /go/src/github.com/zorawar87/certificate-transparency-go
 
 ENV GO111MODULE=on
-RUN go get ./trillian/ctfe/ct_server
+
+COPY ./config/docker-entrypoint.sh /
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["bash"]
 
 #RUN ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
 #RUN apt update -qq
@@ -49,5 +53,3 @@ RUN go get ./trillian/ctfe/ct_server
 ##RUN ../scripts/resetctdb.sh --force --verbose
 ##RUN ./integration/integration_test.sh
 #
-#
-CMD "bash"
