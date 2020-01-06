@@ -43,7 +43,7 @@ set -x
 #go build github.com/google/trillian/cmd/createtree/
 #
 #echo 'Provision a log and remember the its tree ID'
-tree_id=$(createtree --admin_server=localhost:6962 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
+tree_id=$(createtree --admin_server=tlserver:8090 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
 echo ${tree_id}
 
 echo 'Manually edit CT config file to put the tree ID value in place of @TREE_ID@'
