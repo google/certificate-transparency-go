@@ -53,7 +53,7 @@ sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" demo-script.cfg
 #go build github.com/zorawar87/certificate-transparency-go/trillian/ctfe/ct_server
 
 echo 'Running the CT personality (do in separate terminal)'
-ct_server --log_config=demo-script.cfg --log_rpc_server=localhost:6962 --http_endpoint=localhost:6965 &
+ct_server --log_config=demo-script.cfg --log_rpc_server=tlserver:8090 --http_endpoint=localhost:6965 &
 ct_pid=$!
 sleep 5
 
