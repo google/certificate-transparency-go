@@ -49,6 +49,10 @@ import (
 var getByRange = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
 
 const (
+	// HTTP Cache-Control header
+	cacheControlHeader = "Cache-Control"
+	// Value for Cache-Control header when response contains immutable data, i.e. entries or proofs. Allows the response to be cached for 1 day.
+	cacheControlImmutable = "public, max-age=86400"
 	// HTTP content type header
 	contentTypeHeader string = "Content-Type"
 	// MIME content type for JSON
@@ -612,6 +616,7 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 		jsonRsp.Consistency = emptyProof
 	}
 
+	w.Header().Set(cacheControlHeader, cacheControlImmutable)
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
@@ -690,6 +695,7 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 		proofRsp.AuditPath = emptyProof
 	}
 
+	w.Header().Set(cacheControlHeader, cacheControlImmutable)
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&proofRsp)
 	if err != nil {
@@ -791,6 +797,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %s", err)
 	}
 
+	w.Header().Set(cacheControlHeader, cacheControlImmutable)
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
@@ -872,6 +879,7 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		AuditPath: rsp.Proof.Hashes,
 	}
 
+	w.Header().Set(cacheControlHeader, cacheControlImmutable)
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
