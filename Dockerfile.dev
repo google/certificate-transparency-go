@@ -1,11 +1,8 @@
 FROM golang:1.11 as builder
 
-# install certificate transparency
-RUN go get -u -t github.com/zorawar87/certificate-transparency-go
-WORKDIR /go/src/github.com/zorawar87/certificate-transparency-go
+
 
 ENV GO111MODULE=on
-
 COPY ./config/docker-entrypoint.sh /
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
