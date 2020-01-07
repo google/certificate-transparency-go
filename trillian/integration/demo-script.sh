@@ -1,6 +1,8 @@
 #!/bin/bash
 # This is a linear script for demonstrating a Trillian-backed CT log; its contents
 # are extracted from the main trillian/integration/ct_integration_test.sh script.
+## Zorawar added some notes below. they start with two hashes
+
 
 if [ $(uname) == "Darwin" ]; then
   URLOPEN=open
@@ -23,6 +25,7 @@ sed "s~@TESTDATA@~${GOPATH}/src/github.com/zorawar87/certificate-transparency-go
 echo '-----------------------------------------------'
 set -x
 
+## this is all done in prior parts of setup
 #echo 'Reset MySQL database'
 #yes | ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh
 #
@@ -49,6 +52,7 @@ echo ${tree_id}
 echo 'Manually edit CT config file to put the tree ID value in place of @TREE_ID@'
 sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" demo-script.cfg
 
+## we already install this
 #echo 'Building CT personality code'
 #go build github.com/zorawar87/certificate-transparency-go/trillian/ctfe/ct_server
 
@@ -60,11 +64,12 @@ sleep 5
 echo 'Log is now accessible -- see in browser window'
 ${URLOPEN} http://localhost:6965/athos/ct/v1/get-sth
 
-echo 'But is has no data, so building the Hammer test tool'
-go build github.com/zorawar87/certificate-transparency-go/trillian/integration/ct_hammer
+## we already install this too
+#echo 'But is has no data, so building the Hammer test tool'
+#go build github.com/zorawar87/certificate-transparency-go/trillian/integration/ct_hammer
 
 echo 'Hammer time'
-./ct_hammer --log_config demo-script.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata --logtostderr &
+ct_hammer --log_config demo-script.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata --logtostderr &
 hammer_pid=$!
 
 echo 'After waiting for a while, refresh the browser window to see a bigger tree'
@@ -76,7 +81,7 @@ echo 'Now lets add another log.  First kill the hammer'
 kill -9 ${hammer_pid}
 
 #echo 'Provision a log and remember the its tree ID'
-#tree_id_2=$(./createtree --admin_server=localhost:6962 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
+#tree_id_2=$(createtree --admin_server=localhost:6962 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
 #echo ${tree_id_2}
 
 #echo 'Manually edit CT config file to copy the athos config to be a second config with prefix: "porthos" and with the new tree ID'
@@ -85,14 +90,14 @@ kill -9 ${hammer_pid}
 
 echo 'Stop and restart the CT personality to use the new config (note changed --log_config)'
 kill -9 ${ct_pid}
-#./ct_server --log_config=demo-script-2.cfg --log_rpc_server=localhost:6962 --http_endpoint=localhost:6965 &
+#ct_server --log_config=demo-script-2.cfg --log_rpc_server=localhost:6962 --http_endpoint=localhost:6965 &
 #sleep 5
 
 #echo 'See the new (empty) log'
 #${URLOPEN} http://localhost:6965/porthos/ct/v1/get-sth
 
 #echo 'Double Hammer time (note changed --log_config)'
-#./ct_hammer --log_config demo-script-2.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --logtostderr &
+#ct_hammer --log_config demo-script-2.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --logtostderr &
 #hammer_pid=$!
 
 
