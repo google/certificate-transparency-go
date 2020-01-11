@@ -1071,6 +1071,9 @@ func runTestGetEntries(t *testing.T) {
 		if test.want != http.StatusOK {
 			continue
 		}
+		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
+			t.Errorf("GetEntries(%q): Cache-Control response header = %q, want %q", test.req, got, want)
+		}
 		// Leaf data should be passed through as-is even if invalid.
 		var jsonMap map[string][]ct.LeafEntry
 		if err := json.Unmarshal(w.Body.Bytes(), &jsonMap); err != nil {
@@ -1536,6 +1539,9 @@ func TestGetProofByHash(t *testing.T) {
 		if test.want != http.StatusOK {
 			continue
 		}
+		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
+			t.Errorf("proofByHash(%q): Cache-Control response header = %q, want %q", test.req, got, want)
+		}
 		jsonData, err := ioutil.ReadAll(w.Body)
 		if err != nil {
 			t.Errorf("failed to read response body: %v", err)
@@ -1889,6 +1895,9 @@ func TestGetSTHConsistency(t *testing.T) {
 		if test.want != http.StatusOK {
 			continue
 		}
+		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
+			t.Errorf("getSTHConsistency(%q): Cache-Control response header = %q, want %q", test.req, got, want)
+		}
 		jsonData, err := ioutil.ReadAll(w.Body)
 		if err != nil {
 			t.Errorf("failed to read response body: %v", err)
@@ -2217,6 +2226,10 @@ func TestGetEntryAndProof(t *testing.T) {
 		}
 		if test.want != http.StatusOK {
 			continue
+		}
+
+		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
+			t.Errorf("getEntryAndProof(%q): Cache-Control response header = %q, want %q", test.req, got, want)
 		}
 
 		var resp ct.GetEntryAndProofResponse
