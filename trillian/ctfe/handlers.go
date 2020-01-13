@@ -1007,16 +1007,16 @@ func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64,
 	count := end - start + 1
 	if count > maxRange {
 		end = start + maxRange - 1
-		if *alignGetEntries {
-			// Truncate a "maximally sized" get-entries request at the next multiple
-			// of MaxGetEntriesAllowed.
-			// This is intended to coerce large runs of get-entries requests (e.g. by
-			// monitors/mirrors) into all requesting the same start/end ranges,
-			// thereby making the responses more readily cachable.
-			d := (end + 1) % maxRange
-			end = end - d
-			alignedGetEntries.Inc(strconv.FormatInt(logID, 10), strconv.FormatBool(d == 0))
-		}
+	}
+	if *alignGetEntries && count >= maxRange {
+		// Truncate a "maximally sized" get-entries request at the next multiple
+		// of MaxGetEntriesAllowed.
+		// This is intended to coerce large runs of get-entries requests (e.g. by
+		// monitors/mirrors) into all requesting the same start/end ranges,
+		// thereby making the responses more readily cachable.
+		d := (end + 1) % maxRange
+		end = end - d
+		alignedGetEntries.Inc(strconv.FormatInt(logID, 10), strconv.FormatBool(d == 0))
 	}
 
 	return start, end, nil
