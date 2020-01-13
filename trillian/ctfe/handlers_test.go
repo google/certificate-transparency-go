@@ -1164,11 +1164,19 @@ func runTestGetEntriesRanges(t *testing.T) {
 			want:  http.StatusBadRequest,
 		},
 		{
-			desc:   "range too large, truncated",
-			start:  1000,
+			desc:   "range too large, coerced into alignment",
+			start:  14,
 			end:    50000,
-			rpcEnd: 1000 + MaxGetEntriesAllowed - 1,
 			want:   http.StatusInternalServerError,
+			rpcEnd: MaxGetEntriesAllowed - 1,
+			rpc:    true,
+		},
+		{
+			desc:   "range too large, already in alignment",
+			start:  MaxGetEntriesAllowed,
+			end:    5000,
+			want:   http.StatusInternalServerError,
+			rpcEnd: MaxGetEntriesAllowed + MaxGetEntriesAllowed - 1,
 			rpc:    true,
 		},
 	}
