@@ -6,6 +6,12 @@ Not yet released; provisionally v1.2.0 (may change).
 
 ### CTFE
 
+#### Caching
+
+The CTFE now includes a Cache-Control header in responses containing purely
+immutable data, e.g. those for get-entries and get-proof-by-hash. This allows
+clients and proxies to cache these responses for up to 24 hours.
+
 #### Flags
 
 The `ct_server` binary changed the default of these flags:
