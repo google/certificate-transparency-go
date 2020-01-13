@@ -712,15 +712,33 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	return http.StatusOK, nil
 }
 
+// alignGetEntries will truncate a "maximally sized" get-entries request at the
+// next multiple of MaxGetEntriesAllowed.
+// This is intended to coerce large runs of get-entries requests (e.g. by
+// monitors/mirrors) into all requesting the same start/end ranges, thereby
+// making the responses more readily cachable.
+func alignGetEntries(start, end int64) int64 {
+	count := end - start + 1
+	// If we're not limiting requests, then all bets are off...
+	if MaxGetEntriesAllowed > 0 {
+		// Only coerce requests which look like they could be starting a sequence of fetches.
+		if r := start % MaxGetEntriesAllowed; r != 0 && count >= MaxGetEntriesAllowed {
+			return start + MaxGetEntriesAllowed - r - 1
+		}
+	}
+	return end
+}
+
 // nolint:staticcheck
 func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
 	// size and prefer to let the backend handle this case
-	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed)
+	start, unalignedEnd, err := parseGetEntriesRange(r, MaxGetEntriesAllowed)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %s", err)
 	}
+	end := alignGetEntries(start, unalignedEnd)
 	li.RequestLog.StartAndEnd(ctx, start, end)
 
 	// Now make a request to the backend to get the relevant leaves
