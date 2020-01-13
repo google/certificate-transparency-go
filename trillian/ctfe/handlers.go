@@ -722,7 +722,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
 	// size and prefer to let the backend handle this case
-	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed, strconv.FormatInt(li.logID, 10))
+	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed, li.logID)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %s", err)
 	}
@@ -986,7 +986,7 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 	return nil
 }
 
-func parseGetEntriesRange(r *http.Request, maxRange int64, logIDLabel string) (int64, int64, error) {
+func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64, error) {
 	start, err := strconv.ParseInt(r.FormValue(getEntriesParamStart), 10, 64)
 	if err != nil {
 		return 0, 0, err
@@ -1015,7 +1015,7 @@ func parseGetEntriesRange(r *http.Request, maxRange int64, logIDLabel string) (i
 			// thereby making the responses more readily cachable.
 			d := (end + 1) % maxRange
 			end = end - d
-			alignedGetEntries.Inc(logIDLabel, strconv.FormatBool(d == 0))
+			alignedGetEntries.Inc(strconv.FormatInt(logID, 10), strconv.FormatBool(d == 0))
 		}
 	}
 
