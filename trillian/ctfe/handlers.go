@@ -717,37 +717,16 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 	return http.StatusOK, nil
 }
 
-// alignGetEntries will truncate a "maximally sized" get-entries request at the
-// next multiple of MaxGetEntriesAllowed.
-// This is intended to coerce large runs of get-entries requests (e.g. by
-// monitors/mirrors) into all requesting the same start/end ranges, thereby
-// making the responses more readily cachable.
-func alignGetEntries(start, end int64) int64 {
-	if *disableAlignGetEntries || MaxGetEntriesAllowed <= 0 {
-		return end
-	}
-	count := end - start + 1
-	// If we're not limiting requests, then all bets are off...
-	// Only coerce requests which look like they could be starting a sequence of fetches.
-	if r := start % MaxGetEntriesAllowed; r != 0 && count >= MaxGetEntriesAllowed {
-		return start + MaxGetEntriesAllowed - r - 1
-	}
-	return end
-}
-
 // nolint:staticcheck
 func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
 	// size and prefer to let the backend handle this case
-	start, unalignedEnd, err := parseGetEntriesRange(r, MaxGetEntriesAllowed)
+	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed, strconv.FormatInt(li.logID, 10))
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %s", err)
 	}
-	end := alignGetEntries(start, unalignedEnd)
 	li.RequestLog.StartAndEnd(ctx, start, end)
-
-	alignedGetEntries.Inc(strconv.FormatInt(li.logID, 10), strconv.FormatBool(end != unalignedEnd))
 
 	// Now make a request to the backend to get the relevant leaves
 	var leaves []*trillian.LogLeaf
@@ -1007,7 +986,7 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 	return nil
 }
 
-func parseGetEntriesRange(r *http.Request, maxRange int64) (int64, int64, error) {
+func parseGetEntriesRange(r *http.Request, maxRange int64, logIDLabel string) (int64, int64, error) {
 	start, err := strconv.ParseInt(r.FormValue(getEntriesParamStart), 10, 64)
 	if err != nil {
 		return 0, 0, err
@@ -1028,6 +1007,16 @@ func parseGetEntriesRange(r *http.Request, maxRange int64) (int64, int64, error)
 	count := end - start + 1
 	if count > maxRange {
 		end = start + maxRange - 1
+		if !*disableAlignGetEntries {
+			// Truncate a "maximally sized" get-entries request at the next multiple
+			// of MaxGetEntriesAllowed.
+			// This is intended to coerce large runs of get-entries requests (e.g. by
+			// monitors/mirrors) into all requesting the same start/end ranges,
+			// thereby making the responses more readily cachable.
+			d := (end + 1) % maxRange
+			end = end - d
+			alignedGetEntries.Inc(logIDLabel, strconv.FormatBool(d == 0))
+		}
 	}
 
 	return start, end, nil
