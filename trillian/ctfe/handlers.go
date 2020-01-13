@@ -45,8 +45,8 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
-// TODO(drysdale): remove this flag once everything has migrated to ByRange
 var (
+	// TODO(drysdale): remove this flag once everything has migrated to ByRange
 	getByRange             = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
 	disableAlignGetEntries = flag.Bool("disable_align_getentries", false, "Disable get-entries request alignment")
 )
