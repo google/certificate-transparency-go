@@ -116,6 +116,7 @@ var (
 	reqsCounter        monitoring.Counter   // logid, ep => value
 	rspsCounter        monitoring.Counter   // logid, ep, rc => value
 	rspLatency         monitoring.Histogram // logid, ep, rc => value
+	alignedGetEntries  monitoring.Counter   // logid, aligned => count
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -131,6 +132,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
+	alignedGetEntries = mf.NewCounter("aligned_get_entries", "Number of get-entries requests which were aligned to size limit boundaries", "logid", "aligned")
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
@@ -740,6 +742,8 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	}
 	end := alignGetEntries(start, unalignedEnd)
 	li.RequestLog.StartAndEnd(ctx, start, end)
+
+	alignedGetEntries.Inc(strconv.FormatInt(li.logID, 10), strconv.FormatBool(end != unalignedEnd))
 
 	// Now make a request to the backend to get the relevant leaves
 	var leaves []*trillian.LogLeaf
