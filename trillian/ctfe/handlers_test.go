@@ -1179,6 +1179,14 @@ func runTestGetEntriesRanges(t *testing.T) {
 			rpcEnd: MaxGetEntriesAllowed + MaxGetEntriesAllowed - 1,
 			rpc:    true,
 		},
+		{
+			desc:   "small range straddling boundary, not coerced",
+			start:  MaxGetEntriesAllowed - 2,
+			end:    MaxGetEntriesAllowed + 2,
+			want:   http.StatusInternalServerError,
+			rpcEnd: MaxGetEntriesAllowed + 2,
+			rpc:    true,
+		},
 	}
 
 	// This tests that only valid ranges make it to the backend for get-entries.
