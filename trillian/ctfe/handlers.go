@@ -47,8 +47,8 @@ import (
 
 var (
 	// TODO(drysdale): remove this flag once everything has migrated to ByRange
-	getByRange             = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
-	disableAlignGetEntries = flag.Bool("disable_align_getentries", false, "Disable get-entries request alignment")
+	getByRange      = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
+	alignGetEntries = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
 )
 
 const (
@@ -1007,7 +1007,7 @@ func parseGetEntriesRange(r *http.Request, maxRange int64, logIDLabel string) (i
 	count := end - start + 1
 	if count > maxRange {
 		end = start + maxRange - 1
-		if !*disableAlignGetEntries {
+		if *alignGetEntries {
 			// Truncate a "maximally sized" get-entries request at the next multiple
 			// of MaxGetEntriesAllowed.
 			// This is intended to coerce large runs of get-entries requests (e.g. by
