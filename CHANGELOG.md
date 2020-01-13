@@ -43,11 +43,17 @@ Client B --|-X---------|---------|-------...
              `-- Requests truncated
 </pre>
 
+This behaviour can be disabled by setting the `--disable_align_getentries`
+flag to true.
+
 #### Flags
 
 The `ct_server` binary changed the default of these flags:
 
 -   `by_range` - Now defaults to `true`
+
+The `ct_server` binary added the following flags:
+-   `disable_align_getentries` - See GetEntries section above for details
 
 ### Libraries
 

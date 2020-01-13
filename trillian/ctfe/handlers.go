@@ -46,7 +46,10 @@ import (
 )
 
 // TODO(drysdale): remove this flag once everything has migrated to ByRange
-var getByRange = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
+var (
+	getByRange             = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
+	disableAlignGetEntries = flag.Bool("disable_align_getentries", false, "Disable get-entries request alignment")
+)
 
 const (
 	// HTTP Cache-Control header
@@ -720,13 +723,14 @@ func getProofByHash(ctx context.Context, li *logInfo, w http.ResponseWriter, r *
 // monitors/mirrors) into all requesting the same start/end ranges, thereby
 // making the responses more readily cachable.
 func alignGetEntries(start, end int64) int64 {
+	if *disableAlignGetEntries || MaxGetEntriesAllowed <= 0 {
+		return end
+	}
 	count := end - start + 1
 	// If we're not limiting requests, then all bets are off...
-	if MaxGetEntriesAllowed > 0 {
-		// Only coerce requests which look like they could be starting a sequence of fetches.
-		if r := start % MaxGetEntriesAllowed; r != 0 && count >= MaxGetEntriesAllowed {
-			return start + MaxGetEntriesAllowed - r - 1
-		}
+	// Only coerce requests which look like they could be starting a sequence of fetches.
+	if r := start % MaxGetEntriesAllowed; r != 0 && count >= MaxGetEntriesAllowed {
+		return start + MaxGetEntriesAllowed - r - 1
 	}
 	return end
 }
