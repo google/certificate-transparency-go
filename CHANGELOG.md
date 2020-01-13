@@ -12,11 +12,48 @@ The CTFE now includes a Cache-Control header in responses containing purely
 immutable data, e.g. those for get-entries and get-proof-by-hash. This allows
 clients and proxies to cache these responses for up to 24 hours.
 
+#### GetEntries
+Calls to `get-entries` which are at (or above) the maximum permitted number of
+entries whose `start` parameter does not fall on a multiple of the maximum
+permitted number of entries, will have their responses truncated such that
+subsequent requests will align with this boundary.
+This is intended to coerce callers of `get-entries` into all using the same
+`start` and `end` parameters and thereby increase the cachability of
+these requests.
+
+e.g.:
+
+<pre>
+Old behaviour:
+             1         2         3
+             0         0         0
+Entries>-----|---------|---------|----...
+Client A -------|---------|----------|...
+Client B --|--------|---------|-------...
+           ^        ^         ^
+           `--------`---------`---- requests
+
+With coercion (max batch = 10 entries):
+             1         2         3
+             0         0         0
+Entries>-----|---------|---------|----...
+Client A ----X---------|---------|...
+Client B --|-X---------|---------|-------...
+             ^
+             `-- Requests truncated
+</pre>
+
+This behaviour can be disabled by setting the `--align_getentries`
+flag to false.
+
 #### Flags
 
 The `ct_server` binary changed the default of these flags:
 
 -   `by_range` - Now defaults to `true`
+
+The `ct_server` binary added the following flags:
+-   `align_getentries` - See GetEntries section above for details
 
 ### Libraries
 

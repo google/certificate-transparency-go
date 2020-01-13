@@ -45,8 +45,11 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 )
 
-// TODO(drysdale): remove this flag once everything has migrated to ByRange
-var getByRange = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
+var (
+	// TODO(drysdale): remove this flag once everything has migrated to ByRange
+	getByRange      = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
+	alignGetEntries = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
+)
 
 const (
 	// HTTP Cache-Control header
@@ -116,6 +119,7 @@ var (
 	reqsCounter        monitoring.Counter   // logid, ep => value
 	rspsCounter        monitoring.Counter   // logid, ep, rc => value
 	rspLatency         monitoring.Histogram // logid, ep, rc => value
+	alignedGetEntries  monitoring.Counter   // logid, aligned => count
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -131,6 +135,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	reqsCounter = mf.NewCounter("http_reqs", "Number of requests", "logid", "ep")
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
+	alignedGetEntries = mf.NewCounter("aligned_get_entries", "Number of get-entries requests which were aligned to size limit boundaries", "logid", "aligned")
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
@@ -717,7 +722,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	// The first job is to parse the params and make sure they're sensible. We just make
 	// sure the range is valid. We don't do an extra roundtrip to get the current tree
 	// size and prefer to let the backend handle this case
-	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed)
+	start, end, err := parseGetEntriesRange(r, MaxGetEntriesAllowed, li.logID)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad range on get-entries request: %s", err)
 	}
@@ -981,7 +986,7 @@ func marshalAndWriteAddChainResponse(sct *ct.SignedCertificateTimestamp, signer 
 	return nil
 }
 
-func parseGetEntriesRange(r *http.Request, maxRange int64) (int64, int64, error) {
+func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64, error) {
 	start, err := strconv.ParseInt(r.FormValue(getEntriesParamStart), 10, 64)
 	if err != nil {
 		return 0, 0, err
@@ -1002,6 +1007,16 @@ func parseGetEntriesRange(r *http.Request, maxRange int64) (int64, int64, error)
 	count := end - start + 1
 	if count > maxRange {
 		end = start + maxRange - 1
+	}
+	if *alignGetEntries && count >= maxRange {
+		// Truncate a "maximally sized" get-entries request at the next multiple
+		// of MaxGetEntriesAllowed.
+		// This is intended to coerce large runs of get-entries requests (e.g. by
+		// monitors/mirrors) into all requesting the same start/end ranges,
+		// thereby making the responses more readily cachable.
+		d := (end + 1) % maxRange
+		end = end - d
+		alignedGetEntries.Inc(strconv.FormatInt(logID, 10), strconv.FormatBool(d == 0))
 	}
 
 	return start, end, nil
