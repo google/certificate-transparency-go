@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -41,7 +42,6 @@ import (
 var (
 	certChainFile     = flag.String("cert_chain", "", "File containing a certificate chain. An SCT will be generated for the first certificate.")
 	logPrivateKeyFile = flag.String("log_private_key", "", "File containing a CT log private key.")
-	logPrivateKeyPass = flag.String("log_private_key_password", "", "Password for the CT log private key.")
 	timestampStr      = flag.String("timestamp", "", "Timestamp for the SCT, in RFC3339 format.")
 	tlsOutputFile     = flag.String("tls_out", "", "Write the SCT in TLS format to this file.")
 )
@@ -49,9 +49,15 @@ var (
 func main() {
 	flag.Parse()
 
-	logSigner, err := pem.ReadPrivateKeyFile(*logPrivateKeyFile, *logPrivateKeyPass)
+	keyPEM, err := ioutil.ReadFile(*logPrivateKeyFile)
 	if err != nil {
-		glog.Exitf("Error getting log private key: %v", err)
+		glog.Exitf("Error reading log private key: %v", err)
+	}
+
+	const blankPassword = "" // No support for password-protected private keys since only test keys should be used.
+	logSigner, err := pem.UnmarshalPrivateKey(string(keyPEM), blankPassword)
+	if err != nil {
+		glog.Exitf("Error parsing log private key: %v", err)
 	}
 
 	logID, err := ctfe.GetCTLogID(logSigner.Public())
