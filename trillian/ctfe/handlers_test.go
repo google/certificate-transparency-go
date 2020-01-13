@@ -1173,47 +1173,48 @@ func runTestGetEntriesRanges(t *testing.T) {
 		},
 	}
 
-	info := setupTest(t, nil, nil)
-	defer info.mockCtrl.Finish()
-	handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
-
 	// This tests that only valid ranges make it to the backend for get-entries.
 	// We're testing request handling up to the point where we make the RPC so arrange for
 	// it to fail with a specific error.
 	for _, test := range tests {
-		info.setRemoteQuotaUser(test.wantQuotaUser)
-		if test.rpc {
-			end := test.rpcEnd
-			if end == 0 {
-				end = test.end
-			}
-			var chargeTo *trillian.ChargeTo
-			if len(test.wantQuotaUser) != 0 {
-				chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
-			}
-			if *getByRange {
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
-			} else {
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
-			}
-		}
+		t.Run(test.desc, func(t *testing.T) {
+			info := setupTest(t, nil, nil)
+			defer info.mockCtrl.Finish()
+			handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 
-		path := fmt.Sprintf("/ct/v1/get-entries?start=%d&end=%d", test.start, test.end)
-		req, err := http.NewRequest("GET", path, nil)
-		if err != nil {
-			t.Errorf("Failed to create request: %v", err)
-			continue
-		}
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, req)
+			info.setRemoteQuotaUser(test.wantQuotaUser)
+			if test.rpc {
+				end := test.rpcEnd
+				if end == 0 {
+					end = test.end
+				}
+				var chargeTo *trillian.ChargeTo
+				if len(test.wantQuotaUser) != 0 {
+					chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
+				}
+				if *getByRange {
+					info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
+				} else {
+					info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
+				}
+			}
 
-		if got := w.Code; got != test.want {
-			t.Errorf("getEntries(%d, %d)=%d; want %d for test %s", test.start, test.end, got, test.want, test.desc)
-		}
-		if test.rpc && !strings.Contains(w.Body.String(), "RPCMADE") {
-			// If an RPC was emitted, it should have received and propagated an error.
-			t.Errorf("getEntries(%d, %d)=%q; expect RPCMADE for test %s", test.start, test.end, w.Body, test.desc)
-		}
+			path := fmt.Sprintf("/ct/v1/get-entries?start=%d&end=%d", test.start, test.end)
+			req, err := http.NewRequest("GET", path, nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			if got := w.Code; got != test.want {
+				t.Errorf("getEntries(%d, %d)=%d; want %d for test %s", test.start, test.end, got, test.want, test.desc)
+			}
+			if test.rpc && !strings.Contains(w.Body.String(), "RPCMADE") {
+				// If an RPC was emitted, it should have received and propagated an error.
+				t.Errorf("getEntries(%d, %d)=%q; expect RPCMADE for test %s", test.start, test.end, w.Body, test.desc)
+			}
+		})
 	}
 }
 
