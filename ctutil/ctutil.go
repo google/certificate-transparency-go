@@ -108,17 +108,12 @@ func LeafHash(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, emb
 //       certificate must also be provided in chain.  The certificate containing
 //       the embedded SCT should be at chain[0], and its issuer at chain[1].
 func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) error {
-	leaf, err := createLeaf(chain, sct, embedded)
-	if err != nil {
-		return err
-	}
-
 	s, err := ct.NewSignatureVerifier(pubKey)
 	if err != nil {
 		return fmt.Errorf("error creating signature verifier: %s", err)
 	}
 
-	return s.VerifySCTSignature(*sct, ct.LogEntry{Leaf: *leaf})
+	return VerifySCTWithVerifier(s, chain, sct, embedded)
 }
 
 // VerifySCTWithVerifier takes a ct.SignatureVerifier, a certificate chain, and
