@@ -118,8 +118,7 @@ func VerifySCT(pubKey crypto.PublicKey, chain []*x509.Certificate, sct *ct.Signe
 		return fmt.Errorf("error creating signature verifier: %s", err)
 	}
 
-	entry := ct.LogEntry{Leaf: *leaf}
-	return s.VerifySCTSignature(*sct, entry)
+	return s.VerifySCTSignature(*sct, ct.LogEntry{Leaf: *leaf})
 }
 
 // VerifySCTWithVerifier takes a ct.SignatureVerifier, a certificate chain, and
@@ -158,8 +157,7 @@ func VerifySCTWithVerifier(sv *ct.SignatureVerifier, chain []*x509.Certificate, 
 		return err
 	}
 
-	entry := ct.LogEntry{Leaf: *leaf}
-	return sv.VerifySCTSignature(*sct, entry)
+	return sv.VerifySCTSignature(*sct, ct.LogEntry{Leaf: *leaf})
 }
 
 func createLeaf(chain []*x509.Certificate, sct *ct.SignedCertificateTimestamp, embedded bool) (*ct.MerkleTreeLeaf, error) {
