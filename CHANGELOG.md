@@ -61,6 +61,10 @@ The `ct_server` binary added the following flags:
 
 Merged upstream Go 1.13 changes.
 
+#### ctutil
+
+Added VerifySCTWithVerifier() to verify SCTs using a given ct.SignatureVerifier.
+
 ### Configuration Files
 
 Configuration files that previously had to be text-encoded Protobuf messages can
