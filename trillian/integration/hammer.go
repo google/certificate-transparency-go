@@ -128,6 +128,10 @@ type HammerConfig struct {
 	OversizedGetEntries bool
 	// Number of operations to perform.
 	Operations uint64
+	// Duration of the test, overrides Operations if set non-zero. The duration
+	// represents that within which new operations may be started. The overall
+	// run time may be longer if operations are in flight when the time expires.
+	TestDuration time.Duration
 	// Rate limiter
 	Limiter Limiter
 	// MaxParallelChains sets the upper limit for the number of parallel
@@ -1087,12 +1091,28 @@ func HammerCTLog(cfg HammerConfig) error {
 		glog.Info(s.String())
 	})
 
-	for count := uint64(1); count < cfg.Operations; count++ {
-		if err := s.retryOneOp(ctx); err != nil {
-			return err
+	if cfg.TestDuration == 0 {
+		// Test termination is controlled by operation count.
+		for count := uint64(1); count < cfg.Operations; count++ {
+			if err := s.retryOneOp(ctx); err != nil {
+				return err
+			}
 		}
+		glog.Infof("%s: completed %d operations on log", cfg.LogCfg.Prefix, cfg.Operations)
+	} else {
+		// Test termination is controlled by a timeout. Use a separate context
+		// to avoid the last operation propagating an error when the context
+		// times out.
+		ctx2, cancel := context.WithTimeout(context.Background(), cfg.TestDuration)
+		defer cancel()
+
+		for ctx2.Err() == nil {
+			if err := s.retryOneOp(ctx); err != nil {
+				return err
+			}
+		}
+		glog.Infof("%s: completed test duration %v on log", cfg.LogCfg.Prefix, cfg.TestDuration)
 	}
-	glog.Infof("%s: completed %d operations on log", cfg.LogCfg.Prefix, cfg.Operations)
 
 	return nil
 }

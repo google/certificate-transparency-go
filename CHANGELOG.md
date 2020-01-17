@@ -70,6 +70,14 @@ now alternatively be binary-encoded instead.
 
 - `PostAndParseWithRetry` error logging now includes log URI in messages.
 
+### Hammer Integration Test
+
+The `ct_hammer` binary added the following flag:
+-    `test_duration` - Specifies how long the test should run for.
+
+Tests should either set the `operations` flag for a predictable number of
+requests or `test_duration` for a predictable test run time.
+
 ## v1.1.0
 
 Published 2019-11-14 15:00:00 +0000 UTC
