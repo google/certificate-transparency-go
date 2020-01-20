@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -307,6 +308,9 @@ type hammerState struct {
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
+	if cfg.TestDuration != 0 && cfg.Operations != 0 {
+		return nil, errors.New("cannot set both test_duration and operations")
+	}
 	mf := cfg.MetricFactory
 	if mf == nil {
 		mf = monitoring.InertMetricFactory{}
