@@ -88,8 +88,8 @@ kill -9 ${hammer_pid}
 #cp demo-script.cfg  demo-script-2.cfg
 #cat demo-script.cfg | sed 's/athos/porthos/' | sed "s/${tree_id}/${tree_id_2}/" >> demo-script-2.cfg
 
-echo 'Stop and restart the CT personality to use the new config (note changed --log_config)'
-kill -9 ${ct_pid}
+#echo 'Stop and restart the CT personality to use the new config (note changed --log_config)'
+#kill -9 ${ct_pid}
 #ct_server --log_config=demo-script-2.cfg --log_rpc_server=localhost:6962 --http_endpoint=localhost:6965 &
 #sleep 5
 
