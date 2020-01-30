@@ -69,7 +69,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Error parsing --timestamp: %v", err)
 	}
-	timestampMillis := uint64(timestamp.UnixNano() / 10e6)
+	timestampMillis := uint64(timestamp.UnixNano() / 1e6)
 
 	sct := ct.SignedCertificateTimestamp{
 		SCTVersion: ct.V1,
