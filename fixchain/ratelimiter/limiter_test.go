@@ -15,6 +15,7 @@
 package ratelimiter
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -24,46 +25,52 @@ var testlimits = []int{1, 10, 50, 100, 1000}
 
 func TestRateLimiterSingleThreaded(t *testing.T) {
 	for i, limit := range testlimits {
-		l := NewLimiter(limit)
+		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			t.Parallel()
+			l := NewLimiter(limit)
 
-		numOps := 3 * limit
-		start := time.Now()
-		// Need to call the limiter one extra time to ensure that the throughput
-		// calulation is correct (because e.g. at 1 qps you can do 3 calls in
-		// 2+epsilon seconds)
-		for i := 0; i < numOps+1; i++ {
-			l.Wait()
-		}
-		ds := float64(time.Since(start) / time.Second)
-		qps := float64(numOps) / ds
-		if qps > float64(limit) {
-			t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
-		}
+			numOps := 3 * limit
+			start := time.Now()
+			// Need to call the limiter one extra time to ensure that the throughput
+			// calulation is correct (because e.g. at 1 qps you can do 3 calls in
+			// 2+epsilon seconds)
+			for i := 0; i < numOps+1; i++ {
+				l.Wait()
+			}
+			ds := float64(time.Since(start) / time.Second)
+			qps := float64(numOps) / ds
+			if qps > float64(limit) {
+				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
+			}
+		})
 	}
 }
 
 func TestRateLimiterGoroutines(t *testing.T) {
 	for i, limit := range testlimits {
-		l := NewLimiter(limit)
+		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			t.Parallel()
+			l := NewLimiter(limit)
 
-		numOps := 3 * limit
-		var wg sync.WaitGroup
-		start := time.Now()
-		// Need to call the limiter one extra time to ensure that the throughput
-		// calulation is correct (because e.g. at 1 qps you can do 3 calls in
-		// 2+epsilon seconds)
-		for i := 0; i < numOps+1; i++ {
-			wg.Add(1)
-			go func() {
-				l.Wait()
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-		ds := float64(time.Since(start) / time.Second)
-		qps := float64(numOps) / ds
-		if qps > float64(limit) {
-			t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
-		}
+			numOps := 3 * limit
+			var wg sync.WaitGroup
+			start := time.Now()
+			// Need to call the limiter one extra time to ensure that the throughput
+			// calulation is correct (because e.g. at 1 qps you can do 3 calls in
+			// 2+epsilon seconds)
+			for i := 0; i < numOps+1; i++ {
+				wg.Add(1)
+				go func() {
+					l.Wait()
+					wg.Done()
+				}()
+			}
+			wg.Wait()
+			ds := float64(time.Since(start) / time.Second)
+			qps := float64(numOps) / ds
+			if qps > float64(limit) {
+				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
+			}
+		})
 	}
 }
