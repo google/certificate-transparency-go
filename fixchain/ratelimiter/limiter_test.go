@@ -32,7 +32,7 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 			numOps := 3 * limit
 			start := time.Now()
 			// Need to call the limiter one extra time to ensure that the throughput
-			// calulation is correct (because e.g. at 1 qps you can do 3 calls in
+			// calculation is correct (because e.g. at 1 qps you can do 3 calls in
 			// 2+epsilon seconds)
 			for i := 0; i < numOps+1; i++ {
 				l.Wait()
@@ -56,7 +56,7 @@ func TestRateLimiterGoroutines(t *testing.T) {
 			var wg sync.WaitGroup
 			start := time.Now()
 			// Need to call the limiter one extra time to ensure that the throughput
-			// calulation is correct (because e.g. at 1 qps you can do 3 calls in
+			// calculation is correct (because e.g. at 1 qps you can do 3 calls in
 			// 2+epsilon seconds)
 			for i := 0; i < numOps+1; i++ {
 				wg.Add(1)
