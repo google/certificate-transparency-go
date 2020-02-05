@@ -37,9 +37,9 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 			for i := 0; i < numOps+1; i++ {
 				l.Wait()
 			}
-			ds := float64(time.Since(start) / time.Second)
+			ds := float64(time.Since(start)) / float64(time.Second)
 			qps := float64(numOps) / ds
-			if qps > float64(limit) {
+			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
 		})
@@ -66,9 +66,9 @@ func TestRateLimiterGoroutines(t *testing.T) {
 				}()
 			}
 			wg.Wait()
-			ds := float64(time.Since(start) / time.Second)
+			ds := float64(time.Since(start)) / float64(time.Second)
 			qps := float64(numOps) / ds
-			if qps > float64(limit) {
+			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
 		})
