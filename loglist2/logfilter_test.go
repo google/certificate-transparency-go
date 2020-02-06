@@ -174,53 +174,53 @@ func TestTemporallyCompatible(t *testing.T) {
 	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestPreCertPEM))
 
 	tests := []struct {
-		name      string
-		in        LogList
-		cert      *x509.Certificate
-		notBefore time.Time
-		want      LogList
+		name     string
+		in       LogList
+		cert     *x509.Certificate
+		notAfter time.Time
+		want     LogList
 	}{
 		{
-			name:      "AllLogsFitTemporally",
-			in:        sampleLogList,
-			cert:      cert,
-			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
-			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+			name:     "AllLogsFitTemporally",
+			in:       sampleLogList,
+			cert:     cert,
+			notAfter: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
+			want:     subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://log.bob.io": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "OperatorExcludedAllItsLogsMismatch",
-			in:        sampleLogList,
-			cert:      cert,
-			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2014")),
-			want:      subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+			name:     "OperatorExcludedAllItsLogsMismatch",
+			in:       sampleLogList,
+			cert:     cert,
+			notAfter: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2014")),
+			want:     subLogList(map[string]bool{"https://ct.googleapis.com/aviator/": true, "https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "TwoLogsAfterCertTimeExcluded",
-			in:        sampleLogList,
-			cert:      cert,
-			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2013")),
-			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+			name:     "TwoLogsAfterCertTimeExcluded",
+			in:       sampleLogList,
+			cert:     cert,
+			notAfter: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2013")),
+			want:     subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "TwoLogsBeforeCertTimeExcluded",
-			in:        sampleLogList,
-			cert:      cert,
-			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
-			want:      subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
+			name:     "TwoLogsBeforeCertTimeExcluded",
+			in:       sampleLogList,
+			cert:     cert,
+			notAfter: stripErr(time.Parse(time.UnixDate, "Sat Mar 8 11:06:00 PST 2016")),
+			want:     subLogList(map[string]bool{"https://ct.googleapis.com/icarus/": true, "https://ct.googleapis.com/racketeer/": true, "https://ct.googleapis.com/rocketeer/": true}),
 		},
 		{
-			name:      "NilCert",
-			in:        sampleLogList,
-			cert:      nil,
-			notBefore: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
-			want:      subLogList(map[string]bool{}),
+			name:     "NilCert",
+			in:       sampleLogList,
+			cert:     nil,
+			notAfter: stripErr(time.Parse(time.UnixDate, "Sat Nov 8 11:06:00 PST 2014")),
+			want:     subLogList(map[string]bool{}),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.cert != nil {
-				test.cert.NotBefore = test.notBefore
+				test.cert.NotAfter = test.notAfter
 			}
 			got := test.in.TemporallyCompatible(test.cert)
 			if diff := pretty.Compare(test.want, got); diff != "" {
