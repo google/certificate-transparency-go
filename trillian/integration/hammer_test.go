@@ -426,6 +426,9 @@ func TestStrictSTHConsistencySize(t *testing.T) {
 				ClientPool:               RandomPool{lc},
 				LogCfg:                   &configpb.LogConfig{},
 			})
+			if err != nil {
+				t.Fatalf("Failed to create HammerState: %v", err)
+			}
 
 			err = hs.getSTHConsistency(ctx)
 			_, gotSkip := err.(errSkip)
