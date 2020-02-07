@@ -174,6 +174,9 @@ type fakeCTServer struct {
 	server *http.Server
 
 	addedCerts []*x509.Certificate
+	sthNow     ct.SignedTreeHead
+
+	getConsistencyCalled bool
 }
 
 func (s *fakeCTServer) addChain(w http.ResponseWriter, req *http.Request) {
@@ -232,6 +235,45 @@ func (s *fakeCTServer) serve() {
 	s.server.Serve(s.lis)
 }
 
+func (s *fakeCTServer) getSTH(w http.ResponseWriter, req *http.Request) {
+	resp := &ct.GetSTHResponse{
+		TreeSize:       s.sthNow.TreeSize,
+		Timestamp:      s.sthNow.Timestamp,
+		SHA256RootHash: []byte(s.sthNow.SHA256RootHash[:]),
+	}
+	var err error
+	resp.TreeHeadSignature, err = tls.Marshal(s.sthNow.TreeHeadSignature)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(respBytes)
+}
+
+func (s *fakeCTServer) getConsistency(w http.ResponseWriter, req *http.Request) {
+	cp := &ct.GetSTHConsistencyResponse{
+		Consistency: [][]byte{[]byte("bogus")},
+	}
+	respBytes, err := json.Marshal(cp)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(respBytes)
+
+	s.getConsistencyCalled = true
+}
+
 func writeErr(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)
 	io.WriteString(w, err.Error())
@@ -252,6 +294,8 @@ func newFakeCTServer(t *testing.T) (*fakeCTServer, *client.LogClient) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ct/v1/add-chain", s.addChain)
 	mux.HandleFunc("/ct/v1/add-pre-chain", s.addChain)
+	mux.HandleFunc("/ct/v1/get-sth", s.getSTH)
+	mux.HandleFunc("/ct/v1/get-sth-consistency", s.getConsistency)
 
 	s.server = &http.Server{Handler: mux}
 	go s.serve()
@@ -356,5 +400,51 @@ func TestChooseCertToAdd(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestStrictSTHConsistencySize(t *testing.T) {
+	ctx := context.Background()
+
+	for _, test := range []struct {
+		name       string
+		strict     bool
+		sthNowSize uint64
+		wantSkip   bool
+	}{
+		{name: "strict", strict: true, wantSkip: true},
+		{name: "relaxed_too_small", sthNowSize: 1, wantSkip: true},
+		{name: "relaxed_invent_size", sthNowSize: 10, wantSkip: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, lc := newFakeCTServer(t)
+			defer s.close()
+
+			s.sthNow.TreeSize = test.sthNowSize
+
+			hs, err := newHammerState(&HammerConfig{
+				StrictSTHConsistencySize: test.strict,
+				ClientPool:               RandomPool{lc},
+				LogCfg:                   &configpb.LogConfig{},
+			})
+			if err != nil {
+				t.Fatalf("Failed to create HammerState: %v", err)
+			}
+
+			err = hs.getSTHConsistency(ctx)
+			_, gotSkip := err.(errSkip)
+			if gotSkip != test.wantSkip {
+				t.Fatalf("got err %v, wanted Skip=%v", err, test.wantSkip)
+			}
+			if err != nil && !gotSkip {
+				t.Fatalf("got unexpected err %v", err)
+			}
+			if test.wantSkip {
+				return
+			}
+
+			if !s.getConsistencyCalled {
+				t.Fatal("hammer failed to request a consistency proof for invented tree size")
+			}
+		})
+	}
 }
