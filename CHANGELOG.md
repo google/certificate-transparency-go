@@ -4,6 +4,14 @@
 
 Not yet released; provisionally v1.2.0 (may change).
 
+### Tools
+
+#### CT Hammer
+
+Added a flag (--strict_sth_consistency_sizes) which when set to true enforces the current behaviour of only request consistency proofs between tree sizes for which the hammer has seen valid STHs.
+When setting this flag to false, if no two usable STHs are available the hammer will attempt to request a consistency proof between the latest STH it's seen and a random smaller (but > 0) tree size.
+
+
 ### CTFE
 
 #### Caching
