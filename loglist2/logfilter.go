@@ -97,7 +97,7 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 
 // TemporallyCompatible creates a new LogList containing only the logs of
 // original LogList that are compatible with the provided cert, according to
-// NotBefore and TemporalInterval matching.
+// NotAfter and TemporalInterval matching.
 // Returns empty LogList if nil-cert is provided.
 func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 	var compatible LogList
@@ -113,7 +113,7 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 				compatibleOp.Logs = append(compatibleOp.Logs, l)
 				continue
 			}
-			if cert.NotBefore.Before(l.TemporalInterval.EndExclusive) && (cert.NotBefore.After(l.TemporalInterval.StartInclusive) || cert.NotBefore.Equal(l.TemporalInterval.StartInclusive)) {
+			if cert.NotAfter.Before(l.TemporalInterval.EndExclusive) && (cert.NotAfter.After(l.TemporalInterval.StartInclusive) || cert.NotAfter.Equal(l.TemporalInterval.StartInclusive)) {
 				compatibleOp.Logs = append(compatibleOp.Logs, l)
 			}
 		}

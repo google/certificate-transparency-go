@@ -15,60 +15,62 @@
 package ratelimiter
 
 import (
+	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
 
 var testlimits = []int{1, 10, 50, 100, 1000}
 
-func checkTicker(t *testing.T, tick *time.Ticker, count *int64, i, limit int) {
-	for range tick.C {
-		// Allow a count up to slightly more than the limit as scheduling of
-		// goroutine vs the main thread could cause this check to not be
-		// run quite in time for limit.
-		allowed := int(float64(limit)*1.05) + 1
-		v := atomic.LoadInt64(count)
-		if v > int64(allowed) {
-			t.Errorf("#%d: Too many operations per second. Expected ~%d, got %d", i, limit, v)
-		}
-		atomic.StoreInt64(count, 0)
-	}
-}
-
 func TestRateLimiterSingleThreaded(t *testing.T) {
 	for i, limit := range testlimits {
-		l := NewLimiter(limit)
-		count := int64(0)
-		tick := time.NewTicker(time.Second)
-		go checkTicker(t, tick, &count, i, limit)
+		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			t.Parallel()
+			l := NewLimiter(limit)
 
-		for i := 0; i < 3*limit; i++ {
-			l.Wait()
-			atomic.AddInt64(&count, 1)
-		}
-		tick.Stop()
+			numOps := 3 * limit
+			start := time.Now()
+			// Need to call the limiter one extra time to ensure that the throughput
+			// calculation is correct (because e.g. at 1 qps you can do 3 calls in
+			// 2+epsilon seconds)
+			for i := 0; i < numOps+1; i++ {
+				l.Wait()
+			}
+			ds := float64(time.Since(start)) / float64(time.Second)
+			qps := float64(numOps) / ds
+			if qps > float64(limit)*1.01 {
+				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
+			}
+		})
 	}
 }
 
 func TestRateLimiterGoroutines(t *testing.T) {
 	for i, limit := range testlimits {
-		l := NewLimiter(limit)
-		count := int64(0)
-		tick := time.NewTicker(time.Second)
-		go checkTicker(t, tick, &count, i, limit)
+		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			t.Parallel()
+			l := NewLimiter(limit)
 
-		var wg sync.WaitGroup
-		for i := 0; i < 3*limit; i++ {
-			wg.Add(1)
-			go func() {
-				l.Wait()
-				atomic.AddInt64(&count, 1)
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-		tick.Stop()
+			numOps := 3 * limit
+			var wg sync.WaitGroup
+			start := time.Now()
+			// Need to call the limiter one extra time to ensure that the throughput
+			// calculation is correct (because e.g. at 1 qps you can do 3 calls in
+			// 2+epsilon seconds)
+			for i := 0; i < numOps+1; i++ {
+				wg.Add(1)
+				go func() {
+					l.Wait()
+					wg.Done()
+				}()
+			}
+			wg.Wait()
+			ds := float64(time.Since(start)) / float64(time.Second)
+			qps := float64(numOps) / ds
+			if qps > float64(limit)*1.01 {
+				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
+			}
+		})
 	}
 }

@@ -145,6 +145,11 @@ type HammerConfig struct {
 	// calling add[-pre]-chain (as the N in 1-in-N). Set to 0 to disable sending
 	// duplicates.
 	DuplicateChance int
+	// StrictSTHConsistencySize if set to true will cause Hammer to only request
+	// STH consistency proofs between tree sizes for which it's seen valid STHs.
+	// If set to false, Hammer will request a consistency proof between the
+	// current tree size, and a random smaller size greater than zero.
+	StrictSTHConsistencySize bool
 }
 
 // HammerBias indicates the bias for selecting different log operations.
@@ -647,17 +652,17 @@ func (s *hammerState) chooseSTHs(ctx context.Context) (*ct.SignedTreeHead, *ct.S
 	if s.sth[which] == nil {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
 		s.needOps(ctfe.GetSTHName)
-		return nil, nil, errSkip{}
+		return nil, sthNow, errSkip{}
 	}
 	if s.sth[which].TreeSize == 0 {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as no earlier STH", s.cfg.LogCfg.Prefix)
 		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
-		return nil, nil, errSkip{}
+		return nil, sthNow, errSkip{}
 	}
 	if s.sth[which].TreeSize == sthNow.TreeSize {
 		glog.V(3).Infof("%s: skipping get-sth-consistency as same size (%d)", s.cfg.LogCfg.Prefix, sthNow.TreeSize)
 		s.needOps(ctfe.AddChainName, ctfe.GetSTHName)
-		return nil, nil, errSkip{}
+		return nil, sthNow, errSkip{}
 	}
 	return s.sth[which], sthNow, nil
 }
@@ -665,13 +670,35 @@ func (s *hammerState) chooseSTHs(ctx context.Context) (*ct.SignedTreeHead, *ct.S
 func (s *hammerState) getSTHConsistency(ctx context.Context) error {
 	sthOld, sthNow, err := s.chooseSTHs(ctx)
 	if err != nil {
-		return err
+		// bail on actual errors
+		if _, ok := err.(errSkip); !ok {
+			return err
+		}
+		// If we're being asked to skip, it's because we don't have an earlier STH,
+		// if the config says we must only use "known" STHs then we'll have to wait
+		// until we get a larger STH.
+		if s.cfg.StrictSTHConsistencySize {
+			return err
+		}
+
+		// Otherwise, let's use our imagination and make one up, if possible...
+		if sthNow.TreeSize < 2 {
+			glog.V(3).Infof("%s: current STH size too small to invent a smaller STH for consistency proof (%d)", s.cfg.LogCfg.Prefix, sthNow.TreeSize)
+			return errSkip{}
+		}
+		sthOld = &ct.SignedTreeHead{TreeSize: uint64(1 + rand.Int63n(int64(sthNow.TreeSize)))}
+		glog.V(3).Infof("%s: Inventing a smaller STH size for consistency proof (%d)", s.cfg.LogCfg.Prefix, sthOld.TreeSize)
 	}
 
 	proof, err := s.client().GetSTHConsistency(ctx, sthOld.TreeSize, sthNow.TreeSize)
 	if err != nil {
 		return fmt.Errorf("failed to get-sth-consistency(%d, %d): %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}
+	if sthOld.Timestamp == 0 {
+		glog.V(3).Infof("%s: Skipping consistency proof verification for invented STH", s.cfg.LogCfg.Prefix)
+		return nil
+	}
+
 	if err := s.checkCTConsistencyProof(sthOld, sthNow, proof); err != nil {
 		return fmt.Errorf("get-sth-consistency(%d, %d) proof check failed: %v", sthOld.TreeSize, sthNow.TreeSize, err)
 	}

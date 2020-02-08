@@ -79,16 +79,17 @@ var (
 	reqDeadline         = flag.Duration("req_deadline", 10*time.Second, "Deadline to set on individual requests")
 )
 var (
-	addChainBias          = flag.Int("add_chain", 20, "Bias for add-chain operations")
-	addPreChainBias       = flag.Int("add_pre_chain", 20, "Bias for add-pre-chain operations")
-	getSTHBias            = flag.Int("get_sth", 2, "Bias for get-sth operations")
-	getSTHConsistencyBias = flag.Int("get_sth_consistency", 2, "Bias for get-sth-consistency operations")
-	getProofByHashBias    = flag.Int("get_proof_by_hash", 2, "Bias for get-proof-by-hash operations")
-	getEntriesBias        = flag.Int("get_entries", 2, "Bias for get-entries operations")
-	getRootsBias          = flag.Int("get_roots", 1, "Bias for get-roots operations")
-	getEntryAndProofBias  = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
-	invalidChance         = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
-	dupeChance            = flag.Int("duplicate_chance", 10, "Chance of generating a duplicate submission, as the N in 1-in-N (0 for never)")
+	addChainBias             = flag.Int("add_chain", 20, "Bias for add-chain operations")
+	addPreChainBias          = flag.Int("add_pre_chain", 20, "Bias for add-pre-chain operations")
+	getSTHBias               = flag.Int("get_sth", 2, "Bias for get-sth operations")
+	getSTHConsistencyBias    = flag.Int("get_sth_consistency", 2, "Bias for get-sth-consistency operations")
+	getProofByHashBias       = flag.Int("get_proof_by_hash", 2, "Bias for get-proof-by-hash operations")
+	getEntriesBias           = flag.Int("get_entries", 2, "Bias for get-entries operations")
+	getRootsBias             = flag.Int("get_roots", 1, "Bias for get-roots operations")
+	getEntryAndProofBias     = flag.Int("get_entry_and_proof", 0, "Bias for get-entry-and-proof operations")
+	invalidChance            = flag.Int("invalid_chance", 10, "Chance of generating an invalid operation, as the N in 1-in-N (0 for never)")
+	dupeChance               = flag.Int("duplicate_chance", 10, "Chance of generating a duplicate submission, as the N in 1-in-N (0 for never)")
+	strictSTHConsistencySize = flag.Bool("strict_sth_consistency_size", true, "If set to true, hammer will use only tree sizes from STHs it's seen for consistency proofs, otherwise it'll choose a random size for the smaller tree")
 )
 
 func newLimiter(rate int) integration.Limiter {
@@ -290,22 +291,23 @@ func main() {
 		}
 
 		cfg := integration.HammerConfig{
-			LogCfg:              c,
-			MetricFactory:       mf,
-			MMD:                 mmd,
-			ChainGenerator:      generator,
-			ClientPool:          pool,
-			EPBias:              bias,
-			MinGetEntries:       *minGetEntries,
-			MaxGetEntries:       *maxGetEntries,
-			OversizedGetEntries: *oversizedGetEntries,
-			Operations:          *operations,
-			Limiter:             newLimiter(*limit),
-			MaxParallelChains:   *maxParallelChains,
-			IgnoreErrors:        *ignoreErrors,
-			MaxRetryDuration:    *maxRetry,
-			RequestDeadline:     *reqDeadline,
-			DuplicateChance:     *dupeChance,
+			LogCfg:                   c,
+			MetricFactory:            mf,
+			MMD:                      mmd,
+			ChainGenerator:           generator,
+			ClientPool:               pool,
+			EPBias:                   bias,
+			MinGetEntries:            *minGetEntries,
+			MaxGetEntries:            *maxGetEntries,
+			OversizedGetEntries:      *oversizedGetEntries,
+			Operations:               *operations,
+			Limiter:                  newLimiter(*limit),
+			MaxParallelChains:        *maxParallelChains,
+			IgnoreErrors:             *ignoreErrors,
+			MaxRetryDuration:         *maxRetry,
+			RequestDeadline:          *reqDeadline,
+			DuplicateChance:          *dupeChance,
+			StrictSTHConsistencySize: *strictSTHConsistencySize,
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()
