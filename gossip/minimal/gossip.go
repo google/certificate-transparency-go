@@ -90,6 +90,12 @@ type logConfig struct {
 	MinInterval time.Duration
 }
 
+type monitorConfig struct {
+	Name    string
+	URL     string
+	Monitor *logclient.LogClient
+}
+
 type hubSubmitter interface {
 	CanSubmit(ctx context.Context, g *Gossiper) error
 	SubmitSTH(ctx context.Context, srcName, srcURL string, sth *ct.SignedTreeHead, g *Gossiper) error
@@ -205,6 +211,11 @@ type sourceLog struct {
 
 	mu      sync.Mutex
 	lastSTH *ct.SignedTreeHead
+}
+
+type monitor struct {
+	monitorConfig
+	mu sync.Mutex
 }
 
 /// ---------------------------------
