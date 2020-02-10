@@ -19,6 +19,8 @@
 // to add additional trusted roots for the gossip sources).
 package minimal
 
+/// behaviours for: CT Log Submitter, Pure Hub Submitter, CT Source Log, Gossiper
+
 import (
 	"bytes"
 	"context"
@@ -79,6 +81,8 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	writeErrorsCounter = mf.NewCounter("hub_write_errors", "Number of destination hub submission errors", "hubname")
 }
 
+/// ---------------------------------
+
 type logConfig struct {
 	Name        string
 	URL         string
@@ -99,12 +103,20 @@ type destHub struct {
 	lastHubSubmission map[string]time.Time
 }
 
+/// (ze): we need to invent some types here
+/// ---------------------------------
+
+/// ---------------------------------
+/// CT Log Submitter Functions
+/// ---------------------------------
+
 // ctLogSubmitter is an implementation of hubSubmitter that submits to CT Logs
 // that accepts STHs embedded in synthetic certificates.
 type ctLogSubmitter struct {
 	Log *logclient.LogClient
 }
 
+/// checks if gossiper roots match the log's roots
 // CanSubmit checks whether the destination CT log includes the root certificate
 // that we use for generating synthetic certificates.
 func (c *ctLogSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
@@ -121,6 +133,8 @@ func (c *ctLogSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
 	return fmt.Errorf("gossip root not found in CT log at %s", c.Log.BaseURI())
 }
 
+/// 1. convert STH to "synthetic cert"
+/// 2. add cert to logSubmitter's chain
 // SubmitSTH submits the given STH for inclusion in the destination CT Log, in the
 // form of a synthetic certificate.
 func (c *ctLogSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
@@ -144,6 +158,10 @@ func expandRspError(err error) string {
 	}
 	return err.Error()
 }
+
+/// ---------------------------------
+/// Pure Hub Submitter Functions
+/// ---------------------------------
 
 // pureHubSubmitter is an implementation of hubSubmitter that submits to
 // Gossip Hubs.
@@ -189,6 +207,10 @@ type sourceLog struct {
 	lastSTH *ct.SignedTreeHead
 }
 
+/// ---------------------------------
+/// Gossiper Functions
+/// ---------------------------------
+
 // Gossiper is an agent that retrieves STH values from a set of source logs and
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
@@ -210,6 +232,10 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 	return nil
 }
 
+/// 1. create channel for STHs
+/// 2. add all source logs to gossiper waitgroup
+/// 3. Periodically retreieve STH from each source log concurrently
+/// 4. Submit any newly received STHs to a list of destinations
 // Run starts a gossiper set of goroutines.  It should be terminated by cancelling
 // the passed-in context.
 func (g *Gossiper) Run(ctx context.Context) {
@@ -280,6 +306,10 @@ type sthInfo struct {
 	name string
 	sth  *ct.SignedTreeHead
 }
+
+/// ---------------------------------
+/// Source Log Functions
+/// ---------------------------------
 
 // Retriever periodically retrieves an STH from the source log, and if a new STH is
 // available, writes it to the given channel.

@@ -39,6 +39,10 @@ var (
 	metricsEndpoint = flag.String("metrics_endpoint", "", "Endpoint for serving metrics")
 )
 
+// 1. parse flags
+// 2. create minimal gossiper
+// 3. create HTTP Handler
+// 4. run gossiper
 func main() {
 	flag.Parse()
 	ctx, cancel := context.WithCancel(context.Background())
