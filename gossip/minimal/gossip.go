@@ -91,9 +91,10 @@ type logConfig struct {
 }
 
 type monitorConfig struct {
-	Name    string
-	URL     string
-	Monitor *logclient.LogClient
+	Name          string
+	URL           string
+	Monitor       *logclient.LogClient
+	lastBroadcast map[string]time.Time
 }
 
 type hubSubmitter interface {
@@ -108,9 +109,6 @@ type destHub struct {
 	MinInterval       time.Duration
 	lastHubSubmission map[string]time.Time
 }
-
-/// (ze): we need to invent some types here
-/// ---------------------------------
 
 /// ---------------------------------
 /// CT Log Submitter Functions
@@ -230,6 +228,7 @@ type Gossiper struct {
 	root       *x509.Certificate
 	dests      map[string]*destHub
 	srcs       map[string]*sourceLog
+	monitors   map[string]*monitor
 	bufferSize int
 }
 
@@ -262,9 +261,12 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	glog.Info("starting Submitter")
-	g.Submitter(ctx, sths)
-	glog.Info("finished Submitter")
+	//glog.Info("starting Submitter")
+	//g.Submitter(ctx, sths)
+	//glog.Info("finished Submitter")
+	glog.Info("starting Broadcaster")
+	g.Broadcast(ctx, sths)
+	glog.Info("finished Broadcaster")
 
 	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
@@ -277,6 +279,28 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
+func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
+	for {
+		select {
+		case <-ctx.Done():
+			glog.Info("Submitter: termination requested")
+			return
+		case info := <-s:
+			fromLog := info.name
+			glog.V(1).Infof("Broadcaster: Broadcasting(%s)", fromLog)
+			src, ok := g.srcs[fromLog]
+			if !ok {
+				glog.Errorf("Broadcaster: Broadcasting(%s) for unknown source log", fromLog)
+			}
+
+			/// TODO: broadcast STH and other info to each monitor
+			for _, monitor := range g.monitors {
+				glog.Infof("Broadcaster: Sending info to(%s)", monitor.Name)
+			}
+		}
+	}
+}
+
 // Submitter periodically services the provided channel and submits the
 // certificates received on it to the destination logs.
 func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
@@ -287,6 +311,7 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 			return
 		case info := <-s:
 			fromLog := info.name
+			/// what is add-chain?
 			glog.V(1).Infof("Submitter: Add-chain(%s)", fromLog)
 			src, ok := g.srcs[fromLog]
 			if !ok {
