@@ -295,7 +295,7 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 
 			/// TODO: broadcast STH and other info to each monitor
 			for _, monitor := range g.monitors {
-				glog.Infof("Broadcaster: Sending info to(%s)", monitor.Name)
+				glog.Infof("Broadcaster: Sending info (%s): (%s)", monitor.Name, src.Name)
 			}
 		}
 	}
@@ -339,8 +339,9 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 }
 
 type sthInfo struct {
-	name string
-	sth  *ct.SignedTreeHead
+	name    string
+	sth     *ct.SignedTreeHead
+	entries []ct.LogEntry
 }
 
 /// ---------------------------------
@@ -365,15 +366,27 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 	schedule.Every(ctx, src.MinInterval, func(ctx context.Context) {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
 		readsCounter.Inc(src.Name)
+		lastSTH := src.lastSTH
+
 		sth, err := src.GetNewerSTH(ctx, g)
 		if err != nil {
 			glog.Errorf("Retriever(%s): failed to get STH: %v", src.Name, err)
 			readErrorsCounter.Inc(src.Name)
 		} else if sth != nil {
+			entries, err := src.GetNewerEntries(ctx, g, lastSTH, sth)
+			if err != nil {
+				glog.Errorf("Retriever(%s): failed to NewerEntries STH: %v", src.Name, err)
+			}
+			if len(entries) > 0 {
+				glog.V(1).Infof("Retriever(%s): newest entry (%v)", src.Name, entries[0])
+			} else {
+				glog.V(1).Infof("Retriever(%s): received (%v) new entries", src.Name, len(entries))
+			}
+
 			glog.V(1).Infof("Retriever(%s): pass on STH", src.Name)
 			lastRecordedSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
 			lastRecordedSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
-			s <- sthInfo{name: src.Name, sth: sth}
+			s <- sthInfo{name: src.Name, sth: sth, entries: entries}
 		}
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
 	})
@@ -400,4 +413,24 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 	src.lastSTH = sth
 	glog.Infof("Retriever(%s): got STH size=%d timestamp=%d hash=%x", src.Name, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash)
 	return sth, nil
+}
+
+// GetNewerEntries retrieves [start_index, end_index] newest entries from the source log
+// and returns new entries, as available
+func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
+	newTreeSize := newSTH.TreeSize
+	if lastSTH == nil || newTreeSize <= 0 {
+		return nil, fmt.Errorf("Cannot get new entries: lastSTH is (%v) OR newTreeSize: (%v)", lastSTH, newTreeSize)
+	}
+	prevTreeSize := lastSTH.TreeSize
+	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
+
+	start_index, end_index := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
+	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, start_index, end_index)
+	entries, err := src.Log.GetEntries(ctx, start_index, end_index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get new entries: %v", err)
+	}
+
+	return entries, nil
 }

@@ -186,8 +186,9 @@ func (m *HubConfig) GetStartIndex() int64 {
 }
 
 type MonitorConfig struct {
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Url  string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	Name      string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Url       string            `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 }
 
 func (m *MonitorConfig) Reset()         { *m = MonitorConfig{} }
