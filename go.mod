@@ -14,7 +14,7 @@ require (
 	github.com/coreos/etcd v3.3.17+incompatible
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/emicklei/proto v1.8.0 // indirect
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
