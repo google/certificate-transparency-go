@@ -69,7 +69,7 @@ require (
 	golang.org/x/tools v0.0.0-20191114222411-4191b8cbba09 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	google.golang.org/genproto v0.0.0-20191114150713-6bbd007550de
-	google.golang.org/grpc v1.25.1
+	google.golang.org/grpc v1.27.1
 	gopkg.in/yaml.v2 v2.2.5 // indirect
 	mvdan.cc/unparam v0.0.0-20191111180625-960b1ec0f2c2 // indirect
 	sigs.k8s.io/yaml v1.1.0 // indirect
