@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/securego/gosec v0.0.0-20191104154532-b4c76d4234af // indirect
-	github.com/sergi/go-diff v1.0.0
+	github.com/sergi/go-diff v1.1.0
 	github.com/spf13/viper v1.5.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
