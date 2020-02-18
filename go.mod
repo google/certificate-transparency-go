@@ -36,7 +36,7 @@ require (
 	github.com/lyft/protoc-gen-validate v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/mattn/go-runewidth v0.0.6 // indirect
-	github.com/mattn/go-sqlite3 v1.12.0
+	github.com/mattn/go-sqlite3 v1.13.0
 	github.com/miekg/pkcs11 v1.0.3 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
