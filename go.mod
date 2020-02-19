@@ -50,7 +50,7 @@ require (
 	github.com/securego/gosec v0.0.0-20191104154532-b4c76d4234af // indirect
 	github.com/sergi/go-diff v1.1.0
 	github.com/spf13/viper v1.5.0 // indirect
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/uber/prototool v1.9.0 // indirect
 	github.com/urfave/cli v1.22.1 // indirect
