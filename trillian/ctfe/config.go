@@ -231,7 +231,7 @@ func BuildLogBackendMap(lbs *configpb.LogBackendSet) (LogBackendMap, error) {
 	return lbm, nil
 }
 
-func commonValidationLogConfigs(cfg []*configpb.LogConfig) error {
+func validateConfigs(cfg []*configpb.LogConfig) error {
 	// Check that logs have no duplicate or empty prefixes. Apply other LogConfig
 	// specific checks.
 	logNameMap := make(map[string]bool)
@@ -259,7 +259,7 @@ func commonValidationLogConfigs(cfg []*configpb.LogConfig) error {
 // empty.
 // 3. The set of tree IDs must be distinct.
 func ValidateLogConfigs(cfg []*configpb.LogConfig) error {
-	if err := commonValidationLogConfigs(cfg); err != nil {
+	if err := validateConfigs(cfg); err != nil {
 		return err
 	}
 
@@ -296,7 +296,7 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (LogBackendMap, error)
 		return nil, err
 	}
 
-	if err := commonValidationLogConfigs(cfg.GetLogConfigs().GetConfig()); err != nil {
+	if err := validateConfigs(cfg.GetLogConfigs().GetConfig()); err != nil {
 		return nil, err
 	}
 
