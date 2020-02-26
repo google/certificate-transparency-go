@@ -69,6 +69,10 @@ The `ct_server` binary added the following flags:
 
 Merged upstream Go 1.13 changes.
 
+#### asn1 fork
+
+Merged upstream Go 1.14 changes.
+
 #### ctutil
 
 Added VerifySCTWithVerifier() to verify SCTs using a given ct.SignatureVerifier.
