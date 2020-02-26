@@ -67,7 +67,9 @@ The `ct_server` binary added the following flags:
 
 #### x509 fork
 
-Merged upstream Go 1.13 changes.
+Merged upstream Go 1.13 and Go 1.14 changes (with the exception
+of https://github.com/golang/go/commit/14521198679e, to allow
+old certs using a malformed root still to be logged).
 
 #### asn1 fork
 
