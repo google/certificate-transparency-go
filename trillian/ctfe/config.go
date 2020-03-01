@@ -231,18 +231,62 @@ func BuildLogBackendMap(lbs *configpb.LogBackendSet) (LogBackendMap, error) {
 	return lbm, nil
 }
 
+func validateConfigs(cfg []*configpb.LogConfig) error {
+	// Check that logs have no duplicate or empty prefixes. Apply other LogConfig
+	// specific checks.
+	logNameMap := make(map[string]bool)
+	for _, logCfg := range cfg {
+		if _, err := ValidateLogConfig(logCfg); err != nil {
+			return fmt.Errorf("log config: %v: %v", err, logCfg)
+		}
+		if len(logCfg.Prefix) == 0 {
+			return fmt.Errorf("log config: empty prefix: %v", logCfg)
+		}
+		if logNameMap[logCfg.Prefix] {
+			return fmt.Errorf("log config: duplicate prefix: %s: %v", logCfg.Prefix, logCfg)
+		}
+		logNameMap[logCfg.Prefix] = true
+	}
+
+	return nil
+}
+
+// ValidateLogConfigs checks that a config is valid for use with a single log
+// server. The rules applied are:
+//
+// 1. All log configs must be valid (see ValidateLogConfig).
+// 2. The prefixes of configured logs must all be distinct and must not be
+// empty.
+// 3. The set of tree IDs must be distinct.
+func ValidateLogConfigs(cfg []*configpb.LogConfig) error {
+	if err := validateConfigs(cfg); err != nil {
+		return err
+	}
+
+	// Check that logs have no duplicate tree IDs.
+	treeIDs := make(map[int64]bool)
+	for _, logCfg := range cfg {
+		if treeIDs[logCfg.LogId] {
+			return fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
+		}
+		treeIDs[logCfg.LogId] = true
+	}
+
+	return nil
+}
+
 // ValidateLogMultiConfig checks that a config is valid for use with multiple
-// backend log servers. The rules applied are:
+// backend log servers. The rules applied are the same as ValidateLogConfigs, as
+// well as these additional rules:
 //
 // 1. The backend set must define a set of log backends with distinct
 // (non empty) names and non empty backend specs.
 // 2. The backend specs must all be distinct.
 // 3. The log configs must all specify a log backend and each must be one of
 // those defined in the backend set.
-// 4. The prefixes of configured logs must all be distinct and must not be
-// empty.
-// 5. The set of tree ids for each configured backend must be distinct.
-// 6. All log configs must be valid (see ValidateLogConfig).
+//
+// Also, another difference is that the tree IDs need only to be distinct per
+// backend.
 //
 // TODO(pavelkalinnikov): Replace the returned map with a fully fledged
 // ValidatedLogMultiConfig that contains a ValidatedLogConfig for each log.
@@ -252,24 +296,16 @@ func ValidateLogMultiConfig(cfg *configpb.LogMultiConfig) (LogBackendMap, error)
 		return nil, err
 	}
 
-	// Check that logs all reference a defined backend and there are no duplicate
-	// or empty prefixes. Apply other LogConfig specific checks.
-	logNameMap := make(map[string]bool)
+	if err := validateConfigs(cfg.GetLogConfigs().GetConfig()); err != nil {
+		return nil, err
+	}
+
+	// Check that logs all reference a defined backend.
 	logIDMap := make(map[string]bool)
 	for _, logCfg := range cfg.LogConfigs.Config {
-		if _, err := ValidateLogConfig(logCfg); err != nil {
-			return nil, fmt.Errorf("log config: %v: %v", err, logCfg)
-		}
-		if len(logCfg.Prefix) == 0 {
-			return nil, fmt.Errorf("log config: empty prefix: %v", logCfg)
-		}
-		if logNameMap[logCfg.Prefix] {
-			return nil, fmt.Errorf("log config: duplicate prefix: %s: %v", logCfg.Prefix, logCfg)
-		}
 		if _, ok := backendMap[logCfg.LogBackendName]; !ok {
 			return nil, fmt.Errorf("log config: references undefined backend: %s: %v", logCfg.LogBackendName, logCfg)
 		}
-		logNameMap[logCfg.Prefix] = true
 		logIDKey := fmt.Sprintf("%s-%d", logCfg.LogBackendName, logCfg.LogId)
 		if ok := logIDMap[logIDKey]; ok {
 			return nil, fmt.Errorf("log config: dup tree id: %d for: %v", logCfg.LogId, logCfg)
