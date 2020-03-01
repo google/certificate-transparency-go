@@ -31,6 +31,8 @@ var dbPath = flag.String("database", "/tmp/gossip.sq3", "Path to database.")
 var listenAddress = flag.String("listen", ":8080", "Listen address:port for HTTP server.")
 var logKeys = flag.String("log_public_keys", "", "Comma separated list of files containing trusted Logs' public keys in PEM format")
 
+// defined in ./handlers.go & ../signatures.go
+// type SVMap: map[SHA256] = SignatureVerifier.PubKey
 func createVerifiers() (*gossip.SignatureVerifierMap, error) {
 	m := make(gossip.SignatureVerifierMap)
 	if len(*logKeys) == 0 {
@@ -59,6 +61,10 @@ func createVerifiers() (*gossip.SignatureVerifierMap, error) {
 	return &m, nil
 }
 
+// 1. parses options
+// 2. create map of "verifiers"
+// 3. create gossip storage and handlers
+// 4. create handlers for SCT feedback and STH pollination
 func main() {
 	flag.Parse()
 	verifierMap, err := createVerifiers()
@@ -75,7 +81,9 @@ func main() {
 
 	handler := gossip.NewHandler(&storage, *verifierMap)
 	serveMux := http.NewServeMux()
+	// this handler is partially working
 	serveMux.HandleFunc("/.well-known/ct/v1/sct-feedback", handler.HandleSCTFeedback)
+	// understand this handler better
 	serveMux.HandleFunc("/.well-known/ct/v1/sth-pollination", handler.HandleSTHPollination)
 	server := &http.Server{
 		Addr:    *listenAddress,

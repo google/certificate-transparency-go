@@ -185,10 +185,38 @@ func (m *HubConfig) GetStartIndex() int64 {
 	return 0
 }
 
+type MonitorConfig struct {
+	Name      string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Url       string            `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	PublicKey *keyspb.PublicKey `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+}
+
+func (m *MonitorConfig) Reset()         { *m = MonitorConfig{} }
+func (m *MonitorConfig) String() string { return proto.CompactTextString(m) }
+func (*MonitorConfig) ProtoMessage()    {}
+func (*MonitorConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3eaf2c85e69e9ea4, []int{0}
+}
+
+func (m *MonitorConfig) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *MonitorConfig) GetUrl() string {
+	if m != nil {
+		return m.Url
+	}
+	return ""
+}
+
 // GossipConfig describes the configuration of a gossiper.
 type GossipConfig struct {
 	// The source logs whose STHs will be logged.
-	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
+	SourceLog []*LogConfig     `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
+	Monitor   []*MonitorConfig `protobuf:"bytes,1,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
 	// The destination hubs to which the minimal-gossip certificates will
 	// be submitted.  These destination hubs need to be configured to accept
 	// submissions.

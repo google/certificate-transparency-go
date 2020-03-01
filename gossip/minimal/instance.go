@@ -57,6 +57,7 @@ func NewBoundaryGossiperFromFile(ctx context.Context, filename string, hcLog, hc
 	if err != nil {
 		return nil, err
 	}
+	//glog.Infof("CONFIG Bytes: \n---\n%s\n---\n", cfgBytes)
 
 	var cfgProto configpb.GossipConfig
 	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfgProto); txtErr != nil {
@@ -78,6 +79,7 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	return NewBoundaryGossiper(ctx, cfg, hc, hc, mf)
 }
 
+/// TODO: register all monitors to gossiper.monintors
 // NewBoundaryGossiper creates a gossiper from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossiping across (some kinds of) network boundaries.
@@ -88,6 +90,9 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	}
 	if len(cfg.SourceLog) == 0 {
 		return nil, errors.New("no source log config found")
+	}
+	if len(cfg.Monitor) == 0 {
+		return nil, errors.New("no monitor config found")
 	}
 
 	needPrivKey := false
@@ -143,6 +148,21 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		}
 		allSTHsRate += sthRate
 	}
+
+	monitors := make(map[string]*monitor)
+	for _, m := range cfg.Monitor {
+		/// TODO: this function needs to be modified
+		base, err := monitorConfigFromProto(m, hcLog)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse monitor config for %q: %v", m.Name, err)
+		}
+		if _, ok := srcs[base.Name]; ok {
+			return nil, fmt.Errorf("duplicate monitor for name %q", base.Name)
+		}
+		glog.Infof("configured monitor %s at %s (%+v)", base.Name, base.URL, base)
+		monitors[base.Name] = &monitor{monitorConfig: *base}
+	}
+
 	dests := make(map[string]*destHub)
 	for _, lc := range cfg.DestHub {
 		hub, err := hubFromProto(lc, hcHub)
@@ -174,6 +194,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		root:       root,
 		dests:      dests,
 		srcs:       srcs,
+		monitors:   monitors,
 		bufferSize: int(cfg.BufferSize),
 	}, nil
 }
@@ -202,6 +223,23 @@ func logConfigFromProto(cfg *configpb.LogConfig, hc *http.Client) (*logConfig, e
 		URL:         cfg.Url,
 		Log:         client,
 		MinInterval: interval,
+	}, nil
+}
+
+func monitorConfigFromProto(cfg *configpb.MonitorConfig, hc *http.Client) (*monitorConfig, error) {
+	if cfg.Name == "" {
+		return nil, errors.New("no log name provided")
+	}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-monitor/1.0"}
+	client, err := logclient.New(cfg.Url, hc, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create monitor for %q: %v", cfg.Name, err)
+	}
+	return &monitorConfig{
+		Name:          cfg.Name,
+		URL:           cfg.Url,
+		Monitor:       client,
+		lastBroadcast: make(map[string]time.Time),
 	}, nil
 }
 

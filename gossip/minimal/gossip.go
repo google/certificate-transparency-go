@@ -19,6 +19,8 @@
 // to add additional trusted roots for the gossip sources).
 package minimal
 
+/// behaviours for: CT Log Submitter, Pure Hub Submitter, CT Source Log, Gossiper
+
 import (
 	"bytes"
 	"context"
@@ -79,11 +81,20 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	writeErrorsCounter = mf.NewCounter("hub_write_errors", "Number of destination hub submission errors", "hubname")
 }
 
+/// ---------------------------------
+
 type logConfig struct {
 	Name        string
 	URL         string
 	Log         *logclient.LogClient
 	MinInterval time.Duration
+}
+
+type monitorConfig struct {
+	Name          string
+	URL           string
+	Monitor       *logclient.LogClient
+	lastBroadcast map[string]time.Time
 }
 
 type hubSubmitter interface {
@@ -99,12 +110,17 @@ type destHub struct {
 	lastHubSubmission map[string]time.Time
 }
 
+/// ---------------------------------
+/// CT Log Submitter Functions
+/// ---------------------------------
+
 // ctLogSubmitter is an implementation of hubSubmitter that submits to CT Logs
 // that accepts STHs embedded in synthetic certificates.
 type ctLogSubmitter struct {
 	Log *logclient.LogClient
 }
 
+/// checks if gossiper roots match the log's roots
 // CanSubmit checks whether the destination CT log includes the root certificate
 // that we use for generating synthetic certificates.
 func (c *ctLogSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
@@ -121,6 +137,8 @@ func (c *ctLogSubmitter) CanSubmit(ctx context.Context, g *Gossiper) error {
 	return fmt.Errorf("gossip root not found in CT log at %s", c.Log.BaseURI())
 }
 
+/// 1. convert STH to "synthetic cert"
+/// 2. add cert to logSubmitter's chain
 // SubmitSTH submits the given STH for inclusion in the destination CT Log, in the
 // form of a synthetic certificate.
 func (c *ctLogSubmitter) SubmitSTH(ctx context.Context, name, url string, sth *ct.SignedTreeHead, g *Gossiper) error {
@@ -144,6 +162,10 @@ func expandRspError(err error) string {
 	}
 	return err.Error()
 }
+
+/// ---------------------------------
+/// Pure Hub Submitter Functions
+/// ---------------------------------
 
 // pureHubSubmitter is an implementation of hubSubmitter that submits to
 // Gossip Hubs.
@@ -189,6 +211,15 @@ type sourceLog struct {
 	lastSTH *ct.SignedTreeHead
 }
 
+type monitor struct {
+	monitorConfig
+	mu sync.Mutex
+}
+
+/// ---------------------------------
+/// Gossiper Functions
+/// ---------------------------------
+
 // Gossiper is an agent that retrieves STH values from a set of source logs and
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
@@ -197,6 +228,7 @@ type Gossiper struct {
 	root       *x509.Certificate
 	dests      map[string]*destHub
 	srcs       map[string]*sourceLog
+	monitors   map[string]*monitor
 	bufferSize int
 }
 
@@ -210,6 +242,10 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 	return nil
 }
 
+/// 1. create channel for STHs
+/// 2. add all source logs to gossiper waitgroup
+/// 3. Periodically retreieve STH from each source log concurrently
+/// 4. Submit any newly received STHs to a list of destinations
 // Run starts a gossiper set of goroutines.  It should be terminated by cancelling
 // the passed-in context.
 func (g *Gossiper) Run(ctx context.Context) {
@@ -225,9 +261,12 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	glog.Info("starting Submitter")
-	g.Submitter(ctx, sths)
-	glog.Info("finished Submitter")
+	//glog.Info("starting Submitter")
+	//g.Submitter(ctx, sths)
+	//glog.Info("finished Submitter")
+	glog.Info("starting Broadcaster")
+	g.Broadcast(ctx, sths)
+	glog.Info("finished Broadcaster")
 
 	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
@@ -240,6 +279,28 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
+func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
+	for {
+		select {
+		case <-ctx.Done():
+			glog.Info("Submitter: termination requested")
+			return
+		case info := <-s:
+			fromLog := info.name
+			glog.V(1).Infof("Broadcaster: Broadcasting(%s)", fromLog)
+			src, ok := g.srcs[fromLog]
+			if !ok {
+				glog.Errorf("Broadcaster: Broadcasting(%s) for unknown source log", fromLog)
+			}
+
+			/// TODO: broadcast STH and other info to each monitor
+			for _, monitor := range g.monitors {
+				glog.Infof("Broadcaster: Sending info (%s): (%s)", monitor.Name, src.Name)
+			}
+		}
+	}
+}
+
 // Submitter periodically services the provided channel and submits the
 // certificates received on it to the destination logs.
 func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
@@ -250,6 +311,7 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 			return
 		case info := <-s:
 			fromLog := info.name
+			/// what is add-chain?
 			glog.V(1).Infof("Submitter: Add-chain(%s)", fromLog)
 			src, ok := g.srcs[fromLog]
 			if !ok {
@@ -277,9 +339,14 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 }
 
 type sthInfo struct {
-	name string
-	sth  *ct.SignedTreeHead
+	name    string
+	sth     *ct.SignedTreeHead
+	entries []ct.LogEntry
 }
+
+/// ---------------------------------
+/// Source Log Functions
+/// ---------------------------------
 
 // Retriever periodically retrieves an STH from the source log, and if a new STH is
 // available, writes it to the given channel.
@@ -299,15 +366,27 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 	schedule.Every(ctx, src.MinInterval, func(ctx context.Context) {
 		glog.V(1).Infof("Retriever(%s): Get STH", src.Name)
 		readsCounter.Inc(src.Name)
+		lastSTH := src.lastSTH
+
 		sth, err := src.GetNewerSTH(ctx, g)
 		if err != nil {
 			glog.Errorf("Retriever(%s): failed to get STH: %v", src.Name, err)
 			readErrorsCounter.Inc(src.Name)
 		} else if sth != nil {
+			entries, err := src.GetNewerEntries(ctx, g, lastSTH, sth)
+			if err != nil {
+				glog.Errorf("Retriever(%s): failed to NewerEntries STH: %v", src.Name, err)
+			}
+			if len(entries) > 0 {
+				glog.V(1).Infof("Retriever(%s): newest entry (%v)", src.Name, entries[0])
+			} else {
+				glog.V(1).Infof("Retriever(%s): received (%v) new entries", src.Name, len(entries))
+			}
+
 			glog.V(1).Infof("Retriever(%s): pass on STH", src.Name)
 			lastRecordedSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
 			lastRecordedSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
-			s <- sthInfo{name: src.Name, sth: sth}
+			s <- sthInfo{name: src.Name, sth: sth, entries: entries}
 		}
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
 	})
@@ -334,4 +413,24 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 	src.lastSTH = sth
 	glog.Infof("Retriever(%s): got STH size=%d timestamp=%d hash=%x", src.Name, sth.TreeSize, sth.Timestamp, sth.SHA256RootHash)
 	return sth, nil
+}
+
+// GetNewerEntries retrieves [start_index, end_index] newest entries from the source log
+// and returns new entries, as available
+func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
+	newTreeSize := newSTH.TreeSize
+	if lastSTH == nil || newTreeSize <= 0 {
+		return nil, fmt.Errorf("Cannot get new entries: lastSTH is (%v) OR newTreeSize: (%v)", lastSTH, newTreeSize)
+	}
+	prevTreeSize := lastSTH.TreeSize
+	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
+
+	start_index, end_index := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
+	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, start_index, end_index)
+	entries, err := src.Log.GetEntries(ctx, start_index, end_index)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get new entries: %v", err)
+	}
+
+	return entries, nil
 }
