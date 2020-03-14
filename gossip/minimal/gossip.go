@@ -95,7 +95,7 @@ type logConfig struct {
 type monitorConfig struct {
 	Name          string
 	URL           string
-	Monitor       *logclient.LogClient
+	HttpClient *logclient.LogClient
 	lastBroadcast map[string]time.Time
 }
 
@@ -304,7 +304,16 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			/// TODO: broadcast STH and other info to each monitor
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
-				monitor.Monitor.Broadcast(ctx, src.Name, src.URL, "custom message to boardcast")
+				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
+					LogURL: src.URL,
+					STH: *info.sth,
+					IsConsistent: true,
+					Proof: []ct.MerkleTreeNode{},
+				})
+				if err != nil{
+					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
+				}
+				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%s", src.Name, monitor.Name, ack)
 			}
 		}
 	}
@@ -320,19 +329,19 @@ func (g *Gossiper) Listen(ctx context.Context) {
 		Addr:    ":6966",
 		Handler: serveMux,
 	}
-	glog.Info("[Listen] Created Server")
+	glog.Info("Listen: Created Server")
 	go func() {
 		<-ctx.Done()
-		glog.Info("[Listen] termination requested")
+		glog.Info("Listen: termination requested")
 
 		// We received an interrupt signal, shut down.
 		if err := server.Shutdown(ctx); err != nil {
 			// Error from closing listeners, or context timeout:
-			glog.V(1).Infof("[Listen] Server Shutdown: %v", err)
+			glog.V(1).Infof("Listen: Server Shutdown: %v", err)
 		}
-
 	}()
-	glog.Info("[Listen] Listen&Serve on :6966/ct/v1/gossip-exchange")
+
+	glog.Info("Listen: Listen&Serve on :6966/ct/v1/gossip-exchange")
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		// Error starting or closing listener:
 		glog.Fatalf("HTTP server ListenAndServe: %v", err)

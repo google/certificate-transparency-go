@@ -142,13 +142,29 @@ func HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		writeErrorResponse(&rw, 111, "body had nothing")
+	decoder := json.NewDecoder(req.Body)
+	var gossipReq ct.GossipExchangeRequest
+	if err := decoder.Decode(&gossipReq); err != nil {
+		writeErrorResponse(&rw, http.StatusBadRequest, fmt.Sprintf("Invalid Gossip Exchange received: %v", err))
+		return
 	}
 
-	rw.Write(body)
-	rw.WriteHeader(http.StatusOK)
+	gossipResp := ct.GossipExchangeResponse{
+		Acknowledged: true,
+		LogURL:       gossipReq.LogURL,
+		STH:          gossipReq.STH,
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	fmt.Printf("HandleGossipListener: %v\n", gossipResp)
+
+	encoder := json.NewEncoder(rw)
+	if err := encoder.Encode(gossipResp); err != nil {
+		fmt.Println("HandleGossipListener: Encoding Failed :(")
+		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
+		return
+	}
+	fmt.Println("HandleGossipListener: Encoding Succeeded :)")
 }
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to

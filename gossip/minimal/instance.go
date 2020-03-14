@@ -240,7 +240,7 @@ func monitorConfigFromProto(cfg *configpb.MonitorConfig, hc *http.Client) (*moni
 	return &monitorConfig{
 		Name:          cfg.Name,
 		URL:           cfg.Url,
-		Monitor:       client,
+		HttpClient:    client,
 		lastBroadcast: make(map[string]time.Time),
 	}, nil
 }
