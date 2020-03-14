@@ -27,6 +27,7 @@ import (
 	"crypto"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"reflect"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
+	"github.com/google/certificate-transparency-go/gossip"
 
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
@@ -261,12 +263,18 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	//glog.Info("starting Submitter")
-	//g.Submitter(ctx, sths)
-	//glog.Info("finished Submitter")
-	glog.Info("starting Broadcaster")
+	go func(){
+		glog.Info("starting Gossip Listener")
+		g.Listen(ctx)
+		glog.Info("finished Gossip Listener")
+	} ()
+	///////////////////////////////////
+	// glog.Info("starting Submitter")
+	// g.Submitter(ctx, sths)
+	// glog.Info("finished Submitter")
+	glog.Info("starting Gossip Broadcaster")
 	g.Broadcast(ctx, sths)
-	glog.Info("finished Broadcaster")
+	glog.Info("finished Gossip Broadcaster")
 
 	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
@@ -283,21 +291,51 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	for {
 		select {
 		case <-ctx.Done():
-			glog.Info("Submitter: termination requested")
+			glog.Info("Broadcast: termination requested")
 			return
 		case info := <-s:
 			fromLog := info.name
-			glog.V(1).Infof("Broadcaster: Broadcasting(%s)", fromLog)
+			glog.V(1).Infof("Broadcast: Broadcasting(%s)", fromLog)
 			src, ok := g.srcs[fromLog]
 			if !ok {
-				glog.Errorf("Broadcaster: Broadcasting(%s) for unknown source log", fromLog)
+				glog.Errorf("Broadcast: Broadcasting(%s) for unknown source log", fromLog)
 			}
 
 			/// TODO: broadcast STH and other info to each monitor
 			for _, monitor := range g.monitors {
-				glog.Infof("Broadcaster: Sending info (%s): (%s)", monitor.Name, src.Name)
+				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
+				monitor.Monitor.Broadcast(ctx, src.Name, src.URL, "custom message to boardcast")
 			}
 		}
+	}
+}
+
+func (g *Gossiper) Listen(ctx context.Context) {
+	glog.Info("[Listen] Actually Starting Listener")
+	serveMux := http.NewServeMux()
+	serveMux.HandleFunc(ct.GossipExchangePath, gossip.HandleGossipListener)
+	server := &http.Server{
+		/// This should build from config
+		// Addr:    *listenAddress,
+		Addr:    ":6966",
+		Handler: serveMux,
+	}
+	glog.Info("[Listen] Created Server")
+	go func() {
+		<-ctx.Done()
+		glog.Info("[Listen] termination requested")
+
+		// We received an interrupt signal, shut down.
+		if err := server.Shutdown(ctx); err != nil {
+			// Error from closing listeners, or context timeout:
+			glog.V(1).Infof("[Listen] Server Shutdown: %v", err)
+		}
+
+	}()
+	glog.Info("[Listen] Listen&Serve on :6966/ct/v1/gossip-exchange")
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		// Error starting or closing listener:
+		glog.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
 }
 
@@ -337,6 +375,7 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 		}
 	}
 }
+
 
 type sthInfo struct {
 	name    string
@@ -419,8 +458,11 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 // and returns new entries, as available
 func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
 	newTreeSize := newSTH.TreeSize
-	if lastSTH == nil || newTreeSize <= 0 {
-		return nil, fmt.Errorf("Cannot get new entries: lastSTH is (%v) OR newTreeSize: (%v)", lastSTH, newTreeSize)
+	if newTreeSize <= 0 {
+		return nil, fmt.Errorf("Logger has no certificates: newTreeSize is (%v)", lastSTH)
+	}
+	if lastSTH == nil {
+		return nil, fmt.Errorf("Cannot get new entries: lastSTH is (%v)", lastSTH)
 	}
 	prevTreeSize := lastSTH.TreeSize
 	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)

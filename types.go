@@ -440,6 +440,7 @@ const (
 	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
 	GetRootsPath          = "/ct/v1/get-roots"
 	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
+	GossipExchangePath  	= "/ct/v1/gossip-exchange" ///
 
 	AddJSONPath = "/ct/v1/add-json" // Experimental addition
 )
@@ -460,6 +461,14 @@ type AddChainResponse struct {
 	Timestamp  uint64  `json:"timestamp"`   // Timestamp of issuance
 	Extensions string  `json:"extensions"`  // Holder for any CT extensions
 	Signature  []byte  `json:"signature"`   // Log signature for this SCT
+}
+
+type GossipExchangeRequest struct {
+	Data	string `json:"data"`
+}
+
+type GossipExchangeResponse struct {
+	AnyTestInformation	interface{} `json:"AnyTestInformation"`
 }
 
 // ToSignedCertificateTimestamp creates a SignedCertificateTimestamp from the

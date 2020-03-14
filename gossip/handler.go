@@ -16,6 +16,7 @@ package gossip
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"flag"
 	"fmt"
 	"log"
@@ -132,6 +133,22 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
 		return
 	}
+}
+
+// HandleGossipListener handles requests POSTed to /ct/v1/gossip-exchange
+func HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		writeWrongMethodResponse(&rw, "POST")
+		return
+	}
+
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		writeErrorResponse(&rw, 111, "body had nothing")
+	}
+
+	rw.Write(body)
+	rw.WriteHeader(http.StatusOK)
 }
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to

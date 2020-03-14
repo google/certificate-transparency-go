@@ -253,3 +253,21 @@ func (c *LogClient) GetEntryAndProof(ctx context.Context, index, treeSize uint64
 	}
 	return &resp, nil
 }
+
+func (c *LogClient) Broadcast(ctx context.Context, name, url string, data interface{}) (error) {
+	fmt.Printf("LogClient: Broadcasting to (%s|%s) | (%s)\n", name, url, data)
+	c.PostGossipExchange(ctx, data)
+	return nil
+}
+
+func (c *LogClient) PostGossipExchange(ctx context.Context, msg interface{}) (error) {
+	req := ct.AddJSONRequest{Data: msg}
+	var resp ct.GossipExchangeResponse
+	httpRsp, body, err := c.PostAndParse(ctx, ct.GossipExchangePath, &req, &resp)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("PostGossipExchange HTTP Response,Body\n------\n%s\n------\n%s\n---------", httpRsp, body)
+
+	return nil
+}
