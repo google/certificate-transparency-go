@@ -156,7 +156,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse monitor config for %q: %v", m.Name, err)
 		}
-		if _, ok := srcs[base.Name]; ok {
+		if _, ok := monitors[base.Name]; ok {
 			return nil, fmt.Errorf("duplicate monitor for name %q", base.Name)
 		}
 		glog.Infof("configured monitor %s at %s (%+v)", base.Name, base.URL, base)
@@ -230,15 +230,18 @@ func monitorConfigFromProto(cfg *configpb.MonitorConfig, hc *http.Client) (*moni
 	if cfg.Name == "" {
 		return nil, errors.New("no log name provided")
 	}
-	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossip-monitor/1.0"}
+	opts := jsonclient.Options{PublicKeyDER: cfg.PublicKey.GetDer(), UserAgent: "ct-go-gossiper/1.0"}
 	client, err := logclient.New(cfg.Url, hc, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create monitor for %q: %v", cfg.Name, err)
 	}
+	if client.Verifier == nil {
+		glog.Warningf("No public key provided for log %s, signature checks will be skipped", cfg.Name)
+	}
 	return &monitorConfig{
 		Name:          cfg.Name,
 		URL:           cfg.Url,
-		Monitor:       client,
+		HttpClient:    client,
 		lastBroadcast: make(map[string]time.Time),
 	}, nil
 }

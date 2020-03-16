@@ -16,6 +16,7 @@ package gossip
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"flag"
 	"fmt"
 	"log"
@@ -132,6 +133,38 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
 		return
 	}
+}
+
+// HandleGossipListener handles requests POSTed to /ct/v1/gossip-exchange
+func HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		writeWrongMethodResponse(&rw, "POST")
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	var gossipReq ct.GossipExchangeRequest
+	if err := decoder.Decode(&gossipReq); err != nil {
+		writeErrorResponse(&rw, http.StatusBadRequest, fmt.Sprintf("Invalid Gossip Exchange received: %v", err))
+		return
+	}
+
+	gossipResp := ct.GossipExchangeResponse{
+		Acknowledged: true,
+		LogURL:       gossipReq.LogURL,
+		STH:          gossipReq.STH,
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	fmt.Printf("HandleGossipListener: %v\n", gossipResp)
+
+	encoder := json.NewEncoder(rw)
+	if err := encoder.Encode(gossipResp); err != nil {
+		fmt.Println("HandleGossipListener: Encoding Failed :(")
+		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
+		return
+	}
+	fmt.Println("HandleGossipListener: Encoding Succeeded :)")
 }
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to

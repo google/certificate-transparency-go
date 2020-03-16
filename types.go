@@ -440,6 +440,7 @@ const (
 	GetSTHConsistencyPath = "/ct/v1/get-sth-consistency"
 	GetRootsPath          = "/ct/v1/get-roots"
 	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
+	GossipExchangePath    = "/ct/v1/gossip-exchange"
 
 	AddJSONPath = "/ct/v1/add-json" // Experimental addition
 )
@@ -460,6 +461,14 @@ type AddChainResponse struct {
 	Timestamp  uint64  `json:"timestamp"`   // Timestamp of issuance
 	Extensions string  `json:"extensions"`  // Holder for any CT extensions
 	Signature  []byte  `json:"signature"`   // Log signature for this SCT
+}
+
+type GossipExchangeRequest struct {
+	Data	string `json:"data"`
+}
+
+type GossipExchangeResponse struct {
+	AnyTestInformation	interface{} `json:"AnyTestInformation"`
 }
 
 // ToSignedCertificateTimestamp creates a SignedCertificateTimestamp from the
@@ -572,4 +581,17 @@ type GetEntryAndProofResponse struct {
 	LeafInput []byte   `json:"leaf_input"` // the entry itself
 	ExtraData []byte   `json:"extra_data"` // any chain provided when the entry was added to the log
 	AuditPath [][]byte `json:"audit_path"` // the corresponding proof
+}
+
+type GossipExchangeRequest struct {
+	LogURL       string           `json:"logUrl"`
+	STH          SignedTreeHead   `json:"sth"`
+	IsConsistent bool             `json:"isConsistent"`
+	Proof        ConsistencyProof `json:"proof"`
+}
+
+type GossipExchangeResponse struct {
+	Acknowledged bool           `json:"acknowledged"`
+	LogURL       string         `json:"logUrl"`
+	STH          SignedTreeHead `json:"sth"`
 }
