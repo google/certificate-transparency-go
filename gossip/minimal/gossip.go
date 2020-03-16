@@ -43,6 +43,10 @@ import (
 
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
+  
+  // For create_tree functions
+  "github.com/google/trillian/merkle"
+  "github.com/google/trillian/merkle/rfc6962"
 )
 
 var (
@@ -374,6 +378,12 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 			readErrorsCounter.Inc(src.Name)
 		} else if sth != nil {
 			entries, err := src.GetNewerEntries(ctx, g, lastSTH, sth)
+      // Adding here
+      glog.Infof("Logname: %s",src.Name)
+      if src.Name == "porthos" {
+        glog.Infof("Checking first entry")
+        src.BuildCurrentTree(ctx,g)
+      }
 			if err != nil {
 				glog.Errorf("Retriever(%s): failed to NewerEntries STH: %v", src.Name, err)
 			}
@@ -391,6 +401,45 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
 	})
 	glog.Infof("Retriever(%s): termination requested", src.Name)
+}
+
+// BuildCurrentTree
+func (src *sourceLog) BuildCurrentTree(ctx context.Context, g *Gossiper) {
+  sth,_ := src.Log.GetSTH(ctx)
+  originalhash:=sth.SHA256RootHash
+  glog.Infof("Original hash: %v",originalhash)
+  start_index:=0
+  end_index:=sth.TreeSize
+//  glog.Infof("end index = %d\n",end_index)
+	entries, _ := src.Log.GetEntries(ctx, int64(start_index), int64(end_index))
+  glog.Infof("BuildTree: Length of entries = %d",len(entries))
+  glog.Info("BuildTree: Building tree locally")
+  glog.Info("BuildTree: Initializing tree")
+  tree := merkle.NewInMemoryMerkleTree(rfc6962.DefaultHasher)
+  glog.Info("BuildTree: Iterating through logentries and adding all chains to tree")
+  nodecount:=0
+  glog.Infof("BuildTree: Size of tree: %d",end_index)
+  glog.Infof("Entries size: %d",len(entries))
+  for i:=0;i<int(end_index);i++ {
+    e:=entries[i]
+//    num_chains:=len(e.Chain) //type []ASN1Cert
+    //num_chains always == 2, why?
+    data := e.Chain[1].Data //type []byte
+    if len(data)>0 {
+      glog.V(2).Info("BuildTree: Adding leaf")
+      tree.AddLeaf(data) //automatically hashes entry and stores in tree
+      nodecount++
+    levels:=tree.LevelCount()
+    glog.V(2).Infof("BuildTree: LevelCount=%d",levels)
+    }
+  }
+  root:=tree.CurrentRoot()
+  hash:=root.Hash()
+  glog.Infof("Total nodes=%d",nodecount)
+  glog.Infof("Current STH: %v",hash)
+//  levels:=tree.LevelCount()
+//  nodes:=tree.NodeCount(5)
+//  glog.Infof("Total nodes: %d",nodes)
 }
 
 // GetNewerSTH retrieves a current STH from the source log and (if it is new)
