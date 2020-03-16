@@ -16,9 +16,9 @@ package gossip
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
