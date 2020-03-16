@@ -57,7 +57,6 @@ func NewBoundaryGossiperFromFile(ctx context.Context, filename string, hcLog, hc
 	if err != nil {
 		return nil, err
 	}
-	//glog.Infof("CONFIG Bytes: \n---\n%s\n---\n", cfgBytes)
 
 	var cfgProto configpb.GossipConfig
 	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfgProto); txtErr != nil {
