@@ -464,11 +464,11 @@ type AddChainResponse struct {
 }
 
 type GossipExchangeRequest struct {
-	Data	string `json:"data"`
+	Data string `json:"data"`
 }
 
 type GossipExchangeResponse struct {
-	AnyTestInformation	interface{} `json:"AnyTestInformation"`
+	AnyTestInformation interface{} `json:"AnyTestInformation"`
 }
 
 // ToSignedCertificateTimestamp creates a SignedCertificateTimestamp from the

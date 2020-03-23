@@ -256,10 +256,10 @@ func (c *LogClient) GetEntryAndProof(ctx context.Context, index, treeSize uint64
 
 func (c *LogClient) PostGossipExchange(ctx context.Context, data ct.GossipExchangeRequest) (*ct.GossipExchangeResponse, error) {
 	req := ct.GossipExchangeRequest{
-		LogURL: data.LogURL,
-		STH: data.STH,
+		LogURL:       data.LogURL,
+		STH:          data.STH,
 		IsConsistent: data.IsConsistent,
-		Proof: data.Proof,
+		Proof:        data.Proof,
 	}
 	fmt.Printf("PostGossipExchange: Broadcasting to (%s) | (%s)\n", req.LogURL, data)
 	var resp ct.GossipExchangeResponse
