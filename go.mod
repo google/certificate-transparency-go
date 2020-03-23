@@ -55,7 +55,7 @@ require (
 	github.com/uber/prototool v1.9.0 // indirect
 	github.com/urfave/cli v1.22.1 // indirect
 	github.com/uudashr/gocognit v1.0.0 // indirect
-	go.etcd.io/etcd v3.3.18+incompatible
+	go.etcd.io/etcd v3.3.19+incompatible
 	go.opencensus.io v0.22.2 // indirect
 	go.uber.org/multierr v1.4.0 // indirect
 	go.uber.org/zap v1.13.0 // indirect
