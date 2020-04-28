@@ -191,10 +191,10 @@ func incErrCounter(logURL string, endpoint string, rspErr error) {
 	err, ok := rspErr.(client.RspError)
 	switch {
 	case !ok:
-		glog.Errorf("unknown_error (%s, %s) => %v", logURL, endpoint, err)
+		glog.Errorf("unknown_error (%s, %s) => %v", logURL, endpoint, rspErr)
 		errCounter.Inc(logURL, endpoint, "unknown_error")
 	case err.Err != nil && err.StatusCode == http.StatusOK:
-		glog.Errorf("Invalid_sct (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
+		glog.Errorf("invalid_sct (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
 		errCounter.Inc(logURL, endpoint, "invalid_sct")
 	case err.Err != nil: // err.StatusCode != http.StatusOK.
 		glog.Errorf("connection_error (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
