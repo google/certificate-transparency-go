@@ -153,6 +153,9 @@ deployment process.
    future deployment scenarios where the Trillian services are operated by a
    different entity than the CT personality, and so a trust boundary between
    the two is needed.)
+ - The `--max_root_duration` option should be set to less than the log's MMD.
+   This ensures that the log periodically produces a fresh STH even if there are
+   no updates.
 
 
 **Cross-check**: Once a new tree has been provisioned, the debug logging for the running
