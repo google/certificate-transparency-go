@@ -155,7 +155,8 @@ deployment process.
    the two is needed.)
  - The `--max_root_duration` option should be set to less than the log's MMD.
    This ensures that the log periodically produces a fresh STH even if there are
-   no updates.
+   no updates. Make sure to leave a reasonable safety margin (e.g., 23h59m seems
+   risky for MMD=24h, while 1h or 12h feels safe).
 
 
 **Cross-check**: Once a new tree has been provisioned, the debug logging for the running
