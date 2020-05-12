@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.48.0 // indirect
-	cloud.google.com/go/spanner v1.1.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.8 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -22,17 +21,15 @@ require (
 	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/monologue v0.0.0-20191105172128-0324c8b45f6f
-	github.com/google/trillian v1.3.3
+	github.com/google/trillian v1.3.4
 	github.com/google/trillian-examples v0.0.0-20190913140658-376d12f9f5ae
 	github.com/gorilla/websocket v1.4.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.0.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.11.2 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/letsencrypt/pkcs11key v4.0.0+incompatible // indirect
 	github.com/lyft/protoc-gen-validate v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/mattn/go-runewidth v0.0.6 // indirect
