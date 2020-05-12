@@ -281,8 +281,8 @@ github.com/google/pprof v0.0.0-20190515194954-54271f7e092f/go.mod h1:zfwlbNMJ+OI
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/trillian v1.2.2-0.20190612132142-05461f4df60a h1:Bn71r2jt5ObayLNUtMlCzNlKiw7o59esC9sz9ENjSe0=
 github.com/google/trillian v1.2.2-0.20190612132142-05461f4df60a/go.mod h1:YPmUVn5NGwgnDUgqlVyFGMTgaWlnSvH7W5p+NdOG8UA=
-github.com/google/trillian v1.3.6 h1:iEmxxFmMStOfFiFJo857TrxoSmGzW4XXHoUkjYhbpRw=
-github.com/google/trillian v1.3.6/go.mod h1:GL3RQ9OVJbb2mDIwQ5Z2jMsBhV/Q5UduGK0g0foJxuc=
+github.com/google/trillian v1.3.7 h1:mifiuoiyNJeFNOrpV5UWJaRjDuNGdPogwBjb/ky1BVg=
+github.com/google/trillian v1.3.7/go.mod h1:GL3RQ9OVJbb2mDIwQ5Z2jMsBhV/Q5UduGK0g0foJxuc=
 github.com/google/trillian-examples v0.0.0-20190603134952-4e75ba15216c h1:dv2J28D109qglM6VfNzAXZ7VddBojviT5oMSs1yeDUY=
 github.com/google/trillian-examples v0.0.0-20190603134952-4e75ba15216c/go.mod h1:WgL3XZ3pA8/9cm7yxqWrZE6iZkESB2ItGxy5Fo6k2lk=
 github.com/google/trillian-examples v0.0.0-20190913140658-376d12f9f5ae h1:y56keuf0gXMBjdJ0dUt1IfzAMRG5LoN7mJffmUomR2U=
