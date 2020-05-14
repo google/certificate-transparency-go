@@ -22,7 +22,7 @@ require (
 	github.com/sergi/go-diff v1.1.0
 	github.com/stretchr/testify v1.5.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	go.etcd.io/etcd v3.3.18+incompatible
+	go.etcd.io/etcd v3.3.20+incompatible
 	golang.org/x/crypto v0.0.0-20191117063200-497ca9f6d64f
 	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
 	google.golang.org/genproto v0.0.0-20191115221424-83cc0476cb11
