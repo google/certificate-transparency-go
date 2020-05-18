@@ -139,10 +139,9 @@ func main() {
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
-		// It's likely that specifying multiple backends in the rpcBackend flag
-		// didn't work correctly before and should not be used like this in
-		// production.
-		glog.Exitf("Unsupported configuration. Set rpcBackend to single value or use a multi backend config")
+		// This should probably not be used and etcd used in preference.
+		glog.Warningf("Using multiple RPC backends configured by flags.")
+		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
 	} else {
 		glog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
