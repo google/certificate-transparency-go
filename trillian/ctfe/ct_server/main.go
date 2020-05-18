@@ -31,7 +31,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring/opencensus"
 	"github.com/google/trillian/monitoring/prometheus"
@@ -140,10 +139,10 @@ func main() {
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
-		glog.Infof("Using FixedBackendResolver")
-		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
-		res := util.FixedBackendResolver{}
-		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(res)))
+		// It's likely that specifying multiple backends in the rpcBackend flag
+		// didn't work correctly before and should not be used like this in
+		// production.
+		glog.Exitf("Unsupported configuration. Set rpcBackend to single value or use a multi backend config")
 	} else {
 		glog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
