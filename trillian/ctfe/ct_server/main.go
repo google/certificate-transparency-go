@@ -40,6 +40,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/naming"
+	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver/manual"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -139,10 +141,19 @@ func main() {
 			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
-		// It's likely that specifying multiple backends in the rpcBackend flag
-		// didn't work correctly before and should not be used like this in
-		// production.
-		glog.Exitf("Unsupported configuration. Set rpcBackend to single value or use a multi backend config")
+		// This should probably not be used in production. Either use etcd or a gRPC
+		// load balancer. It's used by the integration tests.
+		glog.Warningf("Multiple RPC backends from flags not recommended for production.")
+		res, cleanup := manual.GenerateAndRegisterManualResolver()
+		defer cleanup()
+		backends := strings.Split(*rpcBackend, ",")
+		addrs := make([]resolver.Address, 0, len(backends))
+		for _, backend := range backends {
+			addrs = append(addrs, resolver.Address{Addr: backend, Type: resolver.Backend})
+		}
+		res.InitialState(resolver.State{Addresses: addrs})
+		resolver.SetDefaultScheme(res.Scheme())
+		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
 	} else {
 		glog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
