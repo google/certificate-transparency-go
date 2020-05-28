@@ -63,6 +63,15 @@ The `ct_server` binary changed the default of these flags:
 The `ct_server` binary added the following flags:
 -   `align_getentries` - See GetEntries section above for details
 
+#### FixedBackendResolver Replaced
+
+This was previously used in situations where a comma separated list of
+backends was provided in the `rpcBackend` flag rather than a single value. 
+
+It has been replaced by equivalent functionality using a newer gRPC API.
+However this support was only intended for use in integration tests. In
+production we recommend the use of etcd or a gRPC load balancer.
+
 ### Libraries
 
 #### x509 fork
