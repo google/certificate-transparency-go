@@ -10,7 +10,7 @@ require (
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.4.0
 	github.com/google/monologue v0.0.0-20191105172128-0324c8b45f6f
-	github.com/google/trillian v1.3.5
+	github.com/google/trillian v1.3.8
 	github.com/google/trillian-examples v0.0.0-20190913140658-376d12f9f5ae
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
