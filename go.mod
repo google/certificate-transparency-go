@@ -16,7 +16,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-sqlite3 v1.13.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
-	github.com/prometheus/client_golang v1.4.1
+	github.com/prometheus/client_golang v1.5.0
 	github.com/rs/cors v1.7.0
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/sergi/go-diff v1.1.0
