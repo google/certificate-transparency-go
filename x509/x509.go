@@ -1816,6 +1816,22 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension, nfe *NonF
 func parseCertificate(in *certificate) (*Certificate, error) {
 	var nfe NonFatalErrors
 
+	// Certificates contain two signature algorithm identifier fields,
+	// one in the inner signed tbsCertificate structure and one in the
+	// outer unsigned certificate structure. RFC 5280 requires these
+	// fields match, but golang doesn't impose this restriction. Because
+	// the outer structure is not covered by the signature the algorithm
+	// field is entirely malleable. This allows a user to bypass the
+	// leaf data uniqueness check that happens in trillian by altering
+	// the unbounded OID or parameter fields of the algorithmIdentifier
+	// structure and submit an infinite number of duplicate but slightly
+	// different looking certificates to a log. To avoid this directly
+	// compare the bytes of the two algorithmIdentifier structures
+	// and reject the certificate if they do not match.
+	if !bytes.Equal(in.SignatureAlgorithm.Raw, in.TBSCertificate.SignatureAlgorithm.Raw) {
+		return nil, errors.New("x509: mismatching signature algorithm identifiers")
+	}
+
 	out := new(Certificate)
 	out.Raw = in.Raw
 	out.RawTBSCertificate = in.TBSCertificate.Raw

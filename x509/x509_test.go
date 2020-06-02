@@ -2861,6 +2861,7 @@ func TestParseCertificateFail(t *testing.T) {
 		{desc: "RSAIntegerNotMinimal", in: "testdata/invalid/xf-der-pubkey-rsa-nonminimal-int.pem", wantErr: "integer not minimally-encoded"},
 		{desc: "SubjectNonPrintable", in: "testdata/invalid/xf-subject-nonprintable.pem", wantErr: "PrintableString contains invalid character"},
 		{desc: "NegativeRSAModulus", in: "testdata/invalid/xf-pubkey-rsa-modulus-negative.pem", wantErr: "RSA modulus is not a positive number"},
+		{desc: "MismatchingSigAlg", in: "testdata/invalid/mismatching-sig-alg.pem", wantErr: "mismatching signature algorithm identifiers", wantFatal: true},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
