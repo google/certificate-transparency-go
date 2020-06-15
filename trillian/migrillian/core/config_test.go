@@ -28,12 +28,12 @@ const ctURI = "https://ct.googleapis.com/testtube"
 
 func TestLoadConfigFromFileValid(t *testing.T) {
 	for _, tc := range []struct {
-		desc         string
-		filename     string
-		wantBackends int
+		desc      string
+		filename  string
+		wantItems int
 	}{
-		{desc: "text proto", filename: "../testdata/config.textproto", wantBackends: 2},
-		{desc: "binary proto", filename: "../testdata/config.pb", wantBackends: 2},
+		{desc: "text proto", filename: "../testdata/config.textproto", wantItems: 2},
+		{desc: "binary proto", filename: "../testdata/config.pb", wantItems: 1},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, err := LoadConfigFromFile(tc.filename)
@@ -46,8 +46,8 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 			if err := ValidateConfig(cfg); err != nil {
 				t.Fatalf("Loaded invalid config: %v", err)
 			}
-			if got, want := len(cfg.Backends.Backend), tc.wantBackends; got != want {
-				t.Errorf("Wrong number of backends %d, want %d", got, want)
+			if got, want := len(cfg.MigrationConfigs.Config), tc.wantItems; got != want {
+				t.Errorf("Wrong number of migration configs %d, want %d", got, want)
 			}
 		})
 	}
