@@ -50,6 +50,7 @@ var (
 	etcdServers   = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
 	lockDir       = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
 	electionDelay = flag.Duration("election_delay", 0, "Max random pause before participating in master election")
+	backend       = flag.String("backend", "", "GRPC endpoing to connect to Trillian logservers")
 
 	metricsEndpoint = flag.String("metrics_endpoint", "localhost:8099", "Endpoint for serving metrics")
 
@@ -62,32 +63,23 @@ func main() {
 	glog.CopyStandardLogTo("WARNING")
 	defer glog.Flush()
 
+	if *backend == "" {
+		glog.Exit("--backend flag must be specified")
+	}
 	cfg, err := getConfig()
 	if err != nil {
 		glog.Exitf("Failed to load MigrillianConfig: %v", err)
 	}
-	backendMap, err := core.ValidateConfig(cfg)
-	if err != nil {
+	if err := core.ValidateConfig(cfg); err != nil {
 		glog.Exitf("Failed to validate MigrillianConfig: %v", err)
 	}
 
-	// Dial all log backends.
-	// TODO(pavelkalinnikov): Commonize backend connection code with CTFE.
-	connMap := make(map[string]*grpc.ClientConn)
-	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
-	if len(backendMap) == 1 {
-		// If there's only one backend we can't serve anything until connected.
-		dialOpts = append(dialOpts, grpc.WithBlock())
+	glog.Infof("Dialling Trillian backend: %v", *backend)
+	conn, err := grpc.Dial(*backend, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		glog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
-	for _, be := range backendMap {
-		glog.Infof("Dialling Trillian backend: %v", be)
-		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
-		if err != nil {
-			glog.Exitf("Could not dial Trillian server: %v: %v", be, err)
-		}
-		defer conn.Close()
-		connMap[be.Name] = conn
-	}
+	defer conn.Close()
 
 	httpClient := getHTTPClient()
 	mf := prometheus.MetricFactory{}
@@ -97,7 +89,6 @@ func main() {
 	ctx := context.Background()
 	var ctrls []*core.Controller
 	for _, mc := range cfg.MigrationConfigs.Config {
-		conn := connMap[mc.LogBackendName] // Not nil (config is verified).
 		ctrl, err := getController(ctx, mc, httpClient, mf, ef, conn)
 		if err != nil {
 			glog.Exitf("Failed to create Controller for %q: %v", mc.SourceUri, err)

@@ -46,7 +46,7 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 			if cfg == nil {
 				t.Fatal("Config is nil")
 			}
-			if _, err := ValidateConfig(cfg); err != nil {
+			if err := ValidateConfig(cfg); err != nil {
 				t.Fatalf("Loaded invalid config: %v", err)
 			}
 			if got, want := len(cfg.Backends.Backend), tc.wantBackends; got != want {
@@ -98,31 +98,26 @@ func TestValidateMigrationConfig(t *testing.T) {
 			wantErr: "missing public key",
 		},
 		{
-			desc:    "missing-backend",
-			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
-			wantErr: "missing log backend name",
-		},
-		{
 			desc:    "wrong-log-ID",
-			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
+			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
 			wantErr: "log ID must be positive",
 		},
 		{
 			desc: "wrong-batch-size",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10},
+				LogId: 10},
 			wantErr: "batch size must be positive",
 		},
 		{
 			desc: "unknown-identity-function",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10, BatchSize: 100},
+				LogId: 10, BatchSize: 100},
 			wantErr: "unknown identity function",
 		},
 		{
 			desc: "ok",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10, BatchSize: 100,
+				LogId: 10, BatchSize: 100,
 				IdentityFunction: configpb.IdentityFunction_SHA256_CERT_DATA},
 		},
 	} {
