@@ -24,10 +24,7 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-const (
-	ctURI = "https://ct.googleapis.com/testtube"
-	back  = "example_backend_name"
-)
+const ctURI = "https://ct.googleapis.com/testtube"
 
 func TestLoadConfigFromFileValid(t *testing.T) {
 	for _, tc := range []struct {
