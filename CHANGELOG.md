@@ -63,6 +63,9 @@ The `ct_server` binary changed the default of these flags:
 The `ct_server` binary added the following flags:
 -   `align_getentries` - See GetEntries section above for details
 
+Added `backend` flag to `migrillian`, which now replaces the deprecated
+"backend" feature of Migrillian configs.
+
 #### FixedBackendResolver Replaced
 
 This was previously used in situations where a comma separated list of

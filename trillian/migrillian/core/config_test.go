@@ -24,19 +24,16 @@ import (
 	"github.com/google/trillian/crypto/keyspb"
 )
 
-const (
-	ctURI = "https://ct.googleapis.com/testtube"
-	back  = "example_backend_name"
-)
+const ctURI = "https://ct.googleapis.com/testtube"
 
 func TestLoadConfigFromFileValid(t *testing.T) {
 	for _, tc := range []struct {
-		desc         string
-		filename     string
-		wantBackends int
+		desc      string
+		filename  string
+		wantItems int
 	}{
-		{desc: "text proto", filename: "../testdata/config.textproto", wantBackends: 2},
-		{desc: "binary proto", filename: "../testdata/config.pb", wantBackends: 2},
+		{desc: "text proto", filename: "../testdata/config.textproto", wantItems: 2},
+		{desc: "binary proto", filename: "../testdata/config.pb", wantItems: 1},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, err := LoadConfigFromFile(tc.filename)
@@ -46,11 +43,11 @@ func TestLoadConfigFromFileValid(t *testing.T) {
 			if cfg == nil {
 				t.Fatal("Config is nil")
 			}
-			if _, err := ValidateConfig(cfg); err != nil {
+			if err := ValidateConfig(cfg); err != nil {
 				t.Fatalf("Loaded invalid config: %v", err)
 			}
-			if got, want := len(cfg.Backends.Backend), tc.wantBackends; got != want {
-				t.Errorf("Wrong number of backends %d, want %d", got, want)
+			if got, want := len(cfg.MigrationConfigs.Config), tc.wantItems; got != want {
+				t.Errorf("Wrong number of migration configs %d, want %d", got, want)
 			}
 		})
 	}
@@ -98,31 +95,26 @@ func TestValidateMigrationConfig(t *testing.T) {
 			wantErr: "missing public key",
 		},
 		{
-			desc:    "missing-backend",
-			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
-			wantErr: "missing log backend name",
-		},
-		{
 			desc:    "wrong-log-ID",
-			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey, LogBackendName: back},
+			cfg:     &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey},
 			wantErr: "log ID must be positive",
 		},
 		{
 			desc: "wrong-batch-size",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10},
+				LogId: 10},
 			wantErr: "batch size must be positive",
 		},
 		{
 			desc: "unknown-identity-function",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10, BatchSize: 100},
+				LogId: 10, BatchSize: 100},
 			wantErr: "unknown identity function",
 		},
 		{
 			desc: "ok",
 			cfg: &configpb.MigrationConfig{SourceUri: ctURI, PublicKey: pubKey,
-				LogBackendName: back, LogId: 10, BatchSize: 100,
+				LogId: 10, BatchSize: 100,
 				IdentityFunction: configpb.IdentityFunction_SHA256_CERT_DATA},
 		},
 	} {
