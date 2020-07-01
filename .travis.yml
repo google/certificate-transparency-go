@@ -68,6 +68,7 @@ install:
      github.com/golang/mock/mockgen
      go.etcd.io/etcd
      go.etcd.io/etcd/etcdctl
+     github.com/fullstorydev/grpcurl/cmd/grpcurl
 
 before_script:
   - bash $(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh --force
