@@ -111,9 +111,11 @@ func TestValidateChain(t *testing.T) {
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.CACertPEM)) {
 		t.Fatal("failed to load CA root")
 	}
+	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.RealPrecertIntermediatePEM)) {
+		t.Fatal("failed to load real intermediate")
+	}
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
-		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
 	var tests = []struct {
@@ -228,7 +230,23 @@ func TestValidateChain(t *testing.T) {
 			chain:       pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
 			wantPathLen: 3,
 			modifyOpts: func(v *CertValidationOpts) {
+				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+		},
+		{
+			desc:    "reject-eku-not-present-in-precert",
+			chain:   pemsToDERChain(t, []string{testonly.RealPrecertWithEKUPEM}),
+			wantErr: true,
+			modifyOpts: func(v *CertValidationOpts) {
 				// reject cert without ExtKeyUsageEmailProtection
+				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection}
+			},
+		},
+		{
+			desc:        "allow-eku-present-in-precert",
+			chain:       pemsToDERChain(t, []string{testonly.RealPrecertWithEKUPEM}),
+			wantPathLen: 2,
+			modifyOpts: func(v *CertValidationOpts) {
 				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
 			},
 		},
