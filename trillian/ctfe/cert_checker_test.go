@@ -214,6 +214,24 @@ func TestValidateChain(t *testing.T) {
 				v.rejectExtIds = []asn1.ObjectIdentifier{[]int{2, 5, 29, 14}}
 			},
 		},
+		{
+			desc:    "reject-eku-not-present-in-cert",
+			chain:   pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			wantErr: true,
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject cert without ExtKeyUsageEmailProtection
+				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection}
+			},
+		},
+		{
+			desc:        "allow-eku-present-in-cert",
+			chain:       pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			wantPathLen: 3,
+			modifyOpts: func(v *CertValidationOpts) {
+				// reject cert without ExtKeyUsageEmailProtection
+				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -536,12 +554,30 @@ func TestCMPreIssuedCert(t *testing.T) {
 	}
 	cmRoot := NewPEMCertPool()
 	cmRoot.AddCert(root)
-	opts := CertValidationOpts{trustedRoots: cmRoot}
-	chain, err := ValidateChain(rawChain, opts)
-	if err != nil {
-		t.Fatalf("failed to ValidateChain: %v", err)
-	}
-	for i, c := range chain {
-		t.Logf("chain[%d] = \n%s", i, x509util.CertificateToString(c))
+
+	for _, tc := range []struct {
+		desc string
+		eku  []x509.ExtKeyUsage
+	}{
+		{
+			desc: "no EKU specified",
+		}, {
+			desc: "EKU ServerAuth",
+			eku:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			opts := CertValidationOpts{
+				trustedRoots: cmRoot,
+				extKeyUsages: tc.eku,
+			}
+			chain, err := ValidateChain(rawChain, opts)
+			if err != nil {
+				t.Fatalf("failed to ValidateChain: %v", err)
+			}
+			for i, c := range chain {
+				t.Logf("chain[%d] = \n%s", i, x509util.CertificateToString(c))
+			}
+		})
 	}
 }
