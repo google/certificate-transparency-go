@@ -109,6 +109,25 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		}
 	}
 
+	// TODO(al): Refactor CertValidationOpts c'tor to a builder pattern and
+	// pre-calc this in there too.
+	if len(validationOpts.extKeyUsages) > 0 {
+		acceptEKUs := make(map[x509.ExtKeyUsage]bool)
+		for _, eku := range validationOpts.extKeyUsages {
+			acceptEKUs[eku] = true
+		}
+		good := false
+		for _, certEKU := range cert.ExtKeyUsage {
+			if _, ok := acceptEKUs[certEKU]; ok {
+				good = true
+				break
+			}
+		}
+		if !good {
+			return nil, fmt.Errorf("rejecting certificate without EKU in %v", validationOpts.extKeyUsages)
+		}
+	}
+
 	// We can now do the verification.  Use fairly lax options for verification, as
 	// CT is intended to observe certificates rather than police them.
 	verifyOpts := x509.VerifyOptions{
@@ -123,7 +142,8 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		// Pre-issued precertificates have the Certificate Transparency EKU; also some
 		// leaves have unknown EKUs that should not be bounced just because the intermediate
 		// does not also have them (cf. https://github.com/golang/go/issues/24590) so
-		// disable EKU checks.
+		// disable EKU checks inside the x509 library, but we've already done our own check
+		// on the leaf above.
 		DisableEKUChecks: true,
 		// Path length checks get confused by the presence of an additional
 		// pre-issuer intermediate, so disable them.
