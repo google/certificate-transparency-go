@@ -249,7 +249,6 @@ func TestCA(t *testing.T) {
 	}
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
-		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
 	leaf, err := x509.ParseCertificate(chain[0])
@@ -309,7 +308,6 @@ func TestNotAfterRange(t *testing.T) {
 	validateOpts := CertValidationOpts{
 		trustedRoots:  fakeCARoots,
 		rejectExpired: false,
-		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
@@ -376,7 +374,7 @@ func TestRejectExpiredUnexpired(t *testing.T) {
 	chain := pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM})
 	validateOpts := CertValidationOpts{
 		trustedRoots: fakeCARoots,
-		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		extKeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 	beforeValidPeriod := time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC)
 	currentValidPeriod := time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)

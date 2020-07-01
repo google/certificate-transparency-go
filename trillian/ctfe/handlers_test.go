@@ -161,7 +161,6 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 	vOpts := CertValidationOpts{
 		trustedRoots:  info.roots,
 		rejectExpired: false,
-		extKeyUsages:  []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	}
 
 	cfg := &configpb.LogConfig{LogId: 0x42, Prefix: "test", IsMirror: false}

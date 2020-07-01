@@ -164,7 +164,7 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg: &configpb.LogConfig{
 				LogId:        123,
 				PrivateKey:   privKey,
-				ExtKeyUsages: []string{"Any", "ServerAuth", "TimeStomping"},
+				ExtKeyUsages: []string{"ClientAuth", "ServerAuth", "TimeStomping"},
 			},
 		},
 		{
