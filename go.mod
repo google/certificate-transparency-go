@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	github.com/coreos/etcd v3.3.22+incompatible
-	github.com/emicklei/proto v1.8.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.4.3
@@ -15,16 +14,13 @@ require (
 	github.com/google/trillian-examples v0.0.0-20190913140658-376d12f9f5ae
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lyft/protoc-gen-validate v0.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/cors v1.7.0
-	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/sergi/go-diff v1.1.0
 	github.com/stretchr/testify v1.6.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	github.com/uber/prototool v1.9.0 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
