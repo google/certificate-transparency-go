@@ -14,7 +14,7 @@ require (
 	github.com/google/trillian-examples v0.0.0-20190913140658-376d12f9f5ae
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-sqlite3 v1.13.0
+	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.5.0
 	github.com/rs/cors v1.7.0
@@ -24,7 +24,7 @@ require (
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	go.etcd.io/etcd v3.3.18+incompatible
 	golang.org/x/crypto v0.0.0-20191117063200-497ca9f6d64f
-	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	google.golang.org/genproto v0.0.0-20191115221424-83cc0476cb11
 	google.golang.org/grpc v1.25.1
 )
