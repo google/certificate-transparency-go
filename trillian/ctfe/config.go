@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
@@ -146,13 +147,18 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	if len(cfg.ExtKeyUsages) > 0 {
 		for _, kuStr := range cfg.ExtKeyUsages {
 			if ku, ok := stringToKeyUsage[kuStr]; ok {
+				// If "Any" is specified, then we can ignore the entire list and
+				// just disable EKU checking.
+				if ku == x509.ExtKeyUsageAny {
+					glog.Infof("%s: Found ExtKeyUsageAny, allowing all EKUs", cfg.Prefix)
+					vCfg.KeyUsages = nil
+					break
+				}
 				vCfg.KeyUsages = append(vCfg.KeyUsages, ku)
 			} else {
 				return nil, fmt.Errorf("unknown extended key usage: %s", kuStr)
 			}
 		}
-	} else {
-		vCfg.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 	}
 
 	// Validate the time interval.

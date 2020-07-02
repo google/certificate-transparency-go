@@ -936,3 +936,218 @@ VR0RBBIwEIIObGVhZjAxLmNzci5wZW0wCgYIKoZIzj0EAwIDSQAwRgIhALUq8zke
 Brd3sq2ogxuDOGReOiVR6VcfAFNy2wgRZT30AiEAoU5dtZqLEG4Voyq92YCRlnwa
 T4+R3ESfE/9X8F7OMjQ=
 -----END CERTIFICATE-----`
+
+// RealPrecertIntermediatePEM is the intermediate issuer for
+// RealPrecertWithEKUPEM, below.
+//
+// Certificate:
+//    Data:
+//        Version: 3 (0x2)
+//        Serial Number:
+//            01:e3:b4:9d:77:cd:f4:0c:06:19:16:b6:e3
+//        Signature Algorithm: sha256WithRSAEncryption
+//        Issuer: OU = GlobalSign Root CA - R2, O = GlobalSign, CN = GlobalSign
+//        Validity
+//            Not Before: Jun 15 00:00:42 2017 GMT
+//            Not After : Dec 15 00:00:42 2021 GMT
+//        Subject: C = US, O = Google Trust Services, CN = GTS CA 1D2
+//        Subject Public Key Info:
+//            Public Key Algorithm: rsaEncryption
+//                RSA Public-Key: (2048 bit)
+//                Modulus:
+//                    00:b2:d9:7b:e1:e1:d7:3f:1c:91:72:ff:f9:10:cd:
+//                    87:15:79:74:b7:3e:47:8b:b2:61:55:fd:0c:36:c6:
+//                    7e:77:42:3a:b2:fa:52:5b:0b:71:81:d6:4d:d5:e9:
+//                    2b:24:4d:23:5e:8b:2b:72:5f:21:55:b5:29:ef:44:
+//                    cb:eb:82:52:ab:3e:27:a4:92:49:41:4a:de:a8:dd:
+//                    31:e0:3c:df:6d:7a:4d:2d:d6:6d:09:b0:0e:e3:61:
+//                    f2:b2:fe:90:6c:5a:7b:10:64:49:b4:0b:3c:08:f2:
+//                    ea:79:0c:6c:a6:1a:89:6a:56:32:a0:29:a2:30:82:
+//                    8f:81:51:0c:f3:a2:b9:d9:75:b9:22:9e:27:14:ba:
+//                    4a:2f:2c:63:58:87:f1:5d:10:e6:5f:91:bb:b9:5b:
+//                    cc:47:e2:1e:75:b6:8c:8f:cc:75:5d:57:05:e7:82:
+//                    c6:84:0e:74:72:2a:cb:3b:55:f5:6e:70:eb:66:69:
+//                    c3:24:bb:38:93:35:9b:68:61:2f:9b:d6:ae:a6:77:
+//                    72:7c:71:48:58:33:10:af:e9:80:82:1d:b5:07:40:
+//                    1b:f6:3d:ec:a2:ad:47:9d:b4:94:29:34:b3:8c:2f:
+//                    cd:25:03:58:35:c0:25:a4:55:5f:e1:b3:07:56:3d:
+//                    c8:d0:63:b8:20:fb:8c:1d:43:2c:f8:f9:a9:d5:ec:
+//                    6f:97
+//                Exponent: 65537 (0x10001)
+//        X509v3 extensions:
+//            X509v3 Key Usage: critical
+//                Digital Signature, Certificate Sign, CRL Sign
+//            X509v3 Extended Key Usage:
+//                TLS Web Server Authentication, TLS Web Client Authentication
+//            X509v3 Basic Constraints: critical
+//                CA:TRUE, pathlen:0
+//            X509v3 Subject Key Identifier:
+//                B1:DD:32:5D:E8:B7:37:72:D2:CE:5C:CE:26:FE:47:79:E2:01:08:E9
+//            X509v3 Authority Key Identifier:
+//                keyid:9B:E2:07:57:67:1C:1E:C0:6A:06:DE:59:B4:9A:2D:DF:DC:19:86:2E
+//
+//            Authority Information Access:
+//                OCSP - URI:http://ocsp.pki.goog/gsr2
+//
+//            X509v3 CRL Distribution Points:
+//
+//                Full Name:
+//                  URI:http://crl.pki.goog/gsr2/gsr2.crl
+//
+//            X509v3 Certificate Policies:
+//                Policy: 2.23.140.1.2.1
+//                  CPS: https://pki.goog/repository/
+//
+//    Signature Algorithm: sha256WithRSAEncryption
+//         71:4a:c4:c3:23:ae:f7:e3:b2:02:79:8c:13:e8:53:8e:80:c5:
+//         f0:e3:ef:71:60:a9:a9:7b:34:65:85:34:bd:47:3b:03:57:16:
+//         00:99:48:3a:e0:e0:f0:ea:cd:b6:48:3c:d5:ab:72:f0:d0:1b:
+//         cb:64:2d:3b:0d:74:68:d7:74:88:31:7c:6a:ba:0e:f0:8c:4d:
+//         78:ce:da:10:f4:8a:96:45:97:a9:97:ad:c5:35:1a:18:64:e8:
+//         93:b6:0d:9d:1f:b9:5e:1d:80:ea:e7:5b:9c:8e:ae:0e:a6:84:
+//         d2:d1:17:ce:b3:fb:f6:81:4f:3c:e6:68:9f:cf:f1:a6:76:c5:
+//         7d:a7:f3:dd:7d:58:0f:e0:f6:61:01:1c:51:8e:76:33:2b:48:
+//         9d:5c:81:51:72:08:17:ba:fd:01:d3:ee:46:f9:f4:b2:68:40:
+//         99:31:01:6c:4f:1b:c6:56:eb:81:73:d2:79:52:05:92:26:5b:
+//         71:cd:9d:c4:d2:ce:23:77:0f:41:7a:69:5e:21:25:c6:f8:b7:
+//         ff:7a:f7:47:de:c2:00:7b:9c:5a:45:9c:2a:4e:46:90:d9:75:
+//         2c:d8:ff:8c:ee:cc:dc:69:eb:6c:e6:15:d0:a3:ff:48:0b:ac:
+//         55:df:df:25:9d:42:b6:51:a3:66:95:60:c5:d0:22:e7:22:7a:
+//         51:a5:cc:87
+const RealPrecertIntermediatePEM = `
+-----BEGIN CERTIFICATE-----
+MIIESjCCAzKgAwIBAgINAeO0nXfN9AwGGRa24zANBgkqhkiG9w0BAQsFADBMMSAw
+HgYDVQQLExdHbG9iYWxTaWduIFJvb3QgQ0EgLSBSMjETMBEGA1UEChMKR2xvYmFs
+U2lnbjETMBEGA1UEAxMKR2xvYmFsU2lnbjAeFw0xNzA2MTUwMDAwNDJaFw0yMTEy
+MTUwMDAwNDJaMEIxCzAJBgNVBAYTAlVTMR4wHAYDVQQKExVHb29nbGUgVHJ1c3Qg
+U2VydmljZXMxEzARBgNVBAMTCkdUUyBDQSAxRDIwggEiMA0GCSqGSIb3DQEBAQUA
+A4IBDwAwggEKAoIBAQCy2Xvh4dc/HJFy//kQzYcVeXS3PkeLsmFV/Qw2xn53Qjqy
++lJbC3GB1k3V6SskTSNeiytyXyFVtSnvRMvrglKrPiekkklBSt6o3THgPN9tek0t
+1m0JsA7jYfKy/pBsWnsQZEm0CzwI8up5DGymGolqVjKgKaIwgo+BUQzzornZdbki
+nicUukovLGNYh/FdEOZfkbu5W8xH4h51toyPzHVdVwXngsaEDnRyKss7VfVucOtm
+acMkuziTNZtoYS+b1q6md3J8cUhYMxCv6YCCHbUHQBv2PeyirUedtJQpNLOML80l
+A1g1wCWkVV/hswdWPcjQY7gg+4wdQyz4+anV7G+XAgMBAAGjggEzMIIBLzAOBgNV
+HQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMBIGA1Ud
+EwEB/wQIMAYBAf8CAQAwHQYDVR0OBBYEFLHdMl3otzdy0s5czib+R3niAQjpMB8G
+A1UdIwQYMBaAFJviB1dnHB7AagbeWbSaLd/cGYYuMDUGCCsGAQUFBwEBBCkwJzAl
+BggrBgEFBQcwAYYZaHR0cDovL29jc3AucGtpLmdvb2cvZ3NyMjAyBgNVHR8EKzAp
+MCegJaAjhiFodHRwOi8vY3JsLnBraS5nb29nL2dzcjIvZ3NyMi5jcmwwPwYDVR0g
+BDgwNjA0BgZngQwBAgEwKjAoBggrBgEFBQcCARYcaHR0cHM6Ly9wa2kuZ29vZy9y
+ZXBvc2l0b3J5LzANBgkqhkiG9w0BAQsFAAOCAQEAcUrEwyOu9+OyAnmME+hTjoDF
+8OPvcWCpqXs0ZYU0vUc7A1cWAJlIOuDg8OrNtkg81aty8NAby2QtOw10aNd0iDF8
+aroO8IxNeM7aEPSKlkWXqZetxTUaGGTok7YNnR+5Xh2A6udbnI6uDqaE0tEXzrP7
+9oFPPOZon8/xpnbFfafz3X1YD+D2YQEcUY52MytInVyBUXIIF7r9AdPuRvn0smhA
+mTEBbE8bxlbrgXPSeVIFkiZbcc2dxNLOI3cPQXppXiElxvi3/3r3R97CAHucWkWc
+Kk5GkNl1LNj/jO7M3GnrbOYV0KP/SAusVd/fJZ1CtlGjZpVgxdAi5yJ6UaXMhw==
+-----END CERTIFICATE-----
+`
+
+// RealPrecertWithEKUPEM is an actual precertificate containing a valid EKU.
+//
+// Certificate:
+//    Data:
+//        Version: 3 (0x2)
+//        Serial Number:
+//            9c:a4:07:e2:25:f9:7c:c2:0a:00:00:00:00:20:6e:e5
+//        Signature Algorithm: sha256WithRSAEncryption
+//        Issuer: C = US, O = Google Trust Services, CN = GTS CA 1D2
+//        Validity
+//            Not Before: Mar 23 12:23:44 2020 GMT
+//            Not After : Jun 21 12:23:44 2020 GMT
+//        Subject: CN = certificate.transparency.dev
+//        Subject Public Key Info:
+//            Public Key Algorithm: rsaEncryption
+//                RSA Public-Key: (2048 bit)
+//                Modulus:
+//                    00:a8:7e:59:c0:e5:3b:da:3c:bf:04:51:91:eb:9f:
+//                    6c:1b:cf:9f:90:dc:22:89:1c:b5:98:24:69:2e:26:
+//                    2d:61:92:04:0f:2e:f1:da:ec:ea:3a:d9:cc:3a:82:
+//                    e2:b8:3a:7d:6c:79:79:f7:36:c5:52:a4:bb:46:1d:
+//                    2f:0b:6c:5f:00:31:af:24:e9:4a:1b:32:63:1a:b5:
+//                    c3:28:9c:a7:0a:b5:73:e2:c1:a7:b5:1e:11:ae:cd:
+//                    19:79:0c:62:06:cf:80:f0:ed:e2:72:82:bb:b4:84:
+//                    0e:9d:c9:7d:3b:fb:4e:05:49:3a:14:0f:86:92:01:
+//                    49:52:2c:cc:a0:e1:ef:86:fe:18:00:83:69:6c:90:
+//                    c6:7b:a9:42:df:57:9c:7b:61:06:80:23:b2:5f:95:
+//                    95:1e:9b:34:6f:ab:a3:21:1b:2b:8e:9f:34:4f:ec:
+//                    e8:9a:48:74:81:2f:9b:12:67:54:a1:46:76:96:9a:
+//                    1e:9d:c3:ee:bf:6a:e8:49:72:57:28:b1:12:c4:ca:
+//                    41:84:96:f7:32:4a:4a:9e:59:2d:48:3e:ac:29:0c:
+//                    f4:f4:03:28:33:1a:73:10:48:29:68:12:e3:f9:7e:
+//                    f4:5f:01:54:b0:73:c6:a8:72:b6:84:54:05:23:36:
+//                    b6:db:3f:d8:e5:27:89:4c:dc:bb:b1:c9:9e:e7:7e:
+//                    b0:b5
+//                Exponent: 65537 (0x10001)
+//        X509v3 extensions:
+//            X509v3 Key Usage: critical
+//                Digital Signature, Key Encipherment
+//            X509v3 Extended Key Usage:
+//                TLS Web Server Authentication
+//            X509v3 Basic Constraints: critical
+//                CA:FALSE
+//            X509v3 Subject Key Identifier:
+//                B8:E0:AF:4F:7C:48:F3:FF:EB:FC:5E:A5:34:36:2D:56:54:AC:97:6B
+//            X509v3 Authority Key Identifier:
+//                keyid:B1:DD:32:5D:E8:B7:37:72:D2:CE:5C:CE:26:FE:47:79:E2:01:08:E9
+//
+//            Authority Information Access:
+//                OCSP - URI:http://ocsp.pki.goog/gts1d2
+//                CA Issuers - URI:http://pki.goog/gsr2/GTS1D2.crt
+//
+//            X509v3 Subject Alternative Name:
+//                DNS:certificate.transparency.dev
+//            X509v3 Certificate Policies:
+//                Policy: 2.23.140.1.2.1
+//                Policy: 1.3.6.1.4.1.11129.2.5.3
+//
+//            X509v3 CRL Distribution Points:
+//
+//                Full Name:
+//                  URI:http://crl.pki.goog/GTS1D2.crl
+//
+//            CT Precertificate Poison: critical
+//                NULL
+//    Signature Algorithm: sha256WithRSAEncryption
+//         51:fe:93:53:7a:e1:6d:34:ce:a2:1d:4d:32:c5:39:a5:e8:1e:
+//         ee:97:56:33:84:5a:5e:5c:be:13:64:92:66:df:a7:79:82:c8:
+//         35:c6:4d:8f:ff:da:a1:cc:4d:70:b0:a7:1c:73:69:d5:08:ea:
+//         53:f4:8e:73:27:5a:9d:5a:c7:39:0a:19:dd:51:21:94:3c:31:
+//         b5:cd:06:2d:50:bf:90:09:3e:62:ca:a3:bf:f2:74:9d:2b:33:
+//         38:e9:9f:f1:b7:2f:e2:3c:e4:8a:d4:63:57:c7:bd:27:fd:94:
+//         15:c5:03:82:95:35:79:d6:84:0f:90:01:47:53:af:ed:12:d6:
+//         9c:63:04:1b:06:83:87:83:a1:34:f0:05:d8:8b:c6:b9:39:ce:
+//         9c:32:ac:bf:04:d5:8d:b8:2f:ee:61:55:b9:f3:b9:b8:93:c7:
+//         6d:9c:39:68:b4:39:d8:67:5d:cb:5b:bd:d5:a1:b8:d9:18:16:
+//         7c:f3:ff:7a:77:d9:cc:68:f3:c8:ee:b4:52:06:37:6c:8e:23:
+//         69:1c:49:81:1c:08:26:80:a1:05:8b:ed:f5:dc:33:c6:84:7a:
+//         e3:ef:2f:c3:22:02:a0:33:8d:48:61:8a:98:27:34:e8:75:5d:
+//         eb:56:93:a3:be:2e:c5:04:ab:d6:88:cc:53:c6:9c:db:9f:aa:
+//         5d:eb:c6:82
+const RealPrecertWithEKUPEM string = `
+-----BEGIN CERTIFICATE-----
+MIIEZTCCA02gAwIBAgIRAJykB+Il+XzCCgAAAAAgbuUwDQYJKoZIhvcNAQELBQAw
+QjELMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczET
+MBEGA1UEAxMKR1RTIENBIDFEMjAeFw0yMDAzMjMxMjIzNDRaFw0yMDA2MjExMjIz
+NDRaMCcxJTAjBgNVBAMTHGNlcnRpZmljYXRlLnRyYW5zcGFyZW5jeS5kZXYwggEi
+MA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCoflnA5TvaPL8EUZHrn2wbz5+Q
+3CKJHLWYJGkuJi1hkgQPLvHa7Oo62cw6guK4On1seXn3NsVSpLtGHS8LbF8AMa8k
+6UobMmMatcMonKcKtXPiwae1HhGuzRl5DGIGz4Dw7eJygru0hA6dyX07+04FSToU
+D4aSAUlSLMyg4e+G/hgAg2lskMZ7qULfV5x7YQaAI7JflZUemzRvq6MhGyuOnzRP
+7OiaSHSBL5sSZ1ShRnaWmh6dw+6/auhJclcosRLEykGElvcySkqeWS1IPqwpDPT0
+AygzGnMQSCloEuP5fvRfAVSwc8aocraEVAUjNrbbP9jlJ4lM3LuxyZ7nfrC1AgMB
+AAGjggFvMIIBazAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwEw
+DAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQUuOCvT3xI8//r/F6lNDYtVlSsl2swHwYD
+VR0jBBgwFoAUsd0yXei3N3LSzlzOJv5HeeIBCOkwZAYIKwYBBQUHAQEEWDBWMCcG
+CCsGAQUFBzABhhtodHRwOi8vb2NzcC5wa2kuZ29vZy9ndHMxZDIwKwYIKwYBBQUH
+MAKGH2h0dHA6Ly9wa2kuZ29vZy9nc3IyL0dUUzFEMi5jcnQwJwYDVR0RBCAwHoIc
+Y2VydGlmaWNhdGUudHJhbnNwYXJlbmN5LmRldjAhBgNVHSAEGjAYMAgGBmeBDAEC
+ATAMBgorBgEEAdZ5AgUDMC8GA1UdHwQoMCYwJKAioCCGHmh0dHA6Ly9jcmwucGtp
+Lmdvb2cvR1RTMUQyLmNybDATBgorBgEEAdZ5AgQDAQH/BAIFADANBgkqhkiG9w0B
+AQsFAAOCAQEAUf6TU3rhbTTOoh1NMsU5pege7pdWM4RaXly+E2SSZt+neYLINcZN
+j//aocxNcLCnHHNp1QjqU/SOcydanVrHOQoZ3VEhlDwxtc0GLVC/kAk+Ysqjv/J0
+nSszOOmf8bcv4jzkitRjV8e9J/2UFcUDgpU1edaED5ABR1Ov7RLWnGMEGwaDh4Oh
+NPAF2IvGuTnOnDKsvwTVjbgv7mFVufO5uJPHbZw5aLQ52Gddy1u91aG42RgWfPP/
+enfZzGjzyO60UgY3bI4jaRxJgRwIJoChBYvt9dwzxoR64+8vwyICoDONSGGKmCc0
+6HVd61aTo74uxQSr1ojMU8ac25+qXevGgg==
+-----END CERTIFICATE-----
+`

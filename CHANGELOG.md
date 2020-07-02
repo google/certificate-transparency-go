@@ -20,6 +20,36 @@ The CTFE now includes a Cache-Control header in responses containing purely
 immutable data, e.g. those for get-entries and get-proof-by-hash. This allows
 clients and proxies to cache these responses for up to 24 hours.
 
+#### EKU checking
+
+> :warning: **It is not yet recommended to enable this option in a production CT Log!**
+
+CTFE now supports whitelisting submissions by EKU.
+This is enabled by adding an extKeyUsage list to a log's stanza in the
+config file.
+
+The format is a list of strings corresponding to the supported golang x509 EKUs:
+  |Config string               | Extended Key Usage                     |
+  |----------------------------|----------------------------------------|
+  |`Any`                       |  ExtKeyUsageAny                        |
+  |`ServerAuth`                |  ExtKeyUsageServerAuth                 |
+  |`ClientAuth`                |  ExtKeyUsageClientAuth                 |
+  |`CodeSigning`               |  ExtKeyUsageCodeSigning                |
+  |`EmailProtection`           |  ExtKeyUsageEmailProtection            |
+  |`IPSECEndSystem`            |  ExtKeyUsageIPSECEndSystem             |
+  |`IPSECTunnel`               |  ExtKeyUsageIPSECTunnel                |
+  |`IPSECUser`                 |  ExtKeyUsageIPSECUser                  |
+  |`TimeStamping`              |  ExtKeyUsageTimeStamping               |
+  |`OCSPSigning`               |  ExtKeyUsageOCSPSigning                |
+  |`MicrosoftServerGatedCrypto`|  ExtKeyUsageMicrosoftServerGatedCrypto |
+  |`NetscapeServerGatedCrypto` |  ExtKeyUsageNetscapeServerGatedCrypto  |
+
+If no list is specified, or the list contains an `Any` entry, no EKU
+checking will be performed.
+
+When enabled, EKU checking is only performed at the leaf level (i.e. there is
+no 'nested' EKU checking performed).
+
 #### GetEntries
 Calls to `get-entries` which are at (or above) the maximum permitted number of
 entries whose `start` parameter does not fall on a multiple of the maximum
