@@ -109,7 +109,13 @@ production we recommend the use of etcd or a gRPC load balancer.
 
 #### x509 fork
 
-Merged upstream Go 1.13 changes.
+Merged upstream Go 1.13 and Go 1.14 changes (with the exception
+of https://github.com/golang/go/commit/14521198679e, to allow
+old certs using a malformed root still to be logged).
+
+#### asn1 fork
+
+Merged upstream Go 1.14 changes.
 
 #### ctutil
 
