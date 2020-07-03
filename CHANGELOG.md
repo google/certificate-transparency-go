@@ -375,7 +375,7 @@ Commit [684d6eee6092774e54d301ccad0ed61bc8d010c1](https://api.github.com/repos/g
 
 Published 2018-06-01 14:15:37 +0000 UTC
 
-Support for SQLlite was removed. This motivation was ongoing test flakiness caused by multi-user access. This database may work for an embedded scenario but is not suitable for use in a server environment.
+Support for SQLite was removed. This motivation was ongoing test flakiness caused by multi-user access. This database may work for an embedded scenario but is not suitable for use in a server environment.
 
 A `LeafHashForLeaf` client API was added and is now used by the CT client and integration tests.
 

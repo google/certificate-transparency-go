@@ -162,7 +162,7 @@ func (c *JSONClient) BaseURI() string {
 	return c.uri
 }
 
-// GetAndParse makes a HTTP GET call to the given path, and attempta to parse
+// GetAndParse makes a HTTP GET call to the given path, and attempts to parse
 // the response as a JSON representation of the rsp structure.  Returns the
 // http.Response, the body of the response, and an error (which may be of
 // type RspError if the HTTP response was available).
