@@ -88,7 +88,7 @@ func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
 		}
 	}
 	if !group.satisfyMinimalInclusion(weights) {
-		return fmt.Errorf("trying to assign weights %v resulting into unability to reach minimal inclusion number %d", weights, group.MinInclusions)
+		return fmt.Errorf("trying to assign weights %v resulting in inability to reach minimal inclusion number %d", weights, group.MinInclusions)
 	}
 	group.wMu.Lock()
 	defer group.wMu.Unlock()
@@ -106,7 +106,7 @@ func (group *LogGroupInfo) SetLogWeights(weights map[string]float32) error {
 
 // SetLogWeight tries setting the weight for a single Log of the Log-group.
 // Does not reset the weight and returns error if weight is non-positive and
-// its setting will result innto unability to reach minimal inclusion number.
+// its setting will result in inability to reach minimal inclusion number.
 func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	if !group.LogURLs[logURL] {
 		return fmt.Errorf("trying to assign weight to Log %q not belonging to the group", logURL)
@@ -120,7 +120,7 @@ func (group *LogGroupInfo) SetLogWeight(logURL string, w float32) error {
 	}
 	newWeights[logURL] = w
 	if !group.satisfyMinimalInclusion(newWeights) {
-		return fmt.Errorf("assigning weight %v to Log %q will result into unability to reach minimal inclusion number %d", w, logURL, group.MinInclusions)
+		return fmt.Errorf("assigning weight %v to Log %q will result in inability to reach minimal inclusion number %d", w, logURL, group.MinInclusions)
 	}
 	group.wMu.Lock()
 	defer group.wMu.Unlock()
