@@ -13,7 +13,7 @@ env:
 jobs:
   fast_finish: true
   include:
-    - name: "go.mod check"
+    - name: "go mod tidy"
       before_install: skip
       install: skip
       before_script: go mod tidy -v
@@ -44,7 +44,7 @@ jobs:
       - GOFLAGS="-race --tags=pkcs11"
       - PRESUBMIT_OPTS="--no-linters"
   allow_failures:
-    - name "go.mod check"
+    - name "go mod tidy"
 
 cache:
   directories:
