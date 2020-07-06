@@ -1,6 +1,6 @@
 ### Minimal Gossip Example
 
-All the code for this, except for the x509ext package has been moved over
+All the code for this, except for the x509ext package, has been moved over
 to the [trillian-examples](https://github.com/google/trillian-examples) repository.
 
 This keeps the code together and removes a circular dependency between the
