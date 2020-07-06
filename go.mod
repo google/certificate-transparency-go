@@ -10,6 +10,7 @@ require (
 	github.com/google/go-cmp v0.5.0
 	github.com/google/monologue v0.0.0-20191105172128-0324c8b45f6f
 	github.com/google/trillian v1.3.8
+	github.com/jonboulle/clockwork v0.2.0 // indirect
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
