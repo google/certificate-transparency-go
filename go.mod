@@ -1,6 +1,6 @@
 module github.com/google/certificate-transparency-go
 
-go 1.12
+go 1.13
 
 require (
 	github.com/coreos/etcd v3.3.22+incompatible
