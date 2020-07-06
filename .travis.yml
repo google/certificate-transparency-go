@@ -43,6 +43,8 @@ jobs:
       - WITH_PKCS11=true
       - GOFLAGS="-race --tags=pkcs11"
       - PRESUBMIT_OPTS="--no-linters"
+  allow_failures:
+    - name "go.mod check"
 
 cache:
   directories:
