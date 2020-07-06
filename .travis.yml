@@ -44,7 +44,7 @@ jobs:
       - GOFLAGS="-race --tags=pkcs11"
       - PRESUBMIT_OPTS="--no-linters"
   allow_failures:
-    - name "go mod tidy"
+    - name: "go mod tidy"
 
 cache:
   directories:
