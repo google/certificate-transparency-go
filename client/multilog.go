@@ -23,13 +23,13 @@ import (
 	"net/http"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/encoding/prototext"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client/configpb"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 type interval struct {
