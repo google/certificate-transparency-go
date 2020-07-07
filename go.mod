@@ -11,6 +11,7 @@ require (
 	github.com/jonboulle/clockwork v0.2.0 // indirect
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/cors v1.7.0
