@@ -14,4 +14,4 @@
 
 package configpb
 
-//go:generate protoc -I=. -I=$GOPATH/src --go_out=:. multilog.proto
+//go:generate sh -c "protoc -I=. -I=$GOPATH/src --go_out=paths=source_relative:. multilog.proto"
