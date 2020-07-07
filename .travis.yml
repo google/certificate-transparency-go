@@ -46,6 +46,7 @@ jobs:
   allow_failures:
     - name: "go mod tidy"
 
+
 cache:
   directories:
     - "$HOME/gopath/pkg/mod"
