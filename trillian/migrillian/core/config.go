@@ -20,8 +20,8 @@ import (
 	"io/ioutil"
 
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // LoadConfigFromFile reads MigrillianConfig from the given filename, which
