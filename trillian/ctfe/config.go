@@ -22,12 +22,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/crypto/keys/der"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // ValidatedLogConfig represents the LogConfig with the information that has
@@ -52,7 +53,7 @@ func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
 	}
 
 	var cfg configpb.LogConfigSet
-	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+	if txtErr := prototext.Unmarshal(cfgBytes, &cfg); txtErr != nil {
 		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
 			return nil, fmt.Errorf("failed to parse LogConfigSet from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
 		}
@@ -88,7 +89,7 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 	}
 
 	var cfg configpb.LogMultiConfig
-	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+	if txtErr := prototext.Unmarshal(cfgBytes, &cfg); txtErr != nil {
 		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
 			return nil, fmt.Errorf("failed to parse LogMultiConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
 		}

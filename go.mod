@@ -24,4 +24,5 @@ require (
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
 	google.golang.org/genproto v0.0.0-20200626011028-ee7919e894b5
 	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.25.0
 )

@@ -23,7 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/prototext"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client/configpb"
@@ -49,7 +50,7 @@ func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, er
 	}
 
 	var cfg configpb.TemporalLogConfig
-	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+	if txtErr := prototext.Unmarshal(cfgBytes, &cfg); txtErr != nil {
 		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
 			return nil, fmt.Errorf("failed to parse TemporalLogConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
 		}
