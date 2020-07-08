@@ -11,7 +11,6 @@ require (
 	github.com/jonboulle/clockwork v0.2.0 // indirect
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/cors v1.7.0
@@ -23,6 +22,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
 	google.golang.org/genproto v0.0.0-20200626011028-ee7919e894b5
-	google.golang.org/grpc v1.29.1
+	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.25.0
 )
