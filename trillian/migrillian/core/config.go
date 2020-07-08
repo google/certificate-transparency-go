@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // LoadConfigFromFile reads MigrillianConfig from the given filename, which
@@ -31,7 +32,7 @@ func LoadConfigFromFile(filename string) (*configpb.MigrillianConfig, error) {
 		return nil, err
 	}
 	var cfg configpb.MigrillianConfig
-	if txtErr := proto.UnmarshalText(string(cfgBytes), &cfg); txtErr != nil {
+	if txtErr := prototext.Unmarshal(cfgBytes, &cfg); txtErr != nil {
 		if binErr := proto.Unmarshal(cfgBytes, &cfg); binErr != nil {
 			return nil, fmt.Errorf("failed to parse MigrillianConfig from %q as text protobuf (%v) or binary protobuf (%v)", filename, txtErr, binErr)
 		}

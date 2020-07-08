@@ -41,6 +41,7 @@ import (
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -590,7 +591,7 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 			ChargeTo:       li.chargeUser(r),
 		}
 
-		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", li.LogPrefix, first, second, req)
+		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", li.LogPrefix, first, second, prototext.Format(&req))
 		rsp, err := li.rpcClient.GetConsistencyProof(ctx, &req)
 		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", li.LogPrefix, err)
 		if err != nil {

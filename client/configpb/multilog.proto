@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package configpb;
 
+option go_package = "github.com/google/certificate-transparency-go/client/multilog/configpb";
+
 import "google/protobuf/timestamp.proto";
 
 // TemporalLogConfig is a set of LogShardConfig messages, whose

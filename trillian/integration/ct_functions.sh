@@ -8,7 +8,6 @@ CT_LIFECYCLE_CFG=
 CT_COMBINED_CFG=
 PROMETHEUS_CFGDIR=
 readonly CT_GO_PATH=$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)
-readonly MONO_PATH="$(go list -f '{{.Dir}}' github.com/google/monologue/incident)/.."
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
@@ -36,8 +35,6 @@ ct_prep_test() {
     echo "Wiping and re-creating cttest database"
     "${CT_GO_PATH}/scripts/resetctdb.sh" --force
     # Wipe the incident database
-    echo "Wiping and re-creating incident database"
-    bash "${MONO_PATH}/scripts/resetmondb.sh" --force
   fi
 
   echo "Launching core Trillian log components"

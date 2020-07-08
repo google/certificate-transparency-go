@@ -139,6 +139,22 @@ This keeps the code together and removes a circular dependency between the
 two repositories. The package layout and structure remains the same so 
 updating should just mean changing any relevant import paths.
 
+### Dependencies
+
+A circular dependency on the [monologue](https://github.com/google/monologue) repository has been removed.
+
+A circular dependency on the [trillian-examples](https://github.com/google/trillian-examples) repository has been removed.
+
+The version of trillian in use has been updated to 1.3.10. This has required
+various other dependency updates including gRPC and protobuf. This code now
+uses the v2 proto API. The Travis tests now expect the 3.11.4 version of
+protoc.
+
+The version of etcd in use has been switched to the one from `go.etcd.io`.
+
+Most of the above changes are to align versions more closely with the ones
+used in the trillian repository.
+
 ## v1.1.0
 
 Published 2019-11-14 15:00:00 +0000 UTC

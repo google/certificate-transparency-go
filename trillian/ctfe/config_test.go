@@ -20,19 +20,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keys/der"
 	_ "github.com/google/trillian/crypto/keys/der/proto" // Register key handler.
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
-	invalidTimestamp = &timestamp.Timestamp{Nanos: int32(1e9)}
+	invalidTimestamp = &timestamppb.Timestamp{Nanos: int32(1e9)}
 
 	// validSTH is an STH signed by "../testdata/ct-http-server.privkey.pem".
 	validSTH = &configpb.SignedTreeHead{
@@ -43,8 +42,8 @@ var (
 	}
 )
 
-func mustMarshalAny(pb proto.Message) *any.Any {
-	ret, err := ptypes.MarshalAny(pb)
+func mustMarshalAny(pb proto.Message) *anypb.Any {
+	ret, err := anypb.New(pb)
 	if err != nil {
 		panic(fmt.Sprintf("MarshalAny failed: %v", err))
 	}
@@ -126,7 +125,7 @@ func TestValidateLogConfig(t *testing.T) {
 			wantErr: "invalid private key",
 			cfg: &configpb.LogConfig{
 				LogId:      123,
-				PrivateKey: &any.Any{},
+				PrivateKey: &anypb.Any{},
 			},
 		},
 		{
@@ -200,8 +199,8 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
-				NotAfterStart: &timestamp.Timestamp{Seconds: 200},
-				NotAfterLimit: &timestamp.Timestamp{Seconds: 100},
+				NotAfterStart: &timestamppb.Timestamp{Seconds: 200},
+				NotAfterLimit: &timestamppb.Timestamp{Seconds: 100},
 			},
 		},
 		{
@@ -294,7 +293,7 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
-				NotAfterStart: &timestamp.Timestamp{Seconds: 100},
+				NotAfterStart: &timestamppb.Timestamp{Seconds: 100},
 			},
 		},
 		{
@@ -302,7 +301,7 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
-				NotAfterLimit: &timestamp.Timestamp{Seconds: 200},
+				NotAfterLimit: &timestamppb.Timestamp{Seconds: 200},
 			},
 		},
 		{
@@ -310,8 +309,8 @@ func TestValidateLogConfig(t *testing.T) {
 			cfg: &configpb.LogConfig{
 				LogId:         123,
 				PrivateKey:    privKey,
-				NotAfterStart: &timestamp.Timestamp{Seconds: 300},
-				NotAfterLimit: &timestamp.Timestamp{Seconds: 400},
+				NotAfterStart: &timestamppb.Timestamp{Seconds: 300},
+				NotAfterLimit: &timestamppb.Timestamp{Seconds: 400},
 			},
 		},
 		{
