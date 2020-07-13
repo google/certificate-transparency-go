@@ -1813,7 +1813,7 @@ func parseNameConstraintsExtension(out *Certificate, e pkix.Extension, nfe *NonF
 	return unhandled, nil
 }
 
-func parseCertificate(in *certificate) (*Certificate, error) {
+func parseCertificate(in *certificate, tbsOnly bool) (*Certificate, error) {
 	var nfe NonFatalErrors
 
 	// Certificates contain two signature algorithm identifier fields,
@@ -1828,7 +1828,7 @@ func parseCertificate(in *certificate) (*Certificate, error) {
 	// different looking certificates to a log. To avoid this directly
 	// compare the bytes of the two algorithmIdentifier structures
 	// and reject the certificate if they do not match.
-	if !bytes.Equal(in.SignatureAlgorithm.Raw, in.TBSCertificate.SignatureAlgorithm.Raw) {
+	if !tbsOnly && !bytes.Equal(in.SignatureAlgorithm.Raw, in.TBSCertificate.SignatureAlgorithm.Raw) {
 		return nil, errors.New("x509: mismatching signature algorithm identifiers")
 	}
 
@@ -2111,7 +2111,7 @@ func ParseTBSCertificate(asn1Data []byte) (*Certificate, error) {
 	}
 	ret, err := parseCertificate(&certificate{
 		Raw:            tbsCert.Raw,
-		TBSCertificate: tbsCert})
+		TBSCertificate: tbsCert}, true)
 	if err != nil {
 		errs, ok := err.(NonFatalErrors)
 		if !ok {
@@ -2143,7 +2143,7 @@ func ParseCertificate(asn1Data []byte) (*Certificate, error) {
 	if len(rest) > 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
-	ret, err := parseCertificate(&cert)
+	ret, err := parseCertificate(&cert, false)
 	if err != nil {
 		errs, ok := err.(NonFatalErrors)
 		if !ok {
@@ -2182,7 +2182,7 @@ func ParseCertificates(asn1Data []byte) ([]*Certificate, error) {
 
 	ret := make([]*Certificate, len(v))
 	for i, ci := range v {
-		cert, err := parseCertificate(ci)
+		cert, err := parseCertificate(ci, false)
 		if err != nil {
 			errs, ok := err.(NonFatalErrors)
 			if !ok {
