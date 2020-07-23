@@ -20,11 +20,11 @@ The CTFE now includes a Cache-Control header in responses containing purely
 immutable data, e.g. those for get-entries and get-proof-by-hash. This allows
 clients and proxies to cache these responses for up to 24 hours.
 
-#### EKU checking
+#### EKU Filtering
 
 > :warning: **It is not yet recommended to enable this option in a production CT Log!**
 
-CTFE now supports whitelisting submissions by EKU.
+CTFE now supports filtering logging submissions by leaf certificate EKU.
 This is enabled by adding an extKeyUsage list to a log's stanza in the
 config file.
 
@@ -44,11 +44,15 @@ The format is a list of strings corresponding to the supported golang x509 EKUs:
   |`MicrosoftServerGatedCrypto`|  ExtKeyUsageMicrosoftServerGatedCrypto |
   |`NetscapeServerGatedCrypto` |  ExtKeyUsageNetscapeServerGatedCrypto  |
 
-If no list is specified, or the list contains an `Any` entry, no EKU
-checking will be performed.
+When an extKeyUsage list is specified, the CT Log will reject logging
+submissions for leaf certificates that do not contain an EKU present in this
+list.
 
-When enabled, EKU checking is only performed at the leaf level (i.e. there is
-no 'nested' EKU checking performed).
+When enabled, EKU filtering is only performed at the leaf level (i.e. there is
+no 'nested' EKU filtering performed).
+
+If no list is specified, or the list contains an `Any` entry, no EKU
+filtering will be performed.
 
 #### GetEntries
 Calls to `get-entries` which are at (or above) the maximum permitted number of
