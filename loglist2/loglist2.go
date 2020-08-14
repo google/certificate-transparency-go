@@ -36,11 +36,11 @@ import (
 
 const (
 	// LogListURL has the master URL for Google Chrome's log list.
-	LogListURL = "https://www.gstatic.com/ct/log_list/v2beta/log_list.json"
+	LogListURL = "https://www.gstatic.com/ct/log_list/v2/log_list.json"
 	// LogListSignatureURL has the URL for the signature over Google Chrome's log list.
-	LogListSignatureURL = "https://www.gstatic.com/ct/log_list/v2beta/log_list.sig"
+	LogListSignatureURL = "https://www.gstatic.com/ct/log_list/v2/log_list.sig"
 	// AllLogListURL has the URL for the list of all known logs (which isn't signed).
-	AllLogListURL = "https://www.gstatic.com/ct/log_list/v2beta/all_logs_list.json"
+	AllLogListURL = "https://www.gstatic.com/ct/log_list/v2/all_logs_list.json"
 )
 
 // Manually mapped from https://www.gstatic.com/ct/log_list/v2beta/log_list_schema.json
