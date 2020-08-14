@@ -58,8 +58,9 @@ The main parts of the repository are:
  - Other libraries related to CT:
    - `ctutil/` holds utility functions for validating and verifying CT data
      structures.
-   - `loglist/` has a library for reading
-     [JSON lists of CT Logs](https://www.certificate-transparency.org/known-logs).
+   - `loglist/` has a library for reading v1 JSON lists of CT Logs.
+   - `loglist2/` has a library for reading
+     [v2 JSON lists of CT Logs](https://www.certificate-transparency.org/known-logs).
 
 
 ## Trillian CT Personality
