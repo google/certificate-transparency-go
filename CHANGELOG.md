@@ -2,7 +2,8 @@
 
 ## HEAD
 
-Not yet released; provisionally v1.2.0 (may change).
+## v1.1.1
+[Published 2020-10-06](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.1)
 
 ### Tools
 
@@ -103,11 +104,15 @@ Added `backend` flag to `migrillian`, which now replaces the deprecated
 #### FixedBackendResolver Replaced
 
 This was previously used in situations where a comma separated list of
-backends was provided in the `rpcBackend` flag rather than a single value. 
+backends was provided in the `rpcBackend` flag rather than a single value.
 
 It has been replaced by equivalent functionality using a newer gRPC API.
 However this support was only intended for use in integration tests. In
 production we recommend the use of etcd or a gRPC load balancer.
+
+### LogList
+
+Log list tools updated to use the correct v2 URL (from v2_beta previously).
 
 ### Libraries
 
@@ -140,7 +145,7 @@ All the code for this, except for the x509ext package, has been moved over
 to the [trillian-examples](https://github.com/google/trillian-examples) repository.
 
 This keeps the code together and removes a circular dependency between the
-two repositories. The package layout and structure remains the same so 
+two repositories. The package layout and structure remains the same so
 updating should just mean changing any relevant import paths.
 
 ### Dependencies
@@ -149,7 +154,7 @@ A circular dependency on the [monologue](https://github.com/google/monologue) re
 
 A circular dependency on the [trillian-examples](https://github.com/google/trillian-examples) repository has been removed.
 
-The version of trillian in use has been updated to 1.3.10. This has required
+The version of trillian in use has been updated to 1.3.11. This has required
 various other dependency updates including gRPC and protobuf. This code now
 uses the v2 proto API. The Travis tests now expect the 3.11.4 version of
 protoc.
