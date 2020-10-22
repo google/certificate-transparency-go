@@ -816,7 +816,7 @@ func TestGetSTH(t *testing.T) {
 	}
 }
 
-func runTestGetEntries(t *testing.T) {
+func TestGetEntries(t *testing.T) {
 	// Create a couple of valid serialized ct.MerkleTreeLeaf objects
 	merkleLeaf1 := ct.MerkleTreeLeaf{
 		Version:  ct.V1,
@@ -1030,21 +1030,12 @@ func runTestGetEntries(t *testing.T) {
 			if len(test.wantQuotaUser) != 0 {
 				chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
-			if *getByRange {
-				glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2, ChargeTo: chargeTo}
-				if test.glbrr != nil {
-					glbrr = test.glbrr
-				}
-				rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: slr, Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{glbrr}).Return(&rsp, test.rpcErr)
-			} else {
-				glbir := &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{1, 2}, ChargeTo: chargeTo}
-				if test.glbir != nil {
-					glbir = test.glbir
-				}
-				rsp := trillian.GetLeavesByIndexResponse{SignedLogRoot: slr, Leaves: test.leaves}
-				info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{glbir}).Return(&rsp, test.rpcErr)
+			glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 1, Count: 2, ChargeTo: chargeTo}
+			if test.glbrr != nil {
+				glbrr = test.glbrr
 			}
+			rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: slr, Leaves: test.leaves}
+			info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{glbrr}).Return(&rsp, test.rpcErr)
 		}
 
 		w := httptest.NewRecorder()
@@ -1091,7 +1082,7 @@ func runTestGetEntries(t *testing.T) {
 	}
 }
 
-func runTestGetEntriesRanges(t *testing.T) {
+func TestGetEntriesRanges(t *testing.T) {
 	var tests = []struct {
 		desc          string
 		start         int64
@@ -1198,11 +1189,7 @@ func runTestGetEntriesRanges(t *testing.T) {
 				if len(test.wantQuotaUser) != 0 {
 					chargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 				}
-				if *getByRange {
-					info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
-				} else {
-					info.client.EXPECT().GetLeavesByIndex(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: buildIndicesForRange(test.start, end), ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
-				}
+				info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{&trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: test.start, Count: end + 1 - test.start, ChargeTo: chargeTo}}).Return(nil, errors.New("RPCMADE"))
 			}
 
 			path := fmt.Sprintf("/ct/v1/get-entries?start=%d&end=%d", test.start, test.end)
@@ -1222,29 +1209,6 @@ func runTestGetEntriesRanges(t *testing.T) {
 			}
 		})
 	}
-}
-
-func runGetEntriesVariants(t *testing.T, fn func(t *testing.T)) {
-	t.Helper()
-	defer func(val bool) {
-		*getByRange = val
-	}(*getByRange)
-	for _, val := range []bool{false, true} {
-		*getByRange = val
-		name := "ByIndex"
-		if *getByRange {
-			name = "ByName"
-		}
-		t.Run(name, fn)
-	}
-}
-
-func TestGetEntriesRanges(t *testing.T) {
-	runGetEntriesVariants(t, runTestGetEntriesRanges)
-}
-
-func TestGetEntries(t *testing.T) {
-	runGetEntriesVariants(t, runTestGetEntries)
 }
 
 func TestSortLeafRange(t *testing.T) {
