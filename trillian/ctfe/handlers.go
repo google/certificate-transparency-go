@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1063,23 +1062,6 @@ func (ll byLeafIndex) Swap(i, j int) {
 }
 func (ll byLeafIndex) Less(i, j int) bool {
 	return ll[i].LeafIndex < ll[j].LeafIndex
-}
-
-// sortLeafRange re-orders the leaves in rsp to be in ascending order by LeafIndex.  It also
-// checks that the resulting range of leaves in rsp is valid, starting at start and finishing
-// at end (or before) without duplicates.
-func sortLeafRange(rsp *trillian.GetLeavesByIndexResponse, start, end int64) error {
-	if got := int64(len(rsp.Leaves)); got > (end + 1 - start) {
-		return fmt.Errorf("backend returned too many leaves: %d v [%d,%d]", got, start, end)
-	}
-	sort.Sort(byLeafIndex(rsp.Leaves))
-	for i, leaf := range rsp.Leaves {
-		if leaf.LeafIndex != (start + int64(i)) {
-			return fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
-		}
-	}
-
-	return nil
 }
 
 // marshalGetEntriesResponse does the conversion from the backend response to the one we need for

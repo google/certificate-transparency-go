@@ -849,7 +849,6 @@ func TestGetEntries(t *testing.T) {
 		req           string
 		want          int
 		wantQuotaUser string
-		glbir         *trillian.GetLeavesByIndexRequest
 		glbrr         *trillian.GetLeavesByRangeRequest
 		leaves        []*trillian.LogLeaf
 		rpcErr        error
@@ -904,7 +903,6 @@ func TestGetEntries(t *testing.T) {
 			slr: &trillian.SignedLogRoot{
 				LogRoot: []byte("not tls encoded data"),
 			},
-			glbir:  &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{2, 3}},
 			glbrr:  &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 2, Count: 2},
 			want:   http.StatusInternalServerError,
 			leaves: []*trillian.LogLeaf{{LeafIndex: 2}, {LeafIndex: 3}},
@@ -916,7 +914,6 @@ func TestGetEntries(t *testing.T) {
 			slr: mustMarshalRoot(t, &types.LogRootV1{
 				TreeSize: 2, // Not large enough - only indices 0 and 1 valid.
 			}),
-			glbir:  &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{2, 3}},
 			glbrr:  &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 2, Count: 2},
 			want:   http.StatusBadRequest,
 			leaves: []*trillian.LogLeaf{{LeafIndex: 2}, {LeafIndex: 3}},
@@ -974,7 +971,6 @@ func TestGetEntries(t *testing.T) {
 		{
 			descr: "tree too small",
 			req:   "start=5&end=6",
-			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
 			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
 			want:  http.StatusBadRequest,
 			slr: mustMarshalRoot(t, &types.LogRootV1{
@@ -985,7 +981,6 @@ func TestGetEntries(t *testing.T) {
 		{
 			descr: "tree includes 1 of 2",
 			req:   "start=5&end=6",
-			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
 			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
 			want:  http.StatusOK,
 			slr: mustMarshalRoot(t, &types.LogRootV1{
@@ -998,7 +993,6 @@ func TestGetEntries(t *testing.T) {
 		{
 			descr: "tree includes 2 of 2",
 			req:   "start=5&end=6",
-			glbir: &trillian.GetLeavesByIndexRequest{LogId: 0x42, LeafIndex: []int64{5, 6}},
 			glbrr: &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 5, Count: 2},
 			want:  http.StatusOK,
 			slr: mustMarshalRoot(t, &types.LogRootV1{
@@ -1208,44 +1202,6 @@ func TestGetEntriesRanges(t *testing.T) {
 				t.Errorf("getEntries(%d, %d)=%q; expect RPCMADE for test %s", test.start, test.end, w.Body, test.desc)
 			}
 		})
-	}
-}
-
-func TestSortLeafRange(t *testing.T) {
-	var tests = []struct {
-		start   int64
-		end     int64
-		entries []int
-		errStr  string
-	}{
-		{1, 2, []int{1, 2}, ""},
-		{1, 1, []int{1}, ""},
-		{5, 12, []int{5, 6, 7, 8, 9, 10, 11, 12}, ""},
-		{5, 12, []int{5, 6, 7, 8, 9, 10}, ""},
-		{5, 12, []int{7, 6, 8, 9, 10, 5}, ""},
-		{5, 12, []int{5, 5, 6, 7, 8, 9, 10}, "unexpected leaf index"},
-		{5, 12, []int{6, 7, 8, 9, 10, 11, 12}, "unexpected leaf index"},
-		{5, 12, []int{5, 6, 7, 8, 9, 10, 12}, "unexpected leaf index"},
-		{5, 12, []int{5, 6, 7, 8, 9, 10, 11, 12, 13}, "too many leaves"},
-		{1, 4, []int{5, 2, 3}, "unexpected leaf index"},
-	}
-	for _, test := range tests {
-		rsp := trillian.GetLeavesByIndexResponse{}
-		for _, idx := range test.entries {
-			rsp.Leaves = append(rsp.Leaves, &trillian.LogLeaf{LeafIndex: int64(idx)})
-		}
-		err := sortLeafRange(&rsp, test.start, test.end)
-		if test.errStr != "" {
-			if err == nil {
-				t.Errorf("sortLeafRange(%v, %d, %d)=nil; want substring %q", test.entries, test.start, test.end, test.errStr)
-			} else if !strings.Contains(err.Error(), test.errStr) {
-				t.Errorf("sortLeafRange(%v, %d, %d)=%v; want substring %q", test.entries, test.start, test.end, err, test.errStr)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("sortLeafRange(%v, %d, %d)=%v; want nil", test.entries, test.start, test.end, err)
-		}
 	}
 }
 
