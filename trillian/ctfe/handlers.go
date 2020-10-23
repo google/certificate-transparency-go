@@ -463,9 +463,9 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	// Send the Merkle tree leaf on to the Log server.
-	req := trillian.QueueLeavesRequest{
+	req := trillian.QueueLeafRequest{
 		LogId:    li.logID,
-		Leaves:   []*trillian.LogLeaf{&leaf},
+		Leaf:     &leaf,
 		ChargeTo: li.chargeUser(r),
 	}
 	if li.instanceOpts.CertificateQuotaUser != nil {
@@ -476,7 +476,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	glog.V(2).Infof("%s: %s => grpc.QueueLeaves", li.LogPrefix, method)
-	rsp, err := li.rpcClient.QueueLeaves(ctx, &req)
+	rsp, err := li.rpcClient.QueueLeaf(ctx, &req)
 	glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v", li.LogPrefix, method, err)
 	if err != nil {
 		return li.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %s", err)
@@ -484,14 +484,10 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	if rsp == nil {
 		return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
 	}
-	if len(rsp.QueuedLeaves) != 1 {
-		return http.StatusInternalServerError, fmt.Errorf("unexpected QueueLeaves response leaf count: %d", len(rsp.QueuedLeaves))
-	}
-	queuedLeaf := rsp.QueuedLeaves[0]
 
 	// Always use the returned leaf as the basis for an SCT.
 	var loggedLeaf ct.MerkleTreeLeaf
-	if rest, err := tls.Unmarshal(queuedLeaf.Leaf.LeafValue, &loggedLeaf); err != nil {
+	if rest, err := tls.Unmarshal(rsp.QueuedLeaf.Leaf.LeafValue, &loggedLeaf); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to reconstruct MerkleTreeLeaf: %s", err)
 	} else if len(rest) > 0 {
 		return http.StatusInternalServerError, fmt.Errorf("extra data (%d bytes) on reconstructing MerkleTreeLeaf", len(rest))
