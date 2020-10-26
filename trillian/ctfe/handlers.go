@@ -484,6 +484,9 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	if rsp == nil {
 		return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
 	}
+	if rsp.QueuedLeaf == nil {
+		return http.StatusInternalServerError, errors.New("QueueLeaf did not return the leaf")
+	}
 
 	// Always use the returned leaf as the basis for an SCT.
 	var loggedLeaf ct.MerkleTreeLeaf
