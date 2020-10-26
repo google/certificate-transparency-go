@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,8 +46,6 @@ import (
 )
 
 var (
-	// TODO(drysdale): remove this flag once everything has migrated to ByRange
-	getByRange      = flag.Bool("by_range", true, "Use trillian.GetEntriesByRange for get-entries processing")
 	alignGetEntries = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
 )
 
@@ -730,68 +727,36 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 
 	// Now make a request to the backend to get the relevant leaves
 	var leaves []*trillian.LogLeaf
-	if *getByRange {
-		count := end + 1 - start
-		req := trillian.GetLeavesByRangeRequest{
-			LogId:      li.logID,
-			StartIndex: start,
-			Count:      count,
-			ChargeTo:   li.chargeUser(r),
-		}
-		rsp, err := li.rpcClient.GetLeavesByRange(ctx, &req)
-		if err != nil {
-			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
-		}
-		var currentRoot types.LogRootV1
-		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
-		}
-		if currentRoot.TreeSize <= uint64(start) {
-			// If the returned tree is too small to contain any leaves return the 4xx
-			// explicitly here.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
-		}
-		// Do some sanity checks on the result.
-		if len(rsp.Leaves) > int(count) {
-			return http.StatusInternalServerError, fmt.Errorf("backend returned too many leaves: %d vs [%d,%d]", len(rsp.Leaves), start, end)
-		}
-		for i, leaf := range rsp.Leaves {
-			if leaf.LeafIndex != start+int64(i) {
-				return http.StatusInternalServerError, fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
-			}
-		}
-		leaves = rsp.Leaves
-	} else {
-		req := trillian.GetLeavesByIndexRequest{
-			LogId:     li.logID,
-			LeafIndex: buildIndicesForRange(start, end),
-			ChargeTo:  li.chargeUser(r),
-		}
-		rsp, err := li.rpcClient.GetLeavesByIndex(ctx, &req)
-		if err != nil {
-			return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByIndex request failed: %s", err)
-		}
-
-		var currentRoot types.LogRootV1
-		if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
-		}
-		if currentRoot.TreeSize <= uint64(start) {
-			// If the returned tree is too small to contain any leaves return the 4xx
-			// explicitly here. It was previously returned via the error status
-			// mapping above.
-			return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
-		}
-
-		// Trillian doesn't guarantee the returned leaves are in order (they don't need to be
-		// because each leaf comes with an index).  CT doesn't expose an index field and so
-		// needs to return leaves in order.  Therefore, sort the results (and check for missing
-		// or duplicate indices along the way).
-		if err := sortLeafRange(rsp, start, end); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("backend get-entries range invalid: %s", err)
-		}
-		leaves = rsp.Leaves
+	count := end + 1 - start
+	req := trillian.GetLeavesByRangeRequest{
+		LogId:      li.logID,
+		StartIndex: start,
+		Count:      count,
+		ChargeTo:   li.chargeUser(r),
 	}
+	rsp, err := li.rpcClient.GetLeavesByRange(ctx, &req)
+	if err != nil {
+		return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
+	}
+	var currentRoot types.LogRootV1
+	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
+	}
+	if currentRoot.TreeSize <= uint64(start) {
+		// If the returned tree is too small to contain any leaves return the 4xx
+		// explicitly here.
+		return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
+	}
+	// Do some sanity checks on the result.
+	if len(rsp.Leaves) > int(count) {
+		return http.StatusInternalServerError, fmt.Errorf("backend returned too many leaves: %d vs [%d,%d]", len(rsp.Leaves), start, end)
+	}
+	for i, leaf := range rsp.Leaves {
+		if leaf.LeafIndex != start+int64(i) {
+			return http.StatusInternalServerError, fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
+		}
+	}
+	leaves = rsp.Leaves
 
 	// Now we've checked the RPC response and it seems to be valid we need
 	// to serialize the leaves in JSON format for the HTTP response. Doing a
@@ -1097,23 +1062,6 @@ func (ll byLeafIndex) Swap(i, j int) {
 }
 func (ll byLeafIndex) Less(i, j int) bool {
 	return ll[i].LeafIndex < ll[j].LeafIndex
-}
-
-// sortLeafRange re-orders the leaves in rsp to be in ascending order by LeafIndex.  It also
-// checks that the resulting range of leaves in rsp is valid, starting at start and finishing
-// at end (or before) without duplicates.
-func sortLeafRange(rsp *trillian.GetLeavesByIndexResponse, start, end int64) error {
-	if got := int64(len(rsp.Leaves)); got > (end + 1 - start) {
-		return fmt.Errorf("backend returned too many leaves: %d v [%d,%d]", got, start, end)
-	}
-	sort.Sort(byLeafIndex(rsp.Leaves))
-	for i, leaf := range rsp.Leaves {
-		if leaf.LeafIndex != (start + int64(i)) {
-			return fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
-		}
-	}
-
-	return nil
 }
 
 // marshalGetEntriesResponse does the conversion from the backend response to the one we need for
