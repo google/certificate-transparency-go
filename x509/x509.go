@@ -107,10 +107,6 @@ func ParsePKIXPublicKey(derBytes []byte) (pub interface{}, err error) {
 	if err != nil {
 		return pub, err
 	}
-	// Treat non-fatal errors as fatal for this entrypoint.
-	if len(nfe.Errors) > 0 {
-		return nil, nfe.Errors[0]
-	}
 	return pub, nil
 }
 
