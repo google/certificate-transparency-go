@@ -21,9 +21,15 @@ import (
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/trillian/client/backoff"
 )
+
+// LogClient implements the subset of CT log API that the Fetcher uses.
+type LogClient interface {
+	BaseURI() string
+	GetSTH(context.Context) (*ct.SignedTreeHead, error)
+	GetRawEntries(ctx context.Context, start, end int64) (*ct.GetEntriesResponse, error)
+}
 
 // FetcherOptions holds configuration options for the Fetcher.
 type FetcherOptions struct {
@@ -59,7 +65,7 @@ type Fetcher struct {
 	// Base URI of the CT log, for diagnostics.
 	uri string
 	// Client used to talk to the CT log instance.
-	client *client.LogClient
+	client LogClient
 	// Configuration options for this Fetcher instance.
 	opts *FetcherOptions
 
@@ -87,7 +93,7 @@ type fetchRange struct {
 
 // NewFetcher creates a Fetcher instance using client to talk to the log,
 // taking configuration options from opts.
-func NewFetcher(client *client.LogClient, opts *FetcherOptions) *Fetcher {
+func NewFetcher(client LogClient, opts *FetcherOptions) *Fetcher {
 	cancel := func() {} // Protect against calling Stop before Run.
 	return &Fetcher{
 		uri:    client.BaseURI(),
