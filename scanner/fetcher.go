@@ -253,19 +253,26 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 // successful sends the corresponding EntryBatch through the fn callback. Will
 // retry failed attempts to retrieve ranges until the context is cancelled.
 func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn func(EntryBatch)) {
+	// TODO(pavelkalinnikov): Make these parameters tunable.
+	workerBackoff := &backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    30 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
 	for r := range ranges {
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
 		for r.start <= r.end {
-			// Fetcher.Run() can be cancelled while we are looping over this job.
-			if err := ctx.Err(); err != nil {
-				glog.Warningf("%s: Worker context closed: %v", f.uri, err)
-				return
-			}
-			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
-			if err != nil {
+			var resp *ct.GetEntriesResponse
+			if err := workerBackoff.Retry(ctx, func() error {
+				var err error
+				resp, err = f.client.GetRawEntries(ctx, r.start, r.end)
+				return err
+			}); err != nil {
 				glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
-				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
+				// TODO(mhutchinson): This needs to be able to signal a failure.
+				// Right now this is just going to try the request again.
 				continue
 			}
 			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
