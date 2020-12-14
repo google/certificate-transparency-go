@@ -257,15 +257,26 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
 		for r.start <= r.end {
-			// Fetcher.Run() can be cancelled while we are looping over this job.
-			if err := ctx.Err(); err != nil {
-				glog.Warningf("%s: Worker context closed: %v", f.uri, err)
-				return
+			// TODO(pavelkalinnikov): Make these parameters tunable.
+			// This backoff will only apply to a single request and be reset for the next one.
+			// This precludes reaching some kind of stability in request rate, but means that
+			// an intermittent problem won't harm long-term running of the worker.
+			bo := &backoff.Backoff{
+				Min:    1 * time.Second,
+				Max:    30 * time.Second,
+				Factor: 2,
+				Jitter: true,
 			}
-			resp, err := f.client.GetRawEntries(ctx, r.start, r.end)
-			if err != nil {
+
+			var resp *ct.GetEntriesResponse
+			// TODO(pavelkalinnikov): Report errors in a LogClient decorator on failure.
+			if err := bo.Retry(ctx, func() error {
+				var err error
+				resp, err = f.client.GetRawEntries(ctx, r.start, r.end)
+				return err
+			}); err != nil {
 				glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
-				// TODO(pavelkalinnikov): Introduce backoff policy and pause here.
+				// There is no error reporting yet for this worker, so just retry again.
 				continue
 			}
 			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
