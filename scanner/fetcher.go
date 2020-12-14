@@ -261,7 +261,7 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 			// This backoff will only apply to a single request and be reset for the next one.
 			// This precludes reaching some kind of stability in request rate, but means that
 			// an intermittent problem won't harm long-term running of the worker.
-			workerBackoff := &backoff.Backoff{
+			bo := &backoff.Backoff{
 				Min:    1 * time.Second,
 				Max:    30 * time.Second,
 				Factor: 2,
@@ -269,14 +269,14 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 			}
 
 			var resp *ct.GetEntriesResponse
-			if err := workerBackoff.Retry(ctx, func() error {
+			// TODO(pavelkalinnikov): Report errors in a LogClient decorator on failure.
+			if err := bo.Retry(ctx, func() error {
 				var err error
 				resp, err = f.client.GetRawEntries(ctx, r.start, r.end)
 				return err
 			}); err != nil {
 				glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
-				// TODO(mhutchinson): This needs to be able to signal a failure.
-				// Right now this is just going to try the request again.
+				// There is no error reporting yet for this worker, so just retry again.
 				continue
 			}
 			fn(EntryBatch{Start: r.start, Entries: resp.Entries})
