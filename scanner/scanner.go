@@ -24,7 +24,6 @@ import (
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -314,7 +313,7 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), 
 
 // NewScanner creates a Scanner instance using client to talk to the log,
 // taking configuration options from opts.
-func NewScanner(client *client.LogClient, opts ScannerOptions) *Scanner {
+func NewScanner(client LogClient, opts ScannerOptions) *Scanner {
 	var scanner Scanner
 	scanner.opts = opts
 	scanner.fetcher = NewFetcher(client, &scanner.opts.FetcherOptions)
