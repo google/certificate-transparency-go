@@ -253,17 +253,21 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 // successful sends the corresponding EntryBatch through the fn callback. Will
 // retry failed attempts to retrieve ranges until the context is cancelled.
 func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn func(EntryBatch)) {
-	// TODO(pavelkalinnikov): Make these parameters tunable.
-	workerBackoff := &backoff.Backoff{
-		Min:    1 * time.Second,
-		Max:    30 * time.Second,
-		Factor: 2,
-		Jitter: true,
-	}
 	for r := range ranges {
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
 		for r.start <= r.end {
+			// TODO(pavelkalinnikov): Make these parameters tunable.
+			// This backoff will only apply to a single request and be reset for the next one.
+			// This precludes reaching some kind of stability in request rate, but means that
+			// an intermittent problem won't harm long-term running of the worker.
+			workerBackoff := &backoff.Backoff{
+				Min:    1 * time.Second,
+				Max:    30 * time.Second,
+				Factor: 2,
+				Jitter: true,
+			}
+
 			var resp *ct.GetEntriesResponse
 			if err := workerBackoff.Retry(ctx, func() error {
 				var err error
