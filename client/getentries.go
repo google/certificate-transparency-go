@@ -36,9 +36,6 @@ func (c *LogClient) GetRawEntries(ctx context.Context, start, end int64) (*ct.Ge
 		"start": strconv.FormatInt(start, 10),
 		"end":   strconv.FormatInt(end, 10),
 	}
-	if ctx == nil {
-		ctx = context.TODO()
-	}
 
 	var resp ct.GetEntriesResponse
 	if _, _, err := c.GetAndParse(ctx, ct.GetEntriesPath, params, &resp); err != nil {
