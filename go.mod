@@ -3,7 +3,6 @@ module github.com/google/certificate-transparency-go
 go 1.12
 
 require (
-	cloud.google.com/go/bigquery v1.8.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.4.2
@@ -25,4 +24,5 @@ require (
 	google.golang.org/genproto v0.0.0-20200707001353-8e8330bf89df
 	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.25.0
+	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 )
