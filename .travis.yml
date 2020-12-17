@@ -75,8 +75,21 @@ install:
      github.com/fullstorydev/grpcurl/cmd/grpcurl
 
 before_script:
-  - bash $(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh --force
-  - ./scripts/resetctdb.sh --force
+  - |
+      # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
+      export PROJECT_ID=trillian-opensource-ci
+      docker pull gcr.io/$PROJECT_ID/log_server:latest
+      docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
+      docker pull gcr.io/$PROJECT_ID/log_signer:latest
+      docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
+
+      # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
+      export TRILLIAN_LOCATION="$(go list -f '{{.Dir}}' github.com/google/trillian)"
+      docker-compose -f ${TRILLIAN_LOCATION}/examples/deployment/docker-compose.yml pull mysql trillian-log-server trillian-log-signer
+      docker-compose -f ${TRILLIAN_LOCATION}/examples/deployment/docker-compose.yml up -d mysql trillian-log-server trillian-log-signer
+
+      export TRILLIAN_LOG_SERVER_1="localhost:8090"
+      export TRILLIAN_LOG_SERVERS="${TRILLIAN_LOG_SERVER_1}"
 
 script:
   - set -e
