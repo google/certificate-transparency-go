@@ -1,6 +1,6 @@
 timeout: 1200s
 options:
-  machineType: N1_HIGHCPU_8
+  machineType: N1_HIGHCPU_32
   volumes:
   - name: go-modules
     path: /go
