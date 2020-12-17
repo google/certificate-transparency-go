@@ -1,4 +1,4 @@
-timeout: 600s
+timeout: 1200s
 options:
   machineType: N1_HIGHCPU_8
   volumes:
