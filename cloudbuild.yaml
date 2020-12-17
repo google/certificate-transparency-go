@@ -74,7 +74,6 @@ steps:
 
       # Wait for trillian logserver to be up
       until nc -z deployment_trillian-log-server_1 8090; do echo .; sleep 5; done
-
   waitFor: ['prepare']
 
 # Run the presubmit tests
@@ -85,6 +84,7 @@ steps:
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
+
 - name: gcr.io/$PROJECT_ID/ct_testbase
   id: 'race_detection'
   env:
@@ -93,6 +93,7 @@ steps:
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
+
 - name: gcr.io/$PROJECT_ID/ct_testbase
   id: 'etcd_with_coverage'
   env:
@@ -102,6 +103,7 @@ steps:
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
+
 - name: gcr.io/$PROJECT_ID/ct_testbase
   id: 'etcd_with_race'
   env:
@@ -111,6 +113,7 @@ steps:
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
+
 - name: gcr.io/$PROJECT_ID/ct_testbase
   id: 'with_pkcs11_and_race'
   env:
@@ -149,7 +152,6 @@ steps:
   - --file=trillian/examples/deployment/docker/ctfe/Dockerfile
   - --tag=gcr.io/${PROJECT_ID}/ctfe:${COMMIT_SHA}
   - .
-  waitFor: ["ci_complete"]
 - id: build_envsubst
   name: gcr.io/cloud-builders/docker
   args:
@@ -157,7 +159,6 @@ steps:
   - trillian/examples/deployment/docker/envsubst
   - -t
   - envsubst
-  waitFor: ["ci_complete"]
 - id: envsubst_kubernetes_configs
   name: envsubst
   args:
