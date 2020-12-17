@@ -1,4 +1,4 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
@@ -7,6 +7,9 @@ metadata:
   name: trillian-ctfe-deployment
 spec:
   replicas: 4
+  selector:
+    matchLabels:
+        io.kompose.service: trillian-ctfe
   strategy: {}
   template:
     metadata:
