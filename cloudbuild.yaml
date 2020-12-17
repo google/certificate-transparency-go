@@ -1,3 +1,12 @@
+#############################################################################
+## The top section of this file is identical in the 3 cloudbuild.*yaml files.
+## Make sure any edits you make here are copied over to the other files too
+## if appropriate.
+##
+## TODO(al): consider if it's possible to merge these 3 files and control via
+## substitutions.
+#############################################################################
+
 timeout: 1200s
 options:
   machineType: N1_HIGHCPU_32
@@ -142,9 +151,11 @@ steps:
   entrypoint: /bin/true
   waitFor: ['codecov.io', 'default_test', 'race_detection', 'etcd_with_coverage', 'etcd_with_race', 'with_pkcs11_and_race']
 
-#
-# Image creation and CD dry-run steps below:
-#
+############################################################################
+## End of replicated section.
+## Below are deployment specific steps for the CD env.
+############################################################################
+
 - id: build_ctfe
   name: gcr.io/cloud-builders/docker
   args:
