@@ -10,3 +10,10 @@ ignore:
   - "**/mock_*.go"
   - "**/testonly"
   - "trillian/integration"
+
+coverage:
+  status:
+    project:
+      default:
+        # Allow 1% coverage drop without complaining, to avoid being too noisy.
+        threshold: 1%

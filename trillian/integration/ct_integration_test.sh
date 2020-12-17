@@ -4,20 +4,12 @@ set -e
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 . "${INTEGRATION_DIR}"/ct_functions.sh
 
-# Default to one of everything.
-RPC_SERVER_COUNT=${1:-1}
-LOG_SIGNER_COUNT=${2:-1}
-HTTP_SERVER_COUNT=${3:-1}
+# We're not using Trillian's log setup/turn down, so allow the caller to
+# specify where the trillian log server is.
+export RPC_SERVERS=${TRILLIAN_LOG_SERVERS:-localhost:8090}
+export RPC_SERVER_1=${TRILLIAN_LOG_SERVER_1:-localhost:8090}
 
-ct_prep_test "${RPC_SERVER_COUNT}" "${LOG_SIGNER_COUNT}" "${HTTP_SERVER_COUNT}"
-
-# Cleanup for the Trillian components
-TO_DELETE="${TO_DELETE} ${ETCD_DB_DIR} ${PROMETHEUS_CFGDIR}"
-TO_KILL+=(${LOG_SIGNER_PIDS[@]})
-TO_KILL+=(${RPC_SERVER_PIDS[@]})
-TO_KILL+=(${ETCD_PID})
-TO_KILL+=(${PROMETHEUS_PID})
-TO_KILL+=(${ETCDISCOVER_PID})
+ct_prep_test 1
 
 # Cleanup for the personality
 TO_DELETE="${TO_DELETE} ${CT_CFG} ${CT_LIFECYCLE_CFG} ${CT_COMBINED_CONFIG}"

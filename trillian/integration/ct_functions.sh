@@ -11,8 +11,6 @@ readonly CT_GO_PATH=$(go list -f '{{.Dir}}' github.com/google/certificate-transp
 
 # ct_prep_test prepares a set of running processes for a CT test.
 # Parameters:
-#   - number of log servers to run
-#   - number of log signers to run
 #   - number of CT personality instances to run
 # Populates:
 #  - CT_SERVERS         : list of HTTP addresses (comma separated)
@@ -26,19 +24,9 @@ readonly CT_GO_PATH=$(go list -f '{{.Dir}}' github.com/google/certificate-transp
 #  - PROMETHEUS_CFGDIR : Prometheus configuration directory
 ct_prep_test() {
   # Default to one of everything.
-  local rpc_server_count=${1:-1}
-  local log_signer_count=${2:-1}
-  local http_server_count=${3:-1}
+  local http_server_count=${1:-1}
 
-  if [[ "${HAMMER_GOSSIP}" != "off" ]]; then
-    # Wipe the cttest database
-    echo "Wiping and re-creating cttest database"
-    "${CT_GO_PATH}/scripts/resetctdb.sh" --force
-    # Wipe the incident database
-  fi
-
-  echo "Launching core Trillian log components"
-  log_prep_test "${rpc_server_count}" "${log_signer_count}"
+  echo "PREP: Trillian: ${RPC_SERVER_1} [${RPC_SERVERS}]"
 
   echo "Building CT personality code"
   go build github.com/google/certificate-transparency-go/trillian/ctfe/ct_server
@@ -168,5 +156,4 @@ ct_stop_test() {
   echo "Stopping CT HTTP servers (pids ${CT_SERVER_PIDS[@]})"
   pids+=" ${CT_SERVER_PIDS[@]}"
   kill_pid ${pids}
-  log_stop_test
 }
