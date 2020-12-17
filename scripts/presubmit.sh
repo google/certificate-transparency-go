@@ -132,7 +132,7 @@ main() {
     done | xargs -I '{}' -P ${GO_TEST_PARALLELISM:-10} bash -c '{}'
 
     [[ ${coverage} -eq 1 ]] && \
-      cat /tmp/ct_profile/*.out > /tmp/coverage.txt
+      cat /tmp/ct_profile/*.out > coverage.txt
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then

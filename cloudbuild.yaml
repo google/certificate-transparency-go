@@ -151,7 +151,9 @@ steps:
   - build
   - --file=trillian/examples/deployment/docker/ctfe/Dockerfile
   - --tag=gcr.io/${PROJECT_ID}/ctfe:${COMMIT_SHA}
+  - --cache-from=gcr.io/${PROJECT_ID}/ctfe
   - .
+  waitFor: [-]
 - id: build_envsubst
   name: gcr.io/cloud-builders/docker
   args:
@@ -159,6 +161,7 @@ steps:
   - trillian/examples/deployment/docker/envsubst
   - -t
   - envsubst
+  waitFor: ['ci_complete']
 - id: envsubst_kubernetes_configs
   name: envsubst
   args:
