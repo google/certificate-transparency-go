@@ -2113,7 +2113,7 @@ func generateCert(cn string, isCA bool, issuer *Certificate, issuerKey crypto.Pr
 		KeyUsage:              KeyUsageKeyEncipherment | KeyUsageDigitalSignature | KeyUsageCertSign,
 		ExtKeyUsage:           []ExtKeyUsage{ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		IsCA: isCA,
+		IsCA:                  isCA,
 	}
 	if issuer == nil {
 		issuer = template
