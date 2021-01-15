@@ -45,7 +45,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509/pkix"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keyspb"
-	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
@@ -126,7 +126,7 @@ type testInfo struct {
 	adminServer    string
 	stats          *logStats
 	pool           ClientPool
-	verifier       merkle.LogVerifier
+	verifier       logverifier.LogVerifier
 }
 
 func (t *testInfo) checkStats() error {
@@ -266,7 +266,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		metricsServers: metricsServers,
 		stats:          stats,
 		pool:           pool,
-		verifier:       merkle.NewLogVerifier(rfc6962.DefaultHasher),
+		verifier:       logverifier.New(rfc6962.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
@@ -632,7 +632,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		adminServer:    adminServer,
 		stats:          stats,
 		pool:           pool,
-		verifier:       merkle.NewLogVerifier(rfc6962.DefaultHasher),
+		verifier:       logverifier.New(rfc6962.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
