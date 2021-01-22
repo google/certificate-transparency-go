@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"go.etcd.io/etcd/clientv3"
 	"google.golang.org/grpc"
 
 	"github.com/google/certificate-transparency-go/client"
@@ -39,7 +40,6 @@ import (
 	"github.com/google/trillian/util"
 	"github.com/google/trillian/util/election2"
 	etcdelect "github.com/google/trillian/util/election2/etcd"
-	"github.com/google/trillian/util/etcd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -192,7 +192,10 @@ func getElectionFactory() (election2.Factory, func()) {
 		glog.Exit("Either --force_master or --etcd_servers must be supplied")
 	}
 
-	cli, err := etcd.NewClient(strings.Split(*etcdServers, ","), 5*time.Second)
+	cli, err := clientv3.New(clientv3.Config{
+		Endpoints:   strings.Split(*etcdServers, ","),
+		DialTimeout: 5 * time.Second,
+	})
 	if err != nil || cli == nil {
 		glog.Exitf("Failed to create etcd client: %v", err)
 	}
