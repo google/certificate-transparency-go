@@ -119,35 +119,6 @@ func (c *LogClient) AddPreChain(ctx context.Context, chain []ct.ASN1Cert) (*ct.S
 	return c.addChainWithRetry(ctx, ct.PrecertLogEntryType, ct.AddPreChainPath, chain)
 }
 
-// AddJSON submits arbitrary data to to XJSON server.
-func (c *LogClient) AddJSON(ctx context.Context, data interface{}) (*ct.SignedCertificateTimestamp, error) {
-	req := ct.AddJSONRequest{Data: data}
-	var resp ct.AddChainResponse
-	httpRsp, body, err := c.PostAndParse(ctx, ct.AddJSONPath, &req, &resp)
-	if err != nil {
-		return nil, err
-	}
-	var ds ct.DigitallySigned
-	if rest, err := tls.Unmarshal(resp.Signature, &ds); err != nil {
-		return nil, RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
-	} else if len(rest) > 0 {
-		return nil, RspError{
-			Err:        fmt.Errorf("trailing data (%d bytes) after DigitallySigned", len(rest)),
-			StatusCode: httpRsp.StatusCode,
-			Body:       body,
-		}
-	}
-	var logID ct.LogID
-	copy(logID.KeyID[:], resp.ID)
-	return &ct.SignedCertificateTimestamp{
-		SCTVersion: resp.SCTVersion,
-		LogID:      logID,
-		Timestamp:  resp.Timestamp,
-		Extensions: ct.CTExtensions(resp.Extensions),
-		Signature:  ds,
-	}, nil
-}
-
 // GetSTH retrieves the current STH from the log.
 // Returns a populated SignedTreeHead, or a non-nil error (which may be of type
 // RspError if a raw http.Response is available).

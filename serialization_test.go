@@ -238,34 +238,6 @@ func TestSerializeV1SCTSignatureInputForPrecertKAT(t *testing.T) {
 	}
 }
 
-func TestSerializeV1SCTJSONSignature(t *testing.T) {
-	entry := LogEntry{Leaf: *CreateJSONMerkleTreeLeaf("data", defaultSCT().Timestamp)}
-	expected := dh(
-		// version, 1 byte
-		"00" +
-			// signature type, 1 byte
-			"00" +
-			// timestamp, 8 bytes
-			"00000000000004d2" +
-			// entry type, 2 bytes
-			"8000" +
-			// tbs certificate length, 18 bytes
-			"000012" +
-			// { "data": "data" }, 3 bytes
-			"7b202264617461223a20226461746122207d" +
-			// extensions length, 2 bytes
-			"0000" +
-			// extensions, 0 bytes
-			"")
-	serialized, err := SerializeSCTSignatureInput(defaultSCT(), entry)
-	if err != nil {
-		t.Fatalf("Failed to serialize SCT for signing: %v", err)
-	}
-	if !bytes.Equal(serialized, expected) {
-		t.Fatalf("Serialized JSON signature :\n%x, want\n%x", serialized, expected)
-	}
-}
-
 func TestSerializeV1STHSignatureKAT(t *testing.T) {
 	b, err := SerializeSTHSignatureInput(defaultSTH())
 	if err != nil {
@@ -378,21 +350,6 @@ func TestX509MerkleTreeLeafHash(t *testing.T) {
 		t.Errorf("CreateX509MerkleTreeLeaf(): got\n %x, want\n%x", b, sctB)
 	}
 
-}
-
-func TestJSONMerkleTreeLeaf(t *testing.T) {
-	data := `CioaINV25GV8X4a6M6Q10avSLP9PYd5N8MwWxQvWU7E2CzZ8IgYI0KnavAUSWAoIZDc1NjMzMzMSTAgEEAMaRjBEAiBQlnp6Q3di86g8M3l5gz+9qls/Cz1+KJ+tK/jpaBtUCgIgXaJ94uLsnChA1NY7ocGwKrQwPU688hwaZ5L/DboV4mQ=2`
-	timestamp := uint64(1469664866615)
-	leaf := CreateJSONMerkleTreeLeaf(data, timestamp)
-	b, err := tls.Marshal(*leaf)
-	if err != nil {
-		t.Fatalf("Failed to Serialize x509 leaf: %v", err)
-	}
-	leafBytes := dh("0000000001562eda313780000000c67b202264617461223a202243696f61494e563235475638583461364d365131306176534c5039505964354e384d77577851765755374532437a5a3849675949304b6e617641555357416f495a4463314e6a4d7a4d7a4d535441674545414d61526a4245416942516c6e703651336469383667384d336c35677a2b39716c735c2f437a312b4b4a2b744b5c2f6a70614274554367496758614a3934754c736e436841314e59376f6347774b72517750553638386877615a354c5c2f44626f56346d513d3222207d0000")
-
-	if !bytes.Equal(b, leafBytes) {
-		t.Errorf("CreateJSONMerkleTreeLeaf(): got\n%x, want\n%x", b, leafBytes)
-	}
 }
 
 func TestLogEntryFromLeaf(t *testing.T) {

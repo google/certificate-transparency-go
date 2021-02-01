@@ -531,34 +531,6 @@ func TestAddPreChain(t *testing.T) {
 	}
 }
 
-func TestAddJSON(t *testing.T) {
-	hs := serveRspAt(t, "/ct/v1/add-json", AddJSONResp)
-	defer hs.Close()
-	lc, err := client.New(hs.URL, &http.Client{}, jsonclient.Options{})
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	tests := []struct {
-		success bool
-		data    interface{}
-	}{
-		{true, struct{ hi string }{"bob"}},
-	}
-
-	for _, test := range tests {
-		sct, err := lc.AddJSON(context.Background(), test.data)
-		if test.success && err != nil {
-			t.Errorf("AddJSON(%v)=nil,%v; want sct,nil", test.data, err)
-		} else if !test.success && err == nil {
-			t.Errorf("AddJSON(%v)=sct,nil; want nil,error", test.data)
-		}
-		if test.success && sct == nil {
-			t.Errorf("AddJSON(%v)=nil,%v; want sct,nil", test.data, err)
-		}
-	}
-}
-
 func TestGetSTHConsistency(t *testing.T) {
 	hs := serveRspAt(t, "/ct/v1/get-sth-consistency", GetSTHConsistencyResp)
 	defer hs.Close()
