@@ -46,7 +46,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
 	"google.golang.org/genproto/protobuf/field_mask"
@@ -266,7 +266,7 @@ func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, te
 		metricsServers: metricsServers,
 		stats:          stats,
 		pool:           pool,
-		verifier:       logverifier.New(rfc6962.DefaultHasher),
+		verifier:       logverifier.New(hasher.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {
@@ -632,7 +632,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 		adminServer:    adminServer,
 		stats:          stats,
 		pool:           pool,
-		verifier:       logverifier.New(rfc6962.DefaultHasher),
+		verifier:       logverifier.New(hasher.DefaultHasher),
 	}
 
 	if err := t.checkStats(); err != nil {

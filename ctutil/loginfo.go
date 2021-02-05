@@ -30,7 +30,7 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
 // LogInfo holds the objects needed to perform per-log verification and
@@ -189,7 +189,7 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
 
-	verifier := logverifier.New(rfc6962.DefaultHasher)
+	verifier := logverifier.New(hasher.DefaultHasher)
 	if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
