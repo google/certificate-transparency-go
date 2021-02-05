@@ -341,7 +341,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 	if err != nil {
 		return err
 	}
-	return logverifier.New(c.plClient.verif.Hasher).VerifyConsistencyProof(
+	return logverifier.New(c.plClient.hasher).VerifyConsistencyProof(
 		int64(root.TreeSize), int64(sth.TreeSize),
 		root.RootHash, sth.SHA256RootHash[:], proof)
 }
