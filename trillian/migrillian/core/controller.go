@@ -263,7 +263,7 @@ func (c *Controller) Run(ctx context.Context) error {
 // with respect to the passed in minimal position to start from, and the
 // current tree size obtained from an STH.
 func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error) {
-	root, err := c.plClient.getVerifiedRoot(ctx)
+	root, err := c.plClient.getRoot(ctx)
 	if err != nil {
 		return 0, err
 	}

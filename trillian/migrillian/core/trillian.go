@@ -81,7 +81,7 @@ func NewPreorderedLogClient(
 }
 
 // getRoot returns the current root of the Trillian tree.
-func (c *PreorderedLogClient) getVerifiedRoot(ctx context.Context) (*types.LogRootV1, error) {
+func (c *PreorderedLogClient) getRoot(ctx context.Context) (*types.LogRootV1, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: c.tree.TreeId}
 	rsp, err := c.cli.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
