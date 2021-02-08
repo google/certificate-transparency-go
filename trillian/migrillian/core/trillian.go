@@ -29,8 +29,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client/backoff"
-	"github.com/google/trillian/merkle/hashers"
-	"github.com/google/trillian/merkle/hashers/registry"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,8 +41,8 @@ var errRetry = errors.New("retry")
 // pre-ordered log tree.
 type PreorderedLogClient struct {
 	cli    trillian.TrillianLogClient
-	hasher hashers.LogHasher
-	tree   *trillian.Tree
+	hasher *hasher.Hasher
+	treeID  int64
 	idFunc func(int64, *ct.RawLogEntry) []byte
 	prefix string // TODO(pavelkalinnikov): Get rid of this.
 }
@@ -61,12 +60,10 @@ func NewPreorderedLogClient(
 	if got, want := tree.TreeType, trillian.TreeType_PREORDERED_LOG; got != want {
 		return nil, fmt.Errorf("tree %d is %v, want %v", tree.TreeId, got, want)
 	}
-	// If this isn't an RFC6962 hasher, Questions Should Be Asked.
-	logHasher, err := registry.NewLogHasher(tree.HashStrategy)
-	if err != nil {
-		return nil, err
+	if got, want := tree.GetHashStrategy(), trillian.HashStrategy_RFC6962_SHA256; got != want {
+		return nil, fmt.Errorf("hash strategy is %v, want %v", got, want)
 	}
-	ret := PreorderedLogClient{cli: cli, hasher: logHasher, tree: tree, prefix: prefix}
+	ret := PreorderedLogClient{cli: cli, hasher: hasher.DefaultHasher, treeID: tree.TreeId, prefix: prefix}
 
 	switch idFuncType {
 	case configpb.IdentityFunction_SHA256_CERT_DATA:
@@ -82,7 +79,7 @@ func NewPreorderedLogClient(
 
 // getRoot returns the current root of the Trillian tree.
 func (c *PreorderedLogClient) getRoot(ctx context.Context) (*types.LogRootV1, error) {
-	req := trillian.GetLatestSignedLogRootRequest{LogId: c.tree.TreeId}
+	req := trillian.GetLatestSignedLogRootRequest{LogId: c.treeID}
 	rsp, err := c.cli.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
 		return nil, err
@@ -112,8 +109,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 			return err
 		}
 	}
-	treeID := c.tree.TreeId
-	req := trillian.AddSequencedLeavesRequest{LogId: treeID, Leaves: leaves}
+	req := trillian.AddSequencedLeavesRequest{LogId: c.treeID, Leaves: leaves}
 
 	// TODO(pavelkalinnikov): Make this strategy configurable.
 	bo := backoff.Backoff{
@@ -130,7 +126,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 		switch status.Code(err) {
 		case codes.ResourceExhausted: // There was (probably) a quota error.
 			end := b.Start + int64(len(b.Entries))
-			glog.Errorf("%d: retrying batch [%d, %d) due to error: %v", treeID, b.Start, end, err)
+			glog.Errorf("%d: retrying batch [%d, %d) due to error: %v", c.treeID, b.Start, end, err)
 			return errRetry
 		case codes.OK:
 			if rsp == nil {

@@ -129,7 +129,7 @@ func NewController(
 	mf monitoring.MetricFactory,
 ) *Controller {
 	initMetrics(mf)
-	l := strconv.FormatInt(plClient.tree.TreeId, 10)
+	l := strconv.FormatInt(plClient.treeID, 10)
 	return &Controller{opts: opts, ctClient: ctClient, plClient: plClient, ef: ef, label: l}
 }
 
@@ -137,7 +137,7 @@ func NewController(
 // configured with continuous mode, restarts it whenever it returns.
 func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 	uri := c.ctClient.BaseURI()
-	treeID := c.plClient.tree.TreeId
+	treeID := c.plClient.treeID
 	for run := true; run; run = c.opts.Continuous && ctx.Err() == nil {
 		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
 		if err := c.RunWhenMaster(ctx); err != nil {
