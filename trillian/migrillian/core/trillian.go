@@ -28,9 +28,9 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
-	"github.com/google/trillian/client"
 	"github.com/google/trillian/client/backoff"
-	"github.com/google/trillian/crypto"
+	"github.com/google/trillian/merkle/hashers"
+	"github.com/google/trillian/merkle/hashers/registry"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,7 +42,7 @@ var errRetry = errors.New("retry")
 // pre-ordered log tree.
 type PreorderedLogClient struct {
 	cli    trillian.TrillianLogClient
-	verif  *client.LogVerifier
+	hasher hashers.LogHasher
 	tree   *trillian.Tree
 	idFunc func(int64, *ct.RawLogEntry) []byte
 	prefix string // TODO(pavelkalinnikov): Get rid of this.
@@ -61,11 +61,12 @@ func NewPreorderedLogClient(
 	if got, want := tree.TreeType, trillian.TreeType_PREORDERED_LOG; got != want {
 		return nil, fmt.Errorf("tree %d is %v, want %v", tree.TreeId, got, want)
 	}
-	v, err := client.NewLogVerifierFromTree(tree)
+	// If this isn't an RFC6962 hasher, Questions Should Be Asked.
+	logHasher, err := registry.NewLogHasher(tree.HashStrategy)
 	if err != nil {
 		return nil, err
 	}
-	ret := PreorderedLogClient{cli: cli, verif: v, tree: tree, prefix: prefix}
+	ret := PreorderedLogClient{cli: cli, hasher: logHasher, tree: tree, prefix: prefix}
 
 	switch idFuncType {
 	case configpb.IdentityFunction_SHA256_CERT_DATA:
@@ -79,9 +80,8 @@ func NewPreorderedLogClient(
 	return &ret, nil
 }
 
-// getVerifiedRoot returns the current root of the Trillian tree. Verifies the
-// log's signature.
-func (c *PreorderedLogClient) getVerifiedRoot(ctx context.Context) (*types.LogRootV1, error) {
+// getRoot returns the current root of the Trillian tree.
+func (c *PreorderedLogClient) getRoot(ctx context.Context) (*types.LogRootV1, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: c.tree.TreeId}
 	rsp, err := c.cli.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
@@ -89,7 +89,11 @@ func (c *PreorderedLogClient) getVerifiedRoot(ctx context.Context) (*types.LogRo
 	} else if rsp == nil || rsp.SignedLogRoot == nil {
 		return nil, errors.New("missing SignedLogRoot")
 	}
-	return crypto.VerifySignedLogRoot(c.verif.PubKey, c.verif.SigHash, rsp.SignedLogRoot)
+	var logRoot types.LogRootV1
+	if err := logRoot.UnmarshalBinary(rsp.SignedLogRoot.LogRoot); err != nil {
+		return nil, err
+	}
+	return &logRoot, nil
 }
 
 // addSequencedLeaves converts a batch of CT log entries into Trillian log
