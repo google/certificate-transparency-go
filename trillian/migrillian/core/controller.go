@@ -31,7 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 
 	"github.com/google/trillian/merkle/logverifier"
-	_ "github.com/google/trillian/merkle/rfc6962" // Register hasher.
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 	"github.com/google/trillian/util/clock"
@@ -341,7 +341,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV
 	if err != nil {
 		return err
 	}
-	return logverifier.New(c.plClient.hasher).VerifyConsistencyProof(
+	return logverifier.New(hasher.DefaultHasher).VerifyConsistencyProof(
 		int64(root.TreeSize), int64(sth.TreeSize),
 		root.RootHash, sth.SHA256RootHash[:], proof)
 }
