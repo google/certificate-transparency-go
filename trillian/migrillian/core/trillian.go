@@ -29,7 +29,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client/backoff"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,8 +40,7 @@ var errRetry = errors.New("retry")
 // pre-ordered log tree.
 type PreorderedLogClient struct {
 	cli    trillian.TrillianLogClient
-	hasher *hasher.Hasher
-	treeID  int64
+	treeID int64
 	idFunc func(int64, *ct.RawLogEntry) []byte
 	prefix string // TODO(pavelkalinnikov): Get rid of this.
 }
@@ -63,7 +61,7 @@ func NewPreorderedLogClient(
 	if got, want := tree.GetHashStrategy(), trillian.HashStrategy_RFC6962_SHA256; got != want {
 		return nil, fmt.Errorf("hash strategy is %v, want %v", got, want)
 	}
-	ret := PreorderedLogClient{cli: cli, hasher: hasher.DefaultHasher, treeID: tree.TreeId, prefix: prefix}
+	ret := PreorderedLogClient{cli: cli, treeID: tree.TreeId, prefix: prefix}
 
 	switch idFuncType {
 	case configpb.IdentityFunction_SHA256_CERT_DATA:
