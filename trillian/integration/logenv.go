@@ -58,7 +58,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	for _, cfg := range cfgs {
 		tree, err := client.CreateAndInitTree(ctx,
 			&trillian.CreateTreeRequest{Tree: stestonly.LogTree},
-			logEnv.Admin, nil, logEnv.Log)
+			logEnv.Admin, logEnv.Log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to provision log %d: %v", cfg.LogId, err)
 		}

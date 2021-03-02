@@ -4,7 +4,8 @@
 
 ### CTFE
 
-Removed the `-by_range` flag.
+ * Removed the `-by_range` flag.
+ * Services will now be announced on etcd with a slash appended to the service names provided by `-etcd_http_service` and `-etcd_metrics_service`.
 
 ## v1.1.1
 [Published 2020-10-06](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.1)
