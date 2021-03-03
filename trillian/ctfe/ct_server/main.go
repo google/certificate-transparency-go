@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,11 +36,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/tomasen/realip"
-	"go.etcd.io/etcd/clientv3"
-	etcdnaming "go.etcd.io/etcd/clientv3/naming"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/naming/endpoints"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
-	"google.golang.org/grpc/naming"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 
@@ -121,31 +121,35 @@ func main() {
 		if err != nil {
 			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
-		etcdRes := &etcdnaming.GRPCResolver{Client: client}
-		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(etcdRes)))
 
-		// Also announce ourselves.
-		updateHTTP := naming.Update{Op: naming.Add, Addr: *httpEndpoint}
-		updateMetrics := naming.Update{Op: naming.Add, Addr: metricsAt}
-		glog.Infof("Announcing our presence in %v with %+v", *etcdHTTPService, updateHTTP)
-		etcdRes.Update(ctx, *etcdHTTPService, updateHTTP)
-		glog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, updateMetrics)
-		etcdRes.Update(ctx, *etcdMetricsService, updateMetrics)
+		httpManager, err := endpoints.NewManager(client, *etcdHTTPService)
+		if err != nil {
+			glog.Exitf("Failed to create etcd http manager: %v", err)
+		}
+		metricsManager, err := endpoints.NewManager(client, *etcdMetricsService)
+		if err != nil {
+			glog.Exitf("Failed to create etcd metrics manager: %v", err)
+		}
 
-		byeHTTP := naming.Update{Op: naming.Delete, Addr: *httpEndpoint}
-		byeMetrics := naming.Update{Op: naming.Delete, Addr: metricsAt}
+		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
+		glog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
+		httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint})
+
+		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
+		glog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
+		metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt})
+
 		defer func() {
-			glog.Infof("Removing our presence in %v with %+v", *etcdHTTPService, byeHTTP)
-			etcdRes.Update(ctx, *etcdHTTPService, byeHTTP)
-			glog.Infof("Removing our presence in %v with %+v", *etcdMetricsService, byeMetrics)
-			etcdRes.Update(ctx, *etcdMetricsService, byeMetrics)
+			glog.Infof("Removing our presence in %v", etcdHTTPKey)
+			httpManager.DeleteEndpoint(ctx, etcdHTTPKey)
+			glog.Infof("Removing our presence in %v", etcdMetricsKey)
+			metricsManager.DeleteEndpoint(ctx, etcdMetricsKey)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
 		// This should probably not be used in production. Either use etcd or a gRPC
 		// load balancer. It's only used by the integration tests.
 		glog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
-		res, cleanup := manual.GenerateAndRegisterManualResolver()
-		defer cleanup()
+		res := manual.NewBuilderWithScheme("whatever")
 		backends := strings.Split(*rpcBackend, ",")
 		addrs := make([]resolver.Address, 0, len(backends))
 		for _, backend := range backends {
@@ -153,7 +157,7 @@ func main() {
 		}
 		res.InitialState(resolver.State{Addresses: addrs})
 		resolver.SetDefaultScheme(res.Scheme())
-		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
+		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name), grpc.WithResolvers(res))
 	} else {
 		glog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
