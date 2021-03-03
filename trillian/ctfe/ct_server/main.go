@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -130,17 +131,19 @@ func main() {
 			glog.Exitf("Failed to create etcd metrics manager: %v", err)
 		}
 
-		// Another option would be to have a single service and two endpoints "http" and "metrics".
-		glog.Infof("Announcing our presence in %v with %+v", *etcdHTTPService, *httpEndpoint)
-		httpManager.AddEndpoint(ctx, *etcdHTTPService+"/", endpoints.Endpoint{Addr: *httpEndpoint})
+		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
+		glog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
+		httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint})
+
+		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
 		glog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
-		metricsManager.AddEndpoint(ctx, *etcdMetricsService+"/", endpoints.Endpoint{Addr: metricsAt})
+		metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt})
 
 		defer func() {
-			glog.Infof("Removing our presence in %v", *etcdHTTPService)
-			httpManager.DeleteEndpoint(ctx, *etcdHTTPService+"/")
-			glog.Infof("Removing our presence in %v", *etcdMetricsService)
-			metricsManager.DeleteEndpoint(ctx, *etcdMetricsService+"/")
+			glog.Infof("Removing our presence in %v", etcdHTTPKey)
+			httpManager.DeleteEndpoint(ctx, etcdHTTPKey)
+			glog.Infof("Removing our presence in %v", etcdMetricsKey)
+			metricsManager.DeleteEndpoint(ctx, etcdMetricsKey)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
 		// This should probably not be used in production. Either use etcd or a gRPC
