@@ -124,10 +124,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	}
 
 	// Check the base group (All-logs) only
-	for groupName := range sub.logToGroups[logURL] {
-		if groupName != ctpolicy.BaseName {
-			continue
-		}
+	if sub.logToGroups[logURL][ctpolicy.BaseName] {
 		if sub.results[logURL].sct != nil {
 			// It is already processed in a non-base group, so we can reduce the groupNeeds for the base group as well.
 			sub.groupNeeds[ctpolicy.BaseName]--
