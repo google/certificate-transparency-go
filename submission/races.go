@@ -107,12 +107,44 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		return
 	}
+	// already processed.
+	if sub.results[logURL].sct != nil {
+		return
+	}
 	// If at least one group needs that SCT, result is set. Otherwise dumped.
 	for groupName := range sub.logToGroups[logURL] {
+		// Ignore the base group (All-logs) here to check separately.
+		if groupName == ctpolicy.BaseName {
+			continue
+		}
 		if sub.groupNeeds[groupName] > 0 {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		}
 		sub.groupNeeds[groupName]--
+	}
+
+	// Check the base group (All-logs) only
+	for groupName := range sub.logToGroups[logURL] {
+		if groupName != ctpolicy.BaseName {
+			continue
+		}
+		if sub.results[logURL].sct != nil {
+			// It is already processed in a non-base group, so we can reduce the groupNeeds for the base group as well.
+			sub.groupNeeds[ctpolicy.BaseName]--
+		} else if sub.groupNeeds[ctpolicy.BaseName] > 0 {
+			minInclusionsForOtherGroup := 0
+			for g, cnt := range sub.groupNeeds {
+				if g != ctpolicy.BaseName && cnt > 0 {
+					minInclusionsForOtherGroup += cnt
+				}
+			}
+			// Set the result only if the base group still needs SCTs more than total counts
+			// of minimum inclusions for other groups.
+			if sub.groupNeeds[ctpolicy.BaseName] > minInclusionsForOtherGroup {
+				sub.results[logURL] = &submissionResult{sct: sct, err: err}
+				sub.groupNeeds[ctpolicy.BaseName]--
+			}
+		}
 	}
 
 	// Cancel any pending Log-requests for which there're no more awaiting

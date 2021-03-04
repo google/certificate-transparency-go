@@ -16,8 +16,8 @@ package submission
 
 import (
 	"context"
+	"math/rand"
 	"regexp"
-	"sync"
 	"testing"
 	"time"
 
@@ -33,20 +33,13 @@ func testdataSCT() *ct.SignedCertificateTimestamp {
 	return &sct
 }
 
-// mockSubmitter keeps track of number of requests per log-group. Logs split into groups based on logURL first letter.
 type mockSubmitter struct {
-	firstLetterURLReqNumber map[byte]int
-	mu                      sync.Mutex
 }
 
 // Each request within same Log-group gets additional sleep period.
-func (ms *mockSubmitter) SubmitToLog(_ context.Context, logURL string, _ []ct.ASN1Cert, _ bool) (*ct.SignedCertificateTimestamp, error) {
-	ms.mu.Lock()
-	reqNum := ms.firstLetterURLReqNumber[logURL[0]]
-	ms.firstLetterURLReqNumber[logURL[0]]++
-	ms.mu.Unlock()
+func (ms *mockSubmitter) SubmitToLog(_ context.Context, _ string, _ []ct.ASN1Cert, _ bool) (*ct.SignedCertificateTimestamp, error) {
 	sct := testdataSCT()
-	time.Sleep(time.Millisecond * 500 * time.Duration(reqNum))
+	time.Sleep(time.Duration(500*rand.Intn(10)) * time.Millisecond)
 	return sct, nil
 }
 
@@ -90,7 +83,7 @@ func TestGetSCTs(t *testing.T) {
 	}{
 		{
 			name:   "singleGroupOneSCT",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -105,7 +98,7 @@ func TestGetSCTs(t *testing.T) {
 		},
 		{
 			name:   "singleGroupMultiSCT",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -120,7 +113,7 @@ func TestGetSCTs(t *testing.T) {
 		},
 		{
 			name:   "chromeLike",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -136,8 +129,8 @@ func TestGetSCTs(t *testing.T) {
 					IsBase:        false,
 					LogWeights:    map[string]float32{"b1.com": 1.0, "b2.com": 1.0, "b3.com": 1.0, "b4.com": 1.0},
 				},
-				"Base": {
-					Name:          "Base",
+				ctpolicy.BaseName: {
+					Name:          ctpolicy.BaseName,
 					LogURLs:       map[string]bool{"a1.com": true, "a2.com": true, "a3.com": true, "a4.com": true, "b1.com": true, "b2.com": true, "b3.com": true, "b4.com": true},
 					MinInclusions: 3,
 					IsBase:        true,
