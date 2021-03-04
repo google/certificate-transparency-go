@@ -107,10 +107,6 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		return
 	}
-	// already processed.
-	if sub.results[logURL].sct != nil {
-		return
-	}
 	// If at least one group needs that SCT, result is set. Otherwise dumped.
 	for groupName := range sub.logToGroups[logURL] {
 		// Ignore the base group (All-logs) here to check separately.
