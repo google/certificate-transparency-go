@@ -6,7 +6,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.5
 	github.com/google/trillian v1.3.14-0.20210302110132-074ffbb0c117
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
