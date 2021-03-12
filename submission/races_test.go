@@ -33,8 +33,8 @@ func testdataSCT() *ct.SignedCertificateTimestamp {
 	return &sct
 }
 
-// mockSubmitter keeps track of number of requests per log-group. Logs split into groups based on logURL first letter.
 type mockSubmitter struct {
+	fixedDelay              map[byte]time.Duration
 	firstLetterURLReqNumber map[byte]int
 	mu                      sync.Mutex
 }
@@ -46,7 +46,7 @@ func (ms *mockSubmitter) SubmitToLog(_ context.Context, logURL string, _ []ct.AS
 	ms.firstLetterURLReqNumber[logURL[0]]++
 	ms.mu.Unlock()
 	sct := testdataSCT()
-	time.Sleep(time.Millisecond * 500 * time.Duration(reqNum))
+	time.Sleep(time.Duration(500*reqNum)*time.Millisecond + ms.fixedDelay[logURL[0]])
 	return sct, nil
 }
 
@@ -84,13 +84,12 @@ func TestGetSCTs(t *testing.T) {
 		name        string
 		sbMock      Submitter
 		groups      ctpolicy.LogPolicyData
-		ctx         context.Context
 		resultTrail map[string]int
 		errRegexp   *regexp.Regexp
 	}{
 		{
 			name:   "singleGroupOneSCT",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{fixedDelay: map[byte]time.Duration{'a': 0}, firstLetterURLReqNumber: make(map[byte]int)},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -100,12 +99,11 @@ func TestGetSCTs(t *testing.T) {
 					LogWeights:    map[string]float32{"a1.com": 1.0, "a2.com": 1.0},
 				},
 			},
-			ctx:         context.Background(),
 			resultTrail: map[string]int{"a": 1},
 		},
 		{
 			name:   "singleGroupMultiSCT",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{fixedDelay: map[byte]time.Duration{'a': 0}, firstLetterURLReqNumber: make(map[byte]int)},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -115,12 +113,11 @@ func TestGetSCTs(t *testing.T) {
 					LogWeights:    map[string]float32{"a1.com": 1.0, "a2.com": 1.0, "a3.com": 1.0, "a4.com": 1.0, "a5.com": 1.0},
 				},
 			},
-			ctx:         context.Background(),
 			resultTrail: map[string]int{"a": 3},
 		},
 		{
 			name:   "chromeLike",
-			sbMock: &mockSubmitter{firstLetterURLReqNumber: make(map[byte]int)},
+			sbMock: &mockSubmitter{fixedDelay: map[byte]time.Duration{'a': 0, 'b': 2 * time.Second}, firstLetterURLReqNumber: make(map[byte]int)},
 			groups: ctpolicy.LogPolicyData{
 				"a": {
 					Name:          "a",
@@ -136,22 +133,23 @@ func TestGetSCTs(t *testing.T) {
 					IsBase:        false,
 					LogWeights:    map[string]float32{"b1.com": 1.0, "b2.com": 1.0, "b3.com": 1.0, "b4.com": 1.0},
 				},
-				"Base": {
-					Name:          "Base",
+				ctpolicy.BaseName: {
+					Name:          ctpolicy.BaseName,
 					LogURLs:       map[string]bool{"a1.com": true, "a2.com": true, "a3.com": true, "a4.com": true, "b1.com": true, "b2.com": true, "b3.com": true, "b4.com": true},
-					MinInclusions: 3,
+					MinInclusions: 5,
 					IsBase:        true,
 					LogWeights:    map[string]float32{"a1.com": 1.0, "a2.com": 1.0, "a3.com": 1.0, "a4.com": 1.0, "b1.com": 1.0, "b2.com": 1.0, "b3.com": 1.0, "b4.com": 1.0},
 				},
 			},
-			ctx:         context.Background(),
-			resultTrail: map[string]int{"a": 1, "b": 1, ctpolicy.BaseName: 3},
+			resultTrail: map[string]int{"a": 1, "b": 1, ctpolicy.BaseName: 5},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := GetSCTs(tc.ctx, tc.sbMock, []ct.ASN1Cert{{Data: []byte{0}}}, true, tc.groups)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			res, err := GetSCTs(ctx, tc.sbMock, []ct.ASN1Cert{{Data: []byte{0}}}, true, tc.groups)
 			if tc.resultTrail != nil {
 				evaluateSCTs(t, res, tc.resultTrail)
 			}
