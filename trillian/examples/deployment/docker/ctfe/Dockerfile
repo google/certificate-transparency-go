@@ -1,4 +1,4 @@
-FROM golang:1.11 as build
+FROM golang:buster as build
 
 ADD . /go/src/github.com/google/certificate-transparency-go
 WORKDIR /go/src/github.com/google/certificate-transparency-go
