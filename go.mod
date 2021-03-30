@@ -16,6 +16,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sergi/go-diff v1.1.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
+	github.com/urfave/cli v1.22.4 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.0-alpha.0
 	go.etcd.io/etcd/etcdctl/v3 v3.5.0-alpha.0
 	go.etcd.io/etcd/v3 v3.5.0-alpha.0
