@@ -82,7 +82,7 @@ type Log struct {
 	// log list distributor.
 	State *LogStates `json:"state,omitempty"`
 	// TemporalInterval, if set, indicates that this log only accepts
-	// certificates with a NotBefore date in this time range.
+	// certificates with a NotAfter date in this time range.
 	TemporalInterval *TemporalInterval `json:"temporal_interval,omitempty"`
 	// Type indicates the purpose of this log, e.g. "test" or "prod".
 	Type string `json:"log_type,omitempty"`
