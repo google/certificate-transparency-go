@@ -22,4 +22,10 @@ import (
 	_ "github.com/golang/protobuf/protoc-gen-go"
 	_ "go.etcd.io/etcd/etcdctl/v3"
 	_ "go.etcd.io/etcd/v3"
+
+	// TODO(#793): These are needed to make the continuous build succeed, but we're not sure why.
+	_ "github.com/cncf/udpa/go/udpa/data/orca/v1"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	_ "github.com/fullstorydev/grpcurl"
+	_ "github.com/google/uuid"
 )
