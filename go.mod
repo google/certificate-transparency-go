@@ -3,15 +3,12 @@ module github.com/google/certificate-transparency-go
 go 1.16
 
 require (
-	github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403
-	github.com/envoyproxy/go-control-plane v0.9.9-0.20201210154907-fd9021fe5dad
 	github.com/fullstorydev/grpcurl v1.8.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/trillian v1.3.14-0.20210408114527-1cfd1badbe8b
-	github.com/google/uuid v1.1.2
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
