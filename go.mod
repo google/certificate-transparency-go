@@ -8,7 +8,7 @@ require (
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
-	github.com/google/trillian v1.3.14-0.20210408114527-1cfd1badbe8b
+	github.com/google/trillian v1.3.14-0.20210408144100-884ef511ce16
 	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
