@@ -315,8 +315,8 @@ github.com/google/pprof v0.0.0-20210226084205-cbba55b83ad5/go.mod h1:kpwsk12EmLe
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/rpmpack v0.0.0-20191226140753-aa36bfddb3a0/go.mod h1:RaTPr0KUf2K7fnZYLNDrr8rxAamWs3iNywJLtQ2AzBg=
 github.com/google/subcommands v1.0.1/go.mod h1:ZjhPrFU+Olkh9WazFPsl27BQ4UPiG37m3yTrtFlrHVk=
-github.com/google/trillian v1.3.14-0.20210408144100-884ef511ce16 h1:7yN4gta2rHhsZgFEI0z3XTLBmz3o43mNoSmXx/GmanQ=
-github.com/google/trillian v1.3.14-0.20210408144100-884ef511ce16/go.mod h1:1dPv0CUjNQVFEDuAUFhZql16pw/VlPgaX8qj+g5pVzQ=
+github.com/google/trillian v1.3.14-0.20210409160123-c5ea3abd4a41 h1:XDh4haFm4daTMWrA6kiNbGIwnohxcUL59NxUxyQaYQE=
+github.com/google/trillian v1.3.14-0.20210409160123-c5ea3abd4a41/go.mod h1:1dPv0CUjNQVFEDuAUFhZql16pw/VlPgaX8qj+g5pVzQ=
 github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
