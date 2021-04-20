@@ -9,7 +9,6 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/trillian v1.3.14-0.20210408144100-884ef511ce16
-	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.10.0
@@ -21,6 +20,7 @@ require (
 	go.etcd.io/etcd/v3 v3.5.0-alpha.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/genproto v0.0.0-20210331142528-b7513248f0ba
 	google.golang.org/grpc v1.36.1
 	google.golang.org/protobuf v1.26.0

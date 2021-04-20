@@ -16,21 +16,24 @@
 package ratelimiter
 
 import (
-	"github.com/juju/ratelimit"
+	"context"
+	"golang.org/x/time/rate"
 )
 
 // Limiter is a simple rate limiter.
 type Limiter struct {
-	bucket *ratelimit.Bucket
+	ctx context.Context
+	bucket *rate.Limiter
 }
 
 // Wait blocks for the amount of time required by the Limiter so as to not
 // exceed its rate.
 func (l *Limiter) Wait() {
-	l.bucket.Wait(1)
+	l.bucket.Wait(l.ctx)
 }
 
 // NewLimiter creates a new Limiter with a rate of limit per second.
 func NewLimiter(limit int) *Limiter {
-	return &Limiter{bucket: ratelimit.NewBucketWithRate(float64(limit), 1)}
+	return &Limiter{ctx: context.Background(),
+		bucket: rate.NewLimiter(rate.Limit(limit), 1)}
 }
