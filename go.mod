@@ -10,7 +10,6 @@ require (
 	github.com/google/go-cmp v0.5.7
 	github.com/google/trillian v1.4.0
 	github.com/gorilla/mux v1.8.0
-	github.com/juju/ratelimit v1.0.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-sqlite3 v1.14.10
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
@@ -26,6 +25,7 @@ require (
 	go.etcd.io/etcd/v3 v3.5.2
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
