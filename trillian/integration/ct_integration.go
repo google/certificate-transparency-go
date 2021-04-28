@@ -49,8 +49,8 @@ import (
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/kylelemons/godebug/pretty"
 	"golang.org/x/net/context/ctxhttp"
-	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	ct "github.com/google/certificate-transparency-go"
 	keyspem "github.com/google/trillian/crypto/keys/pem"
@@ -956,7 +956,7 @@ func (ls *logStats) check(cfg *configpb.LogConfig, servers string) error {
 }
 
 func setTreeState(ctx context.Context, adminServer string, logID int64, state trillian.TreeState) error {
-	treeStateMask := &field_mask.FieldMask{
+	treeStateMask := &fieldmaskpb.FieldMask{
 		Paths: []string{"tree_state"},
 	}
 
