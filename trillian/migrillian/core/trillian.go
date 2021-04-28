@@ -58,9 +58,6 @@ func NewPreorderedLogClient(
 	if got, want := tree.TreeType, trillian.TreeType_PREORDERED_LOG; got != want {
 		return nil, fmt.Errorf("tree %d is %v, want %v", tree.TreeId, got, want)
 	}
-	if got, want := tree.GetHashStrategy(), trillian.HashStrategy_RFC6962_SHA256; got != want {
-		return nil, fmt.Errorf("hash strategy is %v, want %v", got, want)
-	}
 	ret := PreorderedLogClient{cli: cli, treeID: tree.TreeId, prefix: prefix}
 
 	switch idFuncType {

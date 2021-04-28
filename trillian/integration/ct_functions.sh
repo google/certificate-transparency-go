@@ -130,11 +130,7 @@ ct_provision_cfg() {
   for i in $(seq ${num_logs}); do
     # TODO(daviddrysdale): Consider using distinct keys for each log
     tree_id=$(./createtree \
-      --admin_server="${admin_server}" \
-      --private_key_format=PrivateKey \
-      --pem_key_path=${CT_GO_PATH}/trillian/testdata/log-rpc-server.privkey.pem \
-      --pem_key_password=towel \
-      --signature_algorithm=ECDSA)
+      --admin_server="${admin_server}")
     echo "Created tree ${tree_id}"
     # Need suffix for sed -i to cope with both GNU and non-GNU (e.g. OS X) sed.
     sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" "${cfg}"
