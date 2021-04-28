@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
@@ -36,7 +35,7 @@ import (
 type ValidatedLogConfig struct {
 	Config        *configpb.LogConfig
 	PubKey        crypto.PublicKey
-	PrivKey       ptypes.DynamicAny
+	PrivKey       proto.Message
 	KeyUsages     []x509.ExtKeyUsage
 	NotAfterStart *time.Time
 	NotAfterLimit *time.Time
@@ -133,9 +132,11 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		if cfg.PrivateKey == nil {
 			return nil, errors.New("empty private key")
 		}
-		if err = ptypes.UnmarshalAny(cfg.PrivateKey, &vCfg.PrivKey); err != nil {
+		privKey, err := cfg.PrivateKey.UnmarshalNew()
+		if err != nil {
 			return nil, fmt.Errorf("invalid private key: %v", err)
 		}
+		vCfg.PrivKey = privKey
 	} else if cfg.PrivateKey != nil {
 		return nil, errors.New("unnecessary private key for mirror")
 	}
@@ -166,15 +167,17 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	start, limit := cfg.NotAfterStart, cfg.NotAfterLimit
 	if start != nil {
 		vCfg.NotAfterStart = &time.Time{}
-		if *vCfg.NotAfterStart, err = ptypes.Timestamp(start); err != nil {
+		if err = start.CheckValid(); err != nil {
 			return nil, fmt.Errorf("invalid start timestamp: %v", err)
 		}
+		*vCfg.NotAfterStart = start.AsTime()
 	}
 	if limit != nil {
 		vCfg.NotAfterLimit = &time.Time{}
-		if *vCfg.NotAfterLimit, err = ptypes.Timestamp(limit); err != nil {
+		if err = limit.CheckValid(); err != nil {
 			return nil, fmt.Errorf("invalid limit timestamp: %v", err)
 		}
+		*vCfg.NotAfterLimit = limit.AsTime()
 	}
 	if start != nil && limit != nil && (*vCfg.NotAfterLimit).Before(*vCfg.NotAfterStart) {
 		return nil, errors.New("limit before start")

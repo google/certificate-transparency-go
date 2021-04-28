@@ -26,8 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	timestamp "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
@@ -115,10 +114,10 @@ func TestHammer_NotAfter(t *testing.T) {
 
 			var startPB, limitPB *timestamp.Timestamp
 			if ts := test.notAfterStart; ts.UnixNano() > 0 {
-				startPB, _ = ptypes.TimestampProto(ts)
+				startPB = timestamp.New(ts)
 			}
 			if ts := test.notAfterLimit; ts.UnixNano() > 0 {
-				limitPB, _ = ptypes.TimestampProto(ts)
+				limitPB = timestamp.New(ts)
 			}
 			generator, err := NewSyntheticChainGenerator(keys.leafChain, keys.signer, test.notAfterOverride)
 			if err != nil {
