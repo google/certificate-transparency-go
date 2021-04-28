@@ -128,9 +128,7 @@ ct_provision_cfg() {
 
   num_logs=$(grep -c '@TREE_ID@' ${cfg})
   for i in $(seq ${num_logs}); do
-    # TODO(daviddrysdale): Consider using distinct keys for each log
-    tree_id=$(./createtree \
-      --admin_server="${admin_server}")
+    tree_id=$(./createtree --admin_server="${admin_server}")
     echo "Created tree ${tree_id}"
     # Need suffix for sed -i to cope with both GNU and non-GNU (e.g. OS X) sed.
     sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" "${cfg}"
