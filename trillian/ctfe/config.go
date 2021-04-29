@@ -113,11 +113,11 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		return nil, errors.New("empty log ID")
 	}
 
-	var err error
 	vCfg := ValidatedLogConfig{Config: cfg}
 
 	// Validate the public key.
 	if pubKey := cfg.PublicKey; pubKey != nil {
+		var err error
 		if vCfg.PubKey, err = der.UnmarshalPublicKey(pubKey.Der); err != nil {
 			return nil, fmt.Errorf("invalid public key: %v", err)
 		}
@@ -167,14 +167,14 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	start, limit := cfg.NotAfterStart, cfg.NotAfterLimit
 	if start != nil {
 		vCfg.NotAfterStart = &time.Time{}
-		if err = start.CheckValid(); err != nil {
+		if err := start.CheckValid(); err != nil {
 			return nil, fmt.Errorf("invalid start timestamp: %v", err)
 		}
 		*vCfg.NotAfterStart = start.AsTime()
 	}
 	if limit != nil {
 		vCfg.NotAfterLimit = &time.Time{}
-		if err = limit.CheckValid(); err != nil {
+		if err := limit.CheckValid(); err != nil {
 			return nil, fmt.Errorf("invalid limit timestamp: %v", err)
 		}
 		*vCfg.NotAfterLimit = limit.AsTime()
