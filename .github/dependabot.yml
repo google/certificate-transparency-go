@@ -1,0 +1,27 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: google.golang.org/grpc
+    versions:
+    - 1.35.0
+    - 1.36.0
+    - 1.36.1
+    - 1.37.0
+  - dependency-name: github.com/prometheus/client_golang
+    versions:
+    - 1.10.0
+  - dependency-name: google.golang.org/protobuf
+    versions:
+    - 1.26.0
+  - dependency-name: github.com/golang/protobuf
+    versions:
+    - 1.5.1
+    - 1.5.2
+  - dependency-name: github.com/golang/mock
+    versions:
+    - 1.5.0
