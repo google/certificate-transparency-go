@@ -25,7 +25,6 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/dnsclient"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
@@ -59,24 +58,6 @@ func NewLogInfo(log *loglist.Log, hc *http.Client) (*LogInfo, error) {
 	return newLogInfo(log, lc)
 }
 
-// NewLogInfoOverDNSWrapper builds a LogInfo object that accesses logs via DNS, based on a log list entry.
-// The inert http.Client argument allows this variant to be used interchangeably with NewLogInfo.
-func NewLogInfoOverDNSWrapper(log *loglist.Log, _ *http.Client) (*LogInfo, error) {
-	return NewLogInfoOverDNS(log)
-}
-
-// NewLogInfoOverDNS builds a LogInfo object that accesses logs via DNS, based on a log list entry.
-func NewLogInfoOverDNS(log *loglist.Log) (*LogInfo, error) {
-	if log.DNSAPIEndpoint == "" {
-		return nil, fmt.Errorf("no available DNS endpoint for log %q", log.Description)
-	}
-	dc, err := dnsclient.New(log.DNSAPIEndpoint, jsonclient.Options{PublicKeyDER: log.Key})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DNS client for log %q: %v", log.Description, err)
-	}
-	return newLogInfo(log, dc)
-}
-
 func newLogInfo(log *loglist.Log, lc client.CheckLogClient) (*LogInfo, error) {
 	logKey, err := x509.ParsePKIXPublicKey(log.Key)
 	if err != nil {
@@ -102,11 +83,6 @@ type LogInfoByHash map[[sha256.Size]byte]*LogInfo
 // LogInfoByKeyHash builds a map of LogInfo objects indexed by their key hashes.
 func LogInfoByKeyHash(ll *loglist.LogList, hc *http.Client) (LogInfoByHash, error) {
 	return logInfoByKeyHash(ll, hc, NewLogInfo)
-}
-
-// LogInfoByKeyHashOverDNS builds a map of LogInfo objects (for access over DNS) indexed by their key hashes.
-func LogInfoByKeyHashOverDNS(ll *loglist.LogList, hc *http.Client) (LogInfoByHash, error) {
-	return logInfoByKeyHash(ll, hc, NewLogInfoOverDNSWrapper)
 }
 
 func logInfoByKeyHash(ll *loglist.LogList, hc *http.Client, infoFactory func(*loglist.Log, *http.Client) (*LogInfo, error)) (map[[sha256.Size]byte]*LogInfo, error) {

@@ -37,7 +37,6 @@ import (
 var (
 	logURI        = flag.String("log_uri", "https://ct.googleapis.com/pilot", "CT log base URI")
 	logList       = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
-	useDNS        = flag.Bool("dns", true, "Use DNS access points for inclusion checking")
 	inclusion     = flag.Bool("inclusion", false, "Whether to do inclusion checking")
 	deadline      = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
 	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
@@ -75,14 +74,8 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to parse log list: %v", err)
 	}
-	var logsByHash ctutil.LogInfoByHash
-	if *useDNS {
-		glog.Warning("Performing validations via DNS")
-		logsByHash, err = ctutil.LogInfoByKeyHashOverDNS(ll, hc)
-	} else {
-		glog.Warning("Performing validations via direct log queries")
-		logsByHash, err = ctutil.LogInfoByKeyHash(ll, hc)
-	}
+	glog.Warning("Performing validations via direct log queries")
+	logsByHash, err := ctutil.LogInfoByKeyHash(ll, hc)
 	if err != nil {
 		glog.Exitf("Failed to build log info map: %v", err)
 	}
