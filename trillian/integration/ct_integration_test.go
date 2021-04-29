@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/protobuf/types/known/anypb"
+	timestamp "google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
@@ -118,7 +118,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 	}
 
 	pubKey := &keyspb.PublicKey{Der: pubKeyDER}
-	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: privKeyPEMFile, Password: privKeyPassword})
+	privKey, err := anypb.New(&keyspb.PEMKeyFile{Path: privKeyPEMFile, Password: privKeyPassword})
 	if err != nil {
 		t.Fatalf("Could not marshal private key as protobuf Any: %v", err)
 	}

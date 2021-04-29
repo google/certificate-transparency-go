@@ -36,7 +36,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -990,25 +989,25 @@ func NotAfterForLog(c *configpb.LogConfig) (time.Time, error) {
 	}
 
 	if c.NotAfterStart != nil {
-		start, err := ptypes.Timestamp(c.NotAfterStart)
-		if err != nil {
+		if err := c.NotAfterStart.CheckValid(); err != nil {
 			return time.Time{}, fmt.Errorf("failed to parse NotAfterStart: %v", err)
 		}
+		start := c.NotAfterStart.AsTime()
 		if c.NotAfterLimit == nil {
 			return start.Add(24 * time.Hour), nil
 		}
 
-		limit, err := ptypes.Timestamp(c.NotAfterLimit)
-		if err != nil {
+		if err := c.NotAfterLimit.CheckValid(); err != nil {
 			return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
 		}
+		limit := c.NotAfterLimit.AsTime()
 		midDelta := limit.Sub(start) / 2
 		return start.Add(midDelta), nil
 	}
 
-	limit, err := ptypes.Timestamp(c.NotAfterLimit)
-	if err != nil {
+	if err := c.NotAfterLimit.CheckValid(); err != nil {
 		return time.Time{}, fmt.Errorf("failed to parse NotAfterLimit: %v", err)
 	}
+	limit := c.NotAfterLimit.AsTime()
 	return limit.Add(-1 * time.Hour), nil
 }

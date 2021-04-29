@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/util"
@@ -123,7 +122,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	var signer crypto.Signer
 	if !cfg.IsMirror {
 		var err error
-		if signer, err = keys.NewSigner(ctx, proto.MessageV2(vCfg.PrivKey.Message)); err != nil {
+		if signer, err = keys.NewSigner(ctx, vCfg.PrivKey); err != nil {
 			return nil, fmt.Errorf("failed to load private key: %v", err)
 		}
 	}

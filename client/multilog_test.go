@@ -23,8 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	tspb "github.com/golang/protobuf/ptypes/timestamp"
+	tspb "google.golang.org/protobuf/types/known/timestamppb"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/client/configpb"
@@ -34,12 +33,12 @@ import (
 )
 
 func TestNewTemporalLogClient(t *testing.T) {
-	ts0, _ := ptypes.TimestampProto(time.Date(2010, 9, 19, 11, 00, 00, 00, time.UTC))
-	ts1, _ := ptypes.TimestampProto(time.Date(2011, 9, 19, 11, 00, 00, 00, time.UTC))
-	ts2, _ := ptypes.TimestampProto(time.Date(2012, 9, 19, 11, 00, 00, 00, time.UTC))
-	ts25, _ := ptypes.TimestampProto(time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC))
-	ts3, _ := ptypes.TimestampProto(time.Date(2013, 9, 19, 11, 00, 00, 00, time.UTC))
-	ts4, _ := ptypes.TimestampProto(time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC))
+	ts0 := tspb.New(time.Date(2010, 9, 19, 11, 00, 00, 00, time.UTC))
+	ts1 := tspb.New(time.Date(2011, 9, 19, 11, 00, 00, 00, time.UTC))
+	ts2 := tspb.New(time.Date(2012, 9, 19, 11, 00, 00, 00, time.UTC))
+	ts25 := tspb.New(time.Date(2013, 3, 19, 11, 00, 00, 00, time.UTC))
+	ts3 := tspb.New(time.Date(2013, 9, 19, 11, 00, 00, 00, time.UTC))
+	ts4 := tspb.New(time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC))
 
 	tests := []struct {
 		cfg     *configpb.TemporalLogConfig
@@ -226,11 +225,11 @@ func TestIndexByDate(t *testing.T) {
 	time3 := time.Date(2013, 9, 19, 11, 00, 00, 00, time.UTC)
 	time4 := time.Date(2014, 9, 19, 11, 00, 00, 00, time.UTC)
 
-	ts0, _ := ptypes.TimestampProto(time0)
-	ts1, _ := ptypes.TimestampProto(time1)
-	ts2, _ := ptypes.TimestampProto(time2)
-	ts3, _ := ptypes.TimestampProto(time3)
-	ts4, _ := ptypes.TimestampProto(time4)
+	ts0 := tspb.New(time0)
+	ts1 := tspb.New(time1)
+	ts2 := tspb.New(time2)
+	ts3 := tspb.New(time3)
+	ts4 := tspb.New(time4)
 
 	allCfg := &configpb.TemporalLogConfig{
 		Shard: []*configpb.LogShardConfig{
@@ -366,8 +365,8 @@ func TestTemporalAddChain(t *testing.T) {
 	}
 	precertChain := []ct.ASN1Cert{{Data: precert.Raw}, {Data: issuer.Raw}}
 	// Both have Not After = Jun  1 00:00:00 2022 GMT
-	ts1, _ := ptypes.TimestampProto(time.Date(2022, 5, 19, 11, 00, 00, 00, time.UTC))
-	ts2, _ := ptypes.TimestampProto(time.Date(2022, 6, 19, 11, 00, 00, 00, time.UTC))
+	ts1 := tspb.New(time.Date(2022, 5, 19, 11, 00, 00, 00, time.UTC))
+	ts2 := tspb.New(time.Date(2022, 6, 19, 11, 00, 00, 00, time.UTC))
 	p, _ := pem.Decode([]byte(testdata.LogPublicKeyPEM))
 	if p == nil {
 		t.Fatalf("Failed to parse public key from PEM: %v", err)

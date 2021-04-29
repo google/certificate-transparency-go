@@ -23,14 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	_ "github.com/google/trillian/crypto/keys/pem/proto" // Register PEMKeyFile ProtoHandler.
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestSetUpInstance(t *testing.T) {
@@ -179,7 +178,7 @@ func TestSetUpInstance(t *testing.T) {
 	}
 }
 
-func equivalentTimes(a *time.Time, b *timestamp.Timestamp) bool {
+func equivalentTimes(a *time.Time, b *timestamppb.Timestamp) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -187,20 +186,17 @@ func equivalentTimes(a *time.Time, b *timestamp.Timestamp) bool {
 		// b can't be nil as it would have returned above.
 		return false
 	}
-	tsA, err := ptypes.TimestampProto(*a)
-	if err != nil {
-		return false
-	}
-	return ptypes.TimestampString(tsA) == ptypes.TimestampString(b)
+	tsA := timestamppb.New(*a)
+	return tsA.AsTime().Format(time.RFC3339Nano) == b.AsTime().Format(time.RFC3339Nano)
 }
 
 func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 	ctx := context.Background()
 
-	start := &timestamp.Timestamp{Seconds: 10000}
-	limit := &timestamp.Timestamp{Seconds: 12000}
+	start := timestamppb.New(time.Unix(10000, 0))
+	limit := timestamppb.New(time.Unix(12000, 0))
 
-	privKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
+	privKey, err := anypb.New(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	if err != nil {
 		t.Fatalf("Could not marshal private key proto: %v", err)
 	}
