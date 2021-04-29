@@ -21,8 +21,8 @@
 package configpb
 
 import (
-	any "github.com/golang/protobuf/ptypes/any"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	any "google.golang.org/protobuf/types/known/anypb"
+	timestamp "google.golang.org/protobuf/types/known/timestamppb"
 	keyspb "github.com/google/trillian/crypto/keyspb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
