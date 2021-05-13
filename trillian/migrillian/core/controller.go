@@ -266,15 +266,16 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 	if err != nil {
 		return 0, err
 	}
+	treeSize, rootHash := root.TreeSize, root.RootHash
 
 	fo := c.opts.FetcherOptions
 	if fo.Continuous { // Ignore range parameters in continuous mode.
-		fo.StartIndex, fo.EndIndex = int64(root.TreeSize), 0
+		fo.StartIndex, fo.EndIndex = int64(treeSize), 0
 		// Use non-continuous Fetcher, as we implement continuity in Controller.
 		// TODO(pavelkalinnikov): Don't overload Fetcher's Continuous flag.
 		fo.Continuous = false
 	} else if fo.StartIndex < 0 {
-		fo.StartIndex = int64(root.TreeSize)
+		fo.StartIndex = int64(treeSize)
 	}
 	if int64(begin) > fo.StartIndex {
 		fo.StartIndex = int64(begin)
@@ -292,7 +293,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 		return begin, nil
 	}
 
-	if err := c.verifyConsistency(ctx, root.TreeSize, root.RootHash, sth); err != nil {
+	if err := c.verifyConsistency(ctx, treeSize, rootHash, sth); err != nil {
 		return 0, err
 	}
 
