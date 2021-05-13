@@ -8,7 +8,7 @@ Removed the `-by_range` flag.
 
 ### Updated dependencies
 
- * trillian from v1.3.11 to v1.3.14-0.20210511103300-67b5f349eefa
+ * trillian from v1.3.11 to v1.3.14-0.20210513101510-982d581ea0ae
 
 ## v1.1.1
 [Published 2020-10-06](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.1)
