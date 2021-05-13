@@ -16,6 +16,8 @@ package integration
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -23,8 +25,6 @@ import (
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian/crypto/keys"
-	"github.com/google/trillian/crypto/keyspb"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -142,13 +142,7 @@ func makePreIssuerPrecertChain(chain []ct.ASN1Cert, issuer *x509.Certificate, si
 	copy(prechain[2:], chain[1:])
 
 	// Create a new private key and intermediate CA cert to go with it.
-	preSigner, err := keys.NewFromSpec(&keyspb.Specification{
-		Params: &keyspb.Specification_EcdsaParams{
-			EcdsaParams: &keyspb.Specification_ECDSA{
-				Curve: keyspb.Specification_ECDSA_P256,
-			},
-		},
-	})
+	preSigner, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create pre-issuer private key: %v", err)
 	}
