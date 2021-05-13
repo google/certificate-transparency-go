@@ -73,19 +73,19 @@ func NewPreorderedLogClient(
 }
 
 // getRoot returns the current root of the Trillian tree.
-func (c *PreorderedLogClient) getRoot(ctx context.Context) (*types.LogRootV1, error) {
+func (c *PreorderedLogClient) getRoot(ctx context.Context) (uint64, []byte, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: c.treeID}
 	rsp, err := c.cli.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	} else if rsp == nil || rsp.SignedLogRoot == nil {
-		return nil, errors.New("missing SignedLogRoot")
+		return 0, nil, errors.New("missing SignedLogRoot")
 	}
 	var logRoot types.LogRootV1
 	if err := logRoot.UnmarshalBinary(rsp.SignedLogRoot.LogRoot); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	return &logRoot, nil
+	return logRoot.TreeSize, logRoot.RootHash, nil
 }
 
 // addSequencedLeaves converts a batch of CT log entries into Trillian log
