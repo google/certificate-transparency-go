@@ -33,7 +33,6 @@ import (
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/google/trillian/monitoring"
-	"github.com/google/trillian/types"
 	"github.com/google/trillian/util/clock"
 	"github.com/google/trillian/util/election2"
 )
@@ -293,7 +292,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 		return begin, nil
 	}
 
-	if err := c.verifyConsistency(ctx, root, sth); err != nil {
+	if err := c.verifyConsistency(ctx, root.TreeSize, root.RootHash, sth); err != nil {
 		return 0, err
 	}
 
@@ -332,18 +331,18 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 
 // verifyConsistency checks that the provided verified Trillian root is
 // consistent with the CT log's STH.
-func (c *Controller) verifyConsistency(ctx context.Context, root *types.LogRootV1, sth *ct.SignedTreeHead) error {
+func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, rootHash []byte, sth *ct.SignedTreeHead) error {
 	if c.opts.NoConsistencyCheck {
 		glog.Warningf("%s: skipping consistency check", c.label)
 		return nil
 	}
-	proof, err := c.ctClient.GetSTHConsistency(ctx, root.TreeSize, sth.TreeSize)
+	proof, err := c.ctClient.GetSTHConsistency(ctx, treeSize, sth.TreeSize)
 	if err != nil {
 		return err
 	}
 	return logverifier.New(hasher.DefaultHasher).VerifyConsistencyProof(
-		int64(root.TreeSize), int64(sth.TreeSize),
-		root.RootHash, sth.SHA256RootHash[:], proof)
+		int64(treeSize), int64(sth.TreeSize),
+		rootHash, sth.SHA256RootHash[:], proof)
 }
 
 // runSubmitter obtains CT log entry batches from the controller's channel and
