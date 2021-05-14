@@ -52,7 +52,6 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	ct "github.com/google/certificate-transparency-go"
-	keyspem "github.com/google/trillian/crypto/keys/pem"
 )
 
 const (
@@ -848,7 +847,19 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 
 // MakeSigner creates a signer using the private key in the test directory.
 func MakeSigner(testDir string) (crypto.Signer, error) {
-	key, err := keyspem.ReadPrivateKeyFile(filepath.Join(testDir, "int-ca.privkey.pem"), "babelfish")
+	fileName := filepath.Join(testDir, "int-ca.privkey.pem")
+	keyPEM, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file %q: %w", fileName, err)
+	}
+
+	block, _ := pem.Decode(keyPEM)
+	decPEM, err := x509.DecryptPEMBlock(block, []byte("babelfish"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt file %q: %w", fileName, err)
+	}
+
+	key, err := x509.ParseECPrivateKey(decPEM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load private key for re-signing: %v", err)
 	}
