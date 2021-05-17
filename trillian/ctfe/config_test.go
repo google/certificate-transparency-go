@@ -99,7 +99,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc:    "invalid-public-key-empty",
-			wantErr: "invalid public key",
+			wantErr: "x509.ParsePKIXPublicKey",
 			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: &keyspb.PublicKey{},
@@ -108,7 +108,7 @@ func TestValidateLogConfig(t *testing.T) {
 		},
 		{
 			desc:    "invalid-public-key-abacaba",
-			wantErr: "invalid public key",
+			wantErr: "x509.ParsePKIXPublicKey",
 			cfg: &configpb.LogConfig{
 				LogId:     123,
 				PublicKey: &keyspb.PublicKey{Der: []byte("abacaba")},
