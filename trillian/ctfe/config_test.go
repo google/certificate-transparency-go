@@ -15,13 +15,13 @@
 package ctfe
 
 import (
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	"github.com/google/trillian/crypto/keys/der"
 	_ "github.com/google/trillian/crypto/keys/der/proto" // Register key handler.
 	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
@@ -55,11 +55,11 @@ func mustReadPublicKey(path string) *keyspb.PublicKey {
 	if err != nil {
 		panic(fmt.Sprintf("ReadPublicKeyFile(): %v", err))
 	}
-	ret, err := der.ToPublicProto(pubKey)
+	keyDER, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {
-		panic(fmt.Sprintf("ToPublicProto(): %v", err))
+		panic(fmt.Sprintf("x509.MarshalPKIXPublicKey(): %v", err))
 	}
-	return ret
+	return &keyspb.PublicKey{Der: keyDER}
 }
 
 func mustDecodeBase64(str string) []byte {
