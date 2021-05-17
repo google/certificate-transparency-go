@@ -17,13 +17,14 @@ package ctfe
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	_ "github.com/google/trillian/crypto/keys/der/proto" // Register key handler.
-	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/crypto/keyspb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -51,7 +52,12 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 }
 
 func mustReadPublicKey(path string) *keyspb.PublicKey {
-	pubKey, err := pem.ReadPublicKeyFile(path)
+	keyPEM, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic(fmt.Sprintf("ioutil.ReadFile(%q): %v", path, err))
+	}
+	block, _ := pem.Decode(keyPEM)
+	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		panic(fmt.Sprintf("ReadPublicKeyFile(): %v", err))
 	}
