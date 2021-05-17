@@ -25,7 +25,6 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian/crypto/keys/der"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
@@ -118,8 +117,8 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	// Validate the public key.
 	if pubKey := cfg.PublicKey; pubKey != nil {
 		var err error
-		if vCfg.PubKey, err = der.UnmarshalPublicKey(pubKey.Der); err != nil {
-			return nil, fmt.Errorf("invalid public key: %v", err)
+		if vCfg.PubKey, err = x509.ParsePKIXPublicKey(pubKey.Der); err != nil {
+			return nil, fmt.Errorf("x509.ParsePKIXPublicKey: %w", err)
 		}
 	} else if cfg.IsMirror {
 		return nil, errors.New("empty public key for mirror")
