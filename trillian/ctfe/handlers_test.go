@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -43,7 +44,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/trillian"
-	"github.com/google/trillian/crypto/keys/pem"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 	"github.com/kylelemons/godebug/pretty"
@@ -751,7 +751,8 @@ func TestGetSTH(t *testing.T) {
 		},
 	}
 
-	key, err := pem.UnmarshalPublicKey(testdata.DemoPublicKey)
+	block, _ := pem.Decode([]byte(testdata.DemoPublicKey))
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		t.Fatalf("Failed to load public key: %v", err)
 	}
