@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
-	_ "github.com/google/trillian/crypto/keys/der/proto" // Register key handler.
 	"github.com/google/trillian/crypto/keyspb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
