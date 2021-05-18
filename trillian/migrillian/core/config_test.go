@@ -15,12 +15,12 @@
 package core
 
 import (
+	"encoding/pem"
 	"strings"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/testonly"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
-	kto "github.com/google/trillian/crypto/keys/testonly"
 	"github.com/google/trillian/crypto/keyspb"
 )
 
@@ -75,9 +75,8 @@ func TestLoadConfigFromFileErrors(t *testing.T) {
 }
 
 func TestValidateMigrationConfig(t *testing.T) {
-	pubKey := &keyspb.PublicKey{
-		Der: kto.MustMarshalPublicPEMToDER(testonly.CTLogPublicKeyPEM),
-	}
+	block, _ := pem.Decode([]byte(testonly.CTLogPublicKeyPEM))
+	pubKey := &keyspb.PublicKey{Der: block.Bytes}
 
 	for _, tc := range []struct {
 		desc    string
