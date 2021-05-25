@@ -31,10 +31,6 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/storage/testdb"
-
-	// Register PEMKeyFile and PrivateKey ProtoHandlers.
-	_ "github.com/google/trillian/crypto/keys/der/proto"
-	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
 
 var (
