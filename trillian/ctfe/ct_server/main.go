@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"crypto"
 	"flag"
 	"fmt"
 	"net/http"
@@ -31,6 +32,11 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
+	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
+	"github.com/google/trillian/crypto/keys/pem"
+	"github.com/google/trillian/crypto/keys/pkcs11"
+	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/monitoring/opencensus"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -42,11 +48,7 @@ import (
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
-
-	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
-	_ "github.com/google/trillian/crypto/keys/der/proto"
-	_ "github.com/google/trillian/crypto/keys/pem/proto"
-	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Global flags that affect all log instances.
@@ -68,6 +70,7 @@ var (
 	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
+	pkcs11ModulePath   = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -76,6 +79,15 @@ const unknownRemoteUser = "UNKNOWN_REMOTE"
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	keys.RegisterHandler(&keyspb.PEMKeyFile{}, pem.FromProto)
+	keys.RegisterHandler(&keyspb.PrivateKey{}, der.FromProto)
+	keys.RegisterHandler(&keyspb.PKCS11Config{}, func(ctx context.Context, pb proto.Message) (crypto.Signer, error) {
+		if cfg, ok := pb.(*keyspb.PKCS11Config); ok {
+			return pkcs11.FromConfig(*pkcs11ModulePath, cfg)
+		}
+		return nil, fmt.Errorf("pkcs11: got %T, want *keyspb.PKCS11Config", pb)
+	})
 
 	if *maxGetEntries > 0 {
 		ctfe.MaxGetEntriesAllowed = *maxGetEntries
