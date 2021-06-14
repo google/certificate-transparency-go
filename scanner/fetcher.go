@@ -263,6 +263,9 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 		// Logs MAY return fewer than the number of leaves requested. Only complete
 		// if we actually got all the leaves we were expecting.
 		for r.start <= r.end {
+			if ctx.Err() != nil { // Prevent spinning when context is canceled.
+				return
+			}
 			// TODO(pavelkalinnikov): Make these parameters tunable.
 			// This backoff will only apply to a single request and be reset for the next one.
 			// This precludes reaching some kind of stability in request rate, but means that
