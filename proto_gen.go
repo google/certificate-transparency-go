@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package trillian provides a CT personality and related tooling for use
-// with Trillian.
-package trillian
+package ct
 
 // We do the protoc generation here (rather than in the individual directories)
 // in order to work around the newly-enforced rule that all protobuf file "names"
@@ -22,6 +20,6 @@ package trillian
 // See https://developers.google.com/protocol-buffers/docs/proto#packages and
 // https://github.com/golang/protobuf/issues/1122
 
-//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian) -I$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go) --go_out=paths=source_relative:. ctfe/configpb/config.proto"
-//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian) -I$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go) --go_out=paths=source_relative:. migrillian/configpb/config.proto"
+//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian) -I$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go) --go_out=paths=source_relative:. trillian/ctfe/configpb/config.proto"
+//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian) -I$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go) --go_out=paths=source_relative:. trillian/migrillian/configpb/config.proto"
 //go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go) --go_out=paths=source_relative:. client/configpb/multilog.proto"
