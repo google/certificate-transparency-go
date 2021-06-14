@@ -1041,29 +1041,6 @@ func parseGetSTHConsistencyRange(r *http.Request) (int64, int64, error) {
 	return first, second, nil
 }
 
-// buildIndicesForRange expands the range out, the backend allows for non contiguous leaf fetches
-// but the CT spec doesn't. The input values should have been checked for consistency before calling
-// this.
-func buildIndicesForRange(start, end int64) []int64 {
-	indices := make([]int64, 0, end-start+1)
-	for i := start; i <= end; i++ {
-		indices = append(indices, i)
-	}
-	return indices
-}
-
-type byLeafIndex []*trillian.LogLeaf
-
-func (ll byLeafIndex) Len() int {
-	return len(ll)
-}
-func (ll byLeafIndex) Swap(i, j int) {
-	ll[i], ll[j] = ll[j], ll[i]
-}
-func (ll byLeafIndex) Less(i, j int) bool {
-	return ll[i].LeafIndex < ll[j].LeafIndex
-}
-
 // marshalGetEntriesResponse does the conversion from the backend response to the one we need for
 // an RFC compliant JSON response to the client.
 func marshalGetEntriesResponse(li *logInfo, leaves []*trillian.LogLeaf) (ct.GetEntriesResponse, error) {
