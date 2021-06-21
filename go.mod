@@ -16,9 +16,9 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/sergi/go-diff v1.2.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	go.etcd.io/etcd/client/v3 v3.5.0-rc.1
-	go.etcd.io/etcd/etcdctl/v3 v3.5.0-rc.1
-	go.etcd.io/etcd/v3 v3.5.0-rc.1
+	go.etcd.io/etcd/client/v3 v3.5.0
+	go.etcd.io/etcd/etcdctl/v3 v3.5.0
+	go.etcd.io/etcd/v3 v3.5.0
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
 	google.golang.org/grpc v1.38.0
