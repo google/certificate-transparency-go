@@ -94,6 +94,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -348,6 +349,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -416,6 +418,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -915,6 +918,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -987,6 +991,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -1059,6 +1064,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -1224,6 +1230,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -1343,6 +1350,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
@@ -1463,6 +1471,7 @@ func TestParseCertificateList(t *testing.T) {
 			want: TBSCertList{
 				Version: 1,
 				Signature: pkix.AlgorithmIdentifier{
+					Raw:        fromHex("300d06092a864886f70d01010b0500"),
 					Algorithm:  oidSignatureSHA256WithRSA,
 					Parameters: asn1.RawValue{Class: 0, Tag: 5, Bytes: []byte{}, FullBytes: []byte{5, 0}},
 				},
