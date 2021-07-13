@@ -23,4 +23,5 @@ import (
 	_ "go.etcd.io/etcd/v3"
 	_ "google.golang.org/protobuf/cmd/protoc-gen-go"
 	_ "google.golang.org/protobuf/proto"
+	_ "github.com/google/trillian/cmd/createtree"
 )
