@@ -33,7 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -338,7 +338,7 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	state := hammerState{
 		cfg:      cfg,
 		nextOp:   make([]ctfe.EntrypointName, 0),
-		verifier: logverifier.New(hasher.DefaultHasher),
+		verifier: logverifier.New(rfc6962.DefaultHasher),
 	}
 	return &state, nil
 }
