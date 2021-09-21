@@ -41,7 +41,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (
@@ -347,7 +347,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	}
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
-		verifier := logverifier.New(hasher.DefaultHasher)
+		verifier := logverifier.New(rfc6962.DefaultHasher)
 		if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
 			glog.Exitf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
@@ -396,7 +396,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 		return
 	}
 	// We have tree hashes so we can verify the proof.
-	verifier := logverifier.New(hasher.DefaultHasher)
+	verifier := logverifier.New(rfc6962.DefaultHasher)
 	if err := verifier.VerifyConsistencyProof(first, second, prevHash, treeHash, proof); err != nil {
 		glog.Exitf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}
