@@ -188,7 +188,7 @@ steps:
   name: gcr.io/cloud-builders/kubectl
   args:
   - apply
-  - --server-dry-run
+  - --dry-run=server
   - -f=trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
   - -f=trillian/examples/deployment/kubernetes/ctfe-service.yaml
   - -f=trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
