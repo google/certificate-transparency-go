@@ -326,6 +326,10 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 	if err != nil {
 		return 0, err
 	}
+	// Run may have returned nil despite a cancel() call.
+	if err := cctx.Err(); err != nil {
+		return 0, fmt.Errorf("failed to fetch and submit the entire tail: %v", err)
+	}
 	return sth.TreeSize, nil
 }
 
