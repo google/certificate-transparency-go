@@ -5,7 +5,8 @@ The witness is an HTTP service that stores STHs it has seen from
 a configurable list of Certificate Transparency logs in a sqlite database.  This 
 is a lightweight way to help detect or even prevent split-view attacks.  An 
 overview of witnessing can be found in 
-[trillian-examples](https://github.com/google/trillian-examples/tree/master/witness), along with "generic" witness implementations.  This witness is designed to be 
+[trillian-examples](https://github.com/google/trillian-examples/tree/master/witness), 
+along with "generic" witness implementations.  This witness is designed to be 
 compatible with the specific formats used by CT.
 
 Once up and running, the witness provides three API endpoints (as defined in
