@@ -19,8 +19,8 @@ Once up and running, the witness provides three API endpoints (as defined in
 Running the witness
 --------------------
 
-Running the witness is as simple as running `go run main.go` (where `main.go`
-can be found in the `cmd/witness` directory), with the following flags:
+Running the witness is as simple as running `go run ./cmd/witness/main.go` from
+this directory, with the following flags:
 - `listen`, which specifies the address and port to listen on.
 - `db_file`, which specifies the desired location of the sqlite database.  The
   use of sqlite limits the scalability and reliability of the witness (because
@@ -31,4 +31,7 @@ can be found in the `cmd/witness` directory), with the following flags:
   and in general it is necessary to specify the following fields for each log:
     - `logID`, which is the identifier for the log.
     - `pubKey`, which is the public key of the log.
-- `private_key`, which specifies the private signing key of the witness.
+  Both of these fields should be populated using an "official" 
+  [CT log list](https://www.gstatic.com/ct/log_list/v2/log_list.json).
+- `private_key`, which specifies the private signing key of the witness.  In its
+  current state the witness does not sign STHs so this can exist in any form.

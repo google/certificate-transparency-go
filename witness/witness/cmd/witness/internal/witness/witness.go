@@ -128,11 +128,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse input STH: %v", err)
 	}
-	// Optimistically sign the new STH now.
-	signed, err := w.signSTH(next)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't sign input STH: %v", err)
-	}
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older STHs.  Bind this all in a transaction to
 	// avoid race conditions when updating the database.
@@ -146,6 +141,11 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// If there was nothing stored already then treat this new
 		// STH as trust-on-first-use (TOFU).
 		if status.Code(err) == codes.NotFound {
+			// Store a witness cosigned version of the STH.
+			signed, err := w.signSTH(next)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't sign input STH: %v", err)
+			}
 			if err := w.setSTH(tx, logID, signed); err != nil {
 				return nil, fmt.Errorf("couldn't set TOFU STH: %v", err)
 			}
@@ -176,7 +176,11 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// Complain if the STHs aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}
-	// If the consistency proof is good we store nextRaw.
+	// If the consistency proof is good we store the witness cosigned STH.
+	signed, err := w.signSTH(next)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't sign input STH: %v", err)
+	}
 	if err := w.setSTH(tx, logID, signed); err != nil {
 		return nil, fmt.Errorf("failed to store new STH: %v", err)
 	}
@@ -184,6 +188,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 }
 
 // signSTH adds the witness' signature to an STH.
+// TODO(meiklejohn): actually sign it once we decide on a good format.
 func (w *Witness) signSTH(sth *ct.SignedTreeHead) ([]byte, error) {
 	sthRaw, err := json.Marshal(sth)
 	if err != nil {
