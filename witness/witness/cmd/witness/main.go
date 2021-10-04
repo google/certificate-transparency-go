@@ -41,7 +41,7 @@ func main() {
 		glog.Exit("--private_key must not be empty")
 	}
 
-	if len(*configFile) == 0 {
+	if *configFile == "" {
 		glog.Exit("--config_file must not be empty")
 	}
 	fileData, err := ioutil.ReadFile(*configFile)

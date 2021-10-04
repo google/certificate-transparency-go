@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package api provides the API endpoints for the witness.
 package api
 
 const (
 	// HTTPGetSTH is the path of the URL to get an STH.  The
 	// placeholder is for the logID (an alphanumeric string).
-	HTTPGetSTH = "/witness/v0/logs/%s/checkpoint"
+	HTTPGetSTH = "/ctwitness/v0/logs/%s/checkpoint"
 	// HTTPUpdate is the path of the URL to update to a new checkpoint.
 	// Again the placeholder is for the logID.
-	HTTPUpdate = "/witness/v0/logs/%s/update"
+	HTTPUpdate = "/ctwitness/v0/logs/%s/update"
 	// HTTPGetLogs is the path of the URL to get a list of all logs the
 	// witness is aware of.
-	HTTPGetLogs = "/witness/v0/logs"
+	HTTPGetLogs = "/ctwitness/v0/logs"
 )
 
 // UpdateRequest encodes the inputs to the witness Update function: a (raw)
