@@ -32,13 +32,13 @@ import (
 
 // LogConfig contains a list of LogInfo (configuration options for a log).
 type LogConfig struct {
-	Logs []LogInfo `json:"logs"`
+	Logs []LogInfo `yaml:"Logs"`
 }
 
 // LogInfo contains the configuration options for a log: its identifier and public key.
 type LogInfo struct {
-	LogID  string `json:"log_id"`
-	PubKey string `json:"key"`
+	LogID  string `yaml:"LogID"`
+	PubKey string `yaml:"PubKey"`
 }
 
 // ServerOpts provides the options for a server (specified in main.go).
