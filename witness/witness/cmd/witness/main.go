@@ -19,18 +19,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"io/ioutil"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/witness/witness/cmd/witness/impl"
+	"gopkg.in/yaml.v2"
 )
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
 	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
-	configFile = flag.String("config_file", "example.conf", "path to a JSON config file that specifies the logs followed by this witness")
+	configFile = flag.String("config_file", "example_config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
 	witnessSK  = flag.String("private_key", "", "private signing key for the witness")
 )
 
@@ -48,9 +48,9 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read from config file: %v", err)
 	}
-	var js impl.LogConfig
-	if err := json.Unmarshal(fileData, &js); err != nil {
-		glog.Exitf("Failed to parse config file as proper JSON: %v", err)
+	var lc impl.LogConfig
+	if err := yaml.Unmarshal(fileData, &lc); err != nil {
+		glog.Exitf("Failed to parse config file as proper YAML: %v", err)
 	}
 
 	ctx := context.Background()
@@ -58,7 +58,7 @@ func main() {
 		ListenAddr: *listenAddr,
 		DBFile:     *dbFile,
 		PrivKey:    *witnessSK,
-		Config:     js,
+		Config:     lc,
 	}); err != nil {
 		glog.Exitf("Error running witness: %v", err)
 	}
