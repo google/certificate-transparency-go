@@ -34,11 +34,11 @@ import (
 )
 
 var (
-	log          = flag.String("log", "", "The endpoint of the log HTTP API")
-	logPK        = flag.String("log_pk", "", "A file containing the PEM-encoded log public key")
-	logID        = flag.String("log_id", "", "The log ID")
-	witness      = flag.String("w", "", "The endpoint of the witness HTTP API")
-	pollInterval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
+	logURL   = flag.String("log_url", "", "The endpoint of the log HTTP API")
+	logPK    = flag.String("log_pk", "", "A file containing the PEM-encoded log public key")
+	logID    = flag.String("log_id", "", "The log ID")
+	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
+	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
 
 type feeder struct {
@@ -80,11 +80,11 @@ func main() {
 	if *logID == "" {
 		glog.Exit("--log_id must not be empty")
 	}
-	if *log == "" {
-		glog.Exit("--log must not be empty")
+	if *logURL == "" {
+		glog.Exit("--log_url must not be empty")
 	}
 	opts := jsonclient.Options{PublicKey: string(pemPK)}
-	c, err := jsonclient.New(*log, http.DefaultClient, opts)
+	c, err := jsonclient.New(*logURL, http.DefaultClient, opts)
 	if err != nil {
 		glog.Exitf("Failed to create JSON client: %v", err)
 	}
@@ -95,14 +95,9 @@ func main() {
 		w:     w,
 	}
 
-	tik := time.NewTicker(*pollInterval)
+	tik := time.NewTicker(*interval)
 	for {
-		var wSize uint64
-		if feeder.wsth != nil {
-			wSize = feeder.wsth.TreeSize
-		} else {
-			wSize = 0
-		}
+		wSize := feeder.latestSize()
 		glog.V(2).Infof("Tick: start feedOnce (witness size %d)", wSize)
 		if err := feeder.feedOnce(ctx); err != nil {
 			glog.Warningf("Failed to feed: %v", err)
@@ -115,6 +110,14 @@ func main() {
 		case <-tik.C:
 		}
 	}
+}
+
+// latestSize returns the size of the latest witness STH held by the feeder.
+func (f *feeder) latestSize() uint64 {
+	if f.wsth != nil {
+		return f.wsth.TreeSize
+	}
+	return 0
 }
 
 // feedOnce attempts to update the STH held by the witness to the latest STH
@@ -130,12 +133,7 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse response as STH: %v", err)
 	}
-	var wSize uint64
-	if f.wsth != nil {
-		wSize = f.wsth.TreeSize
-	} else {
-		wSize = 0
-	}
+	wSize := f.latestSize()
 	if wSize >= csth.TreeSize {
 		glog.V(1).Infof("Witness size %d >= log size %d - nothing to do", wSize, csth.TreeSize)
 		return nil
