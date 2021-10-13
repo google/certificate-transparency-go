@@ -27,7 +27,7 @@ import (
 	"os"
 
 	ct "github.com/google/certificate-transparency-go"
-	wit_api "github.com/google/certificate-transparency-go/witness/witness/api"
+	wit_api "github.com/google/certificate-transparency-go/internal/witness/api"
 )
 
 // ErrSTHTooOld is returned if the STH passed to Update needs to be updated.

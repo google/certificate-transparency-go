@@ -21,8 +21,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/google/certificate-transparency-go/witness/witness/api"
-	"github.com/google/certificate-transparency-go/witness/witness/cmd/witness/internal/witness"
+	"github.com/google/certificate-transparency-go/internal/witness/api"
+	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
