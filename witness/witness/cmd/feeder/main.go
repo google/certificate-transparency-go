@@ -24,11 +24,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	wh "github.com/google/certificate-transparency-go/witness/witness/client/http"
 )
@@ -44,7 +44,7 @@ var (
 type feeder struct {
 	logID string
 	wsth  *ct.SignedTreeHead
-	c     *jsonclient.JSONClient
+	c     *client.LogClient
 	w     wh.Witness
 }
 
@@ -86,7 +86,7 @@ func main() {
 		glog.Exit("--log_url must not be empty")
 	}
 	opts := jsonclient.Options{PublicKey: string(pemPK)}
-	c, err := jsonclient.New(*logURL, http.DefaultClient, opts)
+	c, err := client.New(*logURL, http.DefaultClient, opts)
 	if err != nil {
 		glog.Exitf("Failed to create JSON client: %v", err)
 	}
@@ -143,17 +143,9 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 
 	glog.Infof("Updating witness from size %d to %d", wSize, csth.TreeSize)
 	// If we want to update the witness then let's get a consistency proof.
-	params := map[string]string{
-		"first":  strconv.FormatUint(wSize, 10),
-		"second": strconv.FormatUint(csth.TreeSize, 10),
-	}
-	var pfResp ct.GetSTHConsistencyResponse
 	var pf [][]byte
 	if wSize > 0 {
-		if _, _, err := f.c.GetAndParse(ctx, ct.GetSTHConsistencyPath, params, &pfResp); err != nil {
-			return fmt.Errorf("failed to get consistency proof: %v", err)
-		}
-		pf = pfResp.Consistency
+		pf, err = f.c.GetSTHConsistency(ctx, wSize, csth.TreeSize)
 	}
 	// Now give the new STH and consistency proof to the witness.
 	wsthRaw, err := f.w.Update(ctx, f.logID, csthRaw, pf)
