@@ -171,7 +171,7 @@ func TestGetLogs(t *testing.T) {
 			d, closeFn := mustCreateDB(t)
 			defer closeFn()
 			ctx := context.Background()
-			// Set up witness and give it some checkpoints.
+			// Set up witness and give it some STHs.
 			logs := make([]logOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
 				logs[i] = logOpts{ID: logID,
@@ -181,7 +181,7 @@ func TestGetLogs(t *testing.T) {
 			w := newWitness(t, d, logs)
 			for i, logID := range test.logIDs {
 				if _, err := w.Update(ctx, logID, test.sths[i], nil); err != nil {
-					t.Errorf("failed to set checkpoint: %v", err)
+					t.Errorf("failed to set STH: %v", err)
 				}
 			}
 			// Now set up the http server.
@@ -260,10 +260,10 @@ func TestGetChkpt(t *testing.T) {
 			// Set up witness.
 			w := newWitness(t, d, []logOpts{{ID: test.setID,
 				PK: test.setPK}})
-			// Set a checkpoint for the log if we want to for this test.
+			// Set a STH for the log if we want to for this test.
 			if test.sth != nil {
 				if _, err := w.Update(ctx, test.setID, test.sth, nil); err != nil {
-					t.Errorf("failed to set checkpoint: %v", err)
+					t.Errorf("failed to set STH: %v", err)
 				}
 			}
 			// Now set up the http server.
@@ -292,19 +292,19 @@ func TestUpdate(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			desc:       "vanilla consistency happy path",
+			desc:       "happy path",
 			initC:      mInit,
 			initSize:   5,
 			body:       api.UpdateRequest{STH: mNext, Proof: consProof},
 			wantStatus: http.StatusOK,
 		}, {
-			desc:       "vanilla consistency smaller checkpoint",
+			desc:       "smaller STH",
 			initC:      mNext,
 			initSize:   8,
 			body:       api.UpdateRequest{STH: mInit, Proof: consProof},
 			wantStatus: http.StatusConflict,
 		}, {
-			desc:     "vanilla consistency garbage proof",
+			desc:     "garbage proof",
 			initC:    mInit,
 			initSize: 5,
 			body: api.UpdateRequest{STH: mNext, Proof: [][]byte{
@@ -315,7 +315,7 @@ func TestUpdate(t *testing.T) {
 			}},
 			wantStatus: http.StatusConflict,
 		}, {
-			desc:       "vanilla consistency garbage checkpoint",
+			desc:       "garbage STH",
 			initC:      mInit,
 			initSize:   5,
 			body:       api.UpdateRequest{STH: []byte("aaa"), Proof: consProof},
@@ -332,12 +332,12 @@ func TestUpdate(t *testing.T) {
 				PK: mPK}})
 			// Set an initial STH for the log.
 			if _, err := w.Update(ctx, logID, test.initC, nil); err != nil {
-				t.Errorf("failed to set checkpoint: %v", err)
+				t.Errorf("failed to set STH: %v", err)
 			}
 			// Now set up the http server.
 			ts, tsCloseFn := createTestEnv(w)
 			defer tsCloseFn()
-			// Update to a newer checkpoint.
+			// Update to a newer STH.
 			client := ts.Client()
 			reqBody, err := json.Marshal(test.body)
 			if err != nil {

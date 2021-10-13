@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package witness is designed to make sure the checkpoints of verifiable logs
-// are consistent and store/serve/sign them if so.  It is expected that a separate
-// feeder component would be responsible for the actual interaction with logs.
+// Package witness is designed to make sure the STHs of CT logs are consistent
+// and store/serve/sign them if so.  It is expected that a separate feeder
+// component would be responsible for the actual interaction with logs.
 package main
 
 import (
@@ -29,7 +29,7 @@ import (
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
-	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
+	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for STHs, e.g. /tmp/chkpts.db")
 	configFile = flag.String("config_file", "example_config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
 	witnessSK  = flag.String("private_key", "", "private signing key for the witness")
 )
