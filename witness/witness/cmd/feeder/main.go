@@ -146,6 +146,9 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	var pf [][]byte
 	if wSize > 0 {
 		pf, err = f.c.GetSTHConsistency(ctx, wSize, csth.TreeSize)
+		if err != nil {
+			return fmt.Errorf("failed to get consistency proof: %v", err)
+		}
 	}
 	// Now give the new STH and consistency proof to the witness.
 	wsthRaw, err := f.w.Update(ctx, f.logID, csthRaw, pf)
