@@ -70,7 +70,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, err)
 			return
 		}
-		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))
+		http.Error(w, fmt.Sprintf("failed to update to new STH: %v", err), httpForCode(http.StatusInternalServerError))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
