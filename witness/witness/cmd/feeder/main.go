@@ -77,6 +77,8 @@ func main() {
 		}
 	}
 	// Now set up the log client.
+	// TODO(smeiklej): This should be optional as it can be
+	// deterministically derived from the public key.
 	if *logID == "" {
 		glog.Exit("--log_id must not be empty")
 	}
