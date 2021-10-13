@@ -37,6 +37,8 @@ type LogConfig struct {
 
 // LogInfo contains the configuration options for a log: its identifier and public key.
 type LogInfo struct {
+	// TODO(smeiklej): For CT the LogID is deterministically derived from
+	// PubKey so we don't need to specify it separately.
 	LogID  string `yaml:"LogID"`
 	PubKey string `yaml:"PubKey"`
 }

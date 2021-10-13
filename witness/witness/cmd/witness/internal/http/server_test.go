@@ -260,7 +260,7 @@ func TestGetChkpt(t *testing.T) {
 			// Set up witness.
 			w := newWitness(t, d, []logOpts{{ID: test.setID,
 				PK: test.setPK}})
-			// Set a STH for the log if we want to for this test.
+			// Set an STH for the log if we want to for this test.
 			if test.sth != nil {
 				if _, err := w.Update(ctx, test.setID, test.sth, nil); err != nil {
 					t.Errorf("failed to set STH: %v", err)
