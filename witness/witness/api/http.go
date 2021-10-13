@@ -18,8 +18,8 @@ package api
 const (
 	// HTTPGetSTH is the path of the URL to get an STH.  The
 	// placeholder is for the logID (an alphanumeric string).
-	HTTPGetSTH = "/ctwitness/v0/logs/%s/checkpoint"
-	// HTTPUpdate is the path of the URL to update to a new checkpoint.
+	HTTPGetSTH = "/ctwitness/v0/logs/%s/sth"
+	// HTTPUpdate is the path of the URL to update to a new STH.
 	// Again the placeholder is for the logID.
 	HTTPUpdate = "/ctwitness/v0/logs/%s/update"
 	// HTTPGetLogs is the path of the URL to get a list of all logs the

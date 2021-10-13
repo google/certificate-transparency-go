@@ -230,7 +230,7 @@ func TestGetSTH(t *testing.T) {
 			// Try to get the latest STH.
 			_, err := w.GetSTH(test.queryID)
 			if !test.wantThere && err == nil {
-				t.Fatalf("returned a checkpoint but shouldn't have")
+				t.Fatalf("returned an STH but shouldn't have")
 			}
 			// Check to see if we got something.
 			// TODO(meiklejohn): check witness signature once those
@@ -259,7 +259,7 @@ func TestUpdate(t *testing.T) {
 			pf:       consProof,
 			isGood:   true,
 		}, {
-			desc:     "smaller checkpoint",
+			desc:     "smaller STH",
 			initSTH:  mNext,
 			initSize: 8,
 			newSTH:   mInit,

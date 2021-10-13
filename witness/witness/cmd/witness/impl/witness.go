@@ -37,6 +37,8 @@ type LogConfig struct {
 
 // LogInfo contains the configuration options for a log: its identifier and public key.
 type LogInfo struct {
+	// TODO(smeiklej): For CT the LogID is deterministically derived from
+	// PubKey so we don't need to specify it separately.
 	LogID  string `yaml:"LogID"`
 	PubKey string `yaml:"PubKey"`
 }
@@ -57,7 +59,11 @@ type ServerOpts struct {
 func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 	logMap := make(map[string]ct.SignatureVerifier)
 	for _, log := range config.Logs {
-		logV, err := ct.NewSignatureVerifier(log.PubKey)
+		pk, err := ct.PublicKeyFromB64(log.PubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create public key: %v", err)
+		}
+		logV, err := ct.NewSignatureVerifier(pk)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
