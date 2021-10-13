@@ -29,8 +29,8 @@ this directory, with the following flags:
 - `config_file`, which specifies configuration information for the logs.  This
   repository contains a [sample configuration file](cmd/witness/example.conf), 
   and in general it is necessary to specify the following fields for each log:
-    - `logID`, which is the identifier for the log.
-    - `pubKey`, which is the public key of the log.
+    - `logID`, which is the alphanumeric identifier for the log.
+    - `pubKey`, which is the base64-encoded public key of the log.
   Both of these fields should be populated using an "official" 
   [CT log list](https://www.gstatic.com/ct/log_list/v2/log_list.json).
 - `private_key`, which specifies the private signing key of the witness.  In its
