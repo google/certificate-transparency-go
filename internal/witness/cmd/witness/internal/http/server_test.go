@@ -29,8 +29,8 @@ import (
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/witness/witness/api"
-	"github.com/google/certificate-transparency-go/witness/witness/cmd/witness/internal/witness"
+	"github.com/google/certificate-transparency-go/internal/witness/api"
+	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
 
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3

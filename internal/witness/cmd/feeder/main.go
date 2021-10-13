@@ -30,7 +30,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	wh "github.com/google/certificate-transparency-go/witness/witness/client/http"
+	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
 )
 
 var (

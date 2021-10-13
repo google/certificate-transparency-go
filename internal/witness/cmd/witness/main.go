@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go/witness/witness/cmd/witness/impl"
+	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
 	"gopkg.in/yaml.v2"
 )
 
