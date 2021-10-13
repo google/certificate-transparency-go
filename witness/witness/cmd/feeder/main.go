@@ -51,7 +51,7 @@ type feeder struct {
 func main() {
 	flag.Parse()
 	ctx := context.Background()
-	// Set up the witness client.	
+	// Set up the witness client.
 	if *logPK == "" {
 		glog.Exit("--log_pk must not be empty")
 	}
