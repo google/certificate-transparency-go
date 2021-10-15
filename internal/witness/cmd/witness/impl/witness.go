@@ -17,10 +17,14 @@ package impl
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
@@ -35,11 +39,8 @@ type LogConfig struct {
 	Logs []LogInfo `yaml:"Logs"`
 }
 
-// LogInfo contains the configuration options for a log: its identifier and public key.
+// LogInfo contains the configuration options for a log, which is just its public key.
 type LogInfo struct {
-	// TODO(smeiklej): For CT the LogID is deterministically derived from
-	// PubKey so we don't need to specify it separately.
-	LogID  string `yaml:"LogID"`
 	PubKey string `yaml:"PubKey"`
 }
 
@@ -59,7 +60,12 @@ type ServerOpts struct {
 func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 	logMap := make(map[string]ct.SignatureVerifier)
 	for _, log := range config.Logs {
-		pk, err := ct.PublicKeyFromB64(log.PubKey)
+		// Use the PubKey string to first create the verifier.
+		der, err := base64.StdEncoding.DecodeString(log.PubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode public key: %v", err)
+		}
+		pk, err := x509.ParsePKIXPublicKey(der)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create public key: %v", err)
 		}
@@ -67,7 +73,15 @@ func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
-		logMap[log.LogID] = *logV
+		// And then to create the (alphanumeric) logID.
+		sha := sha256.Sum256(der)
+		b64 := base64.StdEncoding.EncodeToString(sha[:])
+		reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create regexp: %v", err)
+		}
+		logID := reg.ReplaceAllString(b64, "")
+		logMap[logID] = *logV
 	}
 	return logMap, nil
 }
