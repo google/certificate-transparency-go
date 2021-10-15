@@ -18,7 +18,6 @@ package impl
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/x509"
 	"database/sql"
 	"encoding/base64"
 	"errors"
@@ -56,16 +55,27 @@ type ServerOpts struct {
 	Config LogConfig
 }
 
+// LogPKToID builds the logID given the base64-encoded public key.
+func LogPKToID(pk string) (string, error) {
+	der, err := base64.StdEncoding.DecodeString(pk)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode public key: %v", err)
+	}
+	sha := sha256.Sum256(der)
+	b64 := base64.StdEncoding.EncodeToString(sha[:])
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", fmt.Errorf("failed to create regexp: %v", err)
+	}
+	return reg.ReplaceAllString(b64, ""), nil
+}
+
 // buildLogMap loads the log configuration information into a map.
 func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 	logMap := make(map[string]ct.SignatureVerifier)
 	for _, log := range config.Logs {
 		// Use the PubKey string to first create the verifier.
-		der, err := base64.StdEncoding.DecodeString(log.PubKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode public key: %v", err)
-		}
-		pk, err := x509.ParsePKIXPublicKey(der)
+		pk, err := ct.PublicKeyFromB64(log.PubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create public key: %v", err)
 		}
@@ -74,13 +84,10 @@ func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
 		// And then to create the (alphanumeric) logID.
-		sha := sha256.Sum256(der)
-		b64 := base64.StdEncoding.EncodeToString(sha[:])
-		reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+		logID, err := LogPKToID(log.PubKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create regexp: %v", err)
+			return nil, fmt.Errorf("failed to create log id: %v", err)
 		}
-		logID := reg.ReplaceAllString(b64, "")
 		logMap[logID] = *logV
 	}
 	return logMap, nil

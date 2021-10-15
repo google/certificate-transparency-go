@@ -17,8 +17,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -27,13 +25,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
+	wi "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
 	"github.com/google/certificate-transparency-go/jsonclient"
 )
 
@@ -59,11 +57,7 @@ func main() {
 		glog.Exit("--log_pk must not be empty")
 	}
 	var w wh.Witness
-	der, err := base64.StdEncoding.DecodeString(*logPK)
-	if err != nil {
-		glog.Exitf("Failed to decode public key: %v", err)
-	}
-	pk, err := x509.ParsePKIXPublicKey(der)
+	pk, err := ct.PublicKeyFromB64(*logPK)
 	if err != nil {
 		glog.Exitf("Failed to create public key: %v", err)
 	}
@@ -80,15 +74,16 @@ func main() {
 		}
 	}
 	// Now set up the log client.
-	sha := sha256.Sum256(der)
-	b64 := base64.StdEncoding.EncodeToString(sha[:])
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	logID, err := wi.LogPKToID(*logPK)
 	if err != nil {
-		glog.Exitf("failed to create regexp: %v", err)
+		glog.Exitf("Failed to create log id: %v", err)
 	}
-	logID := reg.ReplaceAllString(b64, "")
 	if *logURL == "" {
 		glog.Exit("--log_url must not be empty")
+	}
+	der, err := base64.StdEncoding.DecodeString(*logPK)
+	if err != nil {
+		glog.Exitf("Failed to decode public key: %v", err)
 	}
 	pemPK := pem.EncodeToMemory(&pem.Block{
 		Type:  "PUBLIC KEY",
