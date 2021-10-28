@@ -17,11 +17,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -29,14 +30,14 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/jsonclient"
+	wa "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
+	"github.com/google/certificate-transparency-go/jsonclient"
 )
 
 var (
 	logURL   = flag.String("log_url", "", "The endpoint of the log HTTP API")
-	logPK    = flag.String("log_pk", "", "A file containing the PEM-encoded log public key")
-	logID    = flag.String("log_id", "", "The log ID")
+	logPK    = flag.String("log_pk", "", "The base64-encoded log public key")
 	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
 	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
@@ -56,11 +57,7 @@ func main() {
 		glog.Exit("--log_pk must not be empty")
 	}
 	var w wh.Witness
-	pemPK, err := ioutil.ReadFile(*logPK)
-	if err != nil {
-		glog.Exitf("Failed to read public key from file: %v", err)
-	}
-	pk, _, _, err := ct.PublicKeyFromPEM(pemPK)
+	pk, err := ct.PublicKeyFromB64(*logPK)
 	if err != nil {
 		glog.Exitf("Failed to create public key: %v", err)
 	}
@@ -77,14 +74,21 @@ func main() {
 		}
 	}
 	// Now set up the log client.
-	// TODO(smeiklej): This should be optional as it can be
-	// deterministically derived from the public key.
-	if *logID == "" {
-		glog.Exit("--log_id must not be empty")
+	logID, err := wa.LogIDFromPubKey(*logPK)
+	if err != nil {
+		glog.Exitf("Failed to create log id: %v", err)
 	}
 	if *logURL == "" {
 		glog.Exit("--log_url must not be empty")
 	}
+	der, err := base64.StdEncoding.DecodeString(*logPK)
+	if err != nil {
+		glog.Exitf("Failed to decode public key: %v", err)
+	}
+	pemPK := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: der,
+	})
 	opts := jsonclient.Options{PublicKey: string(pemPK)}
 	c, err := client.New(*logURL, http.DefaultClient, opts)
 	if err != nil {
@@ -92,7 +96,7 @@ func main() {
 	}
 	// Create the feeder with no initial witness STH.
 	feeder := feeder{
-		logID: *logID,
+		logID: logID,
 		c:     c,
 		w:     w,
 	}

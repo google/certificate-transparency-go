@@ -41,7 +41,7 @@ func NewServer(witness *witness.Witness) *Server {
 }
 
 // update handles requests to update STHs.
-// It expects a POSTed body containing a JSON-formatted api.UpdateRequest
+// It expects a PUT body containing a JSON-formatted api.UpdateRequest
 // statement and returns a JSON-formatted api.UpdateResponse statement.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
@@ -109,7 +109,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
-	logStr := "{logid:[a-zA-Z0-9-]+}"
+	logStr := "{logid}"
 	r.HandleFunc(fmt.Sprintf(api.HTTPGetSTH, logStr), s.getSTH).Methods("GET")
 	r.HandleFunc(fmt.Sprintf(api.HTTPUpdate, logStr), s.update).Methods("PUT")
 	r.HandleFunc(api.HTTPGetLogs, s.getLogs).Methods("GET")
