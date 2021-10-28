@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
@@ -62,12 +61,7 @@ func LogPKToID(pk string) (string, error) {
 		return "", fmt.Errorf("failed to decode public key: %v", err)
 	}
 	sha := sha256.Sum256(der)
-	b64 := base64.StdEncoding.EncodeToString(sha[:])
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
-	if err != nil {
-		return "", fmt.Errorf("failed to create regexp: %v", err)
-	}
-	return reg.ReplaceAllString(b64, ""), nil
+	return base64.StdEncoding.EncodeToString(sha[:]), nil
 }
 
 // buildLogMap loads the log configuration information into a map.
