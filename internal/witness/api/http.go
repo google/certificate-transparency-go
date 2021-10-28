@@ -15,6 +15,12 @@
 // Package api provides the API endpoints for the witness.
 package api
 
+import (
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+)
+
 const (
 	// HTTPGetSTH is the path of the URL to get an STH.  The
 	// placeholder is for the logID (an alphanumeric string).
@@ -33,4 +39,14 @@ const (
 type UpdateRequest struct {
 	STH   []byte
 	Proof [][]byte
+}
+
+// LogIDFromPubKey builds the logID given the base64-encoded public key.
+func LogIDFromPubKey(pk string) (string, error) {
+	der, err := base64.StdEncoding.DecodeString(pk)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode public key: %v", err)
+	}
+	sha := sha256.Sum256(der)
+	return base64.StdEncoding.EncodeToString(sha[:]), nil
 }

@@ -17,15 +17,14 @@ package impl
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/internal/witness/api"
 	ih "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/http"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
@@ -54,16 +53,6 @@ type ServerOpts struct {
 	Config LogConfig
 }
 
-// LogPKToID builds the logID given the base64-encoded public key.
-func LogPKToID(pk string) (string, error) {
-	der, err := base64.StdEncoding.DecodeString(pk)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode public key: %v", err)
-	}
-	sha := sha256.Sum256(der)
-	return base64.StdEncoding.EncodeToString(sha[:]), nil
-}
-
 // buildLogMap loads the log configuration information into a map.
 func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 	logMap := make(map[string]ct.SignatureVerifier)
@@ -78,7 +67,7 @@ func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
 		// And then to create the (alphanumeric) logID.
-		logID, err := LogPKToID(log.PubKey)
+		logID, err := api.LogIDFromPubKey(log.PubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log id: %v", err)
 		}

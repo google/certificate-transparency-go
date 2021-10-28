@@ -30,8 +30,8 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
+	wa "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
-	wi "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
 	"github.com/google/certificate-transparency-go/jsonclient"
 )
 
@@ -74,7 +74,7 @@ func main() {
 		}
 	}
 	// Now set up the log client.
-	logID, err := wi.LogPKToID(*logPK)
+	logID, err := wa.LogIDFromPubKey(*logPK)
 	if err != nil {
 		glog.Exitf("Failed to create log id: %v", err)
 	}
