@@ -436,6 +436,7 @@ func CertificateToString(cert *x509.Certificate) string {
 	showCTPoison(&result, cert)
 	showCTSCT(&result, cert)
 	showCTLogSTHInfo(&result, cert)
+	showAndroidAttestation(&result, cert)
 
 	showUnhandledExtensions(&result, cert)
 	showSignature(&result, cert)
@@ -789,7 +790,8 @@ func oidAlreadyPrinted(oid asn1.ObjectIdentifier) bool {
 		oid.Equal(x509.OIDExtensionASList) ||
 		oid.Equal(x509.OIDExtensionCTPoison) ||
 		oid.Equal(x509.OIDExtensionCTSCT) ||
-		oid.Equal(x509ext.OIDExtensionCTSTH) {
+		oid.Equal(x509ext.OIDExtensionCTSTH) ||
+		oid.Equal(OIDExtensionAndroidAttestation) {
 		return true
 	}
 	return false
