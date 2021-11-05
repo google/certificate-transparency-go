@@ -39,6 +39,8 @@
 //     - Support for parsing RSASES-OAEP public keys from certificates
 //  - Ed25519 support:
 //     - Support for parsing and marshaling Ed25519 keys
+//  - X25519 support:
+//     - Support for parsing X25519 keys
 //  - General improvements:
 //     - Export and use OID values throughout.
 //     - Export OIDFromNamedCurve().
@@ -321,6 +323,7 @@ const (
 	ECDSA
 	Ed25519
 	RSAESOAEP
+	X25519
 )
 
 var publicKeyAlgoName = [...]string{
@@ -329,6 +332,7 @@ var publicKeyAlgoName = [...]string{
 	ECDSA:     "ECDSA",
 	Ed25519:   "Ed25519",
 	RSAESOAEP: "RSAESOAEP",
+	X25519:    "X25519",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -584,6 +588,7 @@ var (
 	OIDPublicKeyECDSA       = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
 	OIDPublicKeyEd25519     = oidSignatureEd25519
+	OIDPublicKeyX25519      = asn1.ObjectIdentifier{1, 3, 101, 110}
 )
 
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
@@ -598,6 +603,8 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return RSAESOAEP
 	case oid.Equal(OIDPublicKeyEd25519):
 		return Ed25519
+	case oid.Equal(OIDPublicKeyX25519):
+		return X25519
 	}
 	return UnknownPublicKeyAlgorithm
 }
@@ -1451,6 +1458,8 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		return pub, nil
 	case Ed25519:
 		return ed25519.PublicKey(asn1Data), nil
+	case X25519:
+		return asn1Data, nil
 	default:
 		return nil, nil
 	}
