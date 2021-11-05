@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
@@ -103,6 +104,8 @@ func publicKeyAlgorithmToString(algo x509.PublicKeyAlgorithm) string {
 		return "dsaEncryption"
 	case x509.ECDSA:
 		return "id-ecPublicKey"
+	case x509.Ed25519:
+		return "Ed25519"
 	default:
 		return strconv.Itoa(int(algo))
 	}
@@ -174,8 +177,11 @@ func publicKeyToString(_ x509.PublicKeyAlgorithm, pub interface{}) string {
 		appendHexData(&buf, data, 15, "                    ")
 		buf.WriteString("\n")
 		buf.WriteString(fmt.Sprintf("                ASN1 OID: %s", oidname))
+	case ed25519.PublicKey:
+		buf.WriteString("                pub:\n")
+		appendHexData(&buf, []byte(pub), 15, "                    ")
 	default:
-		buf.WriteString(fmt.Sprintf("%v", pub))
+		buf.WriteString(fmt.Sprintf("                    %T: %v", pub, pub))
 	}
 	return buf.String()
 }
