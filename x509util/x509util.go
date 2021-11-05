@@ -106,6 +106,8 @@ func publicKeyAlgorithmToString(algo x509.PublicKeyAlgorithm) string {
 		return "id-ecPublicKey"
 	case x509.Ed25519:
 		return "Ed25519"
+	case x509.X25519:
+		return "X25519"
 	default:
 		return strconv.Itoa(int(algo))
 	}
@@ -180,6 +182,9 @@ func publicKeyToString(_ x509.PublicKeyAlgorithm, pub interface{}) string {
 	case ed25519.PublicKey:
 		buf.WriteString("                pub:\n")
 		appendHexData(&buf, []byte(pub), 15, "                    ")
+	case []byte:
+		buf.WriteString("                pub:\n")
+		appendHexData(&buf, pub, 15, "                    ")
 	default:
 		buf.WriteString(fmt.Sprintf("                    %T: %v", pub, pub))
 	}
