@@ -26,21 +26,25 @@ import (
 	"net/url"
 	"os"
 
-	ct "github.com/google/certificate-transparency-go"
 	wit_api "github.com/google/certificate-transparency-go/internal/witness/api"
 )
 
 // ErrSTHTooOld is returned if the STH passed to Update needs to be updated.
 var ErrSTHTooOld error = errors.New("STH too old")
 
-// Witness is a simple client for interacting with witnesses over HTTP.
-type Witness struct {
-	URL      *url.URL
-	Verifier ct.SignatureVerifier
+// WitnessSigVerifier verifies the witness' signature on a cosigned STH.
+type WitnessSigVerifier interface {
+	VerifySignature(cosigned wit_api.CosignedSTH) error
 }
 
-// SigVerifier returns a Verifier to verify signatures from the witness.
-func (w Witness) SigVerifier() ct.SignatureVerifier {
+// Witness consists of the witness' URL and signature verifier.
+type Witness struct {
+	URL      *url.URL
+	Verifier WitnessSigVerifier
+}
+
+// SigVerifier returns a verifier to verify signatures from the witness.
+func (w Witness) SigVerifier() WitnessSigVerifier {
 	return w.Verifier
 }
 

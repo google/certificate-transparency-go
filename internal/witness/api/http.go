@@ -19,6 +19,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 const (
@@ -39,6 +41,13 @@ const (
 type UpdateRequest struct {
 	STH   []byte
 	Proof [][]byte
+}
+
+// CosignedSTH has all the fields from a CT SignedTreeHead but adds a
+// WitnessSigs field that holds the extra witness signatures.
+type CosignedSTH struct {
+	ct.SignedTreeHead
+	WitnessSigs []ct.DigitallySigned `json:"witness_signatures"`
 }
 
 // LogIDFromPubKey builds the logID given the base64-encoded public key.

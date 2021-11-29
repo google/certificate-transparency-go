@@ -19,17 +19,22 @@ import (
 	"crypto"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"testing"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/internal/witness/api"
+	"github.com/google/certificate-transparency-go/tls"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 var (
 	// https://play.golang.org/p/gCY2Zi2BJ8G to generate keys and
-	// https://play.golang.org/p/KUXRShKdYTb to sign things with loaded keys.
+	// https://play.golang.org/p/KUXRShKdYTb to sign things with loaded
+	// keys.  Importantly, need to switch to using MarshalPKCS8PrivateKey
+	// for the witness keys.
 	mSK = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIECRHc4ORynd+lpqWYmjCIAmDjyLEJZSuvv4KdcIi+hEoAoGCCqGSM49
 AwEHoUQDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/tOZ+GUrGjNC0CrTqSylMuU1f
@@ -48,8 +53,15 @@ F2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/
 xQ8D2Vnkl7WqNTB2kJ45aTtlF2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 -----END PUBLIC KEY-----`)
-	wPK       = "EnIuhhgmkYrL9e7pUigaIWDJsoaL0SyaOhVhVJUospc="
-	wSK       = "u63EoQc3SiU57kNbmPYVHf5lhEfWLUWrxobCDoYIvfUSci6GGCaRisv17ulSKBohYMmyhovRLJo6FWFUlSiylw=="
+	wSK = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+/pzQGPt88nmVlMC
+CjHXGLH93bZ5ZkLVTjsHLi2UQiKhRANCAAQ2DYOW5eMnGcMCDtfK7aFIJg0JBKIZ
+cx8fz81azP6v6s8oYMyU5e5bYAfgm1RjGvjC2YTLqCpMvSIeK+rudqg4
+-----END PRIVATE KEY-----`
+	wPK = mustCreatePK(`-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENg2DluXjJxnDAg7Xyu2hSCYNCQSi
+GXMfH8/NWsz+r+rPKGDMlOXuW2AH4JtUYxr4wtmEy6gqTL0iHivq7naoOA==
+-----END PUBLIC KEY-----`)
 	mInit     = []byte(`{"tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA4CEXH2Z+T4Rcj3YTvgK5qM9NuFYHipI13Il6A/ozTFUCIBDY1VDFy8ZezXsuWNs+iLzkyO5I5kCZldGeMvspHOof"}`)
 	bInit     = []byte(`{"tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMASDBGAiEAjSUy1d7/n1MOYWCnx2DzU3nQk1OUHzRtFJl+eDCquBsCIQDEG2vk1A+LmHZfyt/BN4by2324rxWFFzAeG1f2EyXk9w=="}`)
 	mNext     = []byte(`{"tree_size":8,"timestamp":1,"sha256_root_hash":"V8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=","tree_head_signature":"BAMARjBEAiB9SZfr3JJbLsSE4mhnHE9hbcbu97nsbKcONnXeJXeigwIgJTWVh5FLNfUre5uCRLY4B1KEyS8tcGbaaHdEMk2WAmc="}`)
@@ -228,15 +240,29 @@ func TestGetSTH(t *testing.T) {
 				}
 			}
 			// Try to get the latest STH.
-			_, err := w.GetSTH(test.queryID)
+			sthRaw, err := w.GetSTH(test.queryID)
 			if !test.wantThere && err == nil {
 				t.Fatalf("returned an STH but shouldn't have")
 			}
 			// Check to see if we got something.
-			// TODO(meiklejohn): check witness signature once those
-			// have been implemented.
 			if test.wantThere && err != nil {
 				t.Fatalf("failed to get latest: %v", err)
+				sv, err := ct.NewSignatureVerifier(wPK)
+				if err != nil {
+					t.Fatalf("failed to create signature verifier: %v", err)
+				}
+				var sth api.CosignedSTH
+				if err := json.Unmarshal(sthRaw, &sth); err != nil {
+					t.Fatalf("failed to unmarshal raw STH: %v", err)
+				}
+				sig := tls.DigitallySigned(sth.WitnessSigs[0])
+				sigData, err := tls.Marshal(sth.SignedTreeHead)
+				if err != nil {
+					t.Fatalf("failed to marshal internal STH: %v", err)
+				}
+				if err := sv.VerifySignature(sigData, sig); err != nil {
+					t.Fatal("failed to verify co-signature")
+				}
 			}
 		})
 	}
