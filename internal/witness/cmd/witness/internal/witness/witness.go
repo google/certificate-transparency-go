@@ -127,7 +127,7 @@ func (w *Witness) GetLogs() ([]string, error) {
 func (w *Witness) GetSTH(logID string) ([]byte, error) {
 	sthRaw, err := w.getLatestSTH(w.db.QueryRow, logID)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't retrieve raw STH: %v", err)
+		return nil, err
 	}
 	sth, err := w.parse(sthRaw, logID)
 	if err != nil {
