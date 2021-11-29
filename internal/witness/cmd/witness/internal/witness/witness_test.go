@@ -245,8 +245,10 @@ func TestGetSTH(t *testing.T) {
 				t.Fatalf("returned an STH but shouldn't have")
 			}
 			// Check to see if we got something.
-			if test.wantThere && err != nil {
-				t.Fatalf("failed to get latest: %v", err)
+			if test.wantThere {
+				if err != nil {
+					t.Fatalf("failed to get latest: %v", err)
+				}
 				sv, err := ct.NewSignatureVerifier(wPK)
 				if err != nil {
 					t.Fatalf("failed to create signature verifier: %v", err)
