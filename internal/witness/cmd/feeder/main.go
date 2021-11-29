@@ -32,7 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	wa "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
-	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/verifier"
+	"github.com/google/certificate-transparency-go/internal/witness/verifier"
 	"github.com/google/certificate-transparency-go/jsonclient"
 )
 

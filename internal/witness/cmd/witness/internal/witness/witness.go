@@ -68,6 +68,9 @@ func New(wo Opts) (*Witness, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private key: %v", err)
 	}
+	// x509 can return either the key object or a pointer to it.  This
+	// discrepancy is handled in the same way as in tls/signature_test.go,
+	// namely changing it to be the object if it's a pointer.
 	if reflect.TypeOf(sk).Kind() == reflect.Ptr {
 		sk = reflect.ValueOf(sk).Elem().Interface()
 	}
@@ -80,6 +83,8 @@ func New(wo Opts) (*Witness, error) {
 
 // parse verifies the STH under the appropriate key for logID and returns
 // the parsed STH.
+// This assumes sthRaw parses as a SignedTreeHead (not a CosignedSTH), so STHs are
+// stored unsigned and signed only right when they are being returned.
 func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error) {
 	sv, ok := w.Logs[logID]
 	if !ok {

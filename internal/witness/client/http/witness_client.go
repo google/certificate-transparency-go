@@ -43,11 +43,6 @@ type Witness struct {
 	Verifier WitnessSigVerifier
 }
 
-// SigVerifier returns a verifier to verify signatures from the witness.
-func (w Witness) SigVerifier() WitnessSigVerifier {
-	return w.Verifier
-}
-
 // GetLatestSTH returns a recent STH from the witness for the specified log ID.
 func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error) {
 	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPGetSTH, url.QueryEscape(logID)))

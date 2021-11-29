@@ -26,21 +26,21 @@ import (
 )
 
 // WitnessV consists of a CT signature verifier.
-type WitnessV struct {
+type WitnessVerifier struct {
 	SigVerifier *ct.SignatureVerifier
 }
 
 // NewWitnessVerifier creates a witness signature verifier from a public key.
-func NewWitnessVerifier(pk crypto.PublicKey) (*WitnessV, error) {
+func NewWitnessVerifier(pk crypto.PublicKey) (*WitnessVerifier, error) {
 	sv, err := ct.NewSignatureVerifier(pk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 	}
-	return &WitnessV{SigVerifier: sv}, nil
+	return &WitnessVerifier{SigVerifier: sv}, nil
 }
 
 // VerifySignature verifies the witness signature on a cosigned STH.
-func (wv WitnessV) VerifySignature(sth api.CosignedSTH) error {
+func (wv WitnessVerifier) VerifySignature(sth api.CosignedSTH) error {
 	if len(sth.WitnessSigs) == 0 {
 		return errors.New("no witness signature present in the STH")
 	}
