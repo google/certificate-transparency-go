@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -62,7 +63,7 @@ func New(wo Opts) (*Witness, error) {
 	// Parse the PEM-encoded secret key.
 	p, _ := pem.Decode([]byte(wo.PrivKey))
 	if p == nil {
-		return nil, fmt.Errorf("no PEM block found in %s", wo.PrivKey)
+		return nil, errors.New("no PEM block found in secret key string")
 	}
 	sk, err := x509.ParsePKCS8PrivateKey(p.Bytes)
 	if err != nil {

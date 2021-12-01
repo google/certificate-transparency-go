@@ -25,7 +25,7 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 )
 
-// WitnessV consists of a CT signature verifier.
+// WitnessVerifier consists of a CT signature verifier.
 type WitnessVerifier struct {
 	SigVerifier *ct.SignatureVerifier
 }
