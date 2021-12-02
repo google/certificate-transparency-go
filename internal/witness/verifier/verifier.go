@@ -40,7 +40,9 @@ func NewWitnessVerifier(pk crypto.PublicKey) (*WitnessVerifier, error) {
 }
 
 // VerifySignature finds and verifies this witness' signature on a cosigned STH.
-// This may mean that there are other witness signatures that remain unverified.
+// This may mean that there are other witness signatures that remain unverified,
+// so future implementations may want to take in multiple signature verifiers
+// like in the Note package (https://pkg.go.dev/golang.org/x/mod/sumdb/note).
 func (wv WitnessVerifier) VerifySignature(sth api.CosignedSTH) error {
 	if len(sth.WitnessSigs) == 0 {
 		return errors.New("no witness signature present in the STH")
@@ -49,18 +51,11 @@ func (wv WitnessVerifier) VerifySignature(sth api.CosignedSTH) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal internal STH: %v", err)
 	}
-	oneVerifies := false
 	for _, sig := range sth.WitnessSigs {
-		sig := tls.DigitallySigned(sig)
-		err := wv.SigVerifier.VerifySignature(sigData, sig)
-		if err == nil {
-			oneVerifies = true
+		// If we find a signature that verifies then we're okay.
+		if err := wv.SigVerifier.VerifySignature(sigData, tls.DigitallySigned(sig)); err == nil {
+			return nil
 		}
-		// Ignore any errors because signatures from other witnesses
-		// will fail to verify and that's okay.
 	}
-	if !oneVerifies {
-		return errors.New("failed to verify any signature for this witness")
-	}
-	return nil
+	return errors.New("failed to verify any signature for this witness")
 }
