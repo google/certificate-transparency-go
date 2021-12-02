@@ -39,18 +39,21 @@ func NewWitnessVerifier(pk crypto.PublicKey) (*WitnessVerifier, error) {
 	return &WitnessVerifier{SigVerifier: sv}, nil
 }
 
-// VerifySignature verifies the witness signature on a cosigned STH.
+// VerifySignature verifies the witness signatures on a cosigned STH.  For now
+// it requires *all* witness signatures to verify.
 func (wv WitnessVerifier) VerifySignature(sth api.CosignedSTH) error {
 	if len(sth.WitnessSigs) == 0 {
 		return errors.New("no witness signature present in the STH")
 	}
-	sig := tls.DigitallySigned(sth.WitnessSigs[0])
 	sigData, err := tls.Marshal(sth.SignedTreeHead)
 	if err != nil {
 		return fmt.Errorf("failed to marshal internal STH: %v", err)
 	}
-	if err := wv.SigVerifier.VerifySignature(sigData, sig); err != nil {
-		return fmt.Errorf("failed to verify signature: %v", err)
+	for i, sig := range sth.WitnessSigs {
+		sig := tls.DigitallySigned(sig)
+		if err := wv.SigVerifier.VerifySignature(sigData, sig); err != nil {
+			return fmt.Errorf("failed to verify signature %d: %v", i, err)
+		}
 	}
 	return nil
 }
