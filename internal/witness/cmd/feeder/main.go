@@ -23,6 +23,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -30,23 +31,80 @@ import (
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	wa "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/loglist2"
 )
 
 var (
-	logURL   = flag.String("log_url", "", "The endpoint of the log HTTP API")
-	logPK    = flag.String("log_pk", "", "The base64-encoded log public key")
+	logList  = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
 	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
 	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
 
+// feeder contains a map from log IDs to logData and a witness client.
 type feeder struct {
-	logID string
-	wsth  *ct.SignedTreeHead
-	c     *client.LogClient
-	w     wh.Witness
+	logs map[string]logData
+	//logID string
+	//wsth  *ct.SignedTreeHead
+	//c     *client.LogClient
+	w    wh.Witness
+}
+
+// logData contains the latest witnessed STH for a log and a log client.
+type logData struct {
+	wsth   *ct.SignedTreeHead
+	client *client.LogClient
+}
+
+// setupLogs populates the feeder's logs map based on the logList.
+func populateLogs(logListURL string) (map[string]logData, error) {
+	resp, err := http.Get(logListURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve log list: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read HTTP response: %v", err)
+	}
+	// Get data for all usable logs.
+	logList, err := loglist2.NewFromJSON(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
+	}
+	logs := make(map[string]logData)
+	for _, operator := range logList.Operators {
+		for _, log := range operator.Logs {
+			if log.State.LogStatus() == loglist2.UsableLogStatus {
+				c, err := createLogClient(string(log.Key), log.URL)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create log client: %v", err)
+				}
+				logs[string(log.LogID)] = logData{
+				    client : c,
+				}
+			}
+		}
+	}
+	return logs, nil
+}
+
+func createLogClient(key string, url string) (*client.LogClient, error) {
+	der, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		glog.Exitf("Failed to decode public key: %v", err)
+	}
+	pemPK := pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: der,
+	})
+	opts := jsonclient.Options{PublicKey: string(pemPK)}
+	c, err := client.New(url, http.DefaultClient, opts)
+	if err != nil {
+		glog.Exitf("Failed to create JSON client: %v", err)
+	}
+	return c, nil
 }
 
 func main() {
@@ -73,65 +131,59 @@ func main() {
 			Verifier: *sv,
 		}
 	}
-	// Now set up the log client.
-	logID, err := wa.LogIDFromPubKey(*logPK)
+	// Now set up the log data (with no initial witness STH).
+	logData, err := populateLogs(*logList)
 	if err != nil {
-		glog.Exitf("Failed to create log id: %v", err)
+		glog.Exitf("Failed to set up log data: %v", err)
 	}
-	if *logURL == "" {
-		glog.Exit("--log_url must not be empty")
-	}
-	der, err := base64.StdEncoding.DecodeString(*logPK)
-	if err != nil {
-		glog.Exitf("Failed to decode public key: %v", err)
-	}
-	pemPK := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: der,
-	})
-	opts := jsonclient.Options{PublicKey: string(pemPK)}
-	c, err := client.New(*logURL, http.DefaultClient, opts)
-	if err != nil {
-		glog.Exitf("Failed to create JSON client: %v", err)
-	}
-	// Create the feeder with no initial witness STH.
+	// Create the feeder.
 	feeder := feeder{
-		logID: logID,
-		c:     c,
+		logs:  logData,
 		w:     w,
 	}
-
+	// Now feed each log one by one.
 	tik := time.NewTicker(*interval)
 	for {
-		wSize := feeder.latestSize()
-		glog.V(2).Infof("Tick: start feedOnce (witness size %d)", wSize)
-		if err := feeder.feedOnce(ctx); err != nil {
-			glog.Warningf("Failed to feed: %v", err)
-		}
-		glog.V(2).Infof("Tick: feedOnce complete (witness size %d)", wSize)
+		for id := range feeder.logs {
+			wSize := feeder.latestSize(id)
+			glog.V(2).Infof("Tick: start feedOnce for log %s (witness size %d)", id, wSize)
+			if err := feeder.feedOnce(ctx, id); err != nil {
+				glog.Warningf("Failed to feed for %s: %v", id, err)
+			}
+			glog.V(2).Infof("Tick: feedOnce complete for %s (witness size %d)", id, wSize)
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-tik.C:
+			select {
+			case <-ctx.Done():
+				return
+			case <-tik.C:
+			}
 		}
 	}
 }
 
-// latestSize returns the size of the latest witness STH held by the feeder.
-func (f *feeder) latestSize() uint64 {
-	if f.wsth != nil {
-		return f.wsth.TreeSize
+// latestSize returns the size of the latest witness STH held by the feeder for
+// a given logID.
+func (f *feeder) latestSize(logID string) uint64 {
+	ld, ok := f.logs[logID]
+	if !ok {
+		return 0
+	}
+	if ld.wsth != nil {
+		return ld.wsth.TreeSize
 	}
 	return 0
 }
 
 // feedOnce attempts to update the STH held by the witness to the latest STH
-// provided by the log.
-func (f *feeder) feedOnce(ctx context.Context) error {
+// provided by the log identified by logID.
+func (f *feeder) feedOnce(ctx context.Context, logID string) error {
+	ld, ok := f.logs[logID]
+	if !ok {
+		return fmt.Errorf("no log found for %s", logID)
+	}
 	// Get and parse the latest STH from the log.
 	var sthResp ct.GetSTHResponse
-	_, csthRaw, err := f.c.GetAndParse(ctx, ct.GetSTHPath, nil, &sthResp)
+	_, csthRaw, err := ld.client.GetAndParse(ctx, ct.GetSTHPath, nil, &sthResp)
 	if err != nil {
 		return fmt.Errorf("failed to get latest STH: %v", err)
 	}
@@ -139,23 +191,23 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse response as STH: %v", err)
 	}
-	wSize := f.latestSize()
+	wSize := f.latestSize(logID)
 	if wSize >= csth.TreeSize {
-		glog.V(1).Infof("Witness size %d >= log size %d - nothing to do", wSize, csth.TreeSize)
+		glog.V(1).Infof("Witness size %d >= log size %d for log %s - nothing to do", wSize, csth.TreeSize, logID)
 		return nil
 	}
 
-	glog.Infof("Updating witness from size %d to %d", wSize, csth.TreeSize)
+	glog.Infof("Updating witness from size %d to %d for log %s", wSize, csth.TreeSize, logID)
 	// If we want to update the witness then let's get a consistency proof.
 	var pf [][]byte
 	if wSize > 0 {
-		pf, err = f.c.GetSTHConsistency(ctx, wSize, csth.TreeSize)
+		pf, err = ld.client.GetSTHConsistency(ctx, wSize, csth.TreeSize)
 		if err != nil {
 			return fmt.Errorf("failed to get consistency proof: %v", err)
 		}
 	}
 	// Now give the new STH and consistency proof to the witness.
-	wsthRaw, err := f.w.Update(ctx, f.logID, csthRaw, pf)
+	wsthRaw, err := f.w.Update(ctx, logID, csthRaw, pf)
 	if err != nil && !errors.Is(err, wh.ErrSTHTooOld) {
 		return fmt.Errorf("failed to update STH: %v", err)
 	}
@@ -171,6 +223,9 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	// For now just update our local state with whatever the witness
 	// returns, even if we got wh.ErrSTHTooOld.  This is fine if we're the
 	// only feeder for this witness.
-	f.wsth = wsth
+	f.logs[logID] = logData{
+		wsth:   wsth,
+		client: ld.client,
+	}
 	return nil
 }
