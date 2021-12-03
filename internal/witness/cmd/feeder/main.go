@@ -53,6 +53,7 @@ type feeder struct {
 
 // logData contains the latest witnessed STH for a log and a log client.
 type logData struct {
+	desc   string
 	wsth   *ct.SignedTreeHead
 	client *client.LogClient
 }
@@ -83,6 +84,7 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 				return nil, fmt.Errorf("failed to create log client: %v", err)
 			}
 			logs[logID] = logData{
+				desc:   log.Description,
 				client: c,
 			}
 		}
@@ -98,7 +100,7 @@ func createLogClient(key []byte, url string) (*client.LogClient, error) {
 	opts := jsonclient.Options{PublicKey: string(pemPK)}
 	c, err := client.New(url, http.DefaultClient, opts)
 	if err != nil {
-		glog.Exitf("Failed to create JSON client: %v", err)
+		return nil, fmt.Errorf("failed to create JSON client: %v", err)
 	}
 	return c, nil
 }
@@ -128,13 +130,13 @@ func main() {
 	// Now feed each log one by one.
 	tik := time.NewTicker(*interval)
 	for {
-		for id := range feeder.logs {
+		for id, ld := range feeder.logs {
 			wSize := feeder.latestSize(id)
-			glog.V(2).Infof("Tick: start feedOnce for log %s (witness size %d)", id, wSize)
+			glog.V(2).Infof("Tick: start feedOnce for %s (witness size %d)", ld.desc, wSize)
 			if err := feeder.feedOnce(ctx, id); err != nil {
-				glog.Warningf("Failed to feed for %s: %v", id, err)
+				glog.Warningf("Failed to feed for %s: %v", ld.desc, err)
 			}
-			glog.V(2).Infof("Tick: feedOnce complete for %s (witness size %d)", id, wSize)
+			glog.V(2).Infof("Tick: feedOnce complete for %s (witness size %d)", ld.desc, wSize)
 
 			select {
 			case <-ctx.Done():
@@ -163,7 +165,7 @@ func (f *feeder) latestSize(logID string) uint64 {
 func (f *feeder) feedOnce(ctx context.Context, logID string) error {
 	ld, ok := f.logs[logID]
 	if !ok {
-		return fmt.Errorf("no log found for %s", logID)
+		return fmt.Errorf("no data found for %s", logID)
 	}
 	// Get and parse the latest STH from the log.
 	var sthResp ct.GetSTHResponse
@@ -177,11 +179,11 @@ func (f *feeder) feedOnce(ctx context.Context, logID string) error {
 	}
 	wSize := f.latestSize(logID)
 	if wSize >= csth.TreeSize {
-		glog.V(1).Infof("Witness size %d >= log size %d for log %s - nothing to do", wSize, csth.TreeSize, logID)
+		glog.V(1).Infof("Witness size %d >= log size %d for %s - nothing to do", wSize, csth.TreeSize, ld.desc)
 		return nil
 	}
 
-	glog.Infof("Updating witness from size %d to %d for log %s", wSize, csth.TreeSize, logID)
+	glog.Infof("Updating witness from size %d to %d for %s", wSize, csth.TreeSize, ld.desc)
 	// If we want to update the witness then let's get a consistency proof.
 	var pf [][]byte
 	if wSize > 0 {
@@ -208,6 +210,7 @@ func (f *feeder) feedOnce(ctx context.Context, logID string) error {
 	// returns, even if we got wh.ErrSTHTooOld.  This is fine if we're the
 	// only feeder for this witness.
 	f.logs[logID] = logData{
+		desc:   ld.desc,
 		wsth:   wsth,
 		client: ld.client,
 	}
