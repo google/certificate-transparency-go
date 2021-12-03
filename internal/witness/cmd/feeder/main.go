@@ -48,7 +48,7 @@ type feeder struct {
 	//logID string
 	//wsth  *ct.SignedTreeHead
 	//c     *client.LogClient
-	w    wh.Witness
+	w wh.Witness
 }
 
 // logData contains the latest witnessed STH for a log and a log client.
@@ -74,16 +74,15 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 	logs := make(map[string]logData)
-	for _, operator := range logList.Operators {
+	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
+	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
-			if log.State.LogStatus() == loglist2.UsableLogStatus {
-				c, err := createLogClient(string(log.Key), log.URL)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create log client: %v", err)
-				}
-				logs[string(log.LogID)] = logData{
-				    client : c,
-				}
+			c, err := createLogClient(string(log.Key), log.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create log client: %v", err)
+			}
+			logs[string(log.LogID)] = logData{
+				client: c,
 			}
 		}
 	}
@@ -138,8 +137,8 @@ func main() {
 	}
 	// Create the feeder.
 	feeder := feeder{
-		logs:  logData,
-		w:     w,
+		logs: logData,
+		w:    w,
 	}
 	// Now feed each log one by one.
 	tik := time.NewTicker(*interval)
