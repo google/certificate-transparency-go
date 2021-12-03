@@ -32,6 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	wa "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
+	"github.com/google/certificate-transparency-go/internal/witness/verifier"
 	"github.com/google/certificate-transparency-go/jsonclient"
 )
 
@@ -61,16 +62,16 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to create public key: %v", err)
 	}
-	sv, err := ct.NewSignatureVerifier(pk)
+	wv, err := verifier.NewWitnessVerifier(pk)
 	if err != nil {
-		glog.Exitf("Failed to create signature verifier: %v", err)
+		glog.Exitf("Failed to create witness signature verifier: %v", err)
 	}
 	if wURL, err := url.Parse(*witness); err != nil {
 		glog.Exitf("Failed to parse witness URL: %v", err)
 	} else {
 		w = wh.Witness{
 			URL:      wURL,
-			Verifier: *sv,
+			Verifier: *wv,
 		}
 	}
 	// Now set up the log client.
