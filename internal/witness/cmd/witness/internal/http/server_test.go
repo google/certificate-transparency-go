@@ -57,8 +57,15 @@ F2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/
 xQ8D2Vnkl7WqNTB2kJ45aTtlF2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 -----END PUBLIC KEY-----`)
-	wPK       = "witness+f13a86db+AdYV1Ztajd9BvyjP2HgpwrqYL6TjOwIjGMOq8Bu42xbN"
-	wSK       = "PRIVATE+KEY+witness+f13a86db+AaLa/dfyBhyo/m0Z7WCi98ENVZWtrP8pxgRNrx7tIWiA"
+	wSK = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+/pzQGPt88nmVlMC
+CjHXGLH93bZ5ZkLVTjsHLi2UQiKhRANCAAQ2DYOW5eMnGcMCDtfK7aFIJg0JBKIZ
+cx8fz81azP6v6s8oYMyU5e5bYAfgm1RjGvjC2YTLqCpMvSIeK+rudqg4
+-----END PRIVATE KEY-----`
+	wPK = mustCreatePK(`-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENg2DluXjJxnDAg7Xyu2hSCYNCQSi
+GXMfH8/NWsz+r+rPKGDMlOXuW2AH4JtUYxr4wtmEy6gqTL0iHivq7naoOA==
+-----END PUBLIC KEY-----`)
 	mInit     = []byte(`{"tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA4CEXH2Z+T4Rcj3YTvgK5qM9NuFYHipI13Il6A/ozTFUCIBDY1VDFy8ZezXsuWNs+iLzkyO5I5kCZldGeMvspHOof"}`)
 	bInit     = []byte(`{"tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMASDBGAiEAjSUy1d7/n1MOYWCnx2DzU3nQk1OUHzRtFJl+eDCquBsCIQDEG2vk1A+LmHZfyt/BN4by2324rxWFFzAeG1f2EyXk9w=="}`)
 	mNext     = []byte(`{"tree_size":8,"timestamp":1,"sha256_root_hash":"V8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=","tree_head_signature":"BAMARjBEAiB9SZfr3JJbLsSE4mhnHE9hbcbu97nsbKcONnXeJXeigwIgJTWVh5FLNfUre5uCRLY4B1KEyS8tcGbaaHdEMk2WAmc="}`)

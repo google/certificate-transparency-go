@@ -20,11 +20,18 @@ package witness
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/x509"
 	"database/sql"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"reflect"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/internal/witness/api"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962"
 	"google.golang.org/grpc/codes"
@@ -42,7 +49,7 @@ type Opts struct {
 // of logs for which it stores and verifies STHs.
 type Witness struct {
 	db   *sql.DB
-	sk   string
+	sk   crypto.PrivateKey
 	Logs map[string]ct.SignatureVerifier
 }
 
@@ -51,17 +58,34 @@ func New(wo Opts) (*Witness, error) {
 	// Create the sths table if needed.
 	_, err := wo.DB.Exec(`CREATE TABLE IF NOT EXISTS sths (logID BLOB PRIMARY KEY, sth BLOB)`)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create table: %v", err)
+	}
+	// Parse the PEM-encoded secret key.
+	p, _ := pem.Decode([]byte(wo.PrivKey))
+	if p == nil {
+		return nil, errors.New("no PEM block found in secret key string")
+	}
+	sk, err := x509.ParsePKCS8PrivateKey(p.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %v", err)
+	}
+	// x509 can return either the key object or a pointer to it.  This
+	// discrepancy is handled in the same way as in tls/signature_test.go,
+	// namely changing it to be the object if it's a pointer.
+	if reflect.TypeOf(sk).Kind() == reflect.Ptr {
+		sk = reflect.ValueOf(sk).Elem().Interface()
 	}
 	return &Witness{
 		db:   wo.DB,
-		sk:   wo.PrivKey,
+		sk:   sk,
 		Logs: wo.KnownLogs,
 	}, nil
 }
 
 // parse verifies the STH under the appropriate key for logID and returns
 // the parsed STH.
+// This assumes sthRaw parses as a SignedTreeHead (not a CosignedSTH), so STHs are
+// stored unsigned and signed only right when they are being returned.
 func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error) {
 	sv, ok := w.Logs[logID]
 	if !ok {
@@ -104,14 +128,22 @@ func (w *Witness) GetLogs() ([]string, error) {
 	return logs, nil
 }
 
-// GetSTH gets an STH for a given log, which is consistent with all
+// GetSTH gets a cosigned STH for a given log, which is consistent with all
 // other STHs for the same log signed by this witness.
 func (w *Witness) GetSTH(logID string) ([]byte, error) {
-	sth, err := w.getLatestSTH(w.db.QueryRow, logID)
+	sthRaw, err := w.getLatestSTH(w.db.QueryRow, logID)
 	if err != nil {
 		return nil, err
 	}
-	return sth, nil
+	sth, err := w.parse(sthRaw, logID)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse raw STH: %v", err)
+	}
+	signed, err := w.signSTH(sth)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't sign retrieved STH: %v", err)
+	}
+	return signed, nil
 }
 
 // Update updates the latest STH if nextRaw is consistent with the current
@@ -141,13 +173,12 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// If there was nothing stored already then treat this new
 		// STH as trust-on-first-use (TOFU).
 		if status.Code(err) == codes.NotFound {
-			// Store a witness cosigned version of the STH.
+			if err := w.setSTH(tx, logID, nextRaw); err != nil {
+				return nil, fmt.Errorf("couldn't set TOFU STH: %v", err)
+			}
 			signed, err := w.signSTH(next)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't sign input STH: %v", err)
-			}
-			if err := w.setSTH(tx, logID, signed); err != nil {
-				return nil, fmt.Errorf("couldn't set TOFU STH: %v", err)
+				return nil, fmt.Errorf("couldn't sign STH: %v", err)
 			}
 			return signed, nil
 		}
@@ -176,25 +207,36 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// Complain if the STHs aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}
-	// If the consistency proof is good we store the witness cosigned STH.
+	// If the consistency proof is good we store the raw STH and return the
+	// signed one.
+	if err := w.setSTH(tx, logID, nextRaw); err != nil {
+		return nil, fmt.Errorf("failed to store new STH: %v", err)
+	}
 	signed, err := w.signSTH(next)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't sign input STH: %v", err)
-	}
-	if err := w.setSTH(tx, logID, signed); err != nil {
-		return nil, fmt.Errorf("failed to store new STH: %v", err)
+		return nil, fmt.Errorf("failed to sign new STH: %v", err)
 	}
 	return signed, nil
 }
 
 // signSTH adds the witness' signature to an STH.
-// TODO(meiklejohn): actually sign it once we decide on a good format.
 func (w *Witness) signSTH(sth *ct.SignedTreeHead) ([]byte, error) {
-	sthRaw, err := json.Marshal(sth)
+	sigInput, err := tls.Marshal(*sth)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't marshal STH: %v", err)
+		return nil, fmt.Errorf("couldn't marshal signature input: %v", err)
 	}
-	return sthRaw, nil
+	sig, err := tls.CreateSignature(w.sk, tls.SHA256, sigInput)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't sign STH data: %v", err)
+	}
+	cosigned := api.CosignedSTH{SignedTreeHead: *sth,
+		WitnessSigs: []ct.DigitallySigned{ct.DigitallySigned(sig)},
+	}
+	cosignedRaw, err := json.Marshal(cosigned)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't marshal cosigned STH: %v", err)
+	}
+	return cosignedRaw, nil
 }
 
 // getLatestSTH returns the raw stored data for the latest STH of a given log.
