@@ -77,11 +77,12 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
-			c, err := createLogClient(string(log.Key), log.URL)
+			logID := base64.StdEncoding.EncodeToString(log.LogID)
+			c, err := createLogClient(log.Key, log.URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create log client: %v", err)
 			}
-			logs[string(log.LogID)] = logData{
+			logs[logID] = logData{
 				client: c,
 			}
 		}
@@ -89,14 +90,10 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 	return logs, nil
 }
 
-func createLogClient(key string, url string) (*client.LogClient, error) {
-	der, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		glog.Exitf("Failed to decode public key: %v", err)
-	}
+func createLogClient(key []byte, url string) (*client.LogClient, error) {
 	pemPK := pem.EncodeToMemory(&pem.Block{
 		Type:  "PUBLIC KEY",
-		Bytes: der,
+		Bytes: key,
 	})
 	opts := jsonclient.Options{PublicKey: string(pemPK)}
 	c, err := client.New(url, http.DefaultClient, opts)
@@ -110,24 +107,12 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 	// Set up the witness client.
-	if *logPK == "" {
-		glog.Exit("--log_pk must not be empty")
-	}
 	var w wh.Witness
-	pk, err := ct.PublicKeyFromB64(*logPK)
-	if err != nil {
-		glog.Exitf("Failed to create public key: %v", err)
-	}
-	sv, err := ct.NewSignatureVerifier(pk)
-	if err != nil {
-		glog.Exitf("Failed to create signature verifier: %v", err)
-	}
 	if wURL, err := url.Parse(*witness); err != nil {
 		glog.Exitf("Failed to parse witness URL: %v", err)
 	} else {
 		w = wh.Witness{
-			URL:      wURL,
-			Verifier: *sv,
+			URL: wURL,
 		}
 	}
 	// Now set up the log data (with no initial witness STH).
