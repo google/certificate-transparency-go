@@ -39,15 +39,12 @@ import (
 var (
 	logList  = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
 	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
-	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
+	interval = flag.Duration("poll", 30*time.Second, "How quickly to poll the log to get updates")
 )
 
 // feeder contains a map from log IDs to logData and a witness client.
 type feeder struct {
 	logs map[string]logData
-	//logID string
-	//wsth  *ct.SignedTreeHead
-	//c     *client.LogClient
 	w wh.Witness
 }
 
@@ -92,6 +89,7 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 	return logs, nil
 }
 
+// createLogClient creates a CT log client from a public key and URL.
 func createLogClient(key []byte, url string) (*client.LogClient, error) {
 	pemPK := pem.EncodeToMemory(&pem.Block{
 		Type:  "PUBLIC KEY",
