@@ -66,7 +66,7 @@ func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
-		// And then to create the (alphanumeric) logID.
+		// And then to create the logID.
 		logID, err := api.LogIDFromPubKey(log.PubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log id: %v", err)
@@ -104,7 +104,9 @@ func Main(ctx context.Context, opts ServerOpts) error {
 
 	glog.Infof("Starting witness server...")
 	srv := ih.NewServer(w)
-	r := mux.NewRouter()
+	// These options are required as some logID values contain forward
+	// slashes, and will be PathUnescape-d later.
+	r := mux.NewRouter().UseEncodedPath()
 	srv.RegisterHandlers(r)
 	hServer := &http.Server{
 		Addr:    opts.ListenAddr,

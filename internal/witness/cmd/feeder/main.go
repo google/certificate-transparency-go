@@ -39,13 +39,13 @@ import (
 var (
 	logList  = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
 	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
-	interval = flag.Duration("poll", 30*time.Second, "How quickly to poll the log to get updates")
+	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
 
 // feeder contains a map from log IDs to logData and a witness client.
 type feeder struct {
 	logs map[string]logData
-	w wh.Witness
+	w    wh.Witness
 }
 
 // logData contains the latest witnessed STH for a log and a log client.

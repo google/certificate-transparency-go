@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/google/certificate-transparency-go/internal/witness/api"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
@@ -45,7 +46,10 @@ func NewServer(witness *witness.Witness) *Server {
 // statement and returns a JSON-formatted api.UpdateResponse statement.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
-	logID := v["logid"]
+	logID, err := url.PathUnescape(v["logid"])
+	if err != nil {
+		http.Error(w, fmt.Sprintf("cannot parse URL: %v", err.Error()), http.StatusBadRequest)
+	}
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
@@ -80,7 +84,10 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 // getSTH returns an STH stored for a given log.
 func (s *Server) getSTH(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
-	logID := v["logid"]
+	logID, err := url.PathUnescape(v["logid"])
+	if err != nil {
+		http.Error(w, fmt.Sprintf("cannot parse URL: %v", err.Error()), http.StatusBadRequest)
+	}
 	// Get the STH from the witness.
 	sth, err := s.w.GetSTH(logID)
 	if err != nil {
