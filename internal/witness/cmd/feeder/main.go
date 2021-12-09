@@ -42,21 +42,21 @@ var (
 	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
 
-// feeder contains a map from log IDs to logData and a witness client.
+// feeder contains a map from log IDs to ctLogs and a witness client.
 type feeder struct {
-	logs map[string]logData
+	logs map[string]ctLog
 	w    wh.Witness
 }
 
-// logData contains the latest witnessed STH for a log and a log client.
-type logData struct {
+// ctLog contains the latest witnessed STH for a log and a log client.
+type ctLog struct {
 	desc   string
 	wsth   *ct.SignedTreeHead
 	client *client.LogClient
 }
 
-// setupLogs populates the feeder's logs map based on the logList.
-func populateLogs(logListURL string) (map[string]logData, error) {
+// populateLogs populates a ctLog map based on the log list.
+func populateLogs(logListURL string) (map[string]ctLog, error) {
 	resp, err := http.Get(logListURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve log list: %v", err)
@@ -71,7 +71,7 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
-	logs := make(map[string]logData)
+	logs := make(map[string]ctLog)
 	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
@@ -80,7 +80,7 @@ func populateLogs(logListURL string) (map[string]logData, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create log client: %v", err)
 			}
-			logs[logID] = logData{
+			logs[logID] = ctLog{
 				desc:   log.Description,
 				client: c,
 			}
@@ -116,13 +116,13 @@ func main() {
 		}
 	}
 	// Now set up the log data (with no initial witness STH).
-	logData, err := populateLogs(*logList)
+	ctLogs, err := populateLogs(*logList)
 	if err != nil {
 		glog.Exitf("Failed to set up log data: %v", err)
 	}
 	// Create the feeder.
 	feeder := feeder{
-		logs: logData,
+		logs: ctLogs,
 		w:    w,
 	}
 	// Now feed each log one by one.
@@ -207,7 +207,7 @@ func (f *feeder) feedOnce(ctx context.Context, logID string) error {
 	// For now just update our local state with whatever the witness
 	// returns, even if we got wh.ErrSTHTooOld.  This is fine if we're the
 	// only feeder for this witness.
-	f.logs[logID] = logData{
+	f.logs[logID] = ctLog{
 		desc:   ld.desc,
 		wsth:   wsth,
 		client: ld.client,
