@@ -29,7 +29,10 @@ import (
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
-	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for STHs, e.g. /tmp/chkpts.db")
+	// If this is run with an in-memory database there is a good chance of the
+	// witness occasionally hitting a race condition and returning a 500.  If
+	// a file is specified this won't happen.
+	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for STHs, e.g. /tmp/sths.db")
 	configFile = flag.String("config_file", "example_config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
 	witnessSK  = flag.String("private_key", "", "private signing key for the witness")
 )

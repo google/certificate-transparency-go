@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -121,28 +122,22 @@ func main() {
 		glog.Exitf("Failed to set up log data: %v", err)
 	}
 	// Create the feeder.
-	feeder := feeder{
+	f := feeder{
 		logs: ctLogs,
 		w:    w,
 	}
-	// Now feed each log one by one.
-	tik := time.NewTicker(*interval)
-	for {
-		for id, ld := range feeder.logs {
-			wSize := feeder.latestSize(id)
-			glog.V(2).Infof("Tick: start feedOnce for %s (witness size %d)", ld.desc, wSize)
-			if err := feeder.feedOnce(ctx, id); err != nil {
-				glog.Warningf("Failed to feed for %s: %v", ld.desc, err)
+	// Now feed each log.
+	wg := &sync.WaitGroup{}
+	for id, ld := range ctLogs {
+		wg.Add(1)
+		go func(f feeder, logName, id string) {
+			defer wg.Done()
+			if err := f.feedLog(ctx, logName, id, *interval); err != nil {
+				glog.Errorf("feedLog: %v", err)
 			}
-			glog.V(2).Infof("Tick: feedOnce complete for %s (witness size %d)", ld.desc, wSize)
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-tik.C:
-			}
-		}
+		}(f, ld.desc, id)
 	}
+	wg.Wait()
 }
 
 // latestSize returns the size of the latest witness STH held by the feeder for
@@ -156,6 +151,32 @@ func (f *feeder) latestSize(logID string) uint64 {
 		return ld.wsth.TreeSize
 	}
 	return 0
+}
+
+// feedLog feeds continuously for a given log, returning only when the context
+// is done.
+func (f *feeder) feedLog(ctx context.Context, logName, logID string, interval time.Duration) error {
+	tik := time.NewTicker(interval)
+	defer tik.Stop()
+	for {
+		func() {
+			wSize := f.latestSize(logID)
+			ctx, cancel := context.WithTimeout(ctx, interval)
+			defer cancel()
+
+			glog.V(2).Infof("Start feedOnce for %s (witness size %d)", logName, wSize)
+			if err := f.feedOnce(ctx, logID); err != nil {
+				glog.Warningf("Failed to feed for %s: %v", logName, err)
+			}
+			glog.V(2).Infof("feedOnce complete for %s (witness size %d)", logName, wSize)
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tik.C:
+		}
+	}
 }
 
 // feedOnce attempts to update the STH held by the witness to the latest STH
