@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.17-alpine AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -16,10 +16,10 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o /build/bin/witness ./internal/witness/cmd/witness
+RUN go build -o /build/bin/feeder ./internal/witness/cmd/feeder
 
 # Build release image
-FROM golang:buster
+FROM alpine
 
-COPY --from=builder /build/bin/witness /bin/witness
-ENTRYPOINT ["/bin/witness"]
+COPY --from=builder /build/bin/feeder /bin/feeder
+ENTRYPOINT ["/bin/feeder"]

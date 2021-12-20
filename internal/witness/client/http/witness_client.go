@@ -45,7 +45,7 @@ type Witness struct {
 
 // GetLatestSTH returns a recent STH from the witness for the specified log ID.
 func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error) {
-	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPGetSTH, url.QueryEscape(logID)))
+	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPGetSTH, url.PathEscape(logID)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
@@ -77,7 +77,7 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal update request: %v", err)
 	}
-	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPUpdate, url.QueryEscape(logID)))
+	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPUpdate, url.PathEscape(logID)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
