@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main is for populating the witness config file according to a set
-// of logs.
+// config is a tool to populate the witness config file according to a set of logs.
 package main
 
 import (
@@ -29,13 +28,13 @@ import (
 )
 
 var (
+	// This currently supports only HTTP-based URLs.
 	logList    = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
 	configFile = flag.String("config_file", "config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
 )
 
 func main() {
 	flag.Parse()
-	var config impl.LogConfig
 	// Get all usable logs from the log list.
 	resp, err := http.Get(*logList)
 	if err != nil {
@@ -51,6 +50,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("failed to parse JSON: %v", err)
 	}
+	var config impl.LogConfig
 	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
