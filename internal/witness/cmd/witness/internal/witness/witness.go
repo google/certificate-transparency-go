@@ -83,7 +83,8 @@ func New(wo Opts) (*Witness, error) {
 }
 
 // parse verifies the STH under the appropriate key for logID and returns
-// the parsed STH.
+// the parsed STH.  If the STH contained an incorrect logID the witness returns
+// an error indicating this, and if the logID is missing the witness fills it in.
 // This assumes sthRaw parses as a SignedTreeHead (not a CosignedSTH), so STHs are
 // stored unsigned and signed only right when they are being returned.
 func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error) {
@@ -98,6 +99,16 @@ func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error)
 	sth, err := sthJSON.ToSignedTreeHead()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create STH: %v", err)
+	}
+	var idHash ct.SHA256Hash
+	if err := idHash.FromBase64String(logID); err != nil {
+		return nil, fmt.Errorf("failed to decode logID: %v", err)
+	}
+	var empty ct.SHA256Hash
+	if reflect.DeepEqual(sth.LogID, empty) {
+		sth.LogID = idHash
+	} else if !reflect.DeepEqual(sth.LogID, idHash) {
+		return nil, status.Errorf(codes.FailedPrecondition, "STH logID = %q, input logID = %q", sth.LogID.Base64String(), logID)
 	}
 	if err := sv.VerifySTHSignature(*sth); err != nil {
 		return nil, fmt.Errorf("failed to verify STH signature: %v", err)

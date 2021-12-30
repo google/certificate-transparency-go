@@ -44,6 +44,7 @@ AcWDaKYB/Yr3fq/5lNqJBRjsOnI4KkaEtw==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/
 tOZ+GUrGjNC0CrTqSylMuU1fAcWDaKYB/Yr3fq/5lNqJBRjsOnI4KkaEtw==
 -----END PUBLIC KEY-----`)
+	mID = "fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI="
 	bSK = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIICRst6QhwffAkeOQGIhcCSmB7/LYQXevwrv8TD9FjU7oAoGCCqGSM49
 AwEHoUQDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/xQ8D2Vnkl7WqNTB2kJ45aTtl
@@ -53,6 +54,7 @@ F2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/
 xQ8D2Vnkl7WqNTB2kJ45aTtlF2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 -----END PUBLIC KEY-----`)
+	bID = "CwWwEY4IKzy1bfZ6QW0IU9mky0ruOQvzWOYkmRGMVP4="
 	wSK = `-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+/pzQGPt88nmVlMC
 CjHXGLH93bZ5ZkLVTjsHLi2UQiKhRANCAAQ2DYOW5eMnGcMCDtfK7aFIJg0JBKIZ
@@ -144,12 +146,12 @@ func TestGetLogs(t *testing.T) {
 			logIDs: []string{},
 		}, {
 			desc:   "one log",
-			logIDs: []string{"monkeys"},
+			logIDs: []string{mID},
 			logPKs: []crypto.PublicKey{mPK},
 			sths:   [][]byte{mInit},
 		}, {
 			desc:   "two logs",
-			logIDs: []string{"bananas", "monkeys"},
+			logIDs: []string{bID, mID},
 			logPKs: []crypto.PublicKey{bPK, mPK},
 			sths:   [][]byte{bInit, mInit},
 		},
@@ -202,25 +204,25 @@ func TestGetSTH(t *testing.T) {
 	}{
 		{
 			desc:      "happy path",
-			setID:     "monkeys",
+			setID:     mID,
 			setPK:     mPK,
-			queryID:   "monkeys",
+			queryID:   mID,
 			queryPK:   mPK,
 			sth:       mInit,
 			wantThere: true,
 		}, {
 			desc:      "other log",
-			setID:     "monkeys",
+			setID:     mID,
 			setPK:     mPK,
-			queryID:   "bananas",
+			queryID:   bID,
 			queryPK:   bPK,
 			sth:       mInit,
 			wantThere: false,
 		}, {
 			desc:      "nothing there",
-			setID:     "monkeys",
+			setID:     mID,
 			setPK:     mPK,
-			queryID:   "monkeys",
+			queryID:   mID,
 			queryPK:   mPK,
 			sth:       nil,
 			wantThere: false,
@@ -305,13 +307,28 @@ func TestUpdate(t *testing.T) {
 				dh("dddd", 2),
 			},
 			isGood: false,
+		}, {
+			desc:     "right logID",
+			initSTH:  []byte(`{"log_id":"fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA0aOuKMp6aXwb5TJiJ6H3nWVxsMgYajyAvbuY5/dkcTUCIBt1VOnAwMfzreOu3RgVs8Xt8XicgaEVH8Vm+TqpXisO"}`),
+			initSize: 5,
+			newSTH:   mNext,
+			pf:       consProof,
+			isGood:   true,
+		}, {
+			desc:     "wrong logID",
+			initSTH:  []byte(`{"log_id":"aaaaa/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA0aOuKMp6aXwb5TJiJ6H3nWVxsMgYajyAvbuY5/dkcTUCIBt1VOnAwMfzreOu3RgVs8Xt8XicgaEVH8Vm+TqpXisO"}`),
+			initSize: 5,
+			newSTH:   mNext,
+			pf:       consProof,
+			// Right now this is fine because ToSignedTreeHead ignores any input logID.
+			isGood: true,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			d, closeFn := mustCreateDB(t)
 			defer closeFn()
 			ctx := context.Background()
-			logID := "monkeys"
+			logID := mID
 			// Set up witness.
 			w := newWitness(t, d, []logOpts{{ID: logID,
 				PK: mPK}})
