@@ -38,10 +38,27 @@ import (
 )
 
 var (
-	logList  = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
-	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
-	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
+	logList     = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
+	witness     = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
+	interval    = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
+	getByScheme = map[string]func(*url.URL) ([]byte, error){
+		"http":  readHTTP,
+		"https": readHTTP,
+		"file": func(u *url.URL) ([]byte, error) {
+			return ioutil.ReadFile(u.Path)
+		},
+	}
 )
+
+// readHTTP fetches and reads data from an HTTP-based URL.
+func readHTTP(u *url.URL) ([]byte, error) {
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
 
 // ctLog contains the latest witnessed STH for a log and a log client.
 type ctLog struct {
@@ -53,14 +70,18 @@ type ctLog struct {
 
 // populateLogs populates a list of ctLogs based on the log list.
 func populateLogs(logListURL string) ([]ctLog, error) {
-	resp, err := http.Get(logListURL)
+	u, err := url.Parse(logListURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve log list: %v", err)
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	s := u.Scheme
+	queryFn, ok := getByScheme[s]
+	if !ok {
+		return nil, fmt.Errorf("failed to identify suitable scheme for the URL %q", logListURL)
+	}
+	body, err := queryFn(u)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read HTTP response: %v", err)
+		return nil, fmt.Errorf("failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
 	logList, err := loglist2.NewFromJSON(body)

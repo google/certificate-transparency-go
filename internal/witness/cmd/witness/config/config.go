@@ -20,6 +20,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
@@ -28,22 +29,43 @@ import (
 )
 
 var (
-	// This currently supports only HTTP-based URLs.
-	logList    = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
-	configFile = flag.String("config_file", "config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
+	// This can be either an HTTP- or filesystem-based URL.
+	logList     = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
+	configFile  = flag.String("config_file", "config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
+	getByScheme = map[string]func(*url.URL) ([]byte, error){
+		"http":  readHTTP,
+		"https": readHTTP,
+		"file": func(u *url.URL) ([]byte, error) {
+			return ioutil.ReadFile(u.Path)
+		},
+	}
 )
+
+// readHTTP fetches and reads data from an HTTP-based URL.
+func readHTTP(u *url.URL) ([]byte, error) {
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
 
 func main() {
 	flag.Parse()
 	// Get all usable logs from the log list.
-	resp, err := http.Get(*logList)
+	u, err := url.Parse(*logList)
 	if err != nil {
-		glog.Exitf("Failed to retrieve log list: %v", err)
+		glog.Exitf("Failed to parse log_list_url as a URL: %v", err)
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	s := u.Scheme
+	queryFn, ok := getByScheme[s]
+	if !ok {
+		glog.Exitf("Failed to identify suitable scheme for the URL %q", *logList)
+	}
+	body, err := queryFn(u)
 	if err != nil {
-		glog.Exitf("Failed to read HTTP response: %v", err)
+		glog.Exitf("Failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
 	logList, err := loglist2.NewFromJSON(body)
