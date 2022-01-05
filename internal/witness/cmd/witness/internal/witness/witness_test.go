@@ -309,19 +309,18 @@ func TestUpdate(t *testing.T) {
 			isGood: false,
 		}, {
 			desc:     "right logID",
-			initSTH:  []byte(`{"log_id":"fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA0aOuKMp6aXwb5TJiJ6H3nWVxsMgYajyAvbuY5/dkcTUCIBt1VOnAwMfzreOu3RgVs8Xt8XicgaEVH8Vm+TqpXisO"}`),
+			initSTH:  mInit,
 			initSize: 5,
-			newSTH:   mNext,
+			newSTH:   []byte(`{"log_id":"fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":8,"timestamp":1,"sha256_root_hash":"V8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=","tree_head_signature":"BAMARzBFAiEA2yPvkeRF0cvGOAxx0s+NUf7LT9gumx3MDYob3swzgHgCICGN1tbbu8FqagkE5kV0DSL3CsQWjv095AeL7b+iFMOu"}`),
 			pf:       consProof,
 			isGood:   true,
 		}, {
 			desc:     "wrong logID",
-			initSTH:  []byte(`{"log_id":"aaaaa/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":5,"timestamp":0,"sha256_root_hash":"41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=","tree_head_signature":"BAMARzBFAiEA0aOuKMp6aXwb5TJiJ6H3nWVxsMgYajyAvbuY5/dkcTUCIBt1VOnAwMfzreOu3RgVs8Xt8XicgaEVH8Vm+TqpXisO"}`),
+			initSTH:  mInit,
 			initSize: 5,
-			newSTH:   mNext,
+			newSTH:   []byte(`{"log_id":"aaaaa/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI=","tree_size":8,"timestamp":1,"sha256_root_hash":"V8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=","tree_head_signature":"BAMARzBFAiEA2yPvkeRF0cvGOAxx0s+NUf7LT9gumx3MDYob3swzgHgCICGN1tbbu8FqagkE5kV0DSL3CsQWjv095AeL7b+iFMOu"}`),
 			pf:       consProof,
-			// Right now this is fine because ToSignedTreeHead ignores any input logID.
-			isGood: true,
+			isGood:   false,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

@@ -92,13 +92,9 @@ func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error)
 	if !ok {
 		return nil, fmt.Errorf("log %q not found", logID)
 	}
-	var sthJSON ct.GetSTHResponse
-	if err := json.Unmarshal(sthRaw, &sthJSON); err != nil {
+	var sth ct.SignedTreeHead
+	if err := json.Unmarshal(sthRaw, &sth); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %v", err)
-	}
-	sth, err := sthJSON.ToSignedTreeHead()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create STH: %v", err)
 	}
 	var idHash ct.SHA256Hash
 	if err := idHash.FromBase64String(logID); err != nil {
@@ -110,10 +106,10 @@ func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error)
 	} else if !reflect.DeepEqual(sth.LogID, idHash) {
 		return nil, status.Errorf(codes.FailedPrecondition, "STH logID = %q, input logID = %q", sth.LogID.Base64String(), logID)
 	}
-	if err := sv.VerifySTHSignature(*sth); err != nil {
+	if err := sv.VerifySTHSignature(sth); err != nil {
 		return nil, fmt.Errorf("failed to verify STH signature: %v", err)
 	}
-	return sth, nil
+	return &sth, nil
 }
 
 // GetLogs returns a list of all logs the witness is aware of.
