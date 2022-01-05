@@ -32,9 +32,9 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/google/trillian/monitoring"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -304,7 +304,7 @@ type hammerState struct {
 	// Operations that are required to fix dependencies.
 	nextOp []ctfe.EntrypointName
 	// verifier is the verifier to be used for this log.
-	verifier logverifier.LogVerifier
+	verifier merkle.LogVerifier
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -338,7 +338,7 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	state := hammerState{
 		cfg:      cfg,
 		nextOp:   make([]ctfe.EntrypointName, 0),
-		verifier: logverifier.New(rfc6962.DefaultHasher),
+		verifier: merkle.NewLogVerifier(rfc6962.DefaultHasher),
 	}
 	return &state, nil
 }

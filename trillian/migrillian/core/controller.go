@@ -30,11 +30,11 @@ import (
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/util/clock"
 	"github.com/google/trillian/util/election2"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 var (
@@ -344,7 +344,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, roo
 	if err != nil {
 		return err
 	}
-	return logverifier.New(rfc6962.DefaultHasher).VerifyConsistencyProof(
+	return merkle.NewLogVerifier(rfc6962.DefaultHasher).VerifyConsistencyProof(
 		int64(treeSize), int64(sth.TreeSize),
 		rootHash, sth.SHA256RootHash[:], proof)
 }
