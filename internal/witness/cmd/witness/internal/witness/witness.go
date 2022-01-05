@@ -32,8 +32,8 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/internal/witness/api"
 	"github.com/google/certificate-transparency-go/tls"
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -202,7 +202,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	}
 	// The only remaining option is next.Size > prev.Size. This might be
 	// valid so we verify the consistency proof.
-	logV := logverifier.New(rfc6962.DefaultHasher)
+	logV := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	if err := logV.VerifyConsistencyProof(int64(prev.TreeSize), int64(next.TreeSize), prev.SHA256RootHash[:], next.SHA256RootHash[:], proof); err != nil {
 		// Complain if the STHs aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
