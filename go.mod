@@ -15,10 +15,10 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/prometheus/client_golang v1.11.0
-	github.com/rs/cors v1.8.0
+	github.com/rs/cors v1.8.2
 	github.com/sergi/go-diff v1.2.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d // indirect
+	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
 	go.etcd.io/etcd/client/v3 v3.5.1
 	go.etcd.io/etcd/etcdctl/v3 v3.5.1
 	go.etcd.io/etcd/v3 v3.5.1
