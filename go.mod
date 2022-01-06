@@ -3,7 +3,7 @@ module github.com/google/certificate-transparency-go
 go 1.16
 
 require (
-	github.com/fullstorydev/grpcurl v1.8.2
+	github.com/fullstorydev/grpcurl v1.8.5
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
