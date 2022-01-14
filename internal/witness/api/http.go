@@ -16,10 +16,6 @@
 package api
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
-	"fmt"
-
 	ct "github.com/google/certificate-transparency-go"
 )
 
@@ -48,14 +44,4 @@ type UpdateRequest struct {
 type CosignedSTH struct {
 	ct.SignedTreeHead
 	WitnessSigs []ct.DigitallySigned `json:"witness_signatures"`
-}
-
-// LogIDFromPubKey builds the logID given the base64-encoded public key.
-func LogIDFromPubKey(pk string) (string, error) {
-	der, err := base64.StdEncoding.DecodeString(pk)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode public key: %v", err)
-	}
-	sha := sha256.Sum256(der)
-	return base64.StdEncoding.EncodeToString(sha[:]), nil
 }
