@@ -101,9 +101,9 @@ func (w *Witness) parse(sthRaw []byte, logID string) (*ct.SignedTreeHead, error)
 		return nil, fmt.Errorf("failed to decode logID: %v", err)
 	}
 	var empty ct.SHA256Hash
-	if reflect.DeepEqual(sth.LogID, empty) {
+	if bytes.Equal(sth.LogID[:], empty[:]) {
 		sth.LogID = idHash
-	} else if !reflect.DeepEqual(sth.LogID, idHash) {
+	} else if !bytes.Equal(sth.LogID[:], idHash[:]) {
 		return nil, status.Errorf(codes.FailedPrecondition, "STH logID = %q, input logID = %q", sth.LogID.Base64String(), logID)
 	}
 	if err := sv.VerifySTHSignature(sth); err != nil {
