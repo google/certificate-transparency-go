@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sort"
 	"strings"
 	"testing"
@@ -48,6 +49,7 @@ AcWDaKYB/Yr3fq/5lNqJBRjsOnI4KkaEtw==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/
 tOZ+GUrGjNC0CrTqSylMuU1fAcWDaKYB/Yr3fq/5lNqJBRjsOnI4KkaEtw==
 -----END PUBLIC KEY-----`)
+	mID = "fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI="
 	bSK = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIICRst6QhwffAkeOQGIhcCSmB7/LYQXevwrv8TD9FjU7oAoGCCqGSM49
 AwEHoUQDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/xQ8D2Vnkl7WqNTB2kJ45aTtl
@@ -57,6 +59,7 @@ F2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/
 xQ8D2Vnkl7WqNTB2kJ45aTtlF2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 -----END PUBLIC KEY-----`)
+	bID = "CwWwEY4IKzy1bfZ6QW0IU9mky0ruOQvzWOYkmRGMVP4="
 	wSK = `-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+/pzQGPt88nmVlMC
 CjHXGLH93bZ5ZkLVTjsHLi2UQiKhRANCAAQ2DYOW5eMnGcMCDtfK7aFIJg0JBKIZ
@@ -137,7 +140,7 @@ func mustCreatePK(pkPem string) crypto.PublicKey {
 }
 
 func createTestEnv(w *witness.Witness) (*httptest.Server, func()) {
-	r := mux.NewRouter()
+	r := mux.NewRouter().UseEncodedPath()
 	server := NewServer(w)
 	server.RegisterHandlers(r)
 	ts := httptest.NewServer(r)
@@ -160,18 +163,18 @@ func TestGetLogs(t *testing.T) {
 			wantBody:   []string{},
 		}, {
 			desc:       "one log",
-			logIDs:     []string{"monkeys"},
+			logIDs:     []string{mID},
 			logPKs:     []crypto.PublicKey{mPK},
 			sths:       [][]byte{mInit},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{"monkeys"},
+			wantBody:   []string{mID},
 		}, {
 			desc:       "two logs",
-			logIDs:     []string{"bananas", "monkeys"},
+			logIDs:     []string{bID, mID},
 			logPKs:     []crypto.PublicKey{bPK, mPK},
 			sths:       [][]byte{bInit, mInit},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{"bananas", "monkeys"},
+			wantBody:   []string{bID, mID},
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -238,24 +241,24 @@ func TestGetChkpt(t *testing.T) {
 	}{
 		{
 			desc:       "happy path",
-			setID:      "monkeys",
+			setID:      mID,
 			setPK:      mPK,
-			queryID:    "monkeys",
+			queryID:    mID,
 			queryPK:    mPK,
 			sth:        mInit,
 			wantStatus: http.StatusOK,
 		}, {
 			desc:       "other log",
-			setID:      "monkeys",
+			setID:      mID,
 			setPK:      mPK,
-			queryID:    "bananas",
+			queryID:    bID,
 			sth:        mInit,
 			wantStatus: http.StatusNotFound,
 		}, {
 			desc:       "nothing there",
-			setID:      "monkeys",
+			setID:      mID,
 			setPK:      mPK,
-			queryID:    "monkeys",
+			queryID:    mID,
 			sth:        nil,
 			wantStatus: http.StatusNotFound,
 		},
@@ -277,7 +280,7 @@ func TestGetChkpt(t *testing.T) {
 			ts, tsCloseFn := createTestEnv(w)
 			defer tsCloseFn()
 			client := ts.Client()
-			chkptQ := fmt.Sprintf(api.HTTPGetSTH, test.queryID)
+			chkptQ := fmt.Sprintf(api.HTTPGetSTH, url.PathEscape(test.queryID))
 			url := fmt.Sprintf("%s%s", ts.URL, chkptQ)
 			resp, err := client.Get(url)
 			if err != nil {
@@ -333,7 +336,7 @@ func TestUpdate(t *testing.T) {
 			d, closeFn := mustCreateDB(t)
 			defer closeFn()
 			ctx := context.Background()
-			logID := "monkeys"
+			logID := mID
 			// Set up witness.
 			w := newWitness(t, d, []logOpts{{ID: logID,
 				PK: mPK}})
@@ -350,7 +353,7 @@ func TestUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("couldn't parse request: %v", err)
 			}
-			url := fmt.Sprintf("%s%s", ts.URL, fmt.Sprintf(api.HTTPUpdate, logID))
+			url := fmt.Sprintf("%s%s", ts.URL, fmt.Sprintf(api.HTTPUpdate, url.PathEscape(logID)))
 			req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(reqBody)))
 			if err != nil {
 				t.Fatalf("couldn't form http request: %v", err)
