@@ -18,6 +18,7 @@ package main
 import (
 	"encoding/base64"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -30,26 +31,9 @@ import (
 
 var (
 	// This can be either an HTTP- or filesystem-based URL.
-	logList     = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
-	configFile  = flag.String("config_file", "config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
-	getByScheme = map[string]func(*url.URL) ([]byte, error){
-		"http":  readHTTP,
-		"https": readHTTP,
-		"file": func(u *url.URL) ([]byte, error) {
-			return ioutil.ReadFile(u.Path)
-		},
-	}
+	logList    = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
+	configFile = flag.String("config_file", "config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
 )
-
-// readHTTP fetches and reads data from an HTTP-based URL.
-func readHTTP(u *url.URL) ([]byte, error) {
-	resp, err := http.Get(u.String())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
-}
 
 func main() {
 	flag.Parse()
@@ -58,12 +42,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to parse log_list_url as a URL: %v", err)
 	}
-	s := u.Scheme
-	queryFn, ok := getByScheme[s]
-	if !ok {
-		glog.Exitf("Failed to identify suitable scheme for the URL %q", *logList)
-	}
-	body, err := queryFn(u)
+	body, err := readURL(u)
 	if err != nil {
 		glog.Exitf("Failed to get log list data: %v", err)
 	}
@@ -88,4 +67,32 @@ func main() {
 	if err := ioutil.WriteFile(*configFile, data, 0644); err != nil {
 		glog.Exitf("Failed to write config to file: %v", err)
 	}
+}
+
+var getByScheme = map[string]func(*url.URL) ([]byte, error){
+	"http":  readHTTP,
+	"https": readHTTP,
+	"file": func(u *url.URL) ([]byte, error) {
+		return ioutil.ReadFile(u.Path)
+	},
+}
+
+// readHTTP fetches and reads data from an HTTP-based URL.
+func readHTTP(u *url.URL) ([]byte, error) {
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
+
+// readURL fetches and reads data from an HTTP-based or filesystem URL.
+func readURL(u *url.URL) ([]byte, error) {
+	s := u.Scheme
+	queryFn, ok := getByScheme[s]
+	if !ok {
+		return nil, fmt.Errorf("failed to identify suitable scheme for the URL %q", u.String())
+	}
+	return queryFn(u)
 }

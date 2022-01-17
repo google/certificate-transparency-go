@@ -38,27 +38,10 @@ import (
 )
 
 var (
-	logList     = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
-	witness     = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
-	interval    = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
-	getByScheme = map[string]func(*url.URL) ([]byte, error){
-		"http":  readHTTP,
-		"https": readHTTP,
-		"file": func(u *url.URL) ([]byte, error) {
-			return ioutil.ReadFile(u.Path)
-		},
-	}
+	logList  = flag.String("log_list_url", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "The location of the log list")
+	witness  = flag.String("witness_url", "", "The endpoint of the witness HTTP API")
+	interval = flag.Duration("poll", 10*time.Second, "How quickly to poll the log to get updates")
 )
-
-// readHTTP fetches and reads data from an HTTP-based URL.
-func readHTTP(u *url.URL) ([]byte, error) {
-	resp, err := http.Get(u.String())
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
-}
 
 // ctLog contains the latest witnessed STH for a log and a log client.
 type ctLog struct {
@@ -74,12 +57,7 @@ func populateLogs(logListURL string) ([]ctLog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	s := u.Scheme
-	queryFn, ok := getByScheme[s]
-	if !ok {
-		return nil, fmt.Errorf("failed to identify suitable scheme for the URL %q", logListURL)
-	}
-	body, err := queryFn(u)
+	body, err := readURL(u)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get log list data: %v", err)
 	}
@@ -234,4 +212,32 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	// only feeder for this witness.
 	l.wsth = wsth
 	return nil
+}
+
+var getByScheme = map[string]func(*url.URL) ([]byte, error){
+	"http":  readHTTP,
+	"https": readHTTP,
+	"file": func(u *url.URL) ([]byte, error) {
+		return ioutil.ReadFile(u.Path)
+	},
+}
+
+// readHTTP fetches and reads data from an HTTP-based URL.
+func readHTTP(u *url.URL) ([]byte, error) {
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
+
+// readURL fetches and reads data from an HTTP-based or filesystem URL.
+func readURL(u *url.URL) ([]byte, error) {
+	s := u.Scheme
+	queryFn, ok := getByScheme[s]
+	if !ok {
+		return nil, fmt.Errorf("failed to identify suitable scheme for the URL %q", u.String())
+	}
+	return queryFn(u)
 }
