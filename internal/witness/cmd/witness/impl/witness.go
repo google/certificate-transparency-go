@@ -17,14 +17,15 @@ package impl
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/internal/witness/api"
 	ih "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/http"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
@@ -67,13 +68,23 @@ func buildLogMap(config LogConfig) (map[string]ct.SignatureVerifier, error) {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
 		// And then to create the logID.
-		logID, err := api.LogIDFromPubKey(log.PubKey)
+		logID, err := LogIDFromPubKey(log.PubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create log id: %v", err)
 		}
 		logMap[logID] = *logV
 	}
 	return logMap, nil
+}
+
+// LogIDFromPubKey builds the logID given the base64-encoded public key.
+func LogIDFromPubKey(pk string) (string, error) {
+	der, err := base64.StdEncoding.DecodeString(pk)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode public key: %v", err)
+	}
+	sha := sha256.Sum256(der)
+	return base64.StdEncoding.EncodeToString(sha[:]), nil
 }
 
 // Main sets up and runs the witness given the options.
