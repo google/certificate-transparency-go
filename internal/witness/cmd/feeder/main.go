@@ -53,14 +53,13 @@ type ctLog struct {
 
 // populateLogs populates a list of ctLogs based on the log list.
 func populateLogs(logListURL string) ([]ctLog, error) {
-	resp, err := http.Get(logListURL)
+	u, err := url.Parse(logListURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve log list: %v", err)
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := readURL(u)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read HTTP response: %v", err)
+		return nil, fmt.Errorf("failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
 	logList, err := loglist2.NewFromJSON(body)
@@ -213,4 +212,32 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	// only feeder for this witness.
 	l.wsth = wsth
 	return nil
+}
+
+var getByScheme = map[string]func(*url.URL) ([]byte, error){
+	"http":  readHTTP,
+	"https": readHTTP,
+	"file": func(u *url.URL) ([]byte, error) {
+		return ioutil.ReadFile(u.Path)
+	},
+}
+
+// readHTTP fetches and reads data from an HTTP-based URL.
+func readHTTP(u *url.URL) ([]byte, error) {
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
+
+// readURL fetches and reads data from an HTTP-based or filesystem URL.
+func readURL(u *url.URL) ([]byte, error) {
+	s := u.Scheme
+	queryFn, ok := getByScheme[s]
+	if !ok {
+		return nil, fmt.Errorf("failed to identify suitable scheme for the URL %q", u.String())
+	}
+	return queryFn(u)
 }
