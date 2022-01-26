@@ -32,15 +32,9 @@ import (
 // ErrSTHTooOld is returned if the STH passed to Update needs to be updated.
 var ErrSTHTooOld error = errors.New("STH too old")
 
-// WitnessSigVerifier verifies the witness' signature on a cosigned STH.
-type WitnessSigVerifier interface {
-	VerifySignature(cosigned wit_api.CosignedSTH) error
-}
-
 // Witness consists of the witness' URL and signature verifier.
 type Witness struct {
-	URL      *url.URL
-	Verifier WitnessSigVerifier
+	URL *url.URL
 }
 
 // GetLatestSTH returns a recent STH from the witness for the specified log ID.
