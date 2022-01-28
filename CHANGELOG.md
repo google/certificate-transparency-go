@@ -2,6 +2,10 @@
 
 ## HEAD
 
+### Integration
+
+ * Breaking change to API for  `integration.HammerCTLog`:
+    * Added `ctx` as first argument, and terminate loop if it becomes cancelled
 ## v1.1.2
 
 ### CTFE
