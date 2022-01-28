@@ -1102,12 +1102,12 @@ func (s *hammerState) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, pro
 }
 
 // HammerCTLog performs load/stress operations according to given config.
-func HammerCTLog(cfg HammerConfig) error {
+func HammerCTLog(ctx context.Context, cfg HammerConfig) error {
 	s, err := newHammerState(&cfg)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	go schedule.Every(ctx, cfg.EmitInterval, func(ctx context.Context) {
@@ -1116,6 +1116,10 @@ func HammerCTLog(cfg HammerConfig) error {
 
 	for count := uint64(1); count < cfg.Operations; count++ {
 		if err := s.retryOneOp(ctx); err != nil {
+			return err
+		}
+		// Terminate from the loop if the context is cancelled.
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 	}

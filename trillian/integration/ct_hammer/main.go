@@ -311,7 +311,7 @@ func main() {
 		}
 		go func(cfg integration.HammerConfig) {
 			defer wg.Done()
-			err := integration.HammerCTLog(cfg)
+			err := integration.HammerCTLog(ctx, cfg)
 			results <- result{prefix: cfg.LogCfg.Prefix, err: err}
 		}(cfg)
 	}
