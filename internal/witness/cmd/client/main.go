@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -62,6 +63,12 @@ type ctLog struct {
 
 func main() {
 	flag.Parse()
+	if *witness == "" {
+		glog.Exit("--witness_url must not be empty")
+	}
+	if *witnessPK == "" {
+		glog.Exit("--witness_pk must not be empty")
+	}
 	ctx := context.Background()
 	// Set up the witness client.
 	wURL, err := url.Parse(*witness)
@@ -121,8 +128,9 @@ func populateLogs(logListURL string) ([]ctLog, error) {
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
 			logID := base64.StdEncoding.EncodeToString(log.LogID)
-			logPK := base64.StdEncoding.EncodeToString(log.Key)
-			pk, err := ct.PublicKeyFromB64(logPK)
+			//logPK := base64.StdEncoding.EncodeToString(log.Key)
+			//pk, err := ct.PublicKeyFromB64(logPK)
+			pk, err := x509.ParsePKIXPublicKey(log.Key)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create public key for %s: %v", log.Description, err)
 			}
@@ -171,24 +179,24 @@ func (l *ctLog) getSTH(ctx context.Context, witness *Witness, interval time.Dura
 // in the case that it does verify.
 func (l *ctLog) getOnce(ctx context.Context, witness *Witness) error {
 	// Get and parse the latest cosigned STH from the witness.
-	var csth wit_api.CosignedSTH
+	var cSTH wit_api.CosignedSTH
 	sthRaw, err := witness.Client.GetLatestSTH(ctx, l.id)
 	if err != nil {
 		return fmt.Errorf("failed to get STH: %v", err)
 	}
-	if err := json.Unmarshal(sthRaw, &csth); err != nil {
+	if err := json.Unmarshal(sthRaw, &cSTH); err != nil {
 		return fmt.Errorf("failed to unmarshal STH: %v", err)
 	}
 	// First verify the witness signature(s).
-	if err := witness.Verifier.VerifySignature(csth); err != nil {
+	if err := witness.Verifier.VerifySignature(cSTH); err != nil {
 		return fmt.Errorf("failed to verify witness signature: %v", err)
 	}
 	// Then verify the log signature.
-	plainSTH := csth.SignedTreeHead
+	plainSTH := cSTH.SignedTreeHead
 	if err := l.verifier.VerifySTHSignature(plainSTH); err != nil {
 		return fmt.Errorf("failed to verify log signature: %v", err)
 	}
-	l.wsth = &csth
+	l.wsth = &cSTH
 	return nil
 }
 
