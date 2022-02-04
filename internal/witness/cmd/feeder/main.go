@@ -102,6 +102,9 @@ func createLogClient(key []byte, url string) (*client.LogClient, error) {
 
 func main() {
 	flag.Parse()
+	if *witness == "" {
+		glog.Exit("--witness_url must not be empty")
+	}
 	ctx := context.Background()
 	// Set up the witness client.
 	var w wh.Witness
