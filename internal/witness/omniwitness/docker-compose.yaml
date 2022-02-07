@@ -1,0 +1,38 @@
+version: '3.2'
+services:
+  witness:
+    build: 
+        context: ../../..
+        dockerfile: ./internal/witness/cmd/witness/Dockerfile
+    volumes:
+        - type: volume
+          source: data
+          target: /data
+          volume:
+            nocopy: true
+        - type: bind
+          source: ./witness_configs
+          target: /witness-config
+          read_only: true
+    command:
+      - "--listen=:8100"
+      - "--db_file=/data/witness.sqlite"
+      - "--private_key=${WITNESS_PRIVATE_KEY}"
+      - "--config_file=/witness-config/witness.yaml"
+      - "--logtostderr"
+    restart: always
+    ports:
+      - "8100:8100"
+
+  feeder:
+    depends_on:
+      - witness
+    build: 
+        context: ../../..
+        dockerfile: ./internal/witness/cmd/feeder/Dockerfile
+    command:
+      - "--witness_url=http://witness:8100"
+      - "--alsologtostderr"
+    restart: always
+volumes:
+  data:
