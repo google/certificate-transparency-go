@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -134,14 +135,6 @@ func main() {
 	wg.Wait()
 }
 
-// latestSize returns the size of the latest witness STH.
-func (l *ctLog) latestSize() uint64 {
-	if l.wsth != nil {
-		return l.wsth.TreeSize
-	}
-	return 0
-}
-
 // feed feeds continuously for a given log, returning only when the context
 // is done.
 func (l *ctLog) feed(ctx context.Context, witness *wh.Witness, interval time.Duration) error {
@@ -149,15 +142,14 @@ func (l *ctLog) feed(ctx context.Context, witness *wh.Witness, interval time.Dur
 	defer tik.Stop()
 	for {
 		func() {
-			wSize := l.latestSize()
 			ctx, cancel := context.WithTimeout(ctx, interval)
 			defer cancel()
 
-			glog.V(2).Infof("Start feedOnce for %s (witness size %d)", l.name, wSize)
+			glog.V(2).Infof("Start feedOnce for %s", l.name)
 			if err := l.feedOnce(ctx, witness); err != nil {
 				glog.Warningf("Failed to feed for %s: %v", l.name, err)
 			}
-			glog.V(2).Infof("feedOnce complete for %s (witness size %d)", l.name, wSize)
+			glog.V(2).Infof("feedOnce complete for %s", l.name)
 		}()
 
 		select {
@@ -181,7 +173,10 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse response as STH: %v", err)
 	}
-	wSize := l.latestSize()
+	wSize, err := l.latestSize(ctx, w)
+	if err != nil {
+		return fmt.Errorf("failed to get latest size for %s: %v", l.name, err)
+	}
 	if wSize >= csth.TreeSize {
 		glog.V(1).Infof("Witness size %d >= log size %d for %s - nothing to do", wSize, csth.TreeSize, l.name)
 		return nil
@@ -201,6 +196,9 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	if err != nil && !errors.Is(err, wh.ErrSTHTooOld) {
 		return fmt.Errorf("failed to update STH: %v", err)
 	}
+	if errors.Is(err, wh.ErrSTHTooOld) {
+		glog.Infof("STH mismatch at log size %d for %s", wSize, l.name)
+	}
 	// Parse the STH it returns.
 	var wsthJSON ct.GetSTHResponse
 	if err := json.Unmarshal(wsthRaw, &wsthJSON); err != nil {
@@ -215,6 +213,33 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	// only feeder for this witness.
 	l.wsth = wsth
 	return nil
+}
+
+// latestSize returns the size of the latest witness STH.  If this is nil then
+// it first checks with the witness to see if it has anything stored before
+// returning 0.
+func (l *ctLog) latestSize(ctx context.Context, w *wh.Witness) (uint64, error) {
+	if l.wsth != nil {
+		return l.wsth.TreeSize, nil
+	}
+	wsthRaw, err := w.GetLatestSTH(ctx, l.id)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// If the witness has no stored STH then 0 is the correct size.
+			return 0, nil
+		}
+		return 0, err
+	}
+	var wsthJSON ct.GetSTHResponse
+	if err := json.Unmarshal(wsthRaw, &wsthJSON); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal json: %v", err)
+	}
+	wsth, err := wsthJSON.ToSignedTreeHead()
+	if err != nil {
+		return 0, fmt.Errorf("failed to create STH: %v", err)
+	}
+	l.wsth = wsth
+	return wsth.TreeSize, nil
 }
 
 var getByScheme = map[string]func(*url.URL) ([]byte, error){
