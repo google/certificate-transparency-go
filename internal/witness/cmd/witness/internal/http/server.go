@@ -66,16 +66,14 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		// If there was a failed precondition it's possible the caller was
 		// just out of date.  Give the returned STH to help them
 		// form a new request.
-		if status.Code(err) == codes.FailedPrecondition {
-			// This is the implementation of http.Error except we don't add any trailing newline chars.
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if c := status.Code(err); c == codes.FailedPrecondition {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprint(w, err)
+			w.WriteHeader(httpForCode(c))
+			// The returned STH gets written a few lines below.
+		} else {
+			http.Error(w, fmt.Sprintf("failed to update to new STH: %v", err), httpForCode(http.StatusInternalServerError))
 			return
 		}
-		http.Error(w, fmt.Sprintf("failed to update to new STH: %v", err), httpForCode(http.StatusInternalServerError))
-		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write(sth)
