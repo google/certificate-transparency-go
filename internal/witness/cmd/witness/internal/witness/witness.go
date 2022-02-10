@@ -174,6 +174,8 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create db tx: %v", err)
 	}
+	defer tx.Rollback()
+
 	// Get the latest STH (if one exists).
 	prevRaw, err := w.getLatestSTH(tx.QueryRow, logID)
 	if err != nil {
@@ -264,8 +266,8 @@ func (w *Witness) getLatestSTH(queryRow func(query string, args ...interface{}) 
 
 // setSTH writes the STH to the database for a given log.
 func (w *Witness) setSTH(tx *sql.Tx, logID string, sth []byte) error {
-	tx.Exec(`INSERT INTO sths (logID, sth) VALUES (?, ?)
-		 ON CONFLICT(logID) DO UPDATE SET sth=excluded.sth`,
-		logID, sth)
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO sths (logID, sth) VALUES (?, ?)`, logID, sth); err != nil {
+		return fmt.Errorf("failed to update STH; %v", err)
+	}
 	return tx.Commit()
 }

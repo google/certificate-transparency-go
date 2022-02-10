@@ -198,6 +198,7 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 	}
 	if errors.Is(err, wh.ErrSTHTooOld) {
 		glog.Infof("STH mismatch at log size %d for %s", wSize, l.name)
+		glog.Infof("%s", wsthRaw)
 	}
 	// Parse the STH it returns.
 	var wsthJSON ct.GetSTHResponse
