@@ -63,11 +63,10 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	// Get the output from the witness.
 	sth, err := s.w.Update(r.Context(), logID, req.STH, req.Proof)
 	if err != nil {
-		c := status.Code(err)
 		// If there was a failed precondition it's possible the caller was
 		// just out of date.  Give the returned STH to help them
 		// form a new request.
-		if c == codes.FailedPrecondition {
+		if c := status.Code(err); c == codes.FailedPrecondition {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.WriteHeader(httpForCode(c))
 			// The returned STH gets written a few lines below.
