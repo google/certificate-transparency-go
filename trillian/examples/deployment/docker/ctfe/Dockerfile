@@ -1,15 +1,20 @@
 FROM golang:buster as build
 
-ADD . /go/src/github.com/google/certificate-transparency-go
-WORKDIR /go/src/github.com/google/certificate-transparency-go
-
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 ENV GO111MODULE=on
-RUN go get ./trillian/ctfe/ct_server
+
+WORKDIR /build
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+
+RUN go build ./trillian/ctfe/ct_server
 
 FROM gcr.io/distroless/base
 
-COPY --from=build /go/bin/ct_server /
+COPY --from=build /build/ct_server /
 
 ENTRYPOINT ["/ct_server"]
