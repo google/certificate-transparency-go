@@ -7,6 +7,10 @@
  * Breaking change to API for `integration.HammerCTLog`:
     * Added `ctx` as first argument, and terminate loop if it becomes cancelled
 
+### JSONClient
+
+  * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
+
 ## v1.1.2
 
 ### CTFE

@@ -295,6 +295,8 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 				// Request timeout, retry immediately
 				c.logger.Printf("Request to %s timed out, retrying immediately", c.uri)
 			case httpRsp.StatusCode == http.StatusServiceUnavailable:
+				fallthrough
+			case httpRsp.StatusCode == http.StatusTooManyRequests:
 				var backoff *time.Duration
 				// Retry-After may be either a number of seconds as a int or a RFC 1123
 				// date string (RFC 7231 Section 7.1.3)
