@@ -212,7 +212,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	// The only remaining option is next.Size > prev.Size. This might be
 	// valid so we verify the consistency proof.
 	logV := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := logV.VerifyConsistencyProof(int64(prev.TreeSize), int64(next.TreeSize), prev.SHA256RootHash[:], next.SHA256RootHash[:], proof); err != nil {
+	if err := logV.VerifyConsistency(prev.TreeSize, next.TreeSize, prev.SHA256RootHash[:], next.SHA256RootHash[:], proof); err != nil {
 		// Complain if the STHs aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}

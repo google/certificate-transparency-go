@@ -344,9 +344,8 @@ func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, roo
 	if err != nil {
 		return err
 	}
-	return merkle.NewLogVerifier(rfc6962.DefaultHasher).VerifyConsistencyProof(
-		int64(treeSize), int64(sth.TreeSize),
-		rootHash, sth.SHA256RootHash[:], proof)
+	return merkle.NewLogVerifier(rfc6962.DefaultHasher).VerifyConsistency(
+		treeSize, sth.TreeSize, rootHash, sth.SHA256RootHash[:], proof)
 }
 
 // runSubmitter obtains CT log entry batches from the controller's channel and

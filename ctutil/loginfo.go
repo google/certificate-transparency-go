@@ -166,7 +166,7 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 	}
 
 	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(treeSize), rsp.AuditPath, rootHash, leafHash[:]); err != nil {
+	if err := verifier.VerifyInclusion(uint64(rsp.LeafIndex), treeSize, leafHash[:], rsp.AuditPath, rootHash); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil

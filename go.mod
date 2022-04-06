@@ -18,7 +18,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/sergi/go-diff v1.2.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
+	github.com/transparency-dev/merkle v0.0.0-20220401133819-3a5b1d72b2dd
 	go.etcd.io/etcd/client/v3 v3.5.2
 	go.etcd.io/etcd/etcdctl/v3 v3.5.2
 	go.etcd.io/etcd/v3 v3.5.2
