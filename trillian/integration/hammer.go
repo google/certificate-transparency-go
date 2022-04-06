@@ -783,7 +783,7 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get-proof-by-hash(size=%d) on cert with SCT @ %v: %v, %+v", sth.TreeSize, timeFromMS(submitted.sct.Timestamp), err, rsp)
 	}
-	if err := s.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], submitted.leafHash[:]); err != nil {
+	if err := s.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, submitted.leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
 		return fmt.Errorf("failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	s.pending.dropOldest()
@@ -1097,8 +1097,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 
 // checkCTConsistencyProof checks the given consistency proof.
 func (s *hammerState) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
-	return s.verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
-		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
+	return s.verifier.VerifyConsistency(sth1.TreeSize, sth2.TreeSize, sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
 // HammerCTLog performs load/stress operations according to given config.

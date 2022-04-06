@@ -181,7 +181,7 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 	if err != nil {
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
-	if err := t.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+	if err := t.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
@@ -212,7 +212,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 		return fmt.Errorf("got GetProofByHash(sct, size=%d)=nil,%v", sth.TreeSize, err)
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
-	if err := t.verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], leafHash[:]); err != nil {
+	if err := t.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
 		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
@@ -815,8 +815,7 @@ func CertsFromPEM(data []byte) []ct.ASN1Cert {
 
 // checkCTConsistencyProof checks the given consistency proof.
 func (t *testInfo) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
-	return t.verifier.VerifyConsistencyProof(int64(sth1.TreeSize), int64(sth2.TreeSize),
-		sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
+	return t.verifier.VerifyConsistency(sth1.TreeSize, sth2.TreeSize, sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
 }
 
 // buildNewPrecertData creates a new pre-certificate based on the given template cert (which is

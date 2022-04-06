@@ -57,9 +57,9 @@ var (
 	chainOut        = flag.Bool("chain", false, "Display entire certificate chain")
 	getFirst        = flag.Int64("first", -1, "First entry to get")
 	getLast         = flag.Int64("last", -1, "Last entry to get")
-	treeSize        = flag.Int64("size", -1, "Tree size to query at")
+	treeSize        = flag.Uint64("size", 0, "Tree size to query at")
 	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string or base64)")
-	prevSize        = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
+	prevSize        = flag.Uint64("prev_size", 0, "Previous tree size to get consistency against")
 	prevHash        = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
 	leafHash        = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
 )
@@ -334,10 +334,10 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 		if err != nil {
 			exitWithDetails(err)
 		}
-		size = int64(sth.TreeSize)
+		size = sth.TreeSize
 	}
 	// Display the inclusion proof.
-	rsp, err := logClient.GetProofByHash(ctx, hash, uint64(size))
+	rsp, err := logClient.GetProofByHash(ctx, hash, size)
 	if err != nil {
 		exitWithDetails(err)
 	}
@@ -348,7 +348,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
 		verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-		if err := verifier.VerifyInclusionProof(rsp.LeafIndex, int64(sth.TreeSize), rsp.AuditPath, sth.SHA256RootHash[:], hash); err != nil {
+		if err := verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
 			glog.Exitf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
@@ -383,7 +383,7 @@ func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 	getConsistencyProofBetween(ctx, logClient, *prevSize, *treeSize, hash1, hash2)
 }
 
-func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second int64, prevHash, treeHash []byte) {
+func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second uint64, prevHash, treeHash []byte) {
 	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
 	if err != nil {
 		exitWithDetails(err)
@@ -397,7 +397,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 	}
 	// We have tree hashes so we can verify the proof.
 	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := verifier.VerifyConsistencyProof(first, second, prevHash, treeHash, proof); err != nil {
+	if err := verifier.VerifyConsistency(first, second, prevHash, treeHash, proof); err != nil {
 		glog.Exitf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}
 	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
