@@ -205,16 +205,6 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	}
 }
 
-func getRoots(ctx context.Context, logClient *client.LogClient) {
-	roots, err := logClient.GetAcceptedRoots(ctx)
-	if err != nil {
-		exitWithDetails(err)
-	}
-	for _, root := range roots {
-		showRawCert(root)
-	}
-}
-
 func findTimestamp(ctx context.Context, logClient *client.LogClient) {
 	if timestamp == 0 {
 		glog.Exit("No -timestamp option supplied")
@@ -472,8 +462,6 @@ func runMain(args []string) {
 	switch cmd {
 	case "upload":
 		addChain(ctx, logClient)
-	case "getroots", "get_roots", "get-roots":
-		getRoots(ctx, logClient)
 	case "inclusion", "inclusion-proof":
 		getInclusionProof(ctx, logClient)
 	case "consistency":
