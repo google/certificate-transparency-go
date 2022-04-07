@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cmd implements a command-line utility for interacting with CT logs.
+// Package cmd implements subcommands of ctclient, the command-line utility for
+// interacting with CT logs.
 package cmd
 
 import (
@@ -22,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -40,29 +40,70 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/spf13/cobra"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 var (
-	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection")
-	logName         = flag.String("log_name", "", "Name of log to retrieve information from --log_list for")
-	logList         = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
-	logURI          = flag.String("log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
-	logMMD          = flag.Duration("log_mmd", 24*time.Hour, "Log's maximum merge delay")
-	pubKey          = flag.String("pub_key", "", "Name of file containing log's public key")
-	certChain       = flag.String("cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
-	timestamp       = flag.Int64("timestamp", 0, "Timestamp to use for inclusion checking")
-	textOut         = flag.Bool("text", true, "Display certificates as text")
-	chainOut        = flag.Bool("chain", false, "Display entire certificate chain")
-	getFirst        = flag.Int64("first", -1, "First entry to get")
-	getLast         = flag.Int64("last", -1, "Last entry to get")
-	treeSize        = flag.Uint64("size", 0, "Tree size to query at")
-	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string or base64)")
-	prevSize        = flag.Uint64("prev_size", 0, "Previous tree size to get consistency against")
-	prevHash        = flag.String("prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
-	leafHash        = flag.String("leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
+	skipHTTPSVerify bool
+	logName         string
+	logList         string
+	logURI          string
+	logMMD          time.Duration
+	pubKey          string
+	certChain       string
+	timestamp       int64
+	textOut         bool
+	chainOut        bool
+	getFirst        int64
+	getLast         int64
+	treeSize        uint64
+	treeHash        string
+	prevSize        uint64
+	prevHash        string
+	leafHash        string
 )
+
+func init() {
+	flags := rootCmd.Flags()
+
+	flags.BoolVar(&skipHTTPSVerify, "skip_https_verify", false, "Skip verification of HTTPS transport connection")
+	flags.StringVar(&logName, "log_name", "", "Name of log to retrieve information from --log_list for")
+	flags.StringVar(&logList, "log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
+	flags.StringVar(&logURI, "log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
+	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
+	flags.StringVar(&pubKey, "pub_key", "", "Name of file containing log's public key")
+	flags.StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
+	flags.Int64Var(&timestamp, "timestamp", 0, "Timestamp to use for inclusion checking")
+	flags.BoolVar(&textOut, "text", true, "Display certificates as text")
+	flags.BoolVar(&chainOut, "chain", false, "Display entire certificate chain")
+	flags.Int64Var(&getFirst, "first", -1, "First entry to get")
+	flags.Int64Var(&getLast, "last", -1, "Last entry to get")
+	flags.Uint64Var(&treeSize, "size", 0, "Tree size to query at")
+	flags.StringVar(&treeHash, "tree_hash", "", "Tree hash to check against (as hex string or base64)")
+	flags.Uint64Var(&prevSize, "prev_size", 0, "Previous tree size to get consistency against")
+	flags.StringVar(&prevHash, "prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
+	flags.StringVar(&leafHash, "leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
+}
+
+// rootCmd represents the base command when called without any subcommands.
+var rootCmd = &cobra.Command{
+	Use:   "ctclient",
+	Short: "A command line client for Certificate Transparency logs",
+
+	Run: func(_ *cobra.Command, args []string) {
+		runMain(args)
+	},
+}
+
+// Execute adds all child commands to the root command and sets flags
+// appropriately. It needs to be called exactly once by main().
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
 
 func signatureToString(signed *ct.DigitallySigned) string {
 	return fmt.Sprintf("Signature: Hash=%v Sign=%v Value=%x", signed.Algorithm.Hash, signed.Algorithm.Signature, signed.Signature)
@@ -116,7 +157,7 @@ func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 		}
 	}
 	if len(chain) == 0 {
-		glog.Exitf("No certificates found in %s", *certChain)
+		glog.Exitf("No certificates found in %s", certChain)
 	}
 
 	// Also look for something like a text timestamp for convenience.
@@ -135,10 +176,10 @@ func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 }
 
 func addChain(ctx context.Context, logClient *client.LogClient) {
-	if *certChain == "" {
+	if certChain == "" {
 		glog.Exitf("No certificate chain file specified with -cert_chain")
 	}
-	chain, _ := chainFromFile(*certChain)
+	chain, _ := chainFromFile(certChain)
 
 	// Examine the leaf to see if it looks like a pre-certificate.
 	isPrecert := false
@@ -175,7 +216,7 @@ func addChain(ctx context.Context, logClient *client.LogClient) {
 	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
 
 	age := time.Since(when)
-	if age > *logMMD {
+	if age > logMMD {
 		// SCT's timestamp is old enough that the certificate should be included.
 		getInclusionProofForHash(ctx, logClient, leafHash[:])
 	}
@@ -192,19 +233,19 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 }
 
 func getEntries(ctx context.Context, logClient *client.LogClient) {
-	if *getFirst == -1 {
+	if getFirst == -1 {
 		glog.Exit("No -first option supplied")
 	}
-	if *getLast == -1 {
-		*getLast = *getFirst
+	if getLast == -1 {
+		getLast = getFirst
 	}
-	rsp, err := logClient.GetRawEntries(ctx, *getFirst, *getLast)
+	rsp, err := logClient.GetRawEntries(ctx, getFirst, getLast)
 	if err != nil {
 		exitWithDetails(err)
 	}
 
 	for i, rawEntry := range rsp.Entries {
-		index := *getFirst + int64(i)
+		index := getFirst + int64(i)
 		rle, err := ct.RawLogEntryFromLeaf(index, &rawEntry)
 		if err != nil {
 			fmt.Printf("Index=%d Failed to unmarshal leaf entry: %v", index, err)
@@ -229,7 +270,7 @@ func showRawLogEntry(rle *ct.RawLogEntry) {
 	default:
 		fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
 	}
-	if *chainOut {
+	if chainOut {
 		for _, c := range rle.Chain {
 			showRawCert(c)
 		}
@@ -237,10 +278,10 @@ func showRawLogEntry(rle *ct.RawLogEntry) {
 }
 
 func findTimestamp(ctx context.Context, logClient *client.LogClient) {
-	if *timestamp == 0 {
+	if timestamp == 0 {
 		glog.Exit("No -timestamp option supplied")
 	}
-	target := *timestamp
+	target := timestamp
 	sth, err := logClient.GetSTH(ctx)
 	if err != nil {
 		exitWithDetails(err)
@@ -277,17 +318,17 @@ func findTimestamp(ctx context.Context, logClient *client.LogClient) {
 
 func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 	var hash []byte
-	if len(*leafHash) > 0 {
+	if len(leafHash) > 0 {
 		var err error
-		hash, err = hashFromString(*leafHash)
+		hash, err = hashFromString(leafHash)
 		if err != nil {
 			glog.Exitf("Invalid --leaf_hash supplied: %v", err)
 		}
-	} else if len(*certChain) > 0 {
+	} else if len(certChain) > 0 {
 		// Build a leaf hash from the chain and a timestamp.
-		chain, entryTimestamp := chainFromFile(*certChain)
-		if *timestamp != 0 {
-			entryTimestamp = *timestamp // Use user-specified timestamp
+		chain, entryTimestamp := chainFromFile(certChain)
+		if timestamp != 0 {
+			entryTimestamp = timestamp // Use user-specified timestamp
 		}
 		if entryTimestamp == 0 {
 			glog.Exit("No timestamp available to accompany certificate")
@@ -315,8 +356,8 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 
 		// Print a warning if this timestamp is still within the MMD window
 		when := ct.TimestampToTime(uint64(entryTimestamp))
-		if age := time.Since(when); age < *logMMD {
-			glog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, *logMMD)
+		if age := time.Since(when); age < logMMD {
+			glog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, logMMD)
 		}
 	}
 	if len(hash) != sha256.Size {
@@ -327,7 +368,7 @@ func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
 
 func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClient, hash []byte) {
 	var sth *ct.SignedTreeHead
-	size := *treeSize
+	size := treeSize
 	if size <= 0 {
 		var err error
 		sth, err = logClient.GetSTH(ctx)
@@ -356,23 +397,23 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 }
 
 func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
-	if *treeSize <= 0 {
+	if treeSize <= 0 {
 		glog.Exit("No valid --size supplied")
 	}
-	if *prevSize <= 0 {
+	if prevSize <= 0 {
 		glog.Exit("No valid --prev_size supplied")
 	}
 	var hash1, hash2 []byte
-	if *prevHash != "" {
+	if prevHash != "" {
 		var err error
-		hash1, err = hashFromString(*prevHash)
+		hash1, err = hashFromString(prevHash)
 		if err != nil {
 			glog.Exitf("Invalid --prev_hash: %v", err)
 		}
 	}
-	if *treeHash != "" {
+	if treeHash != "" {
 		var err error
-		hash2, err = hashFromString(*treeHash)
+		hash2, err = hashFromString(treeHash)
 		if err != nil {
 			glog.Exitf("Invalid --tree_hash: %v", err)
 		}
@@ -380,7 +421,7 @@ func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
 	if (hash1 != nil) != (hash2 != nil) {
 		glog.Exitf("Need both --prev_hash and --tree_hash or neither")
 	}
-	getConsistencyProofBetween(ctx, logClient, *prevSize, *treeSize, hash1, hash2)
+	getConsistencyProofBetween(ctx, logClient, prevSize, treeSize, hash1, hash2)
 }
 
 func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second uint64, prevHash, treeHash []byte) {
@@ -404,7 +445,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 }
 
 func showRawCert(cert ct.ASN1Cert) {
-	if *textOut {
+	if textOut {
 		c, err := x509.ParseCertificate(cert.Data)
 		if err != nil {
 			glog.Errorf("Error parsing certificate: %q", err.Error())
@@ -419,7 +460,7 @@ func showRawCert(cert ct.ASN1Cert) {
 }
 
 func showParsedCert(cert *x509.Certificate) {
-	if *textOut {
+	if textOut {
 		fmt.Printf("%s\n", x509util.CertificateToString(cert))
 	} else {
 		showPEMData(cert.Raw)
@@ -446,14 +487,13 @@ func dieWithUsage(msg string) {
 	os.Exit(1)
 }
 
-func Execute() {
-	flag.Parse()
+func runMain(args []string) {
 	ctx := context.Background()
 
 	var tlsCfg *tls.Config
-	if *skipHTTPSVerify {
+	if skipHTTPSVerify {
 		glog.Warning("Skipping HTTPS connection verification")
-		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
+		tlsCfg = &tls.Config{InsecureSkipVerify: skipHTTPSVerify}
 	}
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -469,17 +509,17 @@ func Execute() {
 		},
 	}
 	opts := jsonclient.Options{UserAgent: "ct-go-ctclient/1.0"}
-	if *pubKey != "" {
-		pubkey, err := ioutil.ReadFile(*pubKey)
+	if pubKey != "" {
+		pubkey, err := ioutil.ReadFile(pubKey)
 		if err != nil {
 			glog.Exit(err)
 		}
 		opts.PublicKey = string(pubkey)
 	}
 
-	uri := *logURI
-	if *logName != "" {
-		llData, err := x509util.ReadFileOrURL(*logList, httpClient)
+	uri := logURI
+	if logName != "" {
+		llData, err := x509util.ReadFileOrURL(logList, httpClient)
 		if err != nil {
 			glog.Exitf("Failed to read log list: %v", err)
 		}
@@ -488,16 +528,16 @@ func Execute() {
 			glog.Exitf("Failed to build log list: %v", err)
 		}
 
-		logs := ll.FindLogByName(*logName)
+		logs := ll.FindLogByName(logName)
 		if len(logs) == 0 {
-			glog.Exitf("No log with name like %q found in loglist %q", *logName, *logList)
+			glog.Exitf("No log with name like %q found in loglist %q", logName, logList)
 		}
 		if len(logs) > 1 {
 			logNames := make([]string, len(logs))
 			for i, log := range logs {
 				logNames[i] = fmt.Sprintf("%q", log.Description)
 			}
-			glog.Exitf("Multiple logs with name like %q found in loglist: %s", *logName, strings.Join(logNames, ","))
+			glog.Exitf("Multiple logs with name like %q found in loglist: %s", logName, strings.Join(logNames, ","))
 		}
 		uri = "https://" + logs[0].URL
 		if opts.PublicKey == "" {
@@ -511,7 +551,6 @@ func Execute() {
 		glog.Exit(err)
 	}
 
-	args := flag.Args()
 	if len(args) != 1 {
 		dieWithUsage("Need command argument")
 	}
