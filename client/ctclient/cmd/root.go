@@ -32,7 +32,6 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
 )
@@ -43,8 +42,6 @@ var (
 	logList         string
 	logURI          string
 	pubKey          string
-
-	logMMD time.Duration
 )
 
 func init() {
@@ -54,8 +51,6 @@ func init() {
 	flags.StringVar(&logList, "log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
 	flags.StringVar(&logURI, "log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
 	flags.StringVar(&pubKey, "pub_key", "", "Name of file containing log's public key")
-
-	rootCmd.LocalFlags().DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 }
 
 // rootCmd represents the base command when called without any subcommands.
@@ -85,53 +80,6 @@ func exitWithDetails(err error) {
 		glog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
 	glog.Exit(err.Error())
-}
-
-func addChain(ctx context.Context, logClient *client.LogClient) {
-	if certChain == "" {
-		glog.Exitf("No certificate chain file specified with -cert_chain")
-	}
-	chain, _ := chainFromFile(certChain)
-
-	// Examine the leaf to see if it looks like a pre-certificate.
-	isPrecert := false
-	leaf, err := x509.ParseCertificate(chain[0].Data)
-	if err == nil {
-		count, _ := x509util.OIDInExtensions(x509.OIDExtensionCTPoison, leaf.Extensions)
-		if count > 0 {
-			isPrecert = true
-			fmt.Print("Uploading pre-certificate to log\n")
-		}
-	}
-
-	var sct *ct.SignedCertificateTimestamp
-	if isPrecert {
-		sct, err = logClient.AddPreChain(ctx, chain)
-	} else {
-		sct, err = logClient.AddChain(ctx, chain)
-	}
-	if err != nil {
-		exitWithDetails(err)
-	}
-	// Calculate the leaf hash
-	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
-	leafHash, err := ct.LeafHashForLeaf(leafEntry)
-	if err != nil {
-		glog.Exitf("Failed to create hash of leaf: %v", err)
-	}
-
-	// Display the SCT
-	when := ct.TimestampToTime(sct.Timestamp)
-	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %d (%v)\n", len(chain), sct.SCTVersion, logClient.BaseURI(), sct.Timestamp, when)
-	fmt.Printf("LogID: %x\n", sct.LogID.KeyID[:])
-	fmt.Printf("LeafHash: %x\n", leafHash)
-	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
-
-	age := time.Since(when)
-	if age > logMMD {
-		// SCT's timestamp is old enough that the certificate should be included.
-		getInclusionProofForHash(ctx, logClient, leafHash[:])
-	}
 }
 
 func findTimestamp(ctx context.Context, logClient *client.LogClient) {
@@ -261,8 +209,6 @@ func runMain(args []string) {
 	}
 	cmd := args[0]
 	switch cmd {
-	case "upload":
-		addChain(ctx, logClient)
 	case "bisect":
 		findTimestamp(ctx, logClient)
 	default:
