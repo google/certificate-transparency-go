@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -62,7 +61,7 @@ var rootCmd = &cobra.Command{
 // appropriately. It needs to be called exactly once by main().
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		glog.Fatal(err)
 	}
 }
 
