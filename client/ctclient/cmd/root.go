@@ -55,10 +55,6 @@ var (
 	logMMD    time.Duration
 	certChain string
 	timestamp int64
-	textOut   bool
-	chainOut  bool
-	getFirst  int64
-	getLast   int64
 	treeSize  uint64
 	treeHash  string
 	prevSize  uint64
@@ -78,10 +74,6 @@ func init() {
 	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	flags.StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	flags.Int64Var(&timestamp, "timestamp", 0, "Timestamp to use for inclusion checking")
-	flags.BoolVar(&textOut, "text", true, "Display certificates as text")
-	flags.BoolVar(&chainOut, "chain", false, "Display entire certificate chain")
-	flags.Int64Var(&getFirst, "first", -1, "First entry to get")
-	flags.Int64Var(&getLast, "last", -1, "Last entry to get")
 	flags.Uint64Var(&treeSize, "size", 0, "Tree size to query at")
 	flags.StringVar(&treeHash, "tree_hash", "", "Tree hash to check against (as hex string or base64)")
 	flags.Uint64Var(&prevSize, "prev_size", 0, "Previous tree size to get consistency against")
@@ -220,51 +212,6 @@ func getRoots(ctx context.Context, logClient *client.LogClient) {
 	}
 	for _, root := range roots {
 		showRawCert(root)
-	}
-}
-
-func getEntries(ctx context.Context, logClient *client.LogClient) {
-	if getFirst == -1 {
-		glog.Exit("No -first option supplied")
-	}
-	if getLast == -1 {
-		getLast = getFirst
-	}
-	rsp, err := logClient.GetRawEntries(ctx, getFirst, getLast)
-	if err != nil {
-		exitWithDetails(err)
-	}
-
-	for i, rawEntry := range rsp.Entries {
-		index := getFirst + int64(i)
-		rle, err := ct.RawLogEntryFromLeaf(index, &rawEntry)
-		if err != nil {
-			fmt.Printf("Index=%d Failed to unmarshal leaf entry: %v", index, err)
-			continue
-		}
-		showRawLogEntry(rle)
-	}
-}
-
-func showRawLogEntry(rle *ct.RawLogEntry) {
-	ts := rle.Leaf.TimestampedEntry
-	when := ct.TimestampToTime(ts.Timestamp)
-	fmt.Printf("Index=%d Timestamp=%d (%v) ", rle.Index, ts.Timestamp, when)
-
-	switch ts.EntryType {
-	case ct.X509LogEntryType:
-		fmt.Printf("X.509 certificate:\n")
-		showRawCert(*ts.X509Entry)
-	case ct.PrecertLogEntryType:
-		fmt.Printf("pre-certificate from issuer with keyhash %x:\n", ts.PrecertEntry.IssuerKeyHash)
-		showRawCert(rle.Cert) // As-submitted: with signature and poison.
-	default:
-		fmt.Printf("Unhandled log entry type %d\n", ts.EntryType)
-	}
-	if chainOut {
-		for _, c := range rle.Chain {
-			showRawCert(c)
-		}
 	}
 }
 
@@ -435,35 +382,6 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
 }
 
-func showRawCert(cert ct.ASN1Cert) {
-	if textOut {
-		c, err := x509.ParseCertificate(cert.Data)
-		if err != nil {
-			glog.Errorf("Error parsing certificate: %q", err.Error())
-		}
-		if c == nil {
-			return
-		}
-		showParsedCert(c)
-	} else {
-		showPEMData(cert.Data)
-	}
-}
-
-func showParsedCert(cert *x509.Certificate) {
-	if textOut {
-		fmt.Printf("%s\n", x509util.CertificateToString(cert))
-	} else {
-		showPEMData(cert.Raw)
-	}
-}
-
-func showPEMData(data []byte) {
-	if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: data}); err != nil {
-		glog.Errorf("Failed to PEM encode cert: %q", err.Error())
-	}
-}
-
 func dieWithUsage(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
@@ -556,8 +474,6 @@ func runMain(args []string) {
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
 		getRoots(ctx, logClient)
-	case "getentries", "get_entries", "get-entries":
-		getEntries(ctx, logClient)
 	case "inclusion", "inclusion-proof":
 		getInclusionProof(ctx, logClient)
 	case "consistency":
