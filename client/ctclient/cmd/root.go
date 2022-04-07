@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
@@ -57,10 +56,6 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "ctclient",
 	Short: "A command line client for Certificate Transparency logs",
-
-	Run: func(_ *cobra.Command, args []string) {
-		runMain(args)
-	},
 }
 
 // Execute adds all child commands to the root command and sets flags
@@ -80,45 +75,6 @@ func exitWithDetails(err error) {
 		glog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
 	glog.Exit(err.Error())
-}
-
-func findTimestamp(ctx context.Context, logClient *client.LogClient) {
-	if timestamp == 0 {
-		glog.Exit("No -timestamp option supplied")
-	}
-	target := timestamp
-	sth, err := logClient.GetSTH(ctx)
-	if err != nil {
-		exitWithDetails(err)
-	}
-	getEntry := func(idx int64) *ct.RawLogEntry {
-		entries, err := logClient.GetRawEntries(ctx, idx, idx)
-		if err != nil {
-			exitWithDetails(err)
-		}
-		if l := len(entries.Entries); l != 1 {
-			glog.Exitf("Unexpected number (%d) of entries received requesting index %d", l, idx)
-		}
-		logEntry, err := ct.RawLogEntryFromLeaf(idx, &entries.Entries[0])
-		if err != nil {
-			glog.Exitf("Failed to parse leaf %d: %v", idx, err)
-		}
-		return logEntry
-	}
-	// Performing a binary search assumes that the timestamps are
-	// monotonically increasing.
-	idx := sort.Search(int(sth.TreeSize), func(idx int) bool {
-		glog.V(1).Infof("check timestamp at index %d", idx)
-		entry := getEntry(int64(idx))
-		return entry.Leaf.TimestampedEntry.Timestamp >= uint64(target)
-	})
-	when := ct.TimestampToTime(uint64(target))
-	if idx >= int(sth.TreeSize) {
-		fmt.Printf("No entry with timestamp>=%d (%v) found up to tree size %d\n", target, when, sth.TreeSize)
-		return
-	}
-	fmt.Printf("First entry with timestamp>=%d (%v) found at index %d\n", target, when, idx)
-	showRawLogEntry(getEntry(int64(idx)))
 }
 
 func dieWithUsage(msg string) {
@@ -198,20 +154,4 @@ func connect(ctx context.Context) *client.LogClient {
 	}
 
 	return logClient
-}
-
-func runMain(args []string) {
-	ctx := context.Background()
-	logClient := connect(ctx)
-
-	if len(args) != 1 {
-		dieWithUsage("Need command argument")
-	}
-	cmd := args[0]
-	switch cmd {
-	case "bisect":
-		findTimestamp(ctx, logClient)
-	default:
-		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
-	}
 }
