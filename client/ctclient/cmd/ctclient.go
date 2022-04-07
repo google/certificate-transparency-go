@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ctclient is a command-line utility for interacting with CT logs.
-package main
+// Package cmd implements a command-line utility for interacting with CT logs.
+package cmd
 
 import (
 	"context"
@@ -446,7 +446,7 @@ func dieWithUsage(msg string) {
 	os.Exit(1)
 }
 
-func main() {
+func Execute() {
 	flag.Parse()
 	ctx := context.Background()
 
