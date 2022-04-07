@@ -18,10 +18,7 @@ package cmd
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -38,8 +35,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
-	"github.com/transparency-dev/merkle"
-	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 var (
@@ -49,10 +44,7 @@ var (
 	logURI          string
 	pubKey          string
 
-	logMMD   time.Duration
-	treeHash string
-	prevSize uint64
-	prevHash string
+	logMMD time.Duration
 )
 
 func init() {
@@ -63,11 +55,7 @@ func init() {
 	flags.StringVar(&logURI, "log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
 	flags.StringVar(&pubKey, "pub_key", "", "Name of file containing log's public key")
 
-	flags = rootCmd.LocalFlags()
-	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
-	flags.StringVar(&treeHash, "tree_hash", "", "Tree hash to check against (as hex string or base64)")
-	flags.Uint64Var(&prevSize, "prev_size", 0, "Previous tree size to get consistency against")
-	flags.StringVar(&prevHash, "prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
+	rootCmd.LocalFlags().DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 }
 
 // rootCmd represents the base command when called without any subcommands.
@@ -97,18 +85,6 @@ func exitWithDetails(err error) {
 		glog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
 	glog.Exit(err.Error())
-}
-
-func hashFromString(input string) ([]byte, error) {
-	hash, err := hex.DecodeString(input)
-	if err == nil && len(hash) == sha256.Size {
-		return hash, nil
-	}
-	hash, err = base64.StdEncoding.DecodeString(input)
-	if err == nil && len(hash) == sha256.Size {
-		return hash, nil
-	}
-	return nil, fmt.Errorf("hash value %q failed to parse as 32-byte hex or base64", input)
 }
 
 func addChain(ctx context.Context, logClient *client.LogClient) {
@@ -195,54 +171,6 @@ func findTimestamp(ctx context.Context, logClient *client.LogClient) {
 	}
 	fmt.Printf("First entry with timestamp>=%d (%v) found at index %d\n", target, when, idx)
 	showRawLogEntry(getEntry(int64(idx)))
-}
-
-func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
-	if treeSize <= 0 {
-		glog.Exit("No valid --size supplied")
-	}
-	if prevSize <= 0 {
-		glog.Exit("No valid --prev_size supplied")
-	}
-	var hash1, hash2 []byte
-	if prevHash != "" {
-		var err error
-		hash1, err = hashFromString(prevHash)
-		if err != nil {
-			glog.Exitf("Invalid --prev_hash: %v", err)
-		}
-	}
-	if treeHash != "" {
-		var err error
-		hash2, err = hashFromString(treeHash)
-		if err != nil {
-			glog.Exitf("Invalid --tree_hash: %v", err)
-		}
-	}
-	if (hash1 != nil) != (hash2 != nil) {
-		glog.Exitf("Need both --prev_hash and --tree_hash or neither")
-	}
-	getConsistencyProofBetween(ctx, logClient, prevSize, treeSize, hash1, hash2)
-}
-
-func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second uint64, prevHash, treeHash []byte) {
-	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
-	if err != nil {
-		exitWithDetails(err)
-	}
-	fmt.Printf("Consistency proof from size %d to size %d:\n", first, second)
-	for _, e := range proof {
-		fmt.Printf("  %x\n", e)
-	}
-	if prevHash == nil || treeHash == nil {
-		return
-	}
-	// We have tree hashes so we can verify the proof.
-	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := verifier.VerifyConsistency(first, second, prevHash, treeHash, proof); err != nil {
-		glog.Exitf("Failed to VerifyConsistency(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
-	}
-	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
 }
 
 func dieWithUsage(msg string) {
@@ -335,8 +263,6 @@ func runMain(args []string) {
 	switch cmd {
 	case "upload":
 		addChain(ctx, logClient)
-	case "consistency":
-		getConsistencyProof(ctx, logClient)
 	case "bisect":
 		findTimestamp(ctx, logClient)
 	default:
