@@ -50,30 +50,32 @@ var (
 	logName         string
 	logList         string
 	logURI          string
-	logMMD          time.Duration
 	pubKey          string
-	certChain       string
-	timestamp       int64
-	textOut         bool
-	chainOut        bool
-	getFirst        int64
-	getLast         int64
-	treeSize        uint64
-	treeHash        string
-	prevSize        uint64
-	prevHash        string
-	leafHash        string
+
+	logMMD    time.Duration
+	certChain string
+	timestamp int64
+	textOut   bool
+	chainOut  bool
+	getFirst  int64
+	getLast   int64
+	treeSize  uint64
+	treeHash  string
+	prevSize  uint64
+	prevHash  string
+	leafHash  string
 )
 
 func init() {
-	flags := rootCmd.Flags()
-
+	flags := rootCmd.PersistentFlags()
 	flags.BoolVar(&skipHTTPSVerify, "skip_https_verify", false, "Skip verification of HTTPS transport connection")
 	flags.StringVar(&logName, "log_name", "", "Name of log to retrieve information from --log_list for")
 	flags.StringVar(&logList, "log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
 	flags.StringVar(&logURI, "log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
-	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	flags.StringVar(&pubKey, "pub_key", "", "Name of file containing log's public key")
+
+	flags = rootCmd.LocalFlags()
+	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	flags.StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	flags.Int64Var(&timestamp, "timestamp", 0, "Timestamp to use for inclusion checking")
 	flags.BoolVar(&textOut, "text", true, "Display certificates as text")
@@ -126,17 +128,6 @@ func hashFromString(input string) ([]byte, error) {
 		return hash, nil
 	}
 	return nil, fmt.Errorf("hash value %q failed to parse as 32-byte hex or base64", input)
-}
-
-func getSTH(ctx context.Context, logClient client.CheckLogClient) {
-	sth, err := logClient.GetSTH(ctx)
-	if err != nil {
-		exitWithDetails(err)
-	}
-	// Display the STH
-	when := ct.TimestampToTime(sth.Timestamp)
-	fmt.Printf("%v (timestamp %d): Got STH for %v log (size=%d) at %v, hash %x\n", when, sth.Timestamp, sth.Version, sth.TreeSize, logClient.BaseURI(), sth.SHA256RootHash)
-	fmt.Printf("%v\n", signatureToString(&sth.TreeHeadSignature))
 }
 
 func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
@@ -487,9 +478,7 @@ func dieWithUsage(msg string) {
 	os.Exit(1)
 }
 
-func runMain(args []string) {
-	ctx := context.Background()
-
+func connect(ctx context.Context) *client.LogClient {
 	var tlsCfg *tls.Config
 	if skipHTTPSVerify {
 		glog.Warning("Skipping HTTPS connection verification")
@@ -551,13 +540,18 @@ func runMain(args []string) {
 		glog.Exit(err)
 	}
 
+	return logClient
+}
+
+func runMain(args []string) {
+	ctx := context.Background()
+	logClient := connect(ctx)
+
 	if len(args) != 1 {
 		dieWithUsage("Need command argument")
 	}
 	cmd := args[0]
 	switch cmd {
-	case "sth":
-		getSTH(ctx, logClient)
 	case "upload":
 		addChain(ctx, logClient)
 	case "getroots", "get_roots", "get-roots":
