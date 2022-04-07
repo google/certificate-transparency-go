@@ -43,7 +43,7 @@ var (
 
 func init() {
 	cmd := cobra.Command{
-		Use:     "get-inclusion-proof",
+		Use:     fmt.Sprintf("get-inclusion-proof %s {--leaf_hash=hash | --cert_chain=file} [--timestamp=ts] [--size=N]", connectionFlags),
 		Aliases: []string{"getinclusionproof", "inclusion-proof", "inclusion"},
 		Short:   "Fetch and verify the inclusion proof for an entry",
 		Run: func(cmd *cobra.Command, _ []string) {

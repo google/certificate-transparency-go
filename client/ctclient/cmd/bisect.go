@@ -26,7 +26,7 @@ import (
 
 func init() {
 	cmd := cobra.Command{
-		Use:     "bisect",
+		Use:     fmt.Sprintf("bisect %s --timestamp=ts [--chain] [--text=false]", connectionFlags),
 		Aliases: []string{"find-timestamp"},
 		Short:   "Find a log entry by timestamp",
 		Run: func(cmd *cobra.Command, _ []string) {

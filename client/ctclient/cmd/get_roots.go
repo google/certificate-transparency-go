@@ -16,13 +16,14 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	cmd := cobra.Command{
-		Use:     "get-roots",
+		Use:     fmt.Sprintf("get-roots %s", connectionFlags),
 		Aliases: []string{"getroots", "roots"},
 		Short:   "Fetch the root certificates accepted by the log",
 		Run: func(cmd *cobra.Command, _ []string) {

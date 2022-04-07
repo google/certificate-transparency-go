@@ -34,6 +34,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const connectionFlags = "{--log_uri uri | --log_name name [--log_list {file|uri}]} [--pub_key file]"
+
 var (
 	skipHTTPSVerify bool
 	logName         string

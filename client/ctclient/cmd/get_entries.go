@@ -36,7 +36,7 @@ var (
 
 func init() {
 	cmd := cobra.Command{
-		Use:     "get-entries",
+		Use:     fmt.Sprintf("get-entries %s --first=idx [--last=idx]", connectionFlags),
 		Aliases: []string{"getentries", "entries"},
 		Short:   "Fetch a range of entries in the log",
 		Run: func(cmd *cobra.Command, _ []string) {

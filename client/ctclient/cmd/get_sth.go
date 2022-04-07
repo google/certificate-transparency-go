@@ -24,7 +24,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(&cobra.Command{
-		Use:     "get-sth",
+		Use:     fmt.Sprintf("get-sth %s", connectionFlags),
 		Aliases: []string{"sth"},
 		Short:   "Fetch the latest STH of the log",
 		Run: func(cmd *cobra.Command, _ []string) {

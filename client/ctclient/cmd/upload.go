@@ -30,7 +30,7 @@ var logMMD time.Duration
 
 func init() {
 	cmd := cobra.Command{
-		Use:     "upload",
+		Use:     fmt.Sprintf("upload %s --cert_chain=file [--log_mmd=dur]", connectionFlags),
 		Aliases: []string{"add-chain"},
 		Short:   "Submit a certificate (pre-)chain to the log",
 		Run: func(cmd *cobra.Command, _ []string) {
