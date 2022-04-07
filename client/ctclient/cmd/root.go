@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const connectionFlags = "{--log_uri uri | --log_name name [--log_list {file|uri}]} [--pub_key file]"
@@ -45,6 +47,9 @@ var (
 )
 
 func init() {
+	// Add flags added with "flag" package, including glog, to Cobra flag set.
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
 	flags := rootCmd.PersistentFlags()
 	flags.BoolVar(&skipHTTPSVerify, "skip_https_verify", false, "Skip verification of HTTPS transport connection")
 	flags.StringVar(&logName, "log_name", "", "Name of log to retrieve information from --log_list for")
@@ -57,6 +62,10 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "ctclient",
 	Short: "A command line client for Certificate Transparency logs",
+
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		flag.Parse()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags
