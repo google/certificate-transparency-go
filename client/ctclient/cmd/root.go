@@ -22,14 +22,11 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -52,14 +49,10 @@ var (
 	logURI          string
 	pubKey          string
 
-	logMMD    time.Duration
-	certChain string
-	timestamp int64
-	treeSize  uint64
-	treeHash  string
-	prevSize  uint64
-	prevHash  string
-	leafHash  string
+	logMMD   time.Duration
+	treeHash string
+	prevSize uint64
+	prevHash string
 )
 
 func init() {
@@ -72,13 +65,9 @@ func init() {
 
 	flags = rootCmd.LocalFlags()
 	flags.DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
-	flags.StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
-	flags.Int64Var(&timestamp, "timestamp", 0, "Timestamp to use for inclusion checking")
-	flags.Uint64Var(&treeSize, "size", 0, "Tree size to query at")
 	flags.StringVar(&treeHash, "tree_hash", "", "Tree hash to check against (as hex string or base64)")
 	flags.Uint64Var(&prevSize, "prev_size", 0, "Previous tree size to get consistency against")
 	flags.StringVar(&prevHash, "prev_hash", "", "Previous tree hash to check against (as hex string or base64)")
-	flags.StringVar(&leafHash, "leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
 }
 
 // rootCmd represents the base command when called without any subcommands.
@@ -120,42 +109,6 @@ func hashFromString(input string) ([]byte, error) {
 		return hash, nil
 	}
 	return nil, fmt.Errorf("hash value %q failed to parse as 32-byte hex or base64", input)
-}
-
-func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
-	contents, err := ioutil.ReadFile(filename)
-	if err != nil {
-		glog.Exitf("Failed to read certificate file: %v", err)
-	}
-	rest := contents
-	var chain []ct.ASN1Cert
-	for {
-		var block *pem.Block
-		block, rest = pem.Decode(rest)
-		if block == nil {
-			break
-		}
-		if block.Type == "CERTIFICATE" {
-			chain = append(chain, ct.ASN1Cert{Data: block.Bytes})
-		}
-	}
-	if len(chain) == 0 {
-		glog.Exitf("No certificates found in %s", certChain)
-	}
-
-	// Also look for something like a text timestamp for convenience.
-	var timestamp int64
-	tsRE := regexp.MustCompile(`Timestamp[:=](\d+)`)
-	for _, line := range strings.Split(string(contents), "\n") {
-		x := tsRE.FindStringSubmatch(line)
-		if len(x) > 1 {
-			timestamp, err = strconv.ParseInt(x[1], 10, 64)
-			if err != nil {
-				break
-			}
-		}
-	}
-	return chain, timestamp
 }
 
 func addChain(ctx context.Context, logClient *client.LogClient) {
@@ -242,86 +195,6 @@ func findTimestamp(ctx context.Context, logClient *client.LogClient) {
 	}
 	fmt.Printf("First entry with timestamp>=%d (%v) found at index %d\n", target, when, idx)
 	showRawLogEntry(getEntry(int64(idx)))
-}
-
-func getInclusionProof(ctx context.Context, logClient client.CheckLogClient) {
-	var hash []byte
-	if len(leafHash) > 0 {
-		var err error
-		hash, err = hashFromString(leafHash)
-		if err != nil {
-			glog.Exitf("Invalid --leaf_hash supplied: %v", err)
-		}
-	} else if len(certChain) > 0 {
-		// Build a leaf hash from the chain and a timestamp.
-		chain, entryTimestamp := chainFromFile(certChain)
-		if timestamp != 0 {
-			entryTimestamp = timestamp // Use user-specified timestamp
-		}
-		if entryTimestamp == 0 {
-			glog.Exit("No timestamp available to accompany certificate")
-		}
-
-		var leafEntry *ct.MerkleTreeLeaf
-		cert, err := x509.ParseCertificate(chain[0].Data)
-		if x509.IsFatal(err) {
-			glog.Warningf("Failed to parse leaf certificate: %v", err)
-			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
-		} else if cert.IsPrecertificate() {
-			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(entryTimestamp))
-			if err != nil {
-				glog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
-			}
-		} else {
-			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
-		}
-
-		leafHash, err := ct.LeafHashForLeaf(leafEntry)
-		if err != nil {
-			glog.Exitf("Failed to create hash of leaf: %v", err)
-		}
-		hash = leafHash[:]
-
-		// Print a warning if this timestamp is still within the MMD window
-		when := ct.TimestampToTime(uint64(entryTimestamp))
-		if age := time.Since(when); age < logMMD {
-			glog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, logMMD)
-		}
-	}
-	if len(hash) != sha256.Size {
-		glog.Exit("No leaf hash available")
-	}
-	getInclusionProofForHash(ctx, logClient, hash)
-}
-
-func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClient, hash []byte) {
-	var sth *ct.SignedTreeHead
-	size := treeSize
-	if size <= 0 {
-		var err error
-		sth, err = logClient.GetSTH(ctx)
-		if err != nil {
-			exitWithDetails(err)
-		}
-		size = sth.TreeSize
-	}
-	// Display the inclusion proof.
-	rsp, err := logClient.GetProofByHash(ctx, hash, size)
-	if err != nil {
-		exitWithDetails(err)
-	}
-	fmt.Printf("Inclusion proof for index %d in tree of size %d:\n", rsp.LeafIndex, size)
-	for _, e := range rsp.AuditPath {
-		fmt.Printf("  %x\n", e)
-	}
-	if sth != nil {
-		// If we retrieved an STH we can verify the proof.
-		verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-		if err := verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-			glog.Exitf("Failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
-		}
-		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
-	}
 }
 
 func getConsistencyProof(ctx context.Context, logClient client.CheckLogClient) {
@@ -462,8 +335,6 @@ func runMain(args []string) {
 	switch cmd {
 	case "upload":
 		addChain(ctx, logClient)
-	case "inclusion", "inclusion-proof":
-		getInclusionProof(ctx, logClient)
 	case "consistency":
 		getConsistencyProof(ctx, logClient)
 	case "bisect":
