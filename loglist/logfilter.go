@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 // LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
 // root-certificates.
-type LogRoots map[string]*ctfe.PEMCertPool
+type LogRoots map[string]*x509util.PEMCertPool
 
 // ActiveLogs creates a new LogList containing only non-disqualified non-frozen
 // logs from the original.

@@ -109,7 +109,7 @@ const remoteQuotaUser = "Moneybags"
 
 type handlerTestInfo struct {
 	mockCtrl *gomock.Controller
-	roots    *PEMCertPool
+	roots    *x509util.PEMCertPool
 	client   *mockclient.MockTrillianLogClient
 	li       *logInfo
 }
@@ -154,7 +154,7 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 	t.Helper()
 	info := handlerTestInfo{
 		mockCtrl: gomock.NewController(t),
-		roots:    NewPEMCertPool(),
+		roots:    x509util.NewPEMCertPool(),
 	}
 
 	info.client = mockclient.NewMockTrillianLogClient(info.mockCtrl)
@@ -2172,7 +2172,7 @@ func TestGetEntryAndProof(t *testing.T) {
 	}
 }
 
-func createJSONChain(t *testing.T, p PEMCertPool) io.Reader {
+func createJSONChain(t *testing.T, p x509util.PEMCertPool) io.Reader {
 	t.Helper()
 	var req ct.AddChainRequest
 	for _, rawCert := range p.RawCertificates() {
@@ -2273,9 +2273,9 @@ func makeGetRootResponseForTest(t *testing.T, stamp, treeSize int64, hash []byte
 	}
 }
 
-func loadCertsIntoPoolOrDie(t *testing.T, certs []string) *PEMCertPool {
+func loadCertsIntoPoolOrDie(t *testing.T, certs []string) *x509util.PEMCertPool {
 	t.Helper()
-	pool := NewPEMCertPool()
+	pool := x509util.NewPEMCertPool()
 	for _, cert := range certs {
 		if !pool.AppendCertsFromPEM([]byte(cert)) {
 			t.Fatalf("couldn't parse test certs: %v", certs)

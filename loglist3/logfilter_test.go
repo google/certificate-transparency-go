@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/testdata"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 
@@ -96,11 +95,11 @@ func TestSelectPendingAndQualified(t *testing.T) {
 
 func artificialRoots(source string) LogRoots {
 	roots := LogRoots{
-		"https://log.bob.io":                        ctfe.NewPEMCertPool(),
-		"https://ct.googleapis.com/racketeer/":      ctfe.NewPEMCertPool(),
-		"https://ct.googleapis.com/rocketeer/":      ctfe.NewPEMCertPool(),
-		"https://ct.googleapis.com/aviator/":        ctfe.NewPEMCertPool(),
-		"https://ct.googleapis.com/logs/argon2020/": ctfe.NewPEMCertPool(),
+		"https://log.bob.io":                        x509util.NewPEMCertPool(),
+		"https://ct.googleapis.com/racketeer/":      x509util.NewPEMCertPool(),
+		"https://ct.googleapis.com/rocketeer/":      x509util.NewPEMCertPool(),
+		"https://ct.googleapis.com/aviator/":        x509util.NewPEMCertPool(),
+		"https://ct.googleapis.com/logs/argon2020/": x509util.NewPEMCertPool(),
 	}
 	roots["https://log.bob.io"].AppendCertsFromPEM([]byte(source))
 	return roots
