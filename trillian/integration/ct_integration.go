@@ -182,7 +182,7 @@ func (t *testInfo) checkInclusionOf(ctx context.Context, chain []ct.ASN1Cert, sc
 		return fmt.Errorf("got GetProofByHash(sct[%d],size=%d)=(nil,%v); want (_,nil)", 0, sth.TreeSize, err)
 	}
 	if err := t.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProof(%d, %d,...)=%v", 0, sth.TreeSize, err)
+		return fmt.Errorf("got VerifyInclusion(%d, %d,...)=%v", 0, sth.TreeSize, err)
 	}
 	return nil
 }
@@ -213,7 +213,7 @@ func (t *testInfo) checkInclusionOfPreCert(ctx context.Context, tbs []byte, issu
 	}
 	fmt.Printf("%s: Inclusion proof leaf %d @ %d -> root %d = %x\n", t.prefix, rsp.LeafIndex, sct.Timestamp, sth.TreeSize, rsp.AuditPath)
 	if err := t.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-		return fmt.Errorf("got VerifyInclusionProof(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
+		return fmt.Errorf("got VerifyInclusion(%d,%d,...)=%v; want nil", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	if err := t.checkStats(); err != nil {
 		return fmt.Errorf("stats check failed: %v", err)

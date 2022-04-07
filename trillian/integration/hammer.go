@@ -784,7 +784,7 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 		return fmt.Errorf("failed to get-proof-by-hash(size=%d) on cert with SCT @ %v: %v, %+v", sth.TreeSize, timeFromMS(submitted.sct.Timestamp), err, rsp)
 	}
 	if err := s.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, submitted.leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-		return fmt.Errorf("failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+		return fmt.Errorf("failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	s.pending.dropOldest()
 	return nil
