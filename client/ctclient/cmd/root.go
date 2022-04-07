@@ -77,20 +77,6 @@ func exitWithDetails(err error) {
 	glog.Exit(err.Error())
 }
 
-func dieWithUsage(msg string) {
-	fmt.Fprintln(os.Stderr, msg)
-	fmt.Fprintf(os.Stderr, "Usage: ctclient [options] <cmd>\n"+
-		"where cmd is one of:\n"+
-		"   sth           retrieve signed tree head\n"+
-		"   upload        upload cert chain and show SCT (needs -cert_chain)\n"+
-		"   getroots      show accepted roots\n"+
-		"   getentries    get log entries (needs -first and -last)\n"+
-		"   inclusion     get inclusion proof (needs -leaf_hash and optionally -size)\n"+
-		"   consistency   get consistency proof (needs -size and -prev_size, optionally -tree_hash and -prev_hash)\n"+
-		"   bisect        find log entry by timestamp (needs -timestamp)\n")
-	os.Exit(1)
-}
-
 func connect(ctx context.Context) *client.LogClient {
 	var tlsCfg *tls.Config
 	if skipHTTPSVerify {
