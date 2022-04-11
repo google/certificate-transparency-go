@@ -25,9 +25,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -36,7 +36,7 @@ import (
 // from a source log.
 type CopyChainGenerator struct {
 	start, limit             time.Time
-	sourceRoots, targetRoots *ctfe.PEMCertPool
+	sourceRoots, targetRoots *x509util.PEMCertPool
 	certs, precerts          chan []ct.ASN1Cert
 }
 
@@ -90,7 +90,7 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 		limit = cfg.NotAfterLimit.AsTime()
 	}
 
-	targetPool := ctfe.NewPEMCertPool()
+	targetPool := x509util.NewPEMCertPool()
 	for _, pemFile := range cfg.RootsPemFile {
 		if err := targetPool.AppendCertsFromPEMFile(pemFile); err != nil {
 			return nil, fmt.Errorf("failed to read trusted roots for target log: %v", err)
@@ -107,7 +107,7 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 	if err != nil {
 		return nil, fmt.Errorf("failed to read trusted roots for source log: %v", err)
 	}
-	sourcePool := ctfe.NewPEMCertPool()
+	sourcePool := x509util.NewPEMCertPool()
 	for _, root := range srcRoots {
 		cert, err := x509.ParseCertificate(root.Data)
 		if x509.IsFatal(err) {

@@ -101,7 +101,7 @@ func TestIsPrecertificate(t *testing.T) {
 }
 
 func TestValidateChain(t *testing.T) {
-	fakeCARoots := NewPEMCertPool()
+	fakeCARoots := x509util.NewPEMCertPool()
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
@@ -279,7 +279,7 @@ func TestValidateChain(t *testing.T) {
 }
 
 func TestCA(t *testing.T) {
-	fakeCARoots := NewPEMCertPool()
+	fakeCARoots := x509util.NewPEMCertPool()
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
@@ -337,7 +337,7 @@ func TestCA(t *testing.T) {
 }
 
 func TestNotAfterRange(t *testing.T) {
-	fakeCARoots := NewPEMCertPool()
+	fakeCARoots := x509util.NewPEMCertPool()
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
 	}
@@ -401,7 +401,7 @@ func TestNotAfterRange(t *testing.T) {
 }
 
 func TestRejectExpiredUnexpired(t *testing.T) {
-	fakeCARoots := NewPEMCertPool()
+	fakeCARoots := x509util.NewPEMCertPool()
 	// Validity period: Jul 11, 2016 - Jul 11, 2017.
 	if !fakeCARoots.AppendCertsFromPEM([]byte(testonly.FakeCACertPEM)) {
 		t.Fatal("failed to load fake root")
@@ -570,7 +570,7 @@ func TestCMPreIssuedCert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse root cert: %v", err)
 	}
-	cmRoot := NewPEMCertPool()
+	cmRoot := x509util.NewPEMCertPool()
 	cmRoot.AddCert(root)
 
 	for _, tc := range []struct {

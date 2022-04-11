@@ -35,6 +35,7 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
@@ -210,7 +211,7 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // CertValidationOpts contains various parameters for certificate chain validation
 type CertValidationOpts struct {
 	// trustedRoots is a pool of certificates that defines the roots the CT log will accept
-	trustedRoots *PEMCertPool
+	trustedRoots *x509util.PEMCertPool
 	// currentTime is the time used for checking a certificate's validity period
 	// against. If it's zero then time.Now() is used. Only for testing.
 	currentTime time.Time
@@ -234,7 +235,7 @@ type CertValidationOpts struct {
 }
 
 // NewCertValidationOpts builds validation options based on parameters.
-func NewCertValidationOpts(trustedRoots *PEMCertPool, currentTime time.Time, rejectExpired bool, rejectUnexpired bool, notAfterStart *time.Time, notAfterLimit *time.Time, acceptOnlyCA bool, extKeyUsages []x509.ExtKeyUsage) CertValidationOpts {
+func NewCertValidationOpts(trustedRoots *x509util.PEMCertPool, currentTime time.Time, rejectExpired bool, rejectUnexpired bool, notAfterStart *time.Time, notAfterLimit *time.Time, acceptOnlyCA bool, extKeyUsages []x509.ExtKeyUsage) CertValidationOpts {
 	var vOpts CertValidationOpts
 	vOpts.trustedRoots = trustedRoots
 	vOpts.currentTime = currentTime

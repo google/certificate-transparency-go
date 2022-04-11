@@ -9,7 +9,11 @@
 
 ### JSONClient
 
-  * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
+ * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
+
+### Cleanup
+ * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
+   dependencies (#903).
 
 ## v1.1.2
 

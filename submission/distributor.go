@@ -30,6 +30,7 @@ import (
 	"github.com/google/certificate-transparency-go/loglist2"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -86,7 +87,7 @@ type Distributor struct {
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
 	logRoots   loglist2.LogRoots
-	rootPool   *ctfe.PEMCertPool
+	rootPool   *x509util.PEMCertPool
 
 	rootDataFull bool
 
@@ -102,7 +103,7 @@ type Distributor struct {
 func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	type RootsResult struct {
 		LogURL string
-		Roots  *ctfe.PEMCertPool
+		Roots  *x509util.PEMCertPool
 		Err    error
 	}
 	ch := make(chan RootsResult, len(d.logClients))
@@ -120,7 +121,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 				ch <- res
 				return
 			}
-			res.Roots = ctfe.NewPEMCertPool()
+			res.Roots = x509util.NewPEMCertPool()
 			for _, r := range roots {
 				parsed, err := x509.ParseCertificate(r.Data)
 				if x509.IsFatal(err) {
@@ -160,7 +161,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	d.logRoots = freshRoots
 	d.rootDataFull = len(d.logRoots) == len(d.logClients)
 	// Merge individual root-pools into a unified one
-	d.rootPool = ctfe.NewPEMCertPool()
+	d.rootPool = x509util.NewPEMCertPool()
 	for _, pool := range d.logRoots {
 		for _, c := range pool.RawCertificates() {
 			d.rootPool.AddCert(c)
@@ -362,7 +363,7 @@ func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	d.pendingLogsPolicy = pendingLogsPolicy{}
 	d.logClients = make(map[string]client.AddLogClient)
 	d.logRoots = make(loglist2.LogRoots)
-	d.rootPool = ctfe.NewPEMCertPool()
+	d.rootPool = x509util.NewPEMCertPool()
 
 	// Build clients for each of the Logs. Also build log-to-id map.
 	if err := d.buildLogClients(lcBuilder, d.usableLl); err != nil {

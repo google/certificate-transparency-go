@@ -16,13 +16,13 @@ package loglist2
 
 import (
 	"github.com/golang/glog"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 // LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
 // root-certificates.
-type LogRoots map[string]*ctfe.PEMCertPool
+type LogRoots map[string]*x509util.PEMCertPool
 
 // Compatible creates a new LogList containing only Logs matching the temporal,
 // root-acceptance and Log-status conditions.

@@ -17,7 +17,6 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/testdata"
-	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 
@@ -60,10 +59,10 @@ func TestActiveLogs(t *testing.T) {
 
 func artificialRoots(source string) LogRoots {
 	roots := LogRoots{
-		"log.bob.io":                   ctfe.NewPEMCertPool(),
-		"ct.googleapis.com/racketeer/": ctfe.NewPEMCertPool(),
-		"ct.googleapis.com/rocketeer/": ctfe.NewPEMCertPool(),
-		"ct.googleapis.com/aviator/":   ctfe.NewPEMCertPool(),
+		"log.bob.io":                   x509util.NewPEMCertPool(),
+		"ct.googleapis.com/racketeer/": x509util.NewPEMCertPool(),
+		"ct.googleapis.com/rocketeer/": x509util.NewPEMCertPool(),
+		"ct.googleapis.com/aviator/":   x509util.NewPEMCertPool(),
 	}
 	roots["log.bob.io"].AppendCertsFromPEM([]byte(source))
 	return roots

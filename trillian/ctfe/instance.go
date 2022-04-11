@@ -29,6 +29,7 @@ import (
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
@@ -112,7 +113,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		return nil, errors.New("need to specify RootsPemFile")
 	}
 	// Load the trusted roots.
-	roots := NewPEMCertPool()
+	roots := x509util.NewPEMCertPool()
 	for _, pemFile := range cfg.RootsPemFile {
 		if err := roots.AppendCertsFromPEMFile(pemFile); err != nil {
 			return nil, fmt.Errorf("failed to read trusted roots: %v", err)
