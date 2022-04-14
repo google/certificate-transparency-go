@@ -15,6 +15,9 @@
  * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
    dependencies (#903).
 
+### Misc
+ * `ctclient` tool now uses Cobra for better CLI experience (#901).
+
 ## v1.1.2
 
 ### CTFE
