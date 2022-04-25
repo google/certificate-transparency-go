@@ -17,6 +17,8 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.8.2
 	github.com/sergi/go-diff v1.2.0
+	github.com/spf13/cobra v1.4.0
+	github.com/spf13/pflag v1.0.5
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/transparency-dev/merkle v0.0.0-20220411132142-cfdaeb1822ee
 	go.etcd.io/etcd/client/v3 v3.5.2
