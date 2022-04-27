@@ -169,10 +169,10 @@ func main() {
 		}
 		res.InitialState(resolver.State{Addresses: addrs})
 		resolver.SetDefaultScheme(res.Scheme())
-		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name), grpc.WithResolvers(res))
+		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"loadBalancingConfig": [{"%s":{}}]}`, roundrobin.Name)), grpc.WithResolvers(res))
 	} else {
 		glog.Infof("Using regular DNS resolver")
-		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
+		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"loadBalancingConfig": [{"%s":{}}]}`, roundrobin.Name)))
 	}
 
 	// Dial all our log backends.
