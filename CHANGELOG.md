@@ -12,10 +12,14 @@
  * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
 
 ### Cleanup
+
+ * `WithBalancerName` is deprecated and removed, using the recommended way
  * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
    dependencies (#903).
 
 ### Misc
+
+ * update `google.golang.org/grpc` to v1.46.0
  * `ctclient` tool now uses Cobra for better CLI experience (#901).
 
 ## v1.1.2
