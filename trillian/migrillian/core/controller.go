@@ -33,7 +33,7 @@ import (
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/util/clock"
 	"github.com/google/trillian/util/election2"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -340,12 +340,12 @@ func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, roo
 		glog.Warningf("%s: skipping consistency check", c.label)
 		return nil
 	}
-	proof, err := c.ctClient.GetSTHConsistency(ctx, treeSize, sth.TreeSize)
+	pf, err := c.ctClient.GetSTHConsistency(ctx, treeSize, sth.TreeSize)
 	if err != nil {
 		return err
 	}
-	return merkle.NewLogVerifier(rfc6962.DefaultHasher).VerifyConsistency(
-		treeSize, sth.TreeSize, rootHash, sth.SHA256RootHash[:], proof)
+	return proof.VerifyConsistency(rfc6962.DefaultHasher, treeSize, sth.TreeSize,
+		pf, rootHash, sth.SHA256RootHash[:])
 }
 
 // runSubmitter obtains CT log entry batches from the controller's channel and

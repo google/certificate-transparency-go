@@ -32,7 +32,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/internal/witness/api"
 	"github.com/google/certificate-transparency-go/tls"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -156,7 +156,7 @@ func (w *Witness) GetSTH(logID string) ([]byte, error) {
 // Update updates the latest STH if nextRaw is consistent with the current
 // latest one for this log. It returns the latest cosigned STH held by
 // the witness, which is a signed version of nextRaw if the update was applied.
-func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) ([]byte, error) {
+func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, pf [][]byte) ([]byte, error) {
 	// If we don't witness this log then no point in going further.
 	_, ok := w.Logs[logID]
 	if !ok {
@@ -211,8 +211,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	}
 	// The only remaining option is next.Size > prev.Size. This might be
 	// valid so we verify the consistency proof.
-	logV := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := logV.VerifyConsistency(prev.TreeSize, next.TreeSize, prev.SHA256RootHash[:], next.SHA256RootHash[:], proof); err != nil {
+	if err := proof.VerifyConsistency(rfc6962.DefaultHasher, prev.TreeSize, next.TreeSize, pf, prev.SHA256RootHash[:], next.SHA256RootHash[:]); err != nil {
 		// Complain if the STHs aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}

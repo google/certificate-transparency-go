@@ -28,7 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -165,8 +165,7 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
 
-	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := verifier.VerifyInclusion(uint64(rsp.LeafIndex), treeSize, leafHash[:], rsp.AuditPath, rootHash); err != nil {
+	if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), treeSize, leafHash[:], rsp.AuditPath, rootHash); err != nil {
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil

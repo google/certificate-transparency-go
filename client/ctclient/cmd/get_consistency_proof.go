@@ -24,7 +24,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/spf13/cobra"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -82,21 +82,20 @@ func runGetConsistencyProof(ctx context.Context) {
 }
 
 func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogClient, first, second uint64, prevHash, treeHash []byte) {
-	proof, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
+	pf, err := logClient.GetSTHConsistency(ctx, uint64(first), uint64(second))
 	if err != nil {
 		exitWithDetails(err)
 	}
 	fmt.Printf("Consistency proof from size %d to size %d:\n", first, second)
-	for _, e := range proof {
+	for _, e := range pf {
 		fmt.Printf("  %x\n", e)
 	}
 	if prevHash == nil || treeHash == nil {
 		return
 	}
 	// We have tree hashes so we can verify the proof.
-	verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-	if err := verifier.VerifyConsistency(first, second, prevHash, treeHash, proof); err != nil {
-		glog.Exitf("Failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
+	if err := proof.VerifyConsistency(rfc6962.DefaultHasher, first, second, pf, prevHash, treeHash); err != nil {
+		glog.Exitf("Failed to VerifyConsistency(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}
 	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
 }

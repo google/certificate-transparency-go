@@ -34,6 +34,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
 	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -303,8 +304,8 @@ type hammerState struct {
 	pending pendingCerts
 	// Operations that are required to fix dependencies.
 	nextOp []ctfe.EntrypointName
-	// verifier is the verifier to be used for this log.
-	verifier merkle.LogVerifier
+
+	hasher merkle.LogHasher
 }
 
 func newHammerState(cfg *HammerConfig) (*hammerState, error) {
@@ -336,9 +337,9 @@ func newHammerState(cfg *HammerConfig) (*hammerState, error) {
 	}
 
 	state := hammerState{
-		cfg:      cfg,
-		nextOp:   make([]ctfe.EntrypointName, 0),
-		verifier: merkle.NewLogVerifier(rfc6962.DefaultHasher),
+		cfg:    cfg,
+		nextOp: make([]ctfe.EntrypointName, 0),
+		hasher: rfc6962.DefaultHasher,
 	}
 	return &state, nil
 }
@@ -783,7 +784,7 @@ func (s *hammerState) getProofByHash(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get-proof-by-hash(size=%d) on cert with SCT @ %v: %v, %+v", sth.TreeSize, timeFromMS(submitted.sct.Timestamp), err, rsp)
 	}
-	if err := s.verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, submitted.leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
+	if err := proof.VerifyInclusion(s.hasher, uint64(rsp.LeafIndex), sth.TreeSize, submitted.leafHash[:], rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
 		return fmt.Errorf("failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 	}
 	s.pending.dropOldest()
@@ -1096,8 +1097,8 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 }
 
 // checkCTConsistencyProof checks the given consistency proof.
-func (s *hammerState) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, proof [][]byte) error {
-	return s.verifier.VerifyConsistency(sth1.TreeSize, sth2.TreeSize, sth1.SHA256RootHash[:], sth2.SHA256RootHash[:], proof)
+func (s *hammerState) checkCTConsistencyProof(sth1, sth2 *ct.SignedTreeHead, pf [][]byte) error {
+	return proof.VerifyConsistency(s.hasher, sth1.TreeSize, sth2.TreeSize, pf, sth1.SHA256RootHash[:], sth2.SHA256RootHash[:])
 }
 
 // HammerCTLog performs load/stress operations according to given config.
