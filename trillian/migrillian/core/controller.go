@@ -162,6 +162,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	metrics.isMaster.Set(0, c.label)
 	defer func(ctx context.Context) {
 		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
