@@ -14,15 +14,15 @@
 
 package x509util_test
 
-// UnknownBlockTypePEM is a PEM containing only an empty block of a
+// pemUnknownBlockType is a PEM containing only an empty block of a
 // non-standard type.
-const UnknownBlockTypePEM string = `
+const pemUnknownBlockType string = `
 -----BEGIN SOMETHING-----
 -----END SOMETHING-----`
 
-// CACertPEMWithOtherStuff is a valid test CA certificate (CACertPEM below)
+// pemCACertWithOtherStuff is a valid test CA certificate (pemCACert below)
 // with additional blocks surrounding it.
-const CACertPEMWithOtherStuff string = `
+const pemCACertWithOtherStuff string = `
 -----BEGIN SOMETHING-----
 -----END SOMETHING-----
 -----BEGIN CERTIFICATE-----
@@ -46,7 +46,8 @@ OwqULg==
 -----BEGIN SOMETHING-----
 -----END SOMETHING-----`
 
-// CACertPEM is a valid test CA certificate:
+// pemCACert is a valid test CA certificate.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number: 0 (0x0)
@@ -89,7 +90,7 @@ OwqULg==
 //        95:5d:e1:89:3c:4d:d5:20:2b:24:a2:f3:e4:40:d2:74:b5:4e:
 //        1b:d3:76:26:9c:a9:62:89:b7:6e:ca:a4:10:90:e1:4f:3b:0a:
 //        94:2e
-const CACertPEM string = `
+const pemCACert string = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -109,8 +110,8 @@ f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
 OwqULg==
 -----END CERTIFICATE-----`
 
-// CACertPEMDuplicated contains two identical copies of the same test CA cert.
-const CACertPEMDuplicated string = `
+// pemCACertDuplicated contains two identical copies of the same test CA cert.
+const pemCACertDuplicated string = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -148,8 +149,8 @@ f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
 OwqULg==
 -----END CERTIFICATE-----`
 
-// CACertPEMBad is a PEM block containinng invalid data that should not decode.
-const CACertPEMBad string = `
+// pemCACertBad is a PEM block containinng invalid data that should not decode.
+const pemCACertBad string = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -169,8 +170,9 @@ f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
 OwqULg==
 -----END CERTIFICATE-----`
 
-// CACertMultiplePEM is a PEM block containing a valid CA and intermediate
-// certificate, specifically CACertPEM above and then:
+// pemCACertMultiple is a PEM block containing a valid CA and intermediate
+// certificate, specifically pemCACert above and then:
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number: 9 (0x9)
@@ -213,7 +215,7 @@ OwqULg==
 //        c3:cd:8b:53:d5:a4:e9:82:70:ea:d2:97:b0:72:10:f9:ce:4a:
 //        21:38:b1:88:11:14:3b:93:fa:4e:7a:87:dd:37:e1:38:5f:2c:
 //        29:08
-const CACertMultiplePEM string = `
+const pemCACertMultiple string = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -251,7 +253,8 @@ hMOqXSGR79oQv5I103s6KjQNWUGblKSFZvP6w82LU9Wk6YJw6tKXsHIQ+c5KITix
 iBEUO5P6TnqH3TfhOF8sKQg=
 -----END CERTIFICATE-----`
 
-// FakeCACertPEM is a test CA cert for testing.
+// pemFakeCACert is a test CA cert for testing.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number:
@@ -311,7 +314,7 @@ iBEUO5P6TnqH3TfhOF8sKQg=
 //        0b:41:ef:da:6e:27:bb:09:57:9c:97:b9:d7:fc:20:96:c5:75:
 //        96:ce:2e:6c:a8:b6:6e:b0:4d:0f:3e:01:95:ea:8b:cd:ae:47:
 //        d0:d9:01:b7
-const FakeCACertPEM string = `
+const pemFakeCACert string = `
 -----BEGIN CERTIFICATE-----
 MIIDrDCCApSgAwIBAgIJALYx0qwhq2UgMA0GCSqGSIb3DQEBCwUAMHExCzAJBgNV
 BAYTAkdCMQ8wDQYDVQQIDAZMb25kb24xDzANBgNVBAcMBkxvbmRvbjEPMA0GA1UE

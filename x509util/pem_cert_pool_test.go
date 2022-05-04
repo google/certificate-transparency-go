@@ -23,7 +23,7 @@ import (
 )
 
 func TestLoadSingleCertFromPEMs(t *testing.T) {
-	for _, p := range []string{CACertPEM, CACertPEMWithOtherStuff, CACertPEMDuplicated} {
+	for _, p := range []string{pemCACert, pemCACertWithOtherStuff, pemCACertDuplicated} {
 		pool := x509util.NewPEMCertPool()
 
 		ok := pool.AppendCertsFromPEM([]byte(p))
@@ -37,7 +37,7 @@ func TestLoadSingleCertFromPEMs(t *testing.T) {
 }
 
 func TestBadOrEmptyCertificateRejected(t *testing.T) {
-	for _, p := range []string{UnknownBlockTypePEM, CACertPEMBad} {
+	for _, p := range []string{pemUnknownBlockType, pemCACertBad} {
 		pool := x509util.NewPEMCertPool()
 
 		ok := pool.AppendCertsFromPEM([]byte(p))
@@ -53,7 +53,7 @@ func TestBadOrEmptyCertificateRejected(t *testing.T) {
 func TestLoadMultipleCertsFromPEM(t *testing.T) {
 	pool := x509util.NewPEMCertPool()
 
-	ok := pool.AppendCertsFromPEM([]byte(CACertMultiplePEM))
+	ok := pool.AppendCertsFromPEM([]byte(pemCACertMultiple))
 	if !ok {
 		t.Fatal("Rejected valid multiple certs")
 	}
@@ -63,7 +63,7 @@ func TestLoadMultipleCertsFromPEM(t *testing.T) {
 }
 
 func TestIncluded(t *testing.T) {
-	certs := [2]*x509.Certificate{parsePEM(t, CACertPEM), parsePEM(t, FakeCACertPEM)}
+	certs := [2]*x509.Certificate{parsePEM(t, pemCACert), parsePEM(t, pemFakeCACert)}
 
 	// Note: tests are cumulative
 	tests := []struct {
