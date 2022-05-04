@@ -16,13 +16,13 @@ package x509util_test
 
 // pemUnknownBlockType is a PEM containing only an empty block of a
 // non-standard type.
-const pemUnknownBlockType string = `
+const pemUnknownBlockType = `
 -----BEGIN SOMETHING-----
 -----END SOMETHING-----`
 
 // pemCACertWithOtherStuff is a valid test CA certificate (pemCACert below)
 // with additional blocks surrounding it.
-const pemCACertWithOtherStuff string = `
+const pemCACertWithOtherStuff = `
 -----BEGIN SOMETHING-----
 -----END SOMETHING-----
 -----BEGIN CERTIFICATE-----
@@ -90,7 +90,7 @@ OwqULg==
 //        95:5d:e1:89:3c:4d:d5:20:2b:24:a2:f3:e4:40:d2:74:b5:4e:
 //        1b:d3:76:26:9c:a9:62:89:b7:6e:ca:a4:10:90:e1:4f:3b:0a:
 //        94:2e
-const pemCACert string = `
+const pemCACert = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -111,7 +111,7 @@ OwqULg==
 -----END CERTIFICATE-----`
 
 // pemCACertDuplicated contains two identical copies of the same test CA cert.
-const pemCACertDuplicated string = `
+const pemCACertDuplicated = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -150,7 +150,7 @@ OwqULg==
 -----END CERTIFICATE-----`
 
 // pemCACertBad is a PEM block containinng invalid data that should not decode.
-const pemCACertBad string = `
+const pemCACertBad = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -215,7 +215,7 @@ OwqULg==
 //        c3:cd:8b:53:d5:a4:e9:82:70:ea:d2:97:b0:72:10:f9:ce:4a:
 //        21:38:b1:88:11:14:3b:93:fa:4e:7a:87:dd:37:e1:38:5f:2c:
 //        29:08
-const pemCACertMultiple string = `
+const pemCACertMultiple = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -314,7 +314,7 @@ iBEUO5P6TnqH3TfhOF8sKQg=
 //        0b:41:ef:da:6e:27:bb:09:57:9c:97:b9:d7:fc:20:96:c5:75:
 //        96:ce:2e:6c:a8:b6:6e:b0:4d:0f:3e:01:95:ea:8b:cd:ae:47:
 //        d0:d9:01:b7
-const pemFakeCACert string = `
+const pemFakeCACert = `
 -----BEGIN CERTIFICATE-----
 MIIDrDCCApSgAwIBAgIJALYx0qwhq2UgMA0GCSqGSIb3DQEBCwUAMHExCzAJBgNV
 BAYTAkdCMQ8wDQYDVQQIDAZMb25kb24xDzANBgNVBAcMBkxvbmRvbjEPMA0GA1UE

@@ -58,7 +58,7 @@ package testonly
 //        95:5d:e1:89:3c:4d:d5:20:2b:24:a2:f3:e4:40:d2:74:b5:4e:
 //        1b:d3:76:26:9c:a9:62:89:b7:6e:ca:a4:10:90:e1:4f:3b:0a:
 //        94:2e
-const CACertPEM string = `
+const CACertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -139,7 +139,7 @@ OwqULg==
 //        0b:41:ef:da:6e:27:bb:09:57:9c:97:b9:d7:fc:20:96:c5:75:
 //        96:ce:2e:6c:a8:b6:6e:b0:4d:0f:3e:01:95:ea:8b:cd:ae:47:
 //        d0:d9:01:b7
-const FakeCACertPEM string = `
+const FakeCACertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIDrDCCApSgAwIBAgIJALYx0qwhq2UgMA0GCSqGSIb3DQEBCwUAMHExCzAJBgNV
 BAYTAkdCMQ8wDQYDVQQIDAZMb25kb24xDzANBgNVBAcMBkxvbmRvbjEPMA0GA1UE
@@ -210,7 +210,7 @@ V5yXudf8IJbFdZbOLmyotm6wTQ8+AZXqi82uR9DZAbc=
 //        f2:3d:d4:ee:22:8f:8f:74:f6:3d:78:63:11:dd:0a:58:11:40:
 //        5f:90:6c:ca:2c:2d:3e:eb:fc:81:99:64:eb:d8:cf:7c:08:86:
 //        3f:be
-const PrecertPEMValid string = `
+const PrecertPEMValid = `
 -----BEGIN CERTIFICATE-----
 MIIC3zCCAkigAwIBAgIBBzANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -274,7 +274,7 @@ kGzKLC0+6/yBmWTr2M98CIY/vg==
 //        2d:e7:d6:69:6f:65:6d:1c:60:b9:5f:45:6b:7f:cf:33:85:71:
 //        90:8f:1c:69:72:7d:24:c4:fc:cd:24:92:95:79:58:14:d1:da:
 //        c0:e6
-const TestCertPEM string = `
+const TestCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICyjCCAjOgAwIBAgIBBjANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -351,7 +351,7 @@ ZHteEyA7uFgt59Zpb2VtHGC5X0Vrf88zhXGQjxxpcn0kxPzNJJKVeVgU0drA5g==
 //        49:87:91:6b:ca:25:e6:d8:d7:7b:77:39:f4:a3:03:28:5a:45:
 //        2b:7c:85:dc:c3:cc:74:c5:c2:33:e3:1d:3f:21:e9:d5:3b:fe:
 //        13:1d:91:48
-const FakeIntermediateCertPEM string = `
+const FakeIntermediateCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIDnTCCAoWgAwIBAgIIQoIqW4Zvv+swDQYJKoZIhvcNAQELBQAwcTELMAkGA1UE
 BhMCR0IxDzANBgNVBAgMBkxvbmRvbjEPMA0GA1UEBwwGTG9uZG9uMQ8wDQYDVQQK
@@ -446,7 +446,7 @@ zHTFwjPjHT8h6dU7/hMdkUg=
 //        29:43:ee:f4:a6:6b:81:c6:50:7d:b3:a2:d2:b4:8c:c4:f6:cc:
 //        9a:0e:65:32:8f:14:65:8c:a0:30:20:d5:7a:cf:48:fb:84:a4:
 //        3a:30:fa:44
-const LeafSignedByFakeIntermediateCertPEM string = `
+const LeafSignedByFakeIntermediateCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIH6DCCBtCgAwIBAgIIQoIqW4Zvv+swDQYJKoZIhvcNAQELBQAwcjELMAkGA1UE
 BhMCR0IxDzANBgNVBAgMBkxvbmRvbjEPMA0GA1UEBwwGTG9uZG9uMQ8wDQYDVQQK
@@ -584,7 +584,7 @@ iGuwIwcrxwwn3octloDVVg==
 //       bc:d1:45:b2:53:c6:47:77:48:f1:c3:89:68:5d:f4:7f:5c:52:
 //       02:20:39:68:40:5c:fd:f0:2a:e2:3f:34:45:b3:19:2d:e3:4d:
 //       58:cd:76:42:19:09:cf:5c:1c:e5:f1:71:e0:39:62:b9
-const FakeIntermediateWithPolicyConstraintsCertPEM string = `
+const FakeIntermediateWithPolicyConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICLDCCAdOgAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -639,7 +639,7 @@ OWhAXP3wKuI/NEWzGS3jTVjNdkIZCc9cHOXxceA5Yrk=
 //       2c:f1:c2:e7:b0:a2:40:e2:c6:89:45:fc:99:a5:9b:dc:21:fb:
 //       f6:02:21:00:b7:4f:98:bf:1f:dc:92:e7:db:7c:aa:33:7a:40:
 //       36:1d:58:19:aa:96:3d:5e:5b:46:5f:47:f6:e3:7d:75:19:4f
-const FakeIntermediateWithNameConstraintsCertPEM string = `
+const FakeIntermediateWithNameConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICNjCCAdugAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -695,7 +695,7 @@ maWb3CH79gIhALdPmL8f3JLn23yqM3pANh1YGaqWPV5bRl9H9uN9dRlP
 //       40:22:b2:e2:14:07:e8:ab:fa:4a:85:2a:41:18:20:f0:31:1a:
 //       02:21:00:a4:64:91:6d:79:47:79:0f:16:06:62:a9:88:8b:92:
 //       6d:40:fa:54:cb:c9:4f:bc:3f:53:27:e5:cd:12:16:53:7a
-const FakeIntermediateWithInvalidNameConstraintsCertPEM string = `
+const FakeIntermediateWithInvalidNameConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICNzCCAd2gAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -750,7 +750,7 @@ hSpBGCDwMRoCIQCkZJFteUd5DxYGYqmIi5JtQPpUy8lPvD9TJ+XNEhZTeg==
 //       83:38:64:5e:3a:25:51:e9:57:1f:00:53:72:db:08:11:65:3d:
 //       f4:02:21:00:a1:4e:5d:b5:9a:8b:10:6e:15:a3:2a:bd:d9:80:
 //       91:96:7c:1a:4f:8f:91:dc:44:9f:13:ff:57:f0:5e:ce:32:34
-const LeafCertPEM string = `
+const LeafCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICGjCCAb+gAwIBAgIFAN6tvu8wCgYIKoZIzj0EAwIwcjELMAkGA1UEBhMCR0Ix
 DzANBgNVBAgTBkxvbmRvbjEPMA0GA1UEBxMGTG9uZG9uMQ8wDQYDVQQKEwZHb29n
@@ -952,7 +952,7 @@ Kk5GkNl1LNj/jO7M3GnrbOYV0KP/SAusVd/fJZ1CtlGjZpVgxdAi5yJ6UaXMhw==
 //         e3:ef:2f:c3:22:02:a0:33:8d:48:61:8a:98:27:34:e8:75:5d:
 //         eb:56:93:a3:be:2e:c5:04:ab:d6:88:cc:53:c6:9c:db:9f:aa:
 //         5d:eb:c6:82
-const RealPrecertWithEKUPEM string = `
+const RealPrecertWithEKUPEM = `
 -----BEGIN CERTIFICATE-----
 MIIEZTCCA02gAwIBAgIRAJykB+Il+XzCCgAAAAAgbuUwDQYJKoZIhvcNAQELBQAw
 QjELMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczET
