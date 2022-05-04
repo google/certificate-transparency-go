@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package testonly contains certificates used for unit testing.
-package testonly
+package x509util_test
 
 // UnknownBlockTypePEM is a PEM containing only an empty block of a
 // non-standard type.

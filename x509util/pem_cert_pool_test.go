@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package x509util
+package x509util_test
 
 import (
 	"encoding/pem"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/certificate-transparency-go/x509util/testonly"
+	"github.com/google/certificate-transparency-go/x509util"
 )
 
 func TestLoadSingleCertFromPEMs(t *testing.T) {
-	for _, p := range []string{testonly.CACertPEM, testonly.CACertPEMWithOtherStuff, testonly.CACertPEMDuplicated} {
-		pool := NewPEMCertPool()
+	for _, p := range []string{CACertPEM, CACertPEMWithOtherStuff, CACertPEMDuplicated} {
+		pool := x509util.NewPEMCertPool()
 
 		ok := pool.AppendCertsFromPEM([]byte(p))
 		if !ok {
@@ -37,8 +37,8 @@ func TestLoadSingleCertFromPEMs(t *testing.T) {
 }
 
 func TestBadOrEmptyCertificateRejected(t *testing.T) {
-	for _, p := range []string{testonly.UnknownBlockTypePEM, testonly.CACertPEMBad} {
-		pool := NewPEMCertPool()
+	for _, p := range []string{UnknownBlockTypePEM, CACertPEMBad} {
+		pool := x509util.NewPEMCertPool()
 
 		ok := pool.AppendCertsFromPEM([]byte(p))
 		if ok {
@@ -51,9 +51,9 @@ func TestBadOrEmptyCertificateRejected(t *testing.T) {
 }
 
 func TestLoadMultipleCertsFromPEM(t *testing.T) {
-	pool := NewPEMCertPool()
+	pool := x509util.NewPEMCertPool()
 
-	ok := pool.AppendCertsFromPEM([]byte(testonly.CACertMultiplePEM))
+	ok := pool.AppendCertsFromPEM([]byte(CACertMultiplePEM))
 	if !ok {
 		t.Fatal("Rejected valid multiple certs")
 	}
@@ -63,7 +63,7 @@ func TestLoadMultipleCertsFromPEM(t *testing.T) {
 }
 
 func TestIncluded(t *testing.T) {
-	certs := [2]*x509.Certificate{parsePEM(t, testonly.CACertPEM), parsePEM(t, testonly.FakeCACertPEM)}
+	certs := [2]*x509.Certificate{parsePEM(t, CACertPEM), parsePEM(t, FakeCACertPEM)}
 
 	// Note: tests are cumulative
 	tests := []struct {
@@ -80,7 +80,7 @@ func TestIncluded(t *testing.T) {
 		{cert: certs[1], want: [2]bool{true, true}},
 	}
 
-	pool := NewPEMCertPool()
+	pool := x509util.NewPEMCertPool()
 	for _, test := range tests {
 		if test.cert != nil {
 			pool.AddCert(test.cert)
@@ -97,7 +97,7 @@ func TestIncluded(t *testing.T) {
 func parsePEM(t *testing.T, pemCert string) *x509.Certificate {
 	var block *pem.Block
 	block, _ = pem.Decode([]byte(pemCert))
-	if block == nil || block.Type != pemCertificateBlockType || len(block.Headers) != 0 {
+	if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
 		t.Fatal("No PEM data found")
 	}
 
