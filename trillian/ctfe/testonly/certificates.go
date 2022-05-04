@@ -14,40 +14,8 @@
 
 package testonly
 
-// UnknownBlockTypePEM is a PEM containing only an empty block of a non standard type
-const UnknownBlockTypePEM string = `
------BEGIN SOMETHING-----
------END SOMETHING-----
-`
-
-// CACertPEMWithOtherStuff is a valid test CA certificate (CACertPEM below) with additional blocks
-// surrounding it.
-const CACertPEMWithOtherStuff string = `
------BEGIN SOMETHING-----
------END SOMETHING-----
------BEGIN CERTIFICATE-----
-MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGf
-MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDVimhTYhCicRmTbneDIRgcKkATxtB7
-jHbrkVfT0PtLO1FuzsvRyY2RxS90P6tjXVUJnNE6uvMa5UFEJFGnTHgW8iQ8+EjP
-KDHM5nugSlojgZ88ujfmJNnDvbKZuDnd/iYx0ss6hPx7srXFL8/BT/9Ab1zURmnL
-svfP34b7arnRsQIDAQABo4GvMIGsMB0GA1UdDgQWBBRfnYgNyHPmVNT4DdjmsMEk
-tEfDVTB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkG
-A1UEBhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEO
-MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
-/zANBgkqhkiG9w0BAQUFAAOBgQAGCMxKbWTyIF4UbASydvkrDvqUpdryOvw4BmBt
-OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
-f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
-OwqULg==
------END CERTIFICATE-----
------BEGIN SOMETHING-----
------END SOMETHING-----
-`
-
-// CACertPEM is a valid test CA certificate:
+// CACertPEM is a valid test CA certificate.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number: 0 (0x0)
@@ -90,7 +58,7 @@ OwqULg==
 //        95:5d:e1:89:3c:4d:d5:20:2b:24:a2:f3:e4:40:d2:74:b5:4e:
 //        1b:d3:76:26:9c:a9:62:89:b7:6e:ca:a4:10:90:e1:4f:3b:0a:
 //        94:2e
-const CACertPEM string = `
+const CACertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
 MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
@@ -108,281 +76,10 @@ MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
 OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
 f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
 OwqULg==
------END CERTIFICATE-----
-`
-
-// CACertPEMDuplicated contains two identical copies of the same test CA certificate
-const CACertPEMDuplicated string = `
------BEGIN CERTIFICATE-----
-MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGf
-MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDVimhTYhCicRmTbneDIRgcKkATxtB7
-jHbrkVfT0PtLO1FuzsvRyY2RxS90P6tjXVUJnNE6uvMa5UFEJFGnTHgW8iQ8+EjP
-KDHM5nugSlojgZ88ujfmJNnDvbKZuDnd/iYx0ss6hPx7srXFL8/BT/9Ab1zURmnL
-svfP34b7arnRsQIDAQABo4GvMIGsMB0GA1UdDgQWBBRfnYgNyHPmVNT4DdjmsMEk
-tEfDVTB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkG
-A1UEBhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEO
-MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
-/zANBgkqhkiG9w0BAQUFAAOBgQAGCMxKbWTyIF4UbASydvkrDvqUpdryOvw4BmBt
-OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
-f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
-OwqULg==
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGf
-MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDVimhTYhCicRmTbneDIRgcKkATxtB7
-jHbrkVfT0PtLO1FuzsvRyY2RxS90P6tjXVUJnNE6uvMa5UFEJFGnTHgW8iQ8+EjP
-KDHM5nugSlojgZ88ujfmJNnDvbKZuDnd/iYx0ss6hPx7srXFL8/BT/9Ab1zURmnL
-svfP34b7arnRsQIDAQABo4GvMIGsMB0GA1UdDgQWBBRfnYgNyHPmVNT4DdjmsMEk
-tEfDVTB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkG
-A1UEBhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEO
-MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
-/zANBgkqhkiG9w0BAQUFAAOBgQAGCMxKbWTyIF4UbASydvkrDvqUpdryOvw4BmBt
-OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
-f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
-OwqULg==
------END CERTIFICATE-----
-`
-
-// CACertPEMBad is a PEM block that contains invalid data that should not decode
-const CACertPEMBad string = `
------BEGIN CERTIFICATE-----
-MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGf
-MA0GCSqGSIb3DQEBA!"£$%^&&**SDFSKJ$%%^%^%^%&^&^!"£$%%IRgcKkATxtB7
-jHbrkVfT0PtLO1FuzsvRyY2RxS90P6tjXVUJnNE6uvMa5UFEJFGnTHgW8iQ8+EjP
-KDHM5nugSlojgZ88ujfmJNnDvbKZuDnd/iYx0ss6hPx7srXFL8/BT/9Ab1zURmnL
-svfP34b7arnRsQIDAQABo4GvMIGsMB0GA1UdDgQWBBRfnYgNyHPmVNT4DdjmsMEk
-tEfDVTB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkG
-A1UEBhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEO
-MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
-/zANBgkqhkiG9w0BAQUFAAOBgQAGCMxKbWTyIF4UbASydvkrDvqUpdryOvw4BmBt
-OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
-f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
-OwqULg==
------END CERTIFICATE-----
-`
-
-// CACertMultiplePEM is a PEM block containing a valid CA and intermediate certificate,
-// specifically CACertPEM above and then:
-//   Data:
-//       Version: 3 (0x2)
-//       Serial Number: 9 (0x9)
-//   Signature Algorithm: sha1WithRSAEncryption
-//       Issuer: C=GB, O=Certificate Transparency CA, ST=Wales, L=Erw Wen
-//       Validity
-//           Not Before: Jun  1 00:00:00 2012 GMT
-//           Not After : Jun  1 00:00:00 2022 GMT
-//       Subject: C=GB, O=Certificate Transparency Intermediate CA, ST=Wales, L=Erw Wen
-//       Subject Public Key Info:
-//           Public Key Algorithm: rsaEncryption
-//               Public-Key: (1024 bit)
-//               Modulus:
-//                   00:d7:6a:67:8d:11:6f:52:2e:55:ff:82:1c:90:64:
-//                   25:08:b7:07:4b:14:d7:71:15:90:64:f7:92:7e:fd:
-//                   ed:b8:71:35:a1:36:5e:e7:de:18:cb:d5:ce:86:5f:
-//                   86:0c:78:f4:33:b4:d0:d3:d3:40:77:02:e7:a3:ef:
-//                   54:2b:1d:fe:9b:ba:a7:cd:f9:4d:c5:97:5f:c7:29:
-//                   f8:6f:10:5f:38:1b:24:35:35:cf:9c:80:0f:5c:a7:
-//                   80:c1:d3:c8:44:00:ee:65:d1:6e:e9:cf:52:db:8a:
-//                   df:fe:50:f5:c4:93:35:0b:21:90:bf:50:d5:bc:36:
-//                   f3:ca:c5:a8:da:ae:92:cd:8b
-//               Exponent: 65537 (0x10001)
-//       X509v3 extensions:
-//           X509v3 Subject Key Identifier:
-//               96:55:08:05:02:78:47:9E:87:73:76:41:31:BC:14:3A:47:E2:29:AB
-//           X509v3 Authority Key Identifier:
-//               keyid:5F:9D:88:0D:C8:73:E6:54:D4:F8:0D:D8:E6:B0:C1:24:B4:47:C3:55
-//               DirName:/C=GB/O=Certificate Transparency CA/ST=Wales/L=Erw Wen
-//               serial:00
-//
-//           X509v3 Basic Constraints:
-//               CA:TRUE
-//   Signature Algorithm: sha1WithRSAEncryption
-//        22:06:da:b1:c6:6b:71:dc:e0:95:c3:f6:aa:2e:f7:2c:f7:76:
-//        1b:e7:ab:d7:fc:39:c3:1a:4c:fe:1b:d9:6d:67:34:ca:82:f2:
-//        2d:de:5a:0c:8b:bb:dd:82:5d:7b:6f:3e:76:12:ad:8d:b3:00:
-//        a7:e2:11:69:88:60:23:26:22:84:c3:aa:5d:21:91:ef:da:10:
-//        bf:92:35:d3:7b:3a:2a:34:0d:59:41:9b:94:a4:85:66:f3:fa:
-//        c3:cd:8b:53:d5:a4:e9:82:70:ea:d2:97:b0:72:10:f9:ce:4a:
-//        21:38:b1:88:11:14:3b:93:fa:4e:7a:87:dd:37:e1:38:5f:2c:
-//        29:08
-const CACertMultiplePEM string = `
------BEGIN CERTIFICATE-----
-MIIC0DCCAjmgAwIBAgIBADANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGf
-MA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDVimhTYhCicRmTbneDIRgcKkATxtB7
-jHbrkVfT0PtLO1FuzsvRyY2RxS90P6tjXVUJnNE6uvMa5UFEJFGnTHgW8iQ8+EjP
-KDHM5nugSlojgZ88ujfmJNnDvbKZuDnd/iYx0ss6hPx7srXFL8/BT/9Ab1zURmnL
-svfP34b7arnRsQIDAQABo4GvMIGsMB0GA1UdDgQWBBRfnYgNyHPmVNT4DdjmsMEk
-tEfDVTB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkG
-A1UEBhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEO
-MAwGA1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwDAYDVR0TBAUwAwEB
-/zANBgkqhkiG9w0BAQUFAAOBgQAGCMxKbWTyIF4UbASydvkrDvqUpdryOvw4BmBt
-OZDQoeojPUApV2lGOwRmYef6HReZFSCa6i4Kd1F2QRIn18ADB8dHDmFYT9czQiRy
-f1HWkLxHqd81TbD26yWVXeGJPE3VICskovPkQNJ0tU4b03YmnKliibduyqQQkOFP
-OwqULg==
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIC3TCCAkagAwIBAgIBCTANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMGIxCzAJBgNVBAYTAkdCMTEwLwYDVQQKEyhDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgSW50ZXJtZWRpYXRlIENBMQ4wDAYDVQQIEwVXYWxlczEQMA4GA1UE
-BxMHRXJ3IFdlbjCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA12pnjRFvUi5V
-/4IckGQlCLcHSxTXcRWQZPeSfv3tuHE1oTZe594Yy9XOhl+GDHj0M7TQ09NAdwLn
-o+9UKx3+m7qnzflNxZdfxyn4bxBfOBskNTXPnIAPXKeAwdPIRADuZdFu6c9S24rf
-/lD1xJM1CyGQv1DVvDbzysWo2q6SzYsCAwEAAaOBrzCBrDAdBgNVHQ4EFgQUllUI
-BQJ4R56Hc3ZBMbwUOkfiKaswfQYDVR0jBHYwdIAUX52IDchz5lTU+A3Y5rDBJLRH
-w1WhWaRXMFUxCzAJBgNVBAYTAkdCMSQwIgYDVQQKExtDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kgQ0ExDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuggEA
-MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADgYEAIgbascZrcdzglcP2qi73
-LPd2G+er1/w5wxpM/hvZbWc0yoLyLd5aDIu73YJde28+dhKtjbMAp+IRaYhgIyYi
-hMOqXSGR79oQv5I103s6KjQNWUGblKSFZvP6w82LU9Wk6YJw6tKXsHIQ+c5KITix
-iBEUO5P6TnqH3TfhOF8sKQg=
------END CERTIFICATE-----`
-
-// PrecertPEMValid is a test certificate containing a valid CT precertificate extension
-//   Data:
-//       Version: 3 (0x2)
-//       Serial Number: 7 (0x7)
-//   Signature Algorithm: sha1WithRSAEncryption
-//       Issuer: C=GB, O=Certificate Transparency CA, ST=Wales, L=Erw Wen
-//       Validity
-//           Not Before: Jun  1 00:00:00 2012 GMT
-//           Not After : Jun  1 00:00:00 2022 GMT
-//       Subject: C=GB, O=Certificate Transparency, ST=Wales, L=Erw Wen
-//       Subject Public Key Info:
-//           Public Key Algorithm: rsaEncryption
-//               Public-Key: (1024 bit)
-//               Modulus:
-//                   00:be:ef:98:e7:c2:68:77:ae:38:5f:75:32:5a:0c:
-//                   1d:32:9b:ed:f1:8f:aa:f4:d7:96:bf:04:7e:b7:e1:
-//                   ce:15:c9:5b:a2:f8:0e:e4:58:bd:7d:b8:6f:8a:4b:
-//                   25:21:91:a7:9b:d7:00:c3:8e:9c:03:89:b4:5c:d4:
-//                   dc:9a:12:0a:b2:1e:0c:b4:1c:d0:e7:28:05:a4:10:
-//                   cd:9c:5b:db:5d:49:27:72:6d:af:17:10:f6:01:87:
-//                   37:7e:a2:5b:1a:1e:39:ee:d0:b8:81:19:dc:15:4d:
-//                   c6:8f:7d:a8:e3:0c:af:15:8a:33:e6:c9:50:9f:4a:
-//                   05:b0:14:09:ff:5d:d8:7e:b5
-//               Exponent: 65537 (0x10001)
-//       X509v3 extensions:
-//           X509v3 Subject Key Identifier:
-//               20:31:54:1A:F2:5C:05:FF:D8:65:8B:68:43:79:4F:5E:90:36:F7:B4
-//           X509v3 Authority Key Identifier:
-//               keyid:5F:9D:88:0D:C8:73:E6:54:D4:F8:0D:D8:E6:B0:C1:24:B4:47:C3:55
-//               DirName:/C=GB/O=Certificate Transparency CA/ST=Wales/L=Erw Wen
-//               serial:00
-//
-//           X509v3 Basic Constraints:
-//               CA:FALSE
-//           CT Precertificate Poison: critical
-//               ..
-//   Signature Algorithm: sha1WithRSAEncryption
-//        02:a1:c3:9e:01:5a:f5:4d:ff:02:3c:33:60:87:5f:ff:34:37:
-//        55:2f:1f:09:01:bd:c2:54:31:5f:33:72:b7:23:fb:15:fb:ce:
-//        cc:4d:f4:71:a0:ce:4d:8c:54:65:5d:84:87:97:fb:28:1e:3d:
-//        fa:bb:46:2d:2c:68:4b:05:6f:ea:7b:63:b4:70:ff:16:6e:32:
-//        d4:46:06:35:b3:d2:bc:6d:a8:24:9b:26:30:e7:1f:c3:4f:08:
-//        f2:3d:d4:ee:22:8f:8f:74:f6:3d:78:63:11:dd:0a:58:11:40:
-//        5f:90:6c:ca:2c:2d:3e:eb:fc:81:99:64:eb:d8:cf:7c:08:86:
-//        3f:be
-const PrecertPEMValid string = `
------BEGIN CERTIFICATE-----
-MIIC3zCCAkigAwIBAgIBBzANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFIxCzAJBgNVBAYTAkdCMSEwHwYDVQQKExhDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kxDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGfMA0G
-CSqGSIb3DQEBAQUAA4GNADCBiQKBgQC+75jnwmh3rjhfdTJaDB0ym+3xj6r015a/
-BH634c4VyVui+A7kWL19uG+KSyUhkaeb1wDDjpwDibRc1NyaEgqyHgy0HNDnKAWk
-EM2cW9tdSSdyba8XEPYBhzd+olsaHjnu0LiBGdwVTcaPfajjDK8VijPmyVCfSgWw
-FAn/Xdh+tQIDAQABo4HBMIG+MB0GA1UdDgQWBBQgMVQa8lwF/9hli2hDeU9ekDb3
-tDB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkGA1UE
-BhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEOMAwG
-A1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwCQYDVR0TBAIwADATBgor
-BgEEAdZ5AgQDAQH/BAIFADANBgkqhkiG9w0BAQUFAAOBgQACocOeAVr1Tf8CPDNg
-h1//NDdVLx8JAb3CVDFfM3K3I/sV+87MTfRxoM5NjFRlXYSHl/soHj36u0YtLGhL
-BW/qe2O0cP8WbjLURgY1s9K8bagkmyYw5x/DTwjyPdTuIo+PdPY9eGMR3QpYEUBf
-kGzKLC0+6/yBmWTr2M98CIY/vg==
------END CERTIFICATE-----`
-
-// TestCertPEM is a certificate issued by CACertPEM, no CT extensions
-//   Data:
-//       Version: 3 (0x2)
-//       Serial Number: 6 (0x6)
-//   Signature Algorithm: sha1WithRSAEncryption
-//       Issuer: C=GB, O=Certificate Transparency CA, ST=Wales, L=Erw Wen
-//       Validity
-//           Not Before: Jun  1 00:00:00 2012 GMT
-//           Not After : Jun  1 00:00:00 2022 GMT
-//       Subject: C=GB, O=Certificate Transparency, ST=Wales, L=Erw Wen
-//       Subject Public Key Info:
-//           Public Key Algorithm: rsaEncryption
-//               Public-Key: (1024 bit)
-//               Modulus:
-//                   00:b1:fa:37:93:61:11:f8:79:2d:a2:08:1c:3f:e4:
-//                   19:25:00:85:31:dc:7f:2c:65:7b:d9:e1:de:47:04:
-//                   16:0b:4c:9f:19:d5:4a:da:44:70:40:4c:1c:51:34:
-//                   1b:8f:1f:75:38:dd:dd:28:d9:ac:a4:83:69:fc:56:
-//                   46:dd:cc:76:17:f8:16:8a:ae:5b:41:d4:33:31:fc:
-//                   a2:da:df:c8:04:d5:72:08:94:90:61:f9:ee:f9:02:
-//                   ca:47:ce:88:c6:44:e0:00:f0:6e:ee:cc:ab:dc:9d:
-//                   d2:f6:8a:22:cc:b0:9d:c7:6e:0d:bc:73:52:77:65:
-//                   b1:a3:7a:8c:67:62:53:dc:c1
-//               Exponent: 65537 (0x10001)
-//       X509v3 extensions:
-//           X509v3 Subject Key Identifier:
-//               6A:0D:98:2A:3B:62:C4:4B:6D:2E:F4:E9:BB:7A:01:AA:9C:B7:98:E2
-//           X509v3 Authority Key Identifier:
-//               keyid:5F:9D:88:0D:C8:73:E6:54:D4:F8:0D:D8:E6:B0:C1:24:B4:47:C3:55
-//               DirName:/C=GB/O=Certificate Transparency CA/ST=Wales/L=Erw Wen
-//               serial:00
-//
-//           X509v3 Basic Constraints:
-//               CA:FALSE
-//   Signature Algorithm: sha1WithRSAEncryption
-//        17:1c:d8:4a:ac:41:4a:9a:03:0f:22:aa:c8:f6:88:b0:81:b2:
-//        70:9b:84:8b:4e:55:11:40:6c:d7:07:fe:d0:28:59:7a:9f:ae:
-//        fc:2e:ee:29:78:d6:33:aa:ac:14:ed:32:35:19:7d:a8:7e:0f:
-//        71:b8:87:5f:1a:c9:e7:8b:28:17:49:dd:ed:d0:07:e3:ec:f5:
-//        06:45:f8:cb:f6:67:25:6c:d6:a1:64:7b:5e:13:20:3b:b8:58:
-//        2d:e7:d6:69:6f:65:6d:1c:60:b9:5f:45:6b:7f:cf:33:85:71:
-//        90:8f:1c:69:72:7d:24:c4:fc:cd:24:92:95:79:58:14:d1:da:
-//        c0:e6
-const TestCertPEM string = `
------BEGIN CERTIFICATE-----
-MIICyjCCAjOgAwIBAgIBBjANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
-MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
-YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
-MDAwMDBaMFIxCzAJBgNVBAYTAkdCMSEwHwYDVQQKExhDZXJ0aWZpY2F0ZSBUcmFu
-c3BhcmVuY3kxDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGfMA0G
-CSqGSIb3DQEBAQUAA4GNADCBiQKBgQCx+jeTYRH4eS2iCBw/5BklAIUx3H8sZXvZ
-4d5HBBYLTJ8Z1UraRHBATBxRNBuPH3U43d0o2aykg2n8VkbdzHYX+BaKrltB1DMx
-/KLa38gE1XIIlJBh+e75AspHzojGROAA8G7uzKvcndL2iiLMsJ3Hbg28c1J3ZbGj
-eoxnYlPcwQIDAQABo4GsMIGpMB0GA1UdDgQWBBRqDZgqO2LES20u9Om7egGqnLeY
-4jB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkGA1UE
-BhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEOMAwG
-A1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwCQYDVR0TBAIwADANBgkq
-hkiG9w0BAQUFAAOBgQAXHNhKrEFKmgMPIqrI9oiwgbJwm4SLTlURQGzXB/7QKFl6
-n678Lu4peNYzqqwU7TI1GX2ofg9xuIdfGsnniygXSd3t0Afj7PUGRfjL9mclbNah
-ZHteEyA7uFgt59Zpb2VtHGC5X0Vrf88zhXGQjxxpcn0kxPzNJJKVeVgU0drA5g==
 -----END CERTIFICATE-----`
 
 // FakeCACertPEM is a test CA cert for testing.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number:
@@ -442,7 +139,7 @@ ZHteEyA7uFgt59Zpb2VtHGC5X0Vrf88zhXGQjxxpcn0kxPzNJJKVeVgU0drA5g==
 //        0b:41:ef:da:6e:27:bb:09:57:9c:97:b9:d7:fc:20:96:c5:75:
 //        96:ce:2e:6c:a8:b6:6e:b0:4d:0f:3e:01:95:ea:8b:cd:ae:47:
 //        d0:d9:01:b7
-const FakeCACertPEM string = `
+const FakeCACertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIDrDCCApSgAwIBAgIJALYx0qwhq2UgMA0GCSqGSIb3DQEBCwUAMHExCzAJBgNV
 BAYTAkdCMQ8wDQYDVQQIDAZMb25kb24xDzANBgNVBAcMBkxvbmRvbjEPMA0GA1UE
@@ -466,7 +163,138 @@ wfV5hfRBh8fKva+rK6SqqB0sUK0jj9sTHXGKhb2sWWzEU8VxDJCR8wtB79puJ7sJ
 V5yXudf8IJbFdZbOLmyotm6wTQ8+AZXqi82uR9DZAbc=
 -----END CERTIFICATE-----`
 
+// PrecertPEMValid is a test certificate containing a valid CT precertificate
+// extension.
+//
+//   Data:
+//       Version: 3 (0x2)
+//       Serial Number: 7 (0x7)
+//   Signature Algorithm: sha1WithRSAEncryption
+//       Issuer: C=GB, O=Certificate Transparency CA, ST=Wales, L=Erw Wen
+//       Validity
+//           Not Before: Jun  1 00:00:00 2012 GMT
+//           Not After : Jun  1 00:00:00 2022 GMT
+//       Subject: C=GB, O=Certificate Transparency, ST=Wales, L=Erw Wen
+//       Subject Public Key Info:
+//           Public Key Algorithm: rsaEncryption
+//               Public-Key: (1024 bit)
+//               Modulus:
+//                   00:be:ef:98:e7:c2:68:77:ae:38:5f:75:32:5a:0c:
+//                   1d:32:9b:ed:f1:8f:aa:f4:d7:96:bf:04:7e:b7:e1:
+//                   ce:15:c9:5b:a2:f8:0e:e4:58:bd:7d:b8:6f:8a:4b:
+//                   25:21:91:a7:9b:d7:00:c3:8e:9c:03:89:b4:5c:d4:
+//                   dc:9a:12:0a:b2:1e:0c:b4:1c:d0:e7:28:05:a4:10:
+//                   cd:9c:5b:db:5d:49:27:72:6d:af:17:10:f6:01:87:
+//                   37:7e:a2:5b:1a:1e:39:ee:d0:b8:81:19:dc:15:4d:
+//                   c6:8f:7d:a8:e3:0c:af:15:8a:33:e6:c9:50:9f:4a:
+//                   05:b0:14:09:ff:5d:d8:7e:b5
+//               Exponent: 65537 (0x10001)
+//       X509v3 extensions:
+//           X509v3 Subject Key Identifier:
+//               20:31:54:1A:F2:5C:05:FF:D8:65:8B:68:43:79:4F:5E:90:36:F7:B4
+//           X509v3 Authority Key Identifier:
+//               keyid:5F:9D:88:0D:C8:73:E6:54:D4:F8:0D:D8:E6:B0:C1:24:B4:47:C3:55
+//               DirName:/C=GB/O=Certificate Transparency CA/ST=Wales/L=Erw Wen
+//               serial:00
+//
+//           X509v3 Basic Constraints:
+//               CA:FALSE
+//           CT Precertificate Poison: critical
+//               ..
+//   Signature Algorithm: sha1WithRSAEncryption
+//        02:a1:c3:9e:01:5a:f5:4d:ff:02:3c:33:60:87:5f:ff:34:37:
+//        55:2f:1f:09:01:bd:c2:54:31:5f:33:72:b7:23:fb:15:fb:ce:
+//        cc:4d:f4:71:a0:ce:4d:8c:54:65:5d:84:87:97:fb:28:1e:3d:
+//        fa:bb:46:2d:2c:68:4b:05:6f:ea:7b:63:b4:70:ff:16:6e:32:
+//        d4:46:06:35:b3:d2:bc:6d:a8:24:9b:26:30:e7:1f:c3:4f:08:
+//        f2:3d:d4:ee:22:8f:8f:74:f6:3d:78:63:11:dd:0a:58:11:40:
+//        5f:90:6c:ca:2c:2d:3e:eb:fc:81:99:64:eb:d8:cf:7c:08:86:
+//        3f:be
+const PrecertPEMValid = `
+-----BEGIN CERTIFICATE-----
+MIIC3zCCAkigAwIBAgIBBzANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
+MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
+YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
+MDAwMDBaMFIxCzAJBgNVBAYTAkdCMSEwHwYDVQQKExhDZXJ0aWZpY2F0ZSBUcmFu
+c3BhcmVuY3kxDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGfMA0G
+CSqGSIb3DQEBAQUAA4GNADCBiQKBgQC+75jnwmh3rjhfdTJaDB0ym+3xj6r015a/
+BH634c4VyVui+A7kWL19uG+KSyUhkaeb1wDDjpwDibRc1NyaEgqyHgy0HNDnKAWk
+EM2cW9tdSSdyba8XEPYBhzd+olsaHjnu0LiBGdwVTcaPfajjDK8VijPmyVCfSgWw
+FAn/Xdh+tQIDAQABo4HBMIG+MB0GA1UdDgQWBBQgMVQa8lwF/9hli2hDeU9ekDb3
+tDB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkGA1UE
+BhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEOMAwG
+A1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwCQYDVR0TBAIwADATBgor
+BgEEAdZ5AgQDAQH/BAIFADANBgkqhkiG9w0BAQUFAAOBgQACocOeAVr1Tf8CPDNg
+h1//NDdVLx8JAb3CVDFfM3K3I/sV+87MTfRxoM5NjFRlXYSHl/soHj36u0YtLGhL
+BW/qe2O0cP8WbjLURgY1s9K8bagkmyYw5x/DTwjyPdTuIo+PdPY9eGMR3QpYEUBf
+kGzKLC0+6/yBmWTr2M98CIY/vg==
+-----END CERTIFICATE-----`
+
+// TestCertPEM is a certificate issued by CACertPEM, no CT extensions.
+//
+//   Data:
+//       Version: 3 (0x2)
+//       Serial Number: 6 (0x6)
+//   Signature Algorithm: sha1WithRSAEncryption
+//       Issuer: C=GB, O=Certificate Transparency CA, ST=Wales, L=Erw Wen
+//       Validity
+//           Not Before: Jun  1 00:00:00 2012 GMT
+//           Not After : Jun  1 00:00:00 2022 GMT
+//       Subject: C=GB, O=Certificate Transparency, ST=Wales, L=Erw Wen
+//       Subject Public Key Info:
+//           Public Key Algorithm: rsaEncryption
+//               Public-Key: (1024 bit)
+//               Modulus:
+//                   00:b1:fa:37:93:61:11:f8:79:2d:a2:08:1c:3f:e4:
+//                   19:25:00:85:31:dc:7f:2c:65:7b:d9:e1:de:47:04:
+//                   16:0b:4c:9f:19:d5:4a:da:44:70:40:4c:1c:51:34:
+//                   1b:8f:1f:75:38:dd:dd:28:d9:ac:a4:83:69:fc:56:
+//                   46:dd:cc:76:17:f8:16:8a:ae:5b:41:d4:33:31:fc:
+//                   a2:da:df:c8:04:d5:72:08:94:90:61:f9:ee:f9:02:
+//                   ca:47:ce:88:c6:44:e0:00:f0:6e:ee:cc:ab:dc:9d:
+//                   d2:f6:8a:22:cc:b0:9d:c7:6e:0d:bc:73:52:77:65:
+//                   b1:a3:7a:8c:67:62:53:dc:c1
+//               Exponent: 65537 (0x10001)
+//       X509v3 extensions:
+//           X509v3 Subject Key Identifier:
+//               6A:0D:98:2A:3B:62:C4:4B:6D:2E:F4:E9:BB:7A:01:AA:9C:B7:98:E2
+//           X509v3 Authority Key Identifier:
+//               keyid:5F:9D:88:0D:C8:73:E6:54:D4:F8:0D:D8:E6:B0:C1:24:B4:47:C3:55
+//               DirName:/C=GB/O=Certificate Transparency CA/ST=Wales/L=Erw Wen
+//               serial:00
+//
+//           X509v3 Basic Constraints:
+//               CA:FALSE
+//   Signature Algorithm: sha1WithRSAEncryption
+//        17:1c:d8:4a:ac:41:4a:9a:03:0f:22:aa:c8:f6:88:b0:81:b2:
+//        70:9b:84:8b:4e:55:11:40:6c:d7:07:fe:d0:28:59:7a:9f:ae:
+//        fc:2e:ee:29:78:d6:33:aa:ac:14:ed:32:35:19:7d:a8:7e:0f:
+//        71:b8:87:5f:1a:c9:e7:8b:28:17:49:dd:ed:d0:07:e3:ec:f5:
+//        06:45:f8:cb:f6:67:25:6c:d6:a1:64:7b:5e:13:20:3b:b8:58:
+//        2d:e7:d6:69:6f:65:6d:1c:60:b9:5f:45:6b:7f:cf:33:85:71:
+//        90:8f:1c:69:72:7d:24:c4:fc:cd:24:92:95:79:58:14:d1:da:
+//        c0:e6
+const TestCertPEM = `
+-----BEGIN CERTIFICATE-----
+MIICyjCCAjOgAwIBAgIBBjANBgkqhkiG9w0BAQUFADBVMQswCQYDVQQGEwJHQjEk
+MCIGA1UEChMbQ2VydGlmaWNhdGUgVHJhbnNwYXJlbmN5IENBMQ4wDAYDVQQIEwVX
+YWxlczEQMA4GA1UEBxMHRXJ3IFdlbjAeFw0xMjA2MDEwMDAwMDBaFw0yMjA2MDEw
+MDAwMDBaMFIxCzAJBgNVBAYTAkdCMSEwHwYDVQQKExhDZXJ0aWZpY2F0ZSBUcmFu
+c3BhcmVuY3kxDjAMBgNVBAgTBVdhbGVzMRAwDgYDVQQHEwdFcncgV2VuMIGfMA0G
+CSqGSIb3DQEBAQUAA4GNADCBiQKBgQCx+jeTYRH4eS2iCBw/5BklAIUx3H8sZXvZ
+4d5HBBYLTJ8Z1UraRHBATBxRNBuPH3U43d0o2aykg2n8VkbdzHYX+BaKrltB1DMx
+/KLa38gE1XIIlJBh+e75AspHzojGROAA8G7uzKvcndL2iiLMsJ3Hbg28c1J3ZbGj
+eoxnYlPcwQIDAQABo4GsMIGpMB0GA1UdDgQWBBRqDZgqO2LES20u9Om7egGqnLeY
+4jB9BgNVHSMEdjB0gBRfnYgNyHPmVNT4DdjmsMEktEfDVaFZpFcwVTELMAkGA1UE
+BhMCR0IxJDAiBgNVBAoTG0NlcnRpZmljYXRlIFRyYW5zcGFyZW5jeSBDQTEOMAwG
+A1UECBMFV2FsZXMxEDAOBgNVBAcTB0VydyBXZW6CAQAwCQYDVR0TBAIwADANBgkq
+hkiG9w0BAQUFAAOBgQAXHNhKrEFKmgMPIqrI9oiwgbJwm4SLTlURQGzXB/7QKFl6
+n678Lu4peNYzqqwU7TI1GX2ofg9xuIdfGsnniygXSd3t0Afj7PUGRfjL9mclbNah
+ZHteEyA7uFgt59Zpb2VtHGC5X0Vrf88zhXGQjxxpcn0kxPzNJJKVeVgU0drA5g==
+-----END CERTIFICATE-----`
+
 // FakeIntermediateCertPEM is a test intermediate CA cert.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number: 4792439526061490155 (0x42822a5b866fbfeb)
@@ -523,7 +351,7 @@ V5yXudf8IJbFdZbOLmyotm6wTQ8+AZXqi82uR9DZAbc=
 //        49:87:91:6b:ca:25:e6:d8:d7:7b:77:39:f4:a3:03:28:5a:45:
 //        2b:7c:85:dc:c3:cc:74:c5:c2:33:e3:1d:3f:21:e9:d5:3b:fe:
 //        13:1d:91:48
-const FakeIntermediateCertPEM string = `
+const FakeIntermediateCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIDnTCCAoWgAwIBAgIIQoIqW4Zvv+swDQYJKoZIhvcNAQELBQAwcTELMAkGA1UE
 BhMCR0IxDzANBgNVBAgMBkxvbmRvbjEPMA0GA1UEBwwGTG9uZG9uMQ8wDQYDVQQK
@@ -548,6 +376,7 @@ zHTFwjPjHT8h6dU7/hMdkUg=
 -----END CERTIFICATE-----`
 
 // LeafSignedByFakeIntermediateCertPEM is a test cert signed by the intermediate CA.
+//
 //   Data:
 //       Version: 3 (0x2)
 //       Serial Number: 4792439526061490155 (0x42822a5b866fbfeb)
@@ -617,7 +446,7 @@ zHTFwjPjHT8h6dU7/hMdkUg=
 //        29:43:ee:f4:a6:6b:81:c6:50:7d:b3:a2:d2:b4:8c:c4:f6:cc:
 //        9a:0e:65:32:8f:14:65:8c:a0:30:20:d5:7a:cf:48:fb:84:a4:
 //        3a:30:fa:44
-const LeafSignedByFakeIntermediateCertPEM string = `
+const LeafSignedByFakeIntermediateCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIH6DCCBtCgAwIBAgIIQoIqW4Zvv+swDQYJKoZIhvcNAQELBQAwcjELMAkGA1UE
 BhMCR0IxDzANBgNVBAgMBkxvbmRvbjEPMA0GA1UEBwwGTG9uZG9uMQ8wDQYDVQQK
@@ -755,7 +584,7 @@ iGuwIwcrxwwn3octloDVVg==
 //       bc:d1:45:b2:53:c6:47:77:48:f1:c3:89:68:5d:f4:7f:5c:52:
 //       02:20:39:68:40:5c:fd:f0:2a:e2:3f:34:45:b3:19:2d:e3:4d:
 //       58:cd:76:42:19:09:cf:5c:1c:e5:f1:71:e0:39:62:b9
-const FakeIntermediateWithPolicyConstraintsCertPEM string = `
+const FakeIntermediateWithPolicyConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICLDCCAdOgAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -810,7 +639,7 @@ OWhAXP3wKuI/NEWzGS3jTVjNdkIZCc9cHOXxceA5Yrk=
 //       2c:f1:c2:e7:b0:a2:40:e2:c6:89:45:fc:99:a5:9b:dc:21:fb:
 //       f6:02:21:00:b7:4f:98:bf:1f:dc:92:e7:db:7c:aa:33:7a:40:
 //       36:1d:58:19:aa:96:3d:5e:5b:46:5f:47:f6:e3:7d:75:19:4f
-const FakeIntermediateWithNameConstraintsCertPEM string = `
+const FakeIntermediateWithNameConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICNjCCAdugAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -866,7 +695,7 @@ maWb3CH79gIhALdPmL8f3JLn23yqM3pANh1YGaqWPV5bRl9H9uN9dRlP
 //       40:22:b2:e2:14:07:e8:ab:fa:4a:85:2a:41:18:20:f0:31:1a:
 //       02:21:00:a4:64:91:6d:79:47:79:0f:16:06:62:a9:88:8b:92:
 //       6d:40:fa:54:cb:c9:4f:bc:3f:53:27:e5:cd:12:16:53:7a
-const FakeIntermediateWithInvalidNameConstraintsCertPEM string = `
+const FakeIntermediateWithInvalidNameConstraintsCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICNzCCAd2gAwIBAgIEQkJCQjAKBggqhkjOPQQDAjBxMQswCQYDVQQGEwJHQjEP
 MA0GA1UECBMGTG9uZG9uMQ8wDQYDVQQHEwZMb25kb24xDzANBgNVBAoTBkdvb2ds
@@ -921,7 +750,7 @@ hSpBGCDwMRoCIQCkZJFteUd5DxYGYqmIi5JtQPpUy8lPvD9TJ+XNEhZTeg==
 //       83:38:64:5e:3a:25:51:e9:57:1f:00:53:72:db:08:11:65:3d:
 //       f4:02:21:00:a1:4e:5d:b5:9a:8b:10:6e:15:a3:2a:bd:d9:80:
 //       91:96:7c:1a:4f:8f:91:dc:44:9f:13:ff:57:f0:5e:ce:32:34
-const LeafCertPEM string = `
+const LeafCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIICGjCCAb+gAwIBAgIFAN6tvu8wCgYIKoZIzj0EAwIwcjELMAkGA1UEBhMCR0Ix
 DzANBgNVBAgTBkxvbmRvbjEPMA0GA1UEBxMGTG9uZG9uMQ8wDQYDVQQKEwZHb29n
@@ -1123,7 +952,7 @@ Kk5GkNl1LNj/jO7M3GnrbOYV0KP/SAusVd/fJZ1CtlGjZpVgxdAi5yJ6UaXMhw==
 //         e3:ef:2f:c3:22:02:a0:33:8d:48:61:8a:98:27:34:e8:75:5d:
 //         eb:56:93:a3:be:2e:c5:04:ab:d6:88:cc:53:c6:9c:db:9f:aa:
 //         5d:eb:c6:82
-const RealPrecertWithEKUPEM string = `
+const RealPrecertWithEKUPEM = `
 -----BEGIN CERTIFICATE-----
 MIIEZTCCA02gAwIBAgIRAJykB+Il+XzCCgAAAAAgbuUwDQYJKoZIhvcNAQELBQAw
 QjELMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczET
