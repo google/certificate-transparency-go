@@ -30,7 +30,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/spf13/cobra"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -131,9 +131,8 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	}
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
-		verifier := merkle.NewLogVerifier(rfc6962.DefaultHasher)
-		if err := verifier.VerifyInclusion(uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-			glog.Exitf("Failed to VerifyInclusionProof(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+		if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
+			glog.Exitf("Failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
 	}
