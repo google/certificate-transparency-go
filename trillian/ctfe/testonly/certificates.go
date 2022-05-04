@@ -17,20 +17,8 @@ package testonly
 import to "github.com/google/certificate-transparency-go/x509util/testonly"
 
 const (
-	// UnknownBlockTypePEM is a PEM containing only an empty block of a non standard type
-	UnknownBlockTypePEM = to.UnknownBlockTypePEM
-	// CACertPEMWithOtherStuff is a valid test CA certificate (CACertPEM below)
-	// with additional blocks surrounding it.
-	CACertPEMWithOtherStuff = to.CACertPEMWithOtherStuff
 	// CACertPEM is a valid test CA certificate.
 	CACertPEM = to.CACertPEM
-	// CACertPEMDuplicated contains two identical copies of the same test CA certificate
-	CACertPEMDuplicated = to.CACertPEMDuplicated
-	// CACertPEMBad is a PEM block that contains invalid data that should not decode
-	CACertPEMBad = to.CACertPEMBad
-	// CACertMultiplePEM is a PEM block containing a valid CA and intermediate certificate,
-	// specifically CACertPEM above and then another cert.
-	CACertMultiplePEM = to.CACertMultiplePEM
 	// FakeCACertPEM is a test CA cert for testing.
 	FakeCACertPEM = to.FakeCACertPEM
 )
