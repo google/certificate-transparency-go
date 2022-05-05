@@ -395,8 +395,8 @@ github.com/google/rpmpack v0.0.0-20191226140753-aa36bfddb3a0/go.mod h1:RaTPr0KUf
 github.com/google/subcommands v1.0.1/go.mod h1:ZjhPrFU+Olkh9WazFPsl27BQ4UPiG37m3yTrtFlrHVk=
 github.com/google/trillian v1.3.14-0.20210409160123-c5ea3abd4a41/go.mod h1:1dPv0CUjNQVFEDuAUFhZql16pw/VlPgaX8qj+g5pVzQ=
 github.com/google/trillian v1.3.14-0.20210511103300-67b5f349eefa/go.mod h1:s4jO3Ai4NSvxucdvqUHON0bCqJyoya32eNw6XJwsmNc=
-github.com/google/trillian v1.4.1-0.20220503161811-32257c5c3ca0 h1:r1Yb7v7peXnuff/639nwCGIP8C1/VwVyLP/KFWDqFQU=
-github.com/google/trillian v1.4.1-0.20220503161811-32257c5c3ca0/go.mod h1:cXRYMyAvSYTmbFoYx8fJTULrSs+LqLT7lARSJP2fpAk=
+github.com/google/trillian v1.4.1 h1:r/LV2L6uq6ijSSQNSyxnLXFU/JY7DaT6AILx1sOx2+8=
+github.com/google/trillian v1.4.1/go.mod h1:43IVCsGXxP5mZK9yFkTQdQrMQm/wryNBV2GNEdqzVz8=
 github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
@@ -786,8 +786,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 h1:uruHq4
 github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce h1:fb190+cK2Xz/dvi9Hv8eCYJYvIGUTN2/KLq1pT6CjEc=
 github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce/go.mod h1:o8v6yHRoik09Xen7gje4m9ERNah1d1PPsVq1VEx9vE4=
-github.com/transparency-dev/merkle v0.0.0-20220427153749-09877c5f5967 h1:0HykT2IlbcP8a0VlH5XsX+a2OCtB+MUVth/SjAK3E2w=
-github.com/transparency-dev/merkle v0.0.0-20220427153749-09877c5f5967/go.mod h1:B8FIw5LTq6DaULoHsVFRzYIUDkl8yuSwCdZnOZGKL/A=
+github.com/transparency-dev/merkle v0.0.1 h1:T9/9gYB8uZl7VOJIhdwjALeRWlxUxSfDEysjfmx+L9E=
+github.com/transparency-dev/merkle v0.0.1/go.mod h1:B8FIw5LTq6DaULoHsVFRzYIUDkl8yuSwCdZnOZGKL/A=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ulikunitz/xz v0.5.6/go.mod h1:2bypXElzHzzJZwzH67Y6wb67pO62Rzfn7BSiF4ABRW8=
