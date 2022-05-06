@@ -26,7 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/x509"
@@ -36,7 +36,7 @@ import (
 	"github.com/google/trillian/monitoring"
 )
 
-func newLocalStubLogClient(log *loglist2.Log) (client.AddLogClient, error) {
+func newLocalStubLogClient(log *loglist3.Log) (client.AddLogClient, error) {
 	return newRootedStubLogClient(log, RootsCerts)
 }
 
@@ -100,19 +100,19 @@ var (
 )
 
 // newNoLogClient is LogClientBuilder that always fails.
-func newNoLogClient(_ *loglist2.Log) (client.AddLogClient, error) {
+func newNoLogClient(_ *loglist3.Log) (client.AddLogClient, error) {
 	return nil, errors.New("bad log-client builder")
 }
 
-func sampleLogList() *loglist2.LogList {
-	var ll loglist2.LogList
+func sampleLogList() *loglist3.LogList {
+	var ll loglist3.LogList
 	if err := json.Unmarshal([]byte(testdata.SampleLogList2), &ll); err != nil {
 		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
 	}
 	return &ll
 }
 
-func sampleValidLogList() *loglist2.LogList {
+func sampleValidLogList() *loglist3.LogList {
 	ll := sampleLogList()
 	// Id of invalid Log description Racketeer
 	inval := 2
@@ -120,15 +120,15 @@ func sampleValidLogList() *loglist2.LogList {
 	return ll
 }
 
-func sampleUncollectableLogList() *loglist2.LogList {
+func sampleUncollectableLogList() *loglist3.LogList {
 	ll := sampleValidLogList()
 	// Append loglist that is unable to provide roots on request.
-	ll.Operators[0].Logs = append(ll.Operators[0].Logs, &loglist2.Log{
+	ll.Operators[0].Logs = append(ll.Operators[0].Logs, &loglist3.Log{
 		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
 		URL:   "uncollectable-roots/log/",
 		DNS:   "uncollectavle.ct.googleapis.com",
 		MMD:   123,
-		State: &loglist2.LogStates{Usable: &loglist2.LogState{}},
+		State: &loglist3.LogStates{Usable: &loglist3.LogState{}},
 	})
 	return ll
 }
@@ -136,7 +136,7 @@ func sampleUncollectableLogList() *loglist2.LogList {
 func TestNewDistributorLogClients(t *testing.T) {
 	testCases := []struct {
 		name      string
-		ll        *loglist2.LogList
+		ll        *loglist3.LogList
 		lcBuilder LogClientBuilder
 		errRegexp *regexp.Regexp
 	}{
@@ -153,7 +153,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 		},
 		{
 			name:      "NoLogClientsEmptyLogList",
-			ll:        &loglist2.LogList{},
+			ll:        &loglist3.LogList{},
 			lcBuilder: newNoLogClient,
 		},
 	}
@@ -177,7 +177,7 @@ func TestNewDistributorLogClients(t *testing.T) {
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
 		name     string
-		ll       *loglist2.LogList
+		ll       *loglist3.LogList
 		rootNum  map[string]int
 		wantErrs int
 	}{
@@ -240,7 +240,7 @@ func buildStubCTPolicy(n int) stubCTPolicy {
 	return stubCTPolicy{baseNum: n}
 }
 
-func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
+func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist3.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
 	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
@@ -253,7 +253,7 @@ func (stubP stubCTPolicy) Name() string {
 func TestDistributorAddChain(t *testing.T) {
 	testCases := []struct {
 		name         string
-		ll           *loglist2.LogList
+		ll           *loglist3.LogList
 		plc          ctpolicy.CTPolicy
 		pemChainFile string
 		getRoots     bool
@@ -349,7 +349,7 @@ func TestDistributorAddChain(t *testing.T) {
 func TestDistributorAddPreChain(t *testing.T) {
 	testCases := []struct {
 		name         string
-		ll           *loglist2.LogList
+		ll           *loglist3.LogList
 		plc          ctpolicy.CTPolicy
 		pemChainFile string
 		getRoots     bool

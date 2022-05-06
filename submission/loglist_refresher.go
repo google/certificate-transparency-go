@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
@@ -34,7 +34,7 @@ const (
 // of download.
 type LogListData struct {
 	JSON         []byte
-	List         *loglist2.LogList
+	List         *loglist3.LogList
 	DownloadTime time.Time
 }
 
@@ -85,7 +85,7 @@ func (llr *logListRefresherImpl) Refresh() (*LogListData, error) {
 		return nil, nil
 	}
 
-	ll, err := loglist2.NewFromJSON(json)
+	ll, err := loglist3.NewFromJSON(json)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %q: %v", llr.path, err)
 	}

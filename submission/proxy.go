@@ -25,7 +25,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/ctpolicy"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -54,17 +54,17 @@ func proxyInitMetrics(mf monitoring.MetricFactory) {
 }
 
 // DistributorBuilder builds distributor instance for a given Log list.
-type DistributorBuilder func(*loglist2.LogList) (*Distributor, error)
+type DistributorBuilder func(*loglist3.LogList) (*Distributor, error)
 
 // GetDistributorBuilder given CT-policy type and Log-client builder produces
 // Distributor c-tor.
 func GetDistributorBuilder(plc CTPolicyType, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) DistributorBuilder {
 	if plc == AppleCTPolicy {
-		return func(ll *loglist2.LogList) (*Distributor, error) {
+		return func(ll *loglist3.LogList) (*Distributor, error) {
 			return NewDistributor(ll, ctpolicy.AppleCTPolicy{}, lcBuilder, mf)
 		}
 	}
-	return func(ll *loglist2.LogList) (*Distributor, error) {
+	return func(ll *loglist3.LogList) (*Distributor, error) {
 		return NewDistributor(ll, ctpolicy.ChromeCTPolicy{}, lcBuilder, mf)
 	}
 }
@@ -159,7 +159,7 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 
 // restartDistributor activates new Distributor instance with Log List provided
 // and sets it as active.
-func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist2.LogList) error {
+func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist3.LogList) error {
 	d, err := p.distributorBuilder(ll)
 	if err != nil {
 		// losing ll info. No good.

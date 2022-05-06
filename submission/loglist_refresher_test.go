@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/go-cmp/cmp"
 )
@@ -117,13 +117,13 @@ func TestNewLogListRefresher(t *testing.T) {
 	testCases := []struct {
 		name      string
 		ll        string
-		wantLl    *loglist2.LogList
+		wantLl    *loglist3.LogList
 		errRegexp *regexp.Regexp
 	}{
 		{
 			name:   "SuccessfulRead",
 			ll:     `{"operators": [{"id":0,"name":"Google"}]}`,
-			wantLl: &loglist2.LogList{Operators: []*loglist2.Operator{{Name: "Google"}}},
+			wantLl: &loglist3.LogList{Operators: []*loglist3.Operator{{Name: "Google"}}},
 		},
 		{
 			name:      "CannotParseInput",
@@ -173,7 +173,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 		name      string
 		ll        string
 		llNext    string
-		wantLl    *loglist2.LogList
+		wantLl    *loglist3.LogList
 		errRegexp *regexp.Regexp
 	}{
 		{
@@ -187,7 +187,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			name:      "LogListUpdated",
 			ll:        `{"operators": [{"id":0,"name":"Google"}]}`,
 			llNext:    `{"operators": [{"id":0,"name":"GoogleOps"}]}`,
-			wantLl:    &loglist2.LogList{Operators: []*loglist2.Operator{{Name: "GoogleOps"}}},
+			wantLl:    &loglist3.LogList{Operators: []*loglist3.Operator{{Name: "GoogleOps"}}},
 			errRegexp: nil,
 		},
 		{

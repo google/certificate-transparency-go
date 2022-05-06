@@ -27,7 +27,7 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/testdata"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian/monitoring"
@@ -88,7 +88,7 @@ func (m stubNoRootsLogClient) GetAcceptedRoots(ctx context.Context) ([]ct.ASN1Ce
 	return nil, fmt.Errorf("stubNoRootsLogClient cannot provide roots")
 }
 
-func buildStubNoRootsLogClient(log *loglist2.Log) (client.AddLogClient, error) {
+func buildStubNoRootsLogClient(log *loglist3.Log) (client.AddLogClient, error) {
 	return stubNoRootsLogClient{logURL: log.URL}, nil
 }
 

@@ -35,7 +35,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 )
 
 var (
@@ -63,11 +63,11 @@ func populateLogs(logListURL string) ([]ctLog, error) {
 		return nil, fmt.Errorf("failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
-	logList, err := loglist2.NewFromJSON(body)
+	logList, err := loglist3.NewFromJSON(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
-	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
+	usable := logList.SelectByStatus([]loglist3.LogStatus{loglist3.UsableLogStatus})
 	var logs []ctLog
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {

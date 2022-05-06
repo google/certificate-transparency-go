@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -50,7 +50,7 @@ func (group *LogGroupInfo) setMinInclusions(i int) error {
 	return nil
 }
 
-func (group *LogGroupInfo) populate(ll *loglist2.LogList, included func(op *loglist2.Operator) bool) {
+func (group *LogGroupInfo) populate(ll *loglist3.LogList, included func(op *loglist3.Operator) bool) {
 	group.LogURLs = make(map[string]bool)
 	group.LogWeights = make(map[string]float32)
 	for _, op := range ll.Operators {
@@ -180,14 +180,14 @@ func (groups LogPolicyData) TotalLogs() int {
 type CTPolicy interface {
 	// LogsByGroup provides info on Log-grouping. Returns an error if it's not
 	// possible to satisfy the policy with the provided loglist.
-	LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (LogPolicyData, error)
+	LogsByGroup(cert *x509.Certificate, approved *loglist3.LogList) (LogPolicyData, error)
 	Name() string
 }
 
 // BaseGroupFor creates and propagates all-log group.
-func BaseGroupFor(approved *loglist2.LogList, incCount int) (*LogGroupInfo, error) {
+func BaseGroupFor(approved *loglist3.LogList, incCount int) (*LogGroupInfo, error) {
 	baseGroup := LogGroupInfo{Name: BaseName, IsBase: true}
-	baseGroup.populate(approved, func(op *loglist2.Operator) bool { return true })
+	baseGroup.populate(approved, func(op *loglist3.Operator) bool { return true })
 	err := baseGroup.setMinInclusions(incCount)
 	return &baseGroup, err
 }

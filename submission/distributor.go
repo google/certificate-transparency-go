@@ -27,7 +27,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -66,7 +66,7 @@ const (
 type pendingLogsPolicy struct {
 }
 
-func (stubP pendingLogsPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist2.LogList) (ctpolicy.LogPolicyData, error) {
+func (stubP pendingLogsPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist3.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, 1)
 	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
@@ -78,15 +78,15 @@ func (stubP pendingLogsPolicy) Name() string {
 
 // Distributor operates policy-based submission across Logs.
 type Distributor struct {
-	ll                 *loglist2.LogList
-	usableLl           *loglist2.LogList
-	pendingQualifiedLl *loglist2.LogList
+	ll                 *loglist3.LogList
+	usableLl           *loglist3.LogList
+	pendingQualifiedLl *loglist3.LogList
 
 	mu sync.RWMutex
 
 	// helper structs produced out of ll during init.
 	logClients map[string]client.AddLogClient
-	logRoots   loglist2.LogRoots
+	logRoots   loglist3.LogRoots
 	rootPool   *x509util.PEMCertPool
 
 	rootDataFull bool
@@ -140,7 +140,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 	}
 
 	// Collect get-roots results for every Log-client.
-	freshRoots := make(loglist2.LogRoots)
+	freshRoots := make(loglist3.LogRoots)
 	errors := make(map[string]error)
 	for range d.logClients {
 		r := <-ch
@@ -251,7 +251,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	}
 
 	// Helper function establishing responsibility of locking while determining log list and root chain.
-	compatibleLogsAndChain := func() (loglist2.LogList, []*x509.Certificate, error) {
+	compatibleLogsAndChain := func() (loglist3.LogList, []*x509.Certificate, error) {
 		d.mu.RLock()
 		defer d.mu.RUnlock()
 		vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
@@ -261,13 +261,13 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		}
 		if d.rootDataFull {
 			// Could not verify the chain while root info for logs is complete.
-			return loglist2.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
 		}
 
 		// Chain might be rooted to the Log which has no root-info yet.
 		parsedChain, err := parseRawChain(rawChain)
 		if err != nil {
-			return loglist2.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
 		return d.usableLl.Compatible(parsedChain[0], nil, d.logRoots), parsedChain, nil
 	}
@@ -328,10 +328,10 @@ func (d *Distributor) AddChain(ctx context.Context, rawChain [][]byte, loadPendi
 }
 
 // LogClientBuilder builds client-interface instance for a given Log.
-type LogClientBuilder func(*loglist2.Log) (client.AddLogClient, error)
+type LogClientBuilder func(*loglist3.Log) (client.AddLogClient, error)
 
 // BuildLogClient is default (non-mock) LogClientBuilder.
-func BuildLogClient(log *loglist2.Log) (client.AddLogClient, error) {
+func BuildLogClient(log *loglist3.Log) (client.AddLogClient, error) {
 	u, err := url.Parse(log.URL)
 	if err != nil {
 		return nil, err
@@ -347,22 +347,22 @@ func BuildLogClient(log *loglist2.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
+func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
 	var d Distributor
 	// Divide Logs by statuses.
 	d.ll = ll
-	usableStat := []loglist2.LogStatus{loglist2.UsableLogStatus}
+	usableStat := []loglist3.LogStatus{loglist3.UsableLogStatus}
 	active := ll.SelectByStatus(usableStat)
 	d.usableLl = &active
-	pendingQualifiedStat := []loglist2.LogStatus{
-		loglist2.PendingLogStatus, loglist2.QualifiedLogStatus}
+	pendingQualifiedStat := []loglist3.LogStatus{
+		loglist3.PendingLogStatus, loglist3.QualifiedLogStatus}
 	pending := ll.SelectByStatus(pendingQualifiedStat)
 	d.pendingQualifiedLl = &pending
 
 	d.policy = plc
 	d.pendingLogsPolicy = pendingLogsPolicy{}
 	d.logClients = make(map[string]client.AddLogClient)
-	d.logRoots = make(loglist2.LogRoots)
+	d.logRoots = make(loglist3.LogRoots)
 	d.rootPool = x509util.NewPEMCertPool()
 
 	// Build clients for each of the Logs. Also build log-to-id map.
@@ -380,7 +380,7 @@ func NewDistributor(ll *loglist2.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 
 // buildLogClients builds clients for every Log provided and adds them into
 // Distributor internals.
-func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist2.LogList) error {
+func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist3.LogList) error {
 	for _, op := range ll.Operators {
 		for _, log := range op.Logs {
 			lc, err := lcBuilder(log)

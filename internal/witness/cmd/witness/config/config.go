@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
-	"github.com/google/certificate-transparency-go/loglist2"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"gopkg.in/yaml.v2"
 )
 
@@ -47,12 +47,12 @@ func main() {
 		glog.Exitf("Failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
-	logList, err := loglist2.NewFromJSON(body)
+	logList, err := loglist3.NewFromJSON(body)
 	if err != nil {
 		glog.Exitf("failed to parse JSON: %v", err)
 	}
 	var config impl.LogConfig
-	usable := logList.SelectByStatus([]loglist2.LogStatus{loglist2.UsableLogStatus})
+	usable := logList.SelectByStatus([]loglist3.LogStatus{loglist3.UsableLogStatus})
 	for _, operator := range usable.Operators {
 		for _, log := range operator.Logs {
 			key := base64.StdEncoding.EncodeToString(log.Key)
