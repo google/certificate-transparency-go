@@ -46,6 +46,7 @@ func init() {
 		Use:     fmt.Sprintf("get-inclusion-proof %s {--leaf_hash=hash | --cert_chain=file} [--timestamp=ts] [--size=N]", connectionFlags),
 		Aliases: []string{"getinclusionproof", "inclusion-proof", "inclusion"},
 		Short:   "Fetch and verify the inclusion proof for an entry",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runGetInclusionProof(cmd.Context())
 		},

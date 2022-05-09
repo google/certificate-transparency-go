@@ -39,6 +39,7 @@ func init() {
 		Use:     fmt.Sprintf("get-entries %s --first=idx [--last=idx]", connectionFlags),
 		Aliases: []string{"getentries", "entries"},
 		Short:   "Fetch a range of entries in the log",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runGetEntries(cmd.Context())
 		},
