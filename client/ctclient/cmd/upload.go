@@ -33,6 +33,7 @@ func init() {
 		Use:     fmt.Sprintf("upload %s --cert_chain=file [--log_mmd=dur]", connectionFlags),
 		Aliases: []string{"add-chain"},
 		Short:   "Submit a certificate (pre-)chain to the log",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runUpload(cmd.Context())
 		},

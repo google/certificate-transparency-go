@@ -39,6 +39,7 @@ func init() {
 		Use:     fmt.Sprintf("get-consistency-proof %s --size=N --tree_hash=hash --prev_size=N --prev_hash=hash", connectionFlags),
 		Aliases: []string{"getconsistencyproof", "consistency-proof", "consistency"},
 		Short:   "Fetch and verify a consistency proof between two tree states",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runGetConsistencyProof(cmd.Context())
 		},

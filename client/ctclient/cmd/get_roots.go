@@ -26,6 +26,7 @@ func init() {
 		Use:     fmt.Sprintf("get-roots %s", connectionFlags),
 		Aliases: []string{"getroots", "roots"},
 		Short:   "Fetch the root certificates accepted by the log",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runGetRoots(cmd.Context())
 		},
