@@ -22,6 +22,7 @@
  * update `google.golang.org/grpc` to v1.46.0
  * `ctclient` tool now uses Cobra for better CLI experience (#901).
  * #800: Remove dependency from `ratelimit`.
+ * #927: Add read-only mode to CTFE config.
 
 ## v1.1.2
 
