@@ -1067,6 +1067,9 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	deadline := time.Now().Add(s.cfg.MaxRetryDuration)
 
 	for {
+		if err := ctx.Err(); err == context.Canceled {
+			return err
+		}
 		start := time.Now()
 		reqs.Inc(s.label(), string(ep))
 		status, err := s.performOp(ctx, ep)
@@ -1091,9 +1094,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 				// Do not log context canceled errors as this is expected for running
 				// operations when an earlier operation fails. This makes makes logs
 				// easier to sift through.
-				if err != context.Canceled {
-					glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
-				}
+				glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
 			} else {
 				return err
 			}
