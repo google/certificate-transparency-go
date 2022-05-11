@@ -1091,9 +1091,6 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 					glog.Warningf("%s: gave up retrying failed op %v after %v, returning last err: %v", s.cfg.LogCfg.Prefix, ep, s.cfg.MaxRetryDuration, err)
 					return err
 				}
-				// Do not log context canceled errors as this is expected for running
-				// operations when an earlier operation fails. This makes makes logs
-				// easier to sift through.
 				glog.Warningf("%s: op %v failed after %v (will retry for %v more): %v", s.cfg.LogCfg.Prefix, ep, period, left, err)
 			} else {
 				return err
