@@ -1067,7 +1067,7 @@ func (s *hammerState) retryOneOp(ctx context.Context) error {
 	deadline := time.Now().Add(s.cfg.MaxRetryDuration)
 
 	for {
-		if err := ctx.Err(); err == context.Canceled {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 		start := time.Now()
