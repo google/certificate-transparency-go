@@ -21,7 +21,7 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - golint
+    - revive
     - megacheck
     - misspell
     - govet
