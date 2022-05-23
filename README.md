@@ -127,12 +127,3 @@ With tools installed, run the following:
 ```bash
 go generate -x ./...  # hunts for //go:generate comments and runs them
 ```
-
-### Updating Vendor Code
-
-The codebase includes a couple of external projects under the `vendor/`
-subdirectory, to ensure that builds use a fixed version (typically because the
-upstream repository does not guarantee back-compatibility between the tip
-`master` branch and the current stable release).  See
-[instructions in the Trillian repo](https://github.com/google/trillian#updating-vendor-code)
-for how to update vendored subtrees.
