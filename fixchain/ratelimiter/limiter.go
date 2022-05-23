@@ -22,7 +22,7 @@ import (
 
 // Limiter is a simple rate limiter.
 type Limiter struct {
-	ctx context.Context
+	ctx    context.Context
 	bucket *rate.Limiter
 }
 
