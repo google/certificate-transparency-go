@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build tools
 // +build tools
 
 package tools
@@ -19,9 +20,9 @@ package tools
 import (
 	_ "github.com/fullstorydev/grpcurl/cmd/grpcurl"
 	_ "github.com/golang/mock/mockgen"
+	_ "github.com/google/trillian/cmd/createtree"
 	_ "go.etcd.io/etcd/etcdctl/v3"
 	_ "go.etcd.io/etcd/v3"
 	_ "google.golang.org/protobuf/cmd/protoc-gen-go"
 	_ "google.golang.org/protobuf/proto"
-	_ "github.com/google/trillian/cmd/createtree"
 )
