@@ -119,7 +119,7 @@ Re-generating mock or protobuffer files is only needed if you're changing
 the original files; if you do, you'll need to install the prerequisites:
 
 - tools written in `go` can be installed with a single run of `go install`
-  (courtesy of [`tools.go`](tools.go) and `go.mod`).
+  (courtesy of [`tools.go`](./tools/tools.go) and `go.mod`).
 - `protoc` tool: you'll need [version 3.12.4](https://github.com/protocolbuffers/protobuf/releases/tag/v3.12.4) installed, and `PATH` updated to include its `bin/` directory.
 
 With tools installed, run the following:
