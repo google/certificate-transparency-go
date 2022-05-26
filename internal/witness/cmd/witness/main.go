@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (
