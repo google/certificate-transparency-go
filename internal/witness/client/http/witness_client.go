@@ -30,7 +30,7 @@ import (
 )
 
 // ErrSTHTooOld is returned if the STH passed to Update needs to be updated.
-var ErrSTHTooOld error = errors.New("STH too old")
+var ErrSTHTooOld = errors.New("STH too old")
 
 // Witness consists of the witness' URL and signature verifier.
 type Witness struct {

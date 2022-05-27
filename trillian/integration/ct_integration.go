@@ -50,6 +50,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/net/context/ctxhttp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -978,7 +979,7 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 		UpdateMask: treeStateMask,
 	}
 
-	conn, err := grpc.Dial(adminServer, grpc.WithInsecure())
+	conn, err := grpc.Dial(adminServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}

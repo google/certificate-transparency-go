@@ -91,10 +91,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-cd $GOPATH/src/github.com/golangci/golangci-lint/cmd/golangci-lint
-go install -ldflags "-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse --short HEAD)' -X 'main.date=$(date)'"
-cd -
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.46.1
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh

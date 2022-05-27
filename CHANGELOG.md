@@ -19,6 +19,7 @@
 
 ### Misc
 
+ * updated golangci-lint to v1.46.1 (developers should update to this version)
  * update `google.golang.org/grpc` to v1.46.0
  * `ctclient` tool now uses Cobra for better CLI experience (#901).
  * #800: Remove dependency from `ratelimit`.
