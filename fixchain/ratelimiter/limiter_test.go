@@ -26,6 +26,7 @@ var testlimits = []int{1, 10, 50, 100, 1000}
 func TestRateLimiterSingleThreaded(t *testing.T) {
 	for i, limit := range testlimits {
 		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			i, limit := i, limit
 			t.Parallel()
 			l := NewLimiter(limit)
 
@@ -42,6 +43,7 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
+			log.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
 		})
 	}
 }
@@ -49,6 +51,7 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 func TestRateLimiterGoroutines(t *testing.T) {
 	for i, limit := range testlimits {
 		t.Run(fmt.Sprintf("%d ops/s", limit), func(t *testing.T) {
+			i, limit := i, limit
 			t.Parallel()
 			l := NewLimiter(limit)
 
@@ -71,6 +74,7 @@ func TestRateLimiterGoroutines(t *testing.T) {
 			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
+			log.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
 		})
 	}
 }
