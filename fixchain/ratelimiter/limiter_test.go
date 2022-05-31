@@ -19,6 +19,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 var testlimits = []int{1, 10, 50, 100, 1000}
@@ -43,7 +45,7 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
-			log.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
+			glog.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
 		})
 	}
 }
@@ -74,7 +76,7 @@ func TestRateLimiterGoroutines(t *testing.T) {
 			if qps > float64(limit)*1.01 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
-			log.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
+			glog.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
 		})
 	}
 }
