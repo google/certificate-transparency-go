@@ -78,11 +78,6 @@ dependencies and tools, described in the following sections.  The
 for the required tools and scripts, as it may be more up-to-date than this
 document.
 
-In order for the `go generate` command to work properly, the code must
-be checked out to the following location:
-`$GOPATH/src/github.com/google/certificate-transparency-go`
-
-
 ### Running Codebase Checks
 
 The [`scripts/presubmit.sh`](scripts/presubmit.sh) script runs various tools
