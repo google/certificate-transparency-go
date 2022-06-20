@@ -61,12 +61,8 @@ ct_prep_test() {
   if [[ -x "${PROMETHEUS_DIR}/prometheus" ]]; then
     if [[ ! -z "${ETCD_OPTS}" ]]; then
         PROMETHEUS_CFGDIR="$(mktemp -d ${TMPDIR}/ct-prometheus-XXXXXX)"
-        local prom_cfg="${PROMETHEUS_CFGDIR}/config.yaml"
-        echo "Prometheus configuration in ${prom_cfg}:"
-        cat ${prom_cfg}
-
         echo "Launching Prometheus (default location localhost:9090)"
-        ${PROMETHEUS_DIR}/prometheus --config.file=${prom_cfg} \
+        ${PROMETHEUS_DIR}/prometheus --config.file=${CT_GO_PATH}/trillian/integration/prometheus.yml \
                            --web.console.templates=${CT_GO_PATH}/trillian/integration/consoles \
                            --web.console.libraries=${CT_GO_PATH}/third_party/prometheus/console_libs &
         PROMETHEUS_PID=$!
