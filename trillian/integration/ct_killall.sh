@@ -6,7 +6,6 @@ killall $@ trillian_log_signer
 if [[ -x "${ETCD_DIR}/etcd" ]]; then
   killall $@ etcd
   if [[ -x "${PROMETHEUS_DIR}/prometheus" ]]; then
-    killall $@ etcdiscover
     killall $@ prometheus
   fi
 fi

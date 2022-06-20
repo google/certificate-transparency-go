@@ -4,9 +4,12 @@ global:
     monitor: 'trillian'
 
 scrape_configs:
-  - job_name: 'trillian'  # overwritten by labels in JSON file
-    file_sd_configs:
-    - files: ['@ETCDISCOVERED@']
+  - job_name: 'trillian'
+    static_configs:
+    - targets: ['localhost:8091']
+    # other targets can be added here.
+    # this can be automated if a discovery tool is contributed.
+    # See #948 for some context.
   - job_name: 'etcd'
     static_configs:
     - targets: ['localhost:2379']

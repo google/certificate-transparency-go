@@ -493,11 +493,6 @@ Similarly, the set of metrics-displaying targets that are available for
 monitoring can be registered as an etcd service using the `--etcd_http_service`
 option to indicate the relevant service name.
 
-For Prometheus-based monitoring, the `etcdiscover` utility
-(`github.com/google/trillian/monitoring/prometheus/etcdiscover`) monitors a
-collection of etcd services and continually updates a YAML configuration
-file, so that the set of monitored targets is dynamically updated.
-
 **Cross-check**: The current registered endpoints for a service can be queried
 with the `etcdctl` tool:
 ```bash
