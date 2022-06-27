@@ -3,7 +3,6 @@ module github.com/google/certificate-transparency-go
 go 1.16
 
 require (
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/fullstorydev/grpcurl v1.8.6
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
@@ -16,7 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
 	github.com/sergi/go-diff v1.2.0
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/transparency-dev/merkle v0.0.1
