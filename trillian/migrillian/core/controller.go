@@ -337,6 +337,10 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 // verifyConsistency checks that the provided verified Trillian root is
 // consistent with the CT log's STH.
 func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, rootHash []byte, sth *ct.SignedTreeHead) error {
+	if treeSize == 0 {
+		// Any head is consistent with empty root -- unnecessary to request empty proof.
+		return nil
+	}
 	if c.opts.NoConsistencyCheck {
 		glog.Warningf("%s: skipping consistency check", c.label)
 		return nil
