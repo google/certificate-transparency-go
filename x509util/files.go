@@ -32,7 +32,7 @@ func ReadPossiblePEMFile(filename, blockname string) ([][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
 	}
-	return dePEM(data, blockname), nil
+	return DePEM(data, blockname), nil
 }
 
 // ReadPossiblePEMURL attempts to determine if the given target is a local file or a
@@ -52,10 +52,12 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to ioutil.ReadAll(%q): %v", target, err)
 	}
-	return dePEM(data, blockname), nil
+	return DePEM(data, blockname), nil
 }
 
-func dePEM(data []byte, blockname string) [][]byte {
+// DePEM converts PEM-encoded data with the given blockname to binary data, allowing
+// for multiple PEM blocks.
+func DePEM(data []byte, blockname string) [][]byte {
 	var results [][]byte
 	if strings.Contains(string(data), "BEGIN "+blockname) {
 		rest := data

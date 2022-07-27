@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -66,12 +67,19 @@ func addCerts(filename string, pool *x509.CertPool) {
 func main() {
 	flag.Parse()
 
+	targets := flag.Args()
+	if len(targets) == 0 {
+		// No arguments specific, use special value to trigger read from stdin.
+		targets = []string{"--"}
+	}
 	failed := false
-	for _, target := range flag.Args() {
+	for _, target := range targets {
 		var err error
 		var chain []*x509.Certificate
 		if strings.HasPrefix(target, "https://") {
 			chain, err = chainFromSite(target)
+		} else if target == "--" {
+			chain, err = chainFromStdin()
 		} else {
 			chain, err = chainFromFile(target)
 		}
@@ -167,16 +175,33 @@ func chainFromFile(filename string) ([]*x509.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
 	}
+	return chainFromData(dataList, filename)
+}
+
+// chainFromStdin retrieves a certificate chain from stdin.
+// Note that both a chain and an error can be returned (in which case
+// the error will be of type x509.NonFatalErrors).
+func chainFromStdin() ([]*x509.Certificate, error) {
+	data, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		return nil, fmt.Errorf("<stdin>: failed to read data: %v", err)
+	}
+
+	dataList := x509util.DePEM(data, "CERTIFICATE")
+	return chainFromData(dataList, "<stdin>")
+}
+
+func chainFromData(dataList [][]byte, source string) ([]*x509.Certificate, error) {
 	var nfe *x509.NonFatalErrors
 	var chain []*x509.Certificate
 	for _, data := range dataList {
 		certs, err := x509.ParseCertificates(data)
 		if x509.IsFatal(err) {
-			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
+			return nil, fmt.Errorf("%s: failed to parse: %v", source, err)
 		} else if errs, ok := err.(x509.NonFatalErrors); ok {
 			nfe = nfe.Append(&errs)
 		} else if err != nil {
-			return nil, fmt.Errorf("%s: failed to parse: %v", filename, err)
+			return nil, fmt.Errorf("%s: failed to parse: %v", source, err)
 		}
 		chain = append(chain, certs...)
 	}
