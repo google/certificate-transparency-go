@@ -17,10 +17,10 @@ package util
 import (
 	"crypto/sha256"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian"
+	"k8s.io/klog/v2"
 )
 
 // BuildLogLeaf returns a Trillian LogLeaf structure for a (pre-)cert and the
@@ -31,13 +31,13 @@ func BuildLogLeaf(logPrefix string,
 ) (trillian.LogLeaf, error) {
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
-		glog.Warningf("%s: Failed to serialize Merkle leaf: %v", logPrefix, err)
+		klog.Warningf("%s: Failed to serialize Merkle leaf: %v", logPrefix, err)
 		return trillian.LogLeaf{}, err
 	}
 
 	extraData, err := ExtraDataForChain(cert, chain, isPrecert)
 	if err != nil {
-		glog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
+		klog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
 		return trillian.LogLeaf{}, err
 	}
 

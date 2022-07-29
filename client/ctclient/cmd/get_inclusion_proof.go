@@ -25,13 +25,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/spf13/cobra"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -66,7 +66,7 @@ func runGetInclusionProof(ctx context.Context) {
 		var err error
 		hash, err = hashFromString(leafHash)
 		if err != nil {
-			glog.Exitf("Invalid --leaf_hash supplied: %v", err)
+			klog.Exitf("Invalid --leaf_hash supplied: %v", err)
 		}
 	} else if len(certChain) > 0 {
 		// Build a leaf hash from the chain and a timestamp.
@@ -75,18 +75,18 @@ func runGetInclusionProof(ctx context.Context) {
 			entryTimestamp = timestamp // Use user-specified timestamp.
 		}
 		if entryTimestamp == 0 {
-			glog.Exit("No timestamp available to accompany certificate")
+			klog.Exit("No timestamp available to accompany certificate")
 		}
 
 		var leafEntry *ct.MerkleTreeLeaf
 		cert, err := x509.ParseCertificate(chain[0].Data)
 		if x509.IsFatal(err) {
-			glog.Warningf("Failed to parse leaf certificate: %v", err)
+			klog.Warningf("Failed to parse leaf certificate: %v", err)
 			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
 		} else if cert.IsPrecertificate() {
 			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(entryTimestamp))
 			if err != nil {
-				glog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
+				klog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
 			}
 		} else {
 			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
@@ -94,18 +94,18 @@ func runGetInclusionProof(ctx context.Context) {
 
 		leafHash, err := ct.LeafHashForLeaf(leafEntry)
 		if err != nil {
-			glog.Exitf("Failed to create hash of leaf: %v", err)
+			klog.Exitf("Failed to create hash of leaf: %v", err)
 		}
 		hash = leafHash[:]
 
 		// Print a warning if this timestamp is still within the MMD window.
 		when := ct.TimestampToTime(uint64(entryTimestamp))
 		if age := time.Since(when); age < logMMD {
-			glog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, logMMD)
+			klog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, logMMD)
 		}
 	}
 	if len(hash) != sha256.Size {
-		glog.Exit("No leaf hash available")
+		klog.Exit("No leaf hash available")
 	}
 	getInclusionProofForHash(ctx, logClient, hash)
 }
@@ -133,7 +133,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
 		if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
-			glog.Exitf("Failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
+			klog.Exitf("Failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
 	}
@@ -142,7 +142,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 	contents, err := os.ReadFile(filename)
 	if err != nil {
-		glog.Exitf("Failed to read certificate file: %v", err)
+		klog.Exitf("Failed to read certificate file: %v", err)
 	}
 	rest := contents
 	var chain []ct.ASN1Cert
@@ -157,7 +157,7 @@ func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 		}
 	}
 	if len(chain) == 0 {
-		glog.Exitf("No certificates found in %s", certChain)
+		klog.Exitf("No certificates found in %s", certChain)
 	}
 
 	// Also look for something like a text timestamp for convenience.

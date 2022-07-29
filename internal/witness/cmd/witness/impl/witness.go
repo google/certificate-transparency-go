@@ -24,12 +24,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	ih "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/http"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"k8s.io/klog/v2"
 )
 
 // LogConfig contains a list of LogInfo (configuration options for a log).
@@ -93,7 +93,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		return errors.New("DBFile is required")
 	}
 	// Start up local database.
-	glog.Infof("Connecting to local DB at %q", opts.DBFile)
+	klog.Infof("Connecting to local DB at %q", opts.DBFile)
 	db, err := sql.Open("sqlite3", opts.DBFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to DB: %w", err)
@@ -117,7 +117,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		return fmt.Errorf("error creating witness: %v", err)
 	}
 
-	glog.Infof("Starting witness server...")
+	klog.Infof("Starting witness server...")
 	srv := ih.NewServer(w)
 	// These options are required as some logID values contain forward
 	// slashes, and will be PathUnescape-d later.
@@ -133,7 +133,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		close(e)
 	}()
 	<-ctx.Done()
-	glog.Info("Server shutting down")
+	klog.Info("Server shutting down")
 	hServer.Shutdown(ctx)
 	return <-e
 }

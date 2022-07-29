@@ -26,10 +26,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -45,18 +45,18 @@ func main() {
 
 	llData, err := x509util.ReadFileOrURL(*logList, client)
 	if err != nil {
-		glog.Exitf("Failed to read log list: %v", err)
+		klog.Exitf("Failed to read log list: %v", err)
 	}
 
 	var pubKey crypto.PublicKey
 	if *logListPubKeyFile != "" {
 		data, err := os.ReadFile(*logListPubKeyFile)
 		if err != nil {
-			glog.Exitf("Failed to read public key: %v", err)
+			klog.Exitf("Failed to read public key: %v", err)
 		}
 		pubKey, _ /* keyhash */, _ /* rest */, err = ct.PublicKeyFromPEM(data)
 		if err != nil {
-			glog.Exitf("Failed to parse public key: %v", err)
+			klog.Exitf("Failed to parse public key: %v", err)
 		}
 	}
 
@@ -66,7 +66,7 @@ func main() {
 	if pubKey != nil {
 		sig, err := x509util.ReadFileOrURL(*logListSig, client)
 		if err != nil {
-			glog.Exitf("Failed to read log list signature: %v", err)
+			klog.Exitf("Failed to read log list signature: %v", err)
 		}
 		factory = func(d []byte) (*loglist.LogList, error) {
 			return loglist.NewFromSignedJSON(d, sig, pubKey)
@@ -75,12 +75,12 @@ func main() {
 
 	ll, err := factory(llData)
 	if err != nil {
-		glog.Exitf("Failed to build log list: %v", err)
+		klog.Exitf("Failed to build log list: %v", err)
 	}
 
 	args := flag.Args()
 	if len(args) == 0 {
-		glog.Exitf("No logs specified")
+		klog.Exitf("No logs specified")
 	}
 	for _, arg := range args {
 		logs := ll.FuzzyFindLog(arg)

@@ -24,9 +24,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -49,12 +49,12 @@ func addCerts(filename string, pool *x509.CertPool) {
 	if filename != "" {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
-			glog.Exitf("Failed to read certificate file: %v", err)
+			klog.Exitf("Failed to read certificate file: %v", err)
 		}
 		for _, data := range dataList {
 			certs, err := x509.ParseCertificates(data)
 			if err != nil {
-				glog.Exitf("Failed to parse certificate from %s: %v", filename, err)
+				klog.Exitf("Failed to parse certificate from %s: %v", filename, err)
 			}
 			for _, cert := range certs {
 				pool.AddCert(cert)
@@ -76,7 +76,7 @@ func main() {
 			chain, err = chainFromFile(target)
 		}
 		if err != nil {
-			glog.Errorf("%v", err)
+			klog.Errorf("%v", err)
 		}
 		if x509.IsFatal(err) {
 			failed = true
@@ -90,7 +90,7 @@ func main() {
 			}
 			if *checkRevoked {
 				if err := checkRevocation(cert, *verbose); err != nil {
-					glog.Errorf("%s: certificate is revoked: %v", target, err)
+					klog.Errorf("%s: certificate is revoked: %v", target, err)
 					failed = true
 				}
 			}
@@ -105,7 +105,7 @@ func main() {
 				DisableNameConstraintChecks:    !*checkNameConstraint,
 			}
 			if err := validateChain(chain, opts, *root, *intermediate, *useSystemRoots); err != nil {
-				glog.Errorf("%s: verification error: %v", target, err)
+				klog.Errorf("%s: verification error: %v", target, err)
 				failed = true
 			}
 		}
@@ -191,7 +191,7 @@ func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile
 	if useSystemRoots {
 		systemRoots, err := x509.SystemCertPool()
 		if err != nil {
-			glog.Errorf("Failed to get system roots: %v", err)
+			klog.Errorf("Failed to get system roots: %v", err)
 		}
 		roots = systemRoots
 	}
@@ -224,17 +224,17 @@ func checkRevocation(cert *x509.Certificate, verbose bool) error {
 	for _, crldp := range cert.CRLDistributionPoints {
 		crlDataList, err := x509util.ReadPossiblePEMURL(crldp, "X509 CRL")
 		if err != nil {
-			glog.Errorf("failed to retrieve CRL from %q: %v", crldp, err)
+			klog.Errorf("failed to retrieve CRL from %q: %v", crldp, err)
 			continue
 		}
 		for _, crlData := range crlDataList {
 			crl, err := x509.ParseCertificateList(crlData)
 			if x509.IsFatal(err) {
-				glog.Errorf("failed to parse CRL from %q: %v", crldp, err)
+				klog.Errorf("failed to parse CRL from %q: %v", crldp, err)
 				continue
 			}
 			if err != nil {
-				glog.Errorf("non-fatal error parsing CRL from %q: %v", crldp, err)
+				klog.Errorf("non-fatal error parsing CRL from %q: %v", crldp, err)
 			}
 			if verbose {
 				fmt.Printf("\nRevocation data from %s:\n", crldp)

@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/submission"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog/v2"
 )
 
 // Flags.
@@ -47,7 +47,7 @@ func parsePolicyType() submission.CTPolicyType {
 	} else if *policyType == "apple" {
 		return submission.AppleCTPolicy
 	}
-	glog.Fatalf("flag policyType does not support value %q", *policyType)
+	klog.Fatalf("flag policyType does not support value %q", *policyType)
 	return submission.ChromeCTPolicy
 }
 

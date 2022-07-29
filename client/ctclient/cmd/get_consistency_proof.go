@@ -21,11 +21,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/spf13/cobra"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -56,28 +56,28 @@ func init() {
 func runGetConsistencyProof(ctx context.Context) {
 	logClient := connect(ctx)
 	if treeSize <= 0 {
-		glog.Exit("No valid --size supplied")
+		klog.Exit("No valid --size supplied")
 	}
 	if prevSize <= 0 {
-		glog.Exit("No valid --prev_size supplied")
+		klog.Exit("No valid --prev_size supplied")
 	}
 	var hash1, hash2 []byte
 	if prevHash != "" {
 		var err error
 		hash1, err = hashFromString(prevHash)
 		if err != nil {
-			glog.Exitf("Invalid --prev_hash: %v", err)
+			klog.Exitf("Invalid --prev_hash: %v", err)
 		}
 	}
 	if treeHash != "" {
 		var err error
 		hash2, err = hashFromString(treeHash)
 		if err != nil {
-			glog.Exitf("Invalid --tree_hash: %v", err)
+			klog.Exitf("Invalid --tree_hash: %v", err)
 		}
 	}
 	if (hash1 != nil) != (hash2 != nil) {
-		glog.Exitf("Need both --prev_hash and --tree_hash or neither")
+		klog.Exitf("Need both --prev_hash and --tree_hash or neither")
 	}
 	getConsistencyProofBetween(ctx, logClient, prevSize, treeSize, hash1, hash2)
 }
@@ -96,7 +96,7 @@ func getConsistencyProofBetween(ctx context.Context, logClient client.CheckLogCl
 	}
 	// We have tree hashes so we can verify the proof.
 	if err := proof.VerifyConsistency(rfc6962.DefaultHasher, first, second, pf, prevHash, treeHash); err != nil {
-		glog.Exitf("Failed to VerifyConsistency(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
+		klog.Exitf("Failed to VerifyConsistency(%x @size=%d, %x @size=%d): %v", prevHash, first, treeHash, second, err)
 	}
 	fmt.Printf("Verified that hash %x @%d + proof = hash %x @%d\n", prevHash, first, treeHash, second)
 }

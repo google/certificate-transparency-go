@@ -22,12 +22,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -96,9 +96,9 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 			return nil, fmt.Errorf("failed to read trusted roots for target log: %v", err)
 		}
 	}
-	if glog.V(4) {
+	if klog.V(4).Enabled() {
 		for _, cert := range targetPool.RawCertificates() {
-			glog.Infof("target root cert: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
+			klog.Infof("target root cert: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
 		}
 	}
 
@@ -111,13 +111,13 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 	for _, root := range srcRoots {
 		cert, err := x509.ParseCertificate(root.Data)
 		if x509.IsFatal(err) {
-			glog.Warningf("Failed to parse root certificate from source log: %v", err)
+			klog.Warningf("Failed to parse root certificate from source log: %v", err)
 			continue
 		}
-		glog.V(4).Infof("source log root cert: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
+		klog.V(4).Infof("source log root cert: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
 		sourcePool.AddCert(cert)
 		if targetPool.Included(cert) {
-			glog.V(3).Infof("source log root cert is accepted by target: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
+			klog.V(3).Infof("source log root cert is accepted by target: %x Subject: %v", sha256.Sum256(cert.Raw), cert.Subject)
 			seenOverlap = true
 		}
 	}
@@ -133,7 +133,7 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 			return nil, fmt.Errorf("failed to get STH for source log: %v", err)
 		}
 		startIndex = rand.Int63n(int64(sth.TreeSize))
-		glog.Infof("starting CopyChainGenerator from index %d (of %d) in source log", startIndex, sth.TreeSize)
+		klog.Infof("starting CopyChainGenerator from index %d (of %d) in source log", startIndex, sth.TreeSize)
 	}
 
 	generator := &CopyChainGenerator{
@@ -168,25 +168,25 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 // processBatch extracts chains of the desired type from a batch of entries and sends
 // them down the channel.  May block on the channel consumer.
 func (g *CopyChainGenerator) processBatch(batch scanner.EntryBatch, chains chan []ct.ASN1Cert, eType ct.LogEntryType) {
-	glog.V(2).Infof("processBatch(%d): examine batch [%d, %d)", eType, batch.Start, int(batch.Start)+len(batch.Entries))
+	klog.V(2).Infof("processBatch(%d): examine batch [%d, %d)", eType, batch.Start, int(batch.Start)+len(batch.Entries))
 	for i, entry := range batch.Entries {
 		index := batch.Start + int64(i)
 		entry, err := ct.RawLogEntryFromLeaf(index, &entry)
 		if err != nil {
-			glog.Errorf("processBatch(%d): failed to build raw log entry %d: %v", eType, index, err)
+			klog.Errorf("processBatch(%d): failed to build raw log entry %d: %v", eType, index, err)
 			continue
 		}
 		if entry.Leaf.TimestampedEntry.EntryType != eType {
-			glog.V(4).Infof("skip entry %d as EntryType=%d not %d", index, entry.Leaf.TimestampedEntry.EntryType, eType)
+			klog.V(4).Infof("skip entry %d as EntryType=%d not %d", index, entry.Leaf.TimestampedEntry.EntryType, eType)
 			continue
 		}
 		root, err := x509.ParseCertificate(entry.Chain[len(entry.Chain)-1].Data)
 		if err != nil {
-			glog.V(3).Infof("skip entry %d as its root cannot be parsed to check accepted: %v", index, err)
+			klog.V(3).Infof("skip entry %d as its root cannot be parsed to check accepted: %v", index, err)
 			continue
 		}
 		if !g.targetRoots.Included(root) {
-			glog.V(3).Infof("skip entry %d as its root is not accepted by target log", index)
+			klog.V(3).Infof("skip entry %d as its root is not accepted by target log", index)
 			continue
 		}
 		if !g.start.IsZero() || !g.limit.IsZero() {
@@ -194,15 +194,15 @@ func (g *CopyChainGenerator) processBatch(batch scanner.EntryBatch, chains chan 
 			// whether it complies with them.
 			cert, err := x509.ParseCertificate(entry.Cert.Data)
 			if x509.IsFatal(err) {
-				glog.V(3).Infof("skip entry %d as its leaf cannot be parsed to check NotAfter: %v", index, err)
+				klog.V(3).Infof("skip entry %d as its leaf cannot be parsed to check NotAfter: %v", index, err)
 				continue
 			}
 			if !g.start.IsZero() && cert.NotAfter.Before(g.start) {
-				glog.V(3).Infof("skip entry %d as its NotAfter (%v) is before %v", index, cert.NotAfter, g.start)
+				klog.V(3).Infof("skip entry %d as its NotAfter (%v) is before %v", index, cert.NotAfter, g.start)
 				continue
 			}
 			if !g.limit.IsZero() && !cert.NotAfter.Before(g.limit) {
-				glog.V(3).Infof("skip entry %d as its NotAfter (%v) is after %v", index, cert.NotAfter, g.limit)
+				klog.V(3).Infof("skip entry %d as its NotAfter (%v) is after %v", index, cert.NotAfter, g.limit)
 				continue
 			}
 		}

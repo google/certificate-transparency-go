@@ -24,10 +24,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
 	"github.com/google/certificate-transparency-go/loglist3"
 	"gopkg.in/yaml.v3"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -41,16 +41,16 @@ func main() {
 	// Get all usable logs from the log list.
 	u, err := url.Parse(*logList)
 	if err != nil {
-		glog.Exitf("Failed to parse log_list_url as a URL: %v", err)
+		klog.Exitf("Failed to parse log_list_url as a URL: %v", err)
 	}
 	body, err := readURL(u)
 	if err != nil {
-		glog.Exitf("Failed to get log list data: %v", err)
+		klog.Exitf("Failed to get log list data: %v", err)
 	}
 	// Get data for all usable logs.
 	logList, err := loglist3.NewFromJSON(body)
 	if err != nil {
-		glog.Exitf("failed to parse JSON: %v", err)
+		klog.Exitf("failed to parse JSON: %v", err)
 	}
 	var config impl.LogConfig
 	usable := logList.SelectByStatus([]loglist3.LogStatus{loglist3.UsableLogStatus})
@@ -63,10 +63,10 @@ func main() {
 	}
 	data, err := yaml.Marshal(&config)
 	if err != nil {
-		glog.Exitf("Failed to marshal log config into YAML: %v", err)
+		klog.Exitf("Failed to marshal log config into YAML: %v", err)
 	}
 	if err := os.WriteFile(*configFile, data, 0644); err != nil {
-		glog.Exitf("Failed to write config to file: %v", err)
+		klog.Exitf("Failed to write config to file: %v", err)
 	}
 }
 

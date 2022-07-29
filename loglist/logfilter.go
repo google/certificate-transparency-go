@@ -17,9 +17,9 @@ package loglist
 import (
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 // LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
@@ -53,7 +53,7 @@ func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate
 
 	// Check whether chain is ending with CA-cert.
 	if certRoot != nil && !certRoot.IsCA {
-		glog.Warningf("Compatible method expects fully rooted chain, while last cert of the chain provided is not root")
+		klog.Warningf("Compatible method expects fully rooted chain, while last cert of the chain provided is not root")
 		return compatible
 	}
 

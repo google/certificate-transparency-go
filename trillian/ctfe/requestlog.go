@@ -18,9 +18,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 const vLevel = 9
@@ -81,24 +81,24 @@ type DefaultRequestLog struct {
 
 // Start logs the start of request processing.
 func (dlr *DefaultRequestLog) Start(ctx context.Context) context.Context {
-	glog.V(vLevel).Info("RL: Start")
+	klog.V(vLevel).Info("RL: Start")
 	return ctx
 }
 
 // LogPrefix logs the prefix of the CT log that this request is for.
 func (dlr *DefaultRequestLog) LogPrefix(_ context.Context, p string) {
-	glog.V(vLevel).Infof("RL: LogPrefix: %s", p)
+	klog.V(vLevel).Infof("RL: LogPrefix: %s", p)
 }
 
 // AddDERToChain logs the raw bytes of a submitted certificate.
 func (dlr *DefaultRequestLog) AddDERToChain(_ context.Context, d []byte) {
-	glog.V(vLevel).Infof("RL: Cert DER: %x", d)
+	klog.V(vLevel).Infof("RL: Cert DER: %x", d)
 }
 
 // AddCertToChain logs some issuer / subject / timing fields from a
 // certificate that is part of a submitted chain.
 func (dlr *DefaultRequestLog) AddCertToChain(_ context.Context, cert *x509.Certificate) {
-	glog.V(vLevel).Infof("RL: Cert: Sub: %s Iss: %s notBef: %s notAft: %s",
+	klog.V(vLevel).Infof("RL: Cert: Sub: %s Iss: %s notBef: %s notAft: %s",
 		x509util.NameToString(cert.Subject),
 		x509util.NameToString(cert.Issuer),
 		cert.NotBefore.Format(time.RFC1123Z),
@@ -107,35 +107,35 @@ func (dlr *DefaultRequestLog) AddCertToChain(_ context.Context, cert *x509.Certi
 
 // FirstAndSecond logs request parameters.
 func (dlr *DefaultRequestLog) FirstAndSecond(_ context.Context, f, s int64) {
-	glog.V(vLevel).Infof("RL: First: %d Second: %d", f, s)
+	klog.V(vLevel).Infof("RL: First: %d Second: %d", f, s)
 }
 
 // StartAndEnd logs request parameters.
 func (dlr *DefaultRequestLog) StartAndEnd(_ context.Context, s, e int64) {
-	glog.V(vLevel).Infof("RL: Start: %d End: %d", s, e)
+	klog.V(vLevel).Infof("RL: Start: %d End: %d", s, e)
 }
 
 // LeafIndex logs request parameters.
 func (dlr *DefaultRequestLog) LeafIndex(_ context.Context, li int64) {
-	glog.V(vLevel).Infof("RL: LeafIndex: %d", li)
+	klog.V(vLevel).Infof("RL: LeafIndex: %d", li)
 }
 
 // TreeSize logs request parameters.
 func (dlr *DefaultRequestLog) TreeSize(_ context.Context, ts int64) {
-	glog.V(vLevel).Infof("RL: TreeSize: %d", ts)
+	klog.V(vLevel).Infof("RL: TreeSize: %d", ts)
 }
 
 // LeafHash logs request parameters.
 func (dlr *DefaultRequestLog) LeafHash(_ context.Context, lh []byte) {
-	glog.V(vLevel).Infof("RL: LeafHash: %x", lh)
+	klog.V(vLevel).Infof("RL: LeafHash: %x", lh)
 }
 
 // IssueSCT logs an SCT that will be issued to a client.
 func (dlr *DefaultRequestLog) IssueSCT(_ context.Context, sct []byte) {
-	glog.V(vLevel).Infof("RL: Issuing SCT: %x", sct)
+	klog.V(vLevel).Infof("RL: Issuing SCT: %x", sct)
 }
 
 // Status logs the response HTTP status code after processing completes.
 func (dlr *DefaultRequestLog) Status(_ context.Context, s int) {
-	glog.V(vLevel).Infof("RL: Status: %d", s)
+	klog.V(vLevel).Infof("RL: Status: %d", s)
 }

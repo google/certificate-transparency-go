@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/ctpolicy"
@@ -30,6 +29,7 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
+	"k8s.io/klog/v2"
 )
 
 // CTPolicyType indicates CT-policy used for certificate submission.
@@ -144,14 +144,14 @@ func (p *Proxy) Run(ctx context.Context, llRefresh time.Duration, rootsRefresh t
 			case llData := <-p.llWatcher.LLUpdates:
 				logListUpdates.Inc()
 				if err := p.restartDistributor(ctx, llData.List); err != nil {
-					glog.Errorf("Unable to use Log-list:\n %v\n %v", err, llData.JSON)
+					klog.Errorf("Unable to use Log-list:\n %v\n %v", err, llData.JSON)
 				} else if !init {
 					init = true
 					p.Init <- true
 					close(p.Init)
 				}
 			case err := <-p.llWatcher.Errors:
-				glog.Error(err)
+				klog.Error(err)
 			}
 		}
 	}()
@@ -171,7 +171,7 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist3.LogList) er
 	go schedule.Every(refreshCtx, p.rootsRefreshInterval, func(ectx context.Context) {
 		if errs := d.RefreshRoots(ectx); len(errs) > 0 {
 			for _, err := range errs {
-				glog.Warning(err)
+				klog.Warning(err)
 			}
 		}
 	})

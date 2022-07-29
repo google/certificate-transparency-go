@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -43,6 +42,7 @@ import (
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -103,7 +103,7 @@ func newLimiter(rate int) integration.Limiter {
 func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 	var tlsCfg *tls.Config
 	if *skipHTTPSVerify {
-		glog.Warning("Skipping HTTPS connection verification")
+		klog.Warning("Skipping HTTPS connection verification")
 		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
 	}
 	httpClient := &http.Client{
@@ -124,30 +124,30 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 	if *srcPubKey != "" {
 		pubkey, err := os.ReadFile(*srcPubKey)
 		if err != nil {
-			glog.Exit(err)
+			klog.Exit(err)
 		}
 		opts.PublicKey = string(pubkey)
 	}
 	if len(*srcLogName) > 0 {
 		llData, err := x509util.ReadFileOrURL(*logList, httpClient)
 		if err != nil {
-			glog.Exitf("Failed to read log list: %v", err)
+			klog.Exitf("Failed to read log list: %v", err)
 		}
 		ll, err := loglist.NewFromJSON(llData)
 		if err != nil {
-			glog.Exitf("Failed to build log list: %v", err)
+			klog.Exitf("Failed to build log list: %v", err)
 		}
 
 		logs := ll.FindLogByName(*srcLogName)
 		if len(logs) == 0 {
-			glog.Exitf("No log with name like %q found in loglist %q", *srcLogName, *logList)
+			klog.Exitf("No log with name like %q found in loglist %q", *srcLogName, *logList)
 		}
 		if len(logs) > 1 {
 			logNames := make([]string, len(logs))
 			for i, log := range logs {
 				logNames[i] = fmt.Sprintf("%q", log.Description)
 			}
-			glog.Exitf("Multiple logs with name like %q found in loglist: %s", *srcLogName, strings.Join(logNames, ","))
+			klog.Exitf("Multiple logs with name like %q found in loglist: %s", *srcLogName, strings.Join(logNames, ","))
 		}
 		uri = "https://" + logs[0].URL
 		if opts.PublicKey == "" {
@@ -157,9 +157,9 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 
 	logClient, err := client.New(uri, httpClient, opts)
 	if err != nil {
-		glog.Exitf("Failed to create client for %q: %v", uri, err)
+		klog.Exitf("Failed to create client for %q: %v", uri, err)
 	}
-	glog.Infof("Testing with certs copied from log at %s starting at index %d", uri, *startIndex)
+	klog.Infof("Testing with certs copied from log at %s starting at index %d", uri, *startIndex)
 	genOpts := integration.CopyChainOptions{
 		StartIndex:    *startIndex,
 		BufSize:       *chainBufSize,
@@ -174,7 +174,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 func main() {
 	flag.Parse()
 	if *logConfig == "" {
-		glog.Exit("Test aborted as no log config provided (via --log_config)")
+		klog.Exit("Test aborted as no log config provided (via --log_config)")
 	}
 	if *seed == -1 {
 		*seed = time.Now().UTC().UnixNano() & 0xFFFFFFFF
@@ -184,7 +184,7 @@ func main() {
 
 	cfg, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
-		glog.Exitf("Failed to read log config: %v", err)
+		klog.Exitf("Failed to read log config: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -196,15 +196,15 @@ func main() {
 	} else if *testDir != "" {
 		// Test cert chains will be generated as synthetic certs from a template.
 		// Retrieve the test data holding the template and key.
-		glog.Infof("Testing with synthetic certs based on data from %s", *testDir)
+		klog.Infof("Testing with synthetic certs based on data from %s", *testDir)
 		generatorFactory, err = integration.SyntheticGeneratorFactory(*testDir, *leafNotAfter)
 		if err != nil {
-			glog.Exitf("Failed to make cert generator: %v", err)
+			klog.Exitf("Failed to make cert generator: %v", err)
 		}
 	}
 
 	if generatorFactory == nil {
-		glog.Warningf("Warning: add-[pre-]chain operations disabled as no cert generation method available")
+		klog.Warningf("Warning: add-[pre-]chain operations disabled as no cert generation method available")
 		*addChainBias = 0
 		*addPreChainBias = 0
 		generatorFactory = func(c *configpb.LogConfig) (integration.ChainGenerator, error) {
@@ -240,10 +240,10 @@ func main() {
 		mf = prometheus.MetricFactory{}
 		http.Handle("/metrics", promhttp.Handler())
 		server := http.Server{Addr: *metricsEndpoint, Handler: nil}
-		glog.Infof("Serving metrics at %v", *metricsEndpoint)
+		klog.Infof("Serving metrics at %v", *metricsEndpoint)
 		go func() {
 			err := server.ListenAndServe()
-			glog.Warningf("Metrics server exited: %v", err)
+			klog.Warningf("Metrics server exited: %v", err)
 		}()
 	} else {
 		mf = monitoring.InertMetricFactory{}
@@ -274,7 +274,7 @@ func main() {
 		wg.Add(1)
 		pool, err := integration.NewRandomPool(*httpServers, c.PublicKey, c.Prefix)
 		if err != nil {
-			glog.Exitf("Failed to create client pool: %v", err)
+			klog.Exitf("Failed to create client pool: %v", err)
 		}
 
 		mmd := *mmd
@@ -286,7 +286,7 @@ func main() {
 
 		generator, err := generatorFactory(c)
 		if err != nil {
-			glog.Exitf("Failed to build chain generator: %v", err)
+			klog.Exitf("Failed to build chain generator: %v", err)
 		}
 
 		cfg := integration.HammerConfig{
@@ -316,17 +316,17 @@ func main() {
 	}
 	wg.Wait()
 
-	glog.Infof("completed tests on all %d logs:", len(cfg))
+	klog.Infof("completed tests on all %d logs:", len(cfg))
 	close(results)
 	errCount := 0
 	for e := range results {
 		if e.err != nil {
 			errCount++
-			glog.Errorf("  %s: failed with %v", e.prefix, e.err)
+			klog.Errorf("  %s: failed with %v", e.prefix, e.err)
 		}
 	}
 	if errCount > 0 {
-		glog.Exitf("non-zero error count (%d), exiting", errCount)
+		klog.Exitf("non-zero error count (%d), exiting", errCount)
 	}
-	glog.Info("  no errors; done")
+	klog.Info("  no errors; done")
 }

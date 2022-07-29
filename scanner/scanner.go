@@ -22,9 +22,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
+	"k8s.io/klog/v2"
 )
 
 // ScannerOptions holds configuration options for the Scanner.
@@ -99,7 +99,7 @@ func (s *Scanner) isCertErrorFatal(err error, logEntry *ct.LogEntry, index int64
 	} else if !x509.IsFatal(err) {
 		atomic.AddInt64(&s.entriesWithNonFatalErrors, 1)
 		// We'll make a note, but continue.
-		glog.V(1).Infof("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err)
+		klog.V(1).Infof("Non-fatal error in %v at index %d: %v", logEntry.Leaf.TimestampedEntry.EntryType, index, err)
 		return false
 	}
 	return true
@@ -184,7 +184,7 @@ func (s *Scanner) matcherJob(entries <-chan entryInfo, foundCert func(*ct.RawLog
 	for e := range entries {
 		if err := s.processEntry(e, foundCert, foundPrecert); err != nil {
 			atomic.AddInt64(&s.unparsableEntries, 1)
-			glog.Errorf("Failed to parse entry at index %d: %s", e.index, err.Error())
+			klog.Errorf("Failed to parse entry at index %d: %s", e.index, err.Error())
 		}
 	}
 }
@@ -237,7 +237,7 @@ func (s *Scanner) logThroughput(treeSize int64, stop <-chan bool) {
 			remainingCerts := treeSize - int64(s.opts.StartIndex) - certsCnt
 			remainingSeconds := int(float64(remainingCerts) / throughput)
 			remainingString := humanTime(time.Duration(remainingSeconds) * time.Second)
-			glog.V(1).Infof("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
+			klog.V(1).Infof("Processed: %d certs (to index %d), matched %d (%2.2f%%). Throughput (last %ds): %3.2f ETA: %s\n",
 				certsCnt, s.opts.StartIndex+certsCnt, certsMatched,
 				(100.0*float64(certsMatched))/float64(certsCnt),
 				filled, throughput, remainingString)
@@ -258,7 +258,7 @@ func (s *Scanner) Scan(ctx context.Context, foundCert func(*ct.RawLogEntry), fou
 
 // ScanLog performs a scan against the Log, returning the count of scanned entries.
 func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), foundPrecert func(*ct.RawLogEntry)) (int64, error) {
-	glog.V(1).Infof("Starting up Scanner...")
+	klog.V(1).Infof("Starting up Scanner...")
 	s.certsProcessed = 0
 	s.certsMatched = 0
 	s.precertsSeen = 0
@@ -285,9 +285,9 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), 
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			glog.V(1).Infof("Matcher %d starting", idx)
+			klog.V(1).Infof("Matcher %d starting", idx)
 			s.matcherJob(entries, foundCert, foundPrecert)
-			glog.V(1).Infof("Matcher %d finished", idx)
+			klog.V(1).Infof("Matcher %d finished", idx)
 		}(w)
 	}
 
@@ -303,10 +303,10 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), 
 		return -1, err
 	}
 
-	glog.V(1).Infof("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
-	glog.V(1).Infof("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen))
-	glog.V(1).Infof("Saw %d unparsable entries", atomic.LoadInt64(&s.unparsableEntries))
-	glog.V(1).Infof("Saw %d non-fatal errors", atomic.LoadInt64(&s.entriesWithNonFatalErrors))
+	klog.V(1).Infof("Completed %d certs in %s", atomic.LoadInt64(&s.certsProcessed), humanTime(time.Since(startTime)))
+	klog.V(1).Infof("Saw %d precerts", atomic.LoadInt64(&s.precertsSeen))
+	klog.V(1).Infof("Saw %d unparsable entries", atomic.LoadInt64(&s.unparsableEntries))
+	klog.V(1).Infof("Saw %d non-fatal errors", atomic.LoadInt64(&s.entriesWithNonFatalErrors))
 
 	return int64(s.fetcher.opts.EndIndex), nil
 }
