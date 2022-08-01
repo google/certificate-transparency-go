@@ -16,11 +16,13 @@ package scanner
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/trillian/client/backoff"
 )
 
@@ -284,7 +286,11 @@ func (f *Fetcher) runWorker(ctx context.Context, ranges <-chan fetchRange, fn fu
 				resp, err = f.client.GetRawEntries(ctx, r.start, r.end)
 				return err
 			}); err != nil {
-				glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
+				if rspErr, isRspErr := err.(jsonclient.RspError); isRspErr && rspErr.StatusCode == http.StatusTooManyRequests {
+					glog.V(2).Infof("%s: GetRawEntries() failed: %v", f.uri, err)
+				} else {
+					glog.Errorf("%s: GetRawEntries() failed: %v", f.uri, err)
+				}
 				// There is no error reporting yet for this worker, so just retry again.
 				continue
 			}
