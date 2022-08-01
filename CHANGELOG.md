@@ -17,6 +17,10 @@
  * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
    dependencies (#903).
 
+### Migrillian
+
+* #960: Skip consistency check when root is size zero.
+
 ### Misc
 
  * updated golangci-lint to v1.46.1 (developers should update to this version)
