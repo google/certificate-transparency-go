@@ -1931,54 +1931,55 @@ func TestParseIssuingDistributionPoint(t *testing.T) {
 }
 
 // CRL for Google Internet Authority G2:
-//   Certificate Revocation List (CRL):
-//           Version 2 (0x1)
-//       Signature Algorithm: sha256WithRSAEncryption
-//           Issuer: /C=US/O=Google Inc/CN=Google Internet Authority G2
-//           Last Update: Jun 29 01:00:02 2017 GMT
-//           Next Update: Jul  9 01:00:02 2017 GMT
-//           CRL extensions:
-//               X509v3 Authority Key Identifier:
-//                   keyid:4A:DD:06:16:1B:BC:F6:68:B5:76:F5:81:B6:BB:62:1A:BA:5A:81:2F
-//               X509v3 CRL Number:
-//                   1571
-//   Revoked Certificates:
-//       Serial Number: 764BEDD38AFD51F7
-//           Revocation Date: Jan 13 14:18:58 2017 GMT
-//           CRL entry extensions:
-//               X509v3 CRL Reason Code:
-//                   Affiliation Changed
-//       Serial Number: 3B772E5F1202118E
-//           Revocation Date: May 10 10:55:07 2017 GMT
-//           CRL entry extensions:
-//               X509v3 CRL Reason Code:
-//                   Key Compromise
-//       Serial Number: 0B54E3090079AD4B
-//           Revocation Date: Apr 12 08:53:17 2017 GMT
-//           CRL entry extensions:
-//               X509v3 CRL Reason Code:
-//                   Key Compromise
-//       Serial Number: 31DA3380182AF9B2
-//           Revocation Date: Sep 15 20:22:13 2016 GMT
-//           CRL entry extensions:
-//               X509v3 CRL Reason Code:
-//                   Affiliation Changed
-//       Signature Algorithm: sha256WithRSAEncryption
-//            4d:cd:e2:96:67:97:32:39:cc:a3:44:c5:8b:72:12:8f:b5:c5:
-//            db:03:ef:dc:75:cf:b7:d9:a0:41:0e:c0:3c:8c:d2:11:60:b4:
-//            49:cd:80:22:4f:41:ca:9d:91:52:92:95:ef:7d:01:79:ca:4b:
-//            08:bb:68:8c:ec:ce:13:cc:07:b2:0e:cd:87:ff:de:1b:c3:56:
-//            55:40:83:c4:0b:ea:7a:38:7d:ac:c5:4b:38:48:b3:71:0a:cf:
-//            2f:a6:13:d0:07:b1:2a:fc:37:f0:a7:70:82:65:5b:8d:bb:66:
-//            83:ba:2f:c5:25:55:e9:f7:4b:b5:ba:94:29:37:7f:f3:8e:19:
-//            3e:79:9f:c0:5c:4c:9b:bc:ee:29:49:29:45:a7:32:db:67:ba:
-//            35:75:a7:9a:83:42:7a:1f:6d:18:d9:ed:e0:1c:54:4f:3c:cd:
-//            68:e5:68:0a:9b:54:18:e0:3e:1d:80:b3:e7:7e:69:86:09:82:
-//            a4:d2:1c:6b:11:1b:07:c8:7f:e3:2c:56:1e:87:15:54:89:6b:
-//            37:65:1d:5a:af:42:b2:d0:92:ce:8d:4d:d4:ae:1d:7a:97:09:
-//            1c:0a:06:c0:3d:71:58:0e:05:57:a5:14:08:51:3f:de:30:12:
-//            f0:2d:ac:76:53:68:22:a5:64:fa:a2:55:30:48:72:96:33:b6:
-//            8f:1f:c3:69
+//
+//	Certificate Revocation List (CRL):
+//	        Version 2 (0x1)
+//	    Signature Algorithm: sha256WithRSAEncryption
+//	        Issuer: /C=US/O=Google Inc/CN=Google Internet Authority G2
+//	        Last Update: Jun 29 01:00:02 2017 GMT
+//	        Next Update: Jul  9 01:00:02 2017 GMT
+//	        CRL extensions:
+//	            X509v3 Authority Key Identifier:
+//	                keyid:4A:DD:06:16:1B:BC:F6:68:B5:76:F5:81:B6:BB:62:1A:BA:5A:81:2F
+//	            X509v3 CRL Number:
+//	                1571
+//	Revoked Certificates:
+//	    Serial Number: 764BEDD38AFD51F7
+//	        Revocation Date: Jan 13 14:18:58 2017 GMT
+//	        CRL entry extensions:
+//	            X509v3 CRL Reason Code:
+//	                Affiliation Changed
+//	    Serial Number: 3B772E5F1202118E
+//	        Revocation Date: May 10 10:55:07 2017 GMT
+//	        CRL entry extensions:
+//	            X509v3 CRL Reason Code:
+//	                Key Compromise
+//	    Serial Number: 0B54E3090079AD4B
+//	        Revocation Date: Apr 12 08:53:17 2017 GMT
+//	        CRL entry extensions:
+//	            X509v3 CRL Reason Code:
+//	                Key Compromise
+//	    Serial Number: 31DA3380182AF9B2
+//	        Revocation Date: Sep 15 20:22:13 2016 GMT
+//	        CRL entry extensions:
+//	            X509v3 CRL Reason Code:
+//	                Affiliation Changed
+//	    Signature Algorithm: sha256WithRSAEncryption
+//	         4d:cd:e2:96:67:97:32:39:cc:a3:44:c5:8b:72:12:8f:b5:c5:
+//	         db:03:ef:dc:75:cf:b7:d9:a0:41:0e:c0:3c:8c:d2:11:60:b4:
+//	         49:cd:80:22:4f:41:ca:9d:91:52:92:95:ef:7d:01:79:ca:4b:
+//	         08:bb:68:8c:ec:ce:13:cc:07:b2:0e:cd:87:ff:de:1b:c3:56:
+//	         55:40:83:c4:0b:ea:7a:38:7d:ac:c5:4b:38:48:b3:71:0a:cf:
+//	         2f:a6:13:d0:07:b1:2a:fc:37:f0:a7:70:82:65:5b:8d:bb:66:
+//	         83:ba:2f:c5:25:55:e9:f7:4b:b5:ba:94:29:37:7f:f3:8e:19:
+//	         3e:79:9f:c0:5c:4c:9b:bc:ee:29:49:29:45:a7:32:db:67:ba:
+//	         35:75:a7:9a:83:42:7a:1f:6d:18:d9:ed:e0:1c:54:4f:3c:cd:
+//	         68:e5:68:0a:9b:54:18:e0:3e:1d:80:b3:e7:7e:69:86:09:82:
+//	         a4:d2:1c:6b:11:1b:07:c8:7f:e3:2c:56:1e:87:15:54:89:6b:
+//	         37:65:1d:5a:af:42:b2:d0:92:ce:8d:4d:d4:ae:1d:7a:97:09:
+//	         1c:0a:06:c0:3d:71:58:0e:05:57:a5:14:08:51:3f:de:30:12:
+//	         f0:2d:ac:76:53:68:22:a5:64:fa:a2:55:30:48:72:96:33:b6:
+//	         8f:1f:c3:69
 const giag2CRL = `-----BEGIN X509 CRL-----
 MIICbDCCAVQCAQEwDQYJKoZIhvcNAQELBQAwSTELMAkGA1UEBhMCVVMxEzARBgNV
 BAoTCkdvb2dsZSBJbmMxJTAjBgNVBAMTHEdvb2dsZSBJbnRlcm5ldCBBdXRob3Jp
@@ -1996,79 +1997,80 @@ jU3Urh16lwkcCgbAPXFYDgVXpRQIUT/eMBLwLax2U2gipWT6olUwSHKWM7aPH8Np
 -----END X509 CRL-----`
 
 // Certificate for GIAG2:
-//     Data:
-//         Version: 3 (0x2)
-//         Serial Number:
-//             01:00:21:25:88:b0:fa:59:a7:77:ef:05:7b:66:27:df
-//     Signature Algorithm: sha256WithRSAEncryption
-//         Issuer: C=US, O=GeoTrust Inc., CN=GeoTrust Global CA
-//         Validity
-//             Not Before: May 22 11:32:37 2017 GMT
-//             Not After : Dec 31 23:59:59 2018 GMT
-//         Subject: C=US, O=Google Inc, CN=Google Internet Authority G2
-//         Subject Public Key Info:
-//             Public Key Algorithm: rsaEncryption
-//                 Public-Key: (2048 bit)
-//                 Modulus:
-//                     00:9c:2a:04:77:5c:d8:50:91:3a:06:a3:82:e0:d8:
-//                     50:48:bc:89:3f:f1:19:70:1a:88:46:7e:e0:8f:c5:
-//                     f1:89:ce:21:ee:5a:fe:61:0d:b7:32:44:89:a0:74:
-//                     0b:53:4f:55:a4:ce:82:62:95:ee:eb:59:5f:c6:e1:
-//                     05:80:12:c4:5e:94:3f:bc:5b:48:38:f4:53:f7:24:
-//                     e6:fb:91:e9:15:c4:cf:f4:53:0d:f4:4a:fc:9f:54:
-//                     de:7d:be:a0:6b:6f:87:c0:d0:50:1f:28:30:03:40:
-//                     da:08:73:51:6c:7f:ff:3a:3c:a7:37:06:8e:bd:4b:
-//                     11:04:eb:7d:24:de:e6:f9:fc:31:71:fb:94:d5:60:
-//                     f3:2e:4a:af:42:d2:cb:ea:c4:6a:1a:b2:cc:53:dd:
-//                     15:4b:8b:1f:c8:19:61:1f:cd:9d:a8:3e:63:2b:84:
-//                     35:69:65:84:c8:19:c5:46:22:f8:53:95:be:e3:80:
-//                     4a:10:c6:2a:ec:ba:97:20:11:c7:39:99:10:04:a0:
-//                     f0:61:7a:95:25:8c:4e:52:75:e2:b6:ed:08:ca:14:
-//                     fc:ce:22:6a:b3:4e:cf:46:03:97:97:03:7e:c0:b1:
-//                     de:7b:af:45:33:cf:ba:3e:71:b7:de:f4:25:25:c2:
-//                     0d:35:89:9d:9d:fb:0e:11:79:89:1e:37:c5:af:8e:
-//                     72:69
-//                 Exponent: 65537 (0x10001)
-//         X509v3 extensions:
-//             X509v3 Authority Key Identifier:
-//                 keyid:C0:7A:98:68:8D:89:FB:AB:05:64:0C:11:7D:AA:7D:65:B8:CA:CC:4E
 //
-//             X509v3 Subject Key Identifier:
-//                 4A:DD:06:16:1B:BC:F6:68:B5:76:F5:81:B6:BB:62:1A:BA:5A:81:2F
-//             X509v3 Key Usage: critical
-//                 Certificate Sign, CRL Sign
-//             Authority Information Access:
-//                 OCSP - URI:http://g.symcd.com
+//	Data:
+//	    Version: 3 (0x2)
+//	    Serial Number:
+//	        01:00:21:25:88:b0:fa:59:a7:77:ef:05:7b:66:27:df
+//	Signature Algorithm: sha256WithRSAEncryption
+//	    Issuer: C=US, O=GeoTrust Inc., CN=GeoTrust Global CA
+//	    Validity
+//	        Not Before: May 22 11:32:37 2017 GMT
+//	        Not After : Dec 31 23:59:59 2018 GMT
+//	    Subject: C=US, O=Google Inc, CN=Google Internet Authority G2
+//	    Subject Public Key Info:
+//	        Public Key Algorithm: rsaEncryption
+//	            Public-Key: (2048 bit)
+//	            Modulus:
+//	                00:9c:2a:04:77:5c:d8:50:91:3a:06:a3:82:e0:d8:
+//	                50:48:bc:89:3f:f1:19:70:1a:88:46:7e:e0:8f:c5:
+//	                f1:89:ce:21:ee:5a:fe:61:0d:b7:32:44:89:a0:74:
+//	                0b:53:4f:55:a4:ce:82:62:95:ee:eb:59:5f:c6:e1:
+//	                05:80:12:c4:5e:94:3f:bc:5b:48:38:f4:53:f7:24:
+//	                e6:fb:91:e9:15:c4:cf:f4:53:0d:f4:4a:fc:9f:54:
+//	                de:7d:be:a0:6b:6f:87:c0:d0:50:1f:28:30:03:40:
+//	                da:08:73:51:6c:7f:ff:3a:3c:a7:37:06:8e:bd:4b:
+//	                11:04:eb:7d:24:de:e6:f9:fc:31:71:fb:94:d5:60:
+//	                f3:2e:4a:af:42:d2:cb:ea:c4:6a:1a:b2:cc:53:dd:
+//	                15:4b:8b:1f:c8:19:61:1f:cd:9d:a8:3e:63:2b:84:
+//	                35:69:65:84:c8:19:c5:46:22:f8:53:95:be:e3:80:
+//	                4a:10:c6:2a:ec:ba:97:20:11:c7:39:99:10:04:a0:
+//	                f0:61:7a:95:25:8c:4e:52:75:e2:b6:ed:08:ca:14:
+//	                fc:ce:22:6a:b3:4e:cf:46:03:97:97:03:7e:c0:b1:
+//	                de:7b:af:45:33:cf:ba:3e:71:b7:de:f4:25:25:c2:
+//	                0d:35:89:9d:9d:fb:0e:11:79:89:1e:37:c5:af:8e:
+//	                72:69
+//	            Exponent: 65537 (0x10001)
+//	    X509v3 extensions:
+//	        X509v3 Authority Key Identifier:
+//	            keyid:C0:7A:98:68:8D:89:FB:AB:05:64:0C:11:7D:AA:7D:65:B8:CA:CC:4E
 //
-//             X509v3 Basic Constraints: critical
-//                 CA:TRUE, pathlen:0
-//             X509v3 CRL Distribution Points:
+//	        X509v3 Subject Key Identifier:
+//	            4A:DD:06:16:1B:BC:F6:68:B5:76:F5:81:B6:BB:62:1A:BA:5A:81:2F
+//	        X509v3 Key Usage: critical
+//	            Certificate Sign, CRL Sign
+//	        Authority Information Access:
+//	            OCSP - URI:http://g.symcd.com
 //
-//                 Full Name:
-//                   URI:http://g.symcb.com/crls/gtglobal.crl
+//	        X509v3 Basic Constraints: critical
+//	            CA:TRUE, pathlen:0
+//	        X509v3 CRL Distribution Points:
 //
-//             X509v3 Certificate Policies:
-//                 Policy: 1.3.6.1.4.1.11129.2.5.1
-//                 Policy: 2.23.140.1.2.2
+//	            Full Name:
+//	              URI:http://g.symcb.com/crls/gtglobal.crl
 //
-//             X509v3 Extended Key Usage:
-//                 TLS Web Server Authentication, TLS Web Client Authentication
-//     Signature Algorithm: sha256WithRSAEncryption
-//          ca:49:e5:ac:d7:64:64:77:5b:be:71:fa:cf:f4:1e:23:c7:9a:
-//          69:63:54:5f:eb:4c:d6:19:28:23:64:66:8e:1c:c7:87:80:64:
-//          5f:04:8b:26:af:98:df:0a:70:bc:bc:19:3d:ee:7b:33:a9:7f:
-//          bd:f4:05:d4:70:bb:05:26:79:ea:9a:c7:98:b9:07:19:65:34:
-//          cc:3c:e9:3f:c5:01:fa:6f:0c:7e:db:7a:70:5c:4c:fe:2d:00:
-//          f0:ca:be:2d:8e:b4:a8:80:fb:01:13:88:cb:9c:3f:e5:bb:77:
-//          ca:3a:67:36:f3:ce:d5:27:02:72:43:a0:bd:6e:02:f1:47:05:
-//          71:3e:01:59:e9:11:9e:1a:f3:84:0f:80:a6:a2:78:35:2f:b6:
-//          c7:a2:7f:17:7c:e1:8b:56:ae:ee:67:88:51:27:30:60:a5:62:
-//          52:c3:37:d5:3b:ea:85:2a:01:38:87:a2:cf:70:ad:a4:7a:c9:
-//          c4:e7:ca:c5:da:bc:23:32:f2:fe:18:c2:7b:e0:df:3b:2f:d4:
-//          d0:10:e6:96:4c:fb:44:b7:21:64:0d:b9:00:94:30:12:26:87:
-//          58:98:39:05:38:0f:cc:82:48:0c:0a:47:66:ee:bf:b4:5f:c4:
-//          ff:70:a8:e1:7f:8b:79:2b:b8:65:32:a3:b9:b7:31:e9:0a:f5:
-//          f6:1f:32:dc
+//	        X509v3 Certificate Policies:
+//	            Policy: 1.3.6.1.4.1.11129.2.5.1
+//	            Policy: 2.23.140.1.2.2
+//
+//	        X509v3 Extended Key Usage:
+//	            TLS Web Server Authentication, TLS Web Client Authentication
+//	Signature Algorithm: sha256WithRSAEncryption
+//	     ca:49:e5:ac:d7:64:64:77:5b:be:71:fa:cf:f4:1e:23:c7:9a:
+//	     69:63:54:5f:eb:4c:d6:19:28:23:64:66:8e:1c:c7:87:80:64:
+//	     5f:04:8b:26:af:98:df:0a:70:bc:bc:19:3d:ee:7b:33:a9:7f:
+//	     bd:f4:05:d4:70:bb:05:26:79:ea:9a:c7:98:b9:07:19:65:34:
+//	     cc:3c:e9:3f:c5:01:fa:6f:0c:7e:db:7a:70:5c:4c:fe:2d:00:
+//	     f0:ca:be:2d:8e:b4:a8:80:fb:01:13:88:cb:9c:3f:e5:bb:77:
+//	     ca:3a:67:36:f3:ce:d5:27:02:72:43:a0:bd:6e:02:f1:47:05:
+//	     71:3e:01:59:e9:11:9e:1a:f3:84:0f:80:a6:a2:78:35:2f:b6:
+//	     c7:a2:7f:17:7c:e1:8b:56:ae:ee:67:88:51:27:30:60:a5:62:
+//	     52:c3:37:d5:3b:ea:85:2a:01:38:87:a2:cf:70:ad:a4:7a:c9:
+//	     c4:e7:ca:c5:da:bc:23:32:f2:fe:18:c2:7b:e0:df:3b:2f:d4:
+//	     d0:10:e6:96:4c:fb:44:b7:21:64:0d:b9:00:94:30:12:26:87:
+//	     58:98:39:05:38:0f:cc:82:48:0c:0a:47:66:ee:bf:b4:5f:c4:
+//	     ff:70:a8:e1:7f:8b:79:2b:b8:65:32:a3:b9:b7:31:e9:0a:f5:
+//	     f6:1f:32:dc
 const giag2Cert = `-----BEGIN CERTIFICATE-----
 MIIEKDCCAxCgAwIBAgIQAQAhJYiw+lmnd+8Fe2Yn3zANBgkqhkiG9w0BAQsFADBC
 MQswCQYDVQQGEwJVUzEWMBQGA1UEChMNR2VvVHJ1c3QgSW5jLjEbMBkGA1UEAxMS

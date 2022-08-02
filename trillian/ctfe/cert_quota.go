@@ -32,7 +32,9 @@ const CertificateQuotaUserPrefix = "@intermediate"
 // but the function does not enforce anything about the passed in cert.
 //
 // Format returned is:
-//   "CertificateQuotaUserPrefix Subject hex(SHA256(SubjectPublicKeyInfo)[0:5])"
+//
+//	"CertificateQuotaUserPrefix Subject hex(SHA256(SubjectPublicKeyInfo)[0:5])"
+//
 // See tests for examples.
 func QuotaUserForCert(c *x509.Certificate) string {
 	spkiHash := sha256.Sum256(c.RawSubjectPublicKeyInfo)

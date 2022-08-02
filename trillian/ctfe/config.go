@@ -100,12 +100,13 @@ func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
 }
 
 // ValidateLogConfig checks that a single log config is valid. In particular:
-//  - A mirror log has a valid public key and no private key.
-//  - A non-mirror log has a private, and optionally a public key (both valid).
-//  - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
-//    proto. If both are set then NotBeforeStart <= NotBeforeLimit.
-//  - Merge delays (if present) are correct.
-//  - Frozen STH (if present) is correct and signed by the provided public key.
+//   - A mirror log has a valid public key and no private key.
+//   - A non-mirror log has a private, and optionally a public key (both valid).
+//   - Each of NotBeforeStart and NotBeforeLimit, if set, is a valid timestamp
+//     proto. If both are set then NotBeforeStart <= NotBeforeLimit.
+//   - Merge delays (if present) are correct.
+//   - Frozen STH (if present) is correct and signed by the provided public key.
+//
 // Returns the validated structures (useful to avoid double validation).
 func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 	if cfg.LogId == 0 {
