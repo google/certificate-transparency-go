@@ -27,6 +27,7 @@ func init() {
 		Use:     fmt.Sprintf("get-sth %s", connectionFlags),
 		Aliases: []string{"sth"},
 		Short:   "Fetch the latest STH of the log",
+		Args:    cobra.MaximumNArgs(0),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runGetSTH(cmd.Context())
 		},

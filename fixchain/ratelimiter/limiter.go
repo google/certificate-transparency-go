@@ -17,12 +17,13 @@ package ratelimiter
 
 import (
 	"context"
+
 	"golang.org/x/time/rate"
 )
 
 // Limiter is a simple rate limiter.
 type Limiter struct {
-	ctx context.Context
+	ctx    context.Context
 	bucket *rate.Limiter
 }
 

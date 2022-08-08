@@ -49,7 +49,7 @@ type CTLogEnv struct {
 // Created logIDs will be set to cfgs.
 func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers int, testID string) (*CTLogEnv, error) {
 	// Start log server and signer.
-	logEnv, err := integration.NewLogEnv(ctx, numSequencers, testID)
+	logEnv, err := integration.NewLogEnvWithGRPCOptions(ctx, numSequencers, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LogEnv: %v", err)
 	}

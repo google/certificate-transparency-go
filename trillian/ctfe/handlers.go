@@ -342,8 +342,8 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
 	}
-	// Remove endpoints not provided by mirrors.
-	if li.instanceOpts.Validated.Config.IsMirror {
+	// Remove endpoints not provided by readonly logs and mirrors.
+	if li.instanceOpts.Validated.Config.IsReadonly || li.instanceOpts.Validated.Config.IsMirror {
 		delete(ph, prefix+ct.AddChainPath)
 		delete(ph, prefix+ct.AddPreChainPath)
 	}

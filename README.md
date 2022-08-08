@@ -80,11 +80,6 @@ dependencies and tools, described in the following sections.  The
 for the required tools and scripts, as it may be more up-to-date than this
 document.
 
-In order for the `go generate` command to work properly, the code must
-be checked out to the following location:
-`$GOPATH/src/github.com/google/certificate-transparency-go`
-
-
 ### Running Codebase Checks
 
 The [`scripts/presubmit.sh`](scripts/presubmit.sh) script runs various tools
@@ -93,10 +88,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
-cd $GOPATH/src/github.com/golangci/golangci-lint/cmd/golangci-lint
-go install -ldflags "-X 'main.version=$(git describe --tags)' -X 'main.commit=$(git rev-parse --short HEAD)' -X 'main.date=$(date)'"
-cd -
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.46.1
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh
@@ -121,7 +113,7 @@ Re-generating mock or protobuffer files is only needed if you're changing
 the original files; if you do, you'll need to install the prerequisites:
 
 - tools written in `go` can be installed with a single run of `go install`
-  (courtesy of [`tools.go`](tools.go) and `go.mod`).
+  (courtesy of [`tools.go`](./tools/tools.go) and `go.mod`).
 - `protoc` tool: you'll need [version 3.12.4](https://github.com/protocolbuffers/protobuf/releases/tag/v3.12.4) installed, and `PATH` updated to include its `bin/` directory.
 
 With tools installed, run the following:
@@ -129,12 +121,3 @@ With tools installed, run the following:
 ```bash
 go generate -x ./...  # hunts for //go:generate comments and runs them
 ```
-
-### Updating Vendor Code
-
-The codebase includes a couple of external projects under the `vendor/`
-subdirectory, to ensure that builds use a fixed version (typically because the
-upstream repository does not guarantee back-compatibility between the tip
-`master` branch and the current stable release).  See
-[instructions in the Trillian repo](https://github.com/google/trillian#updating-vendor-code)
-for how to update vendored subtrees.

@@ -17,11 +17,17 @@
  * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
    dependencies (#903).
 
+### Migrillian
+
+* #960: Skip consistency check when root is size zero.
+
 ### Misc
 
+ * updated golangci-lint to v1.46.1 (developers should update to this version)
  * update `google.golang.org/grpc` to v1.46.0
  * `ctclient` tool now uses Cobra for better CLI experience (#901).
  * #800: Remove dependency from `ratelimit`.
+ * #927: Add read-only mode to CTFE config.
 
 ## v1.1.2
 

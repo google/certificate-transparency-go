@@ -157,25 +157,25 @@ func (c chainSlice) Swap(i, j int) {
 // (and A is a subchain of B).
 //
 // Examples:
-// 1) A -> B -> C is a super chain of A -> B, and both are super chains of A.
-// 2) Z -> A -> B is not a super chain of A -> B, as A -> B is not at the
-//    beginning of Z -> A -> B.
-// 3) Calling removeSuperChains on:
-//    A -> B -> C
-//    A -> C
-//    A -> B
-//    A -> C -> D
-//    will return:
-//    A -> B
-//    A -> C
-// 4) Calling removeSuperChains on:
-//    A -> B -> C
-//    A -> C
-//    A -> B
-//    A -> C -> D
-//    A
-//    will return:
-//    A
+//  1. A -> B -> C is a super chain of A -> B, and both are super chains of A.
+//  2. Z -> A -> B is not a super chain of A -> B, as A -> B is not at the
+//     beginning of Z -> A -> B.
+//  3. Calling removeSuperChains on:
+//     A -> B -> C
+//     A -> C
+//     A -> B
+//     A -> C -> D
+//     will return:
+//     A -> B
+//     A -> C
+//  4. Calling removeSuperChains on:
+//     A -> B -> C
+//     A -> C
+//     A -> B
+//     A -> C -> D
+//     A
+//     will return:
+//     A
 func removeSuperChains(chains [][]*x509.Certificate) [][]*x509.Certificate {
 	// Sort the list of chains using the sorting algorithm described above.
 	// This will result in chains and their super chains being grouped together

@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -75,7 +76,7 @@ func main() {
 	}
 
 	glog.Infof("Dialling Trillian backend: %v", *backend)
-	conn, err := grpc.Dial(*backend, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		glog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
