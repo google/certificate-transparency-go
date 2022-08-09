@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package loglist2 allows parsing and searching of the master CT Log list.
-// It expects the log list to conform to the v2beta schema.
+// It expects the log list to conform to the v2 schema.
 package loglist2
 
 import (
@@ -43,7 +43,7 @@ const (
 	AllLogListURL = "https://www.gstatic.com/ct/log_list/v2/all_logs_list.json"
 )
 
-// Manually mapped from https://www.gstatic.com/ct/log_list/v2beta/log_list_schema.json
+// Manually mapped from https://www.gstatic.com/ct/log_list/v2/log_list_schema.json
 
 // LogList holds a collection of CT logs, grouped by operator.
 type LogList struct {

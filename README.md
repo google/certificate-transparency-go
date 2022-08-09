@@ -61,6 +61,8 @@ The main parts of the repository are:
    - `loglist/` has a library for reading v1 JSON lists of CT Logs.
    - `loglist2/` has a library for reading
      [v2 JSON lists of CT Logs](https://www.certificate-transparency.org/known-logs).
+   - `loglist3/` has a library for reading
+     [v3 JSON lists of CT Logs](https://groups.google.com/a/chromium.org/g/ct-policy/c/IdbrdAcDQto/m/i5KPyzYwBAAJ).
 
 
 ## Trillian CT Personality

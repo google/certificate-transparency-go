@@ -32,6 +32,6 @@ this directory, with the following flags:
     - `logID`, which is the alphanumeric identifier for the log.
     - `pubKey`, which is the base64-encoded public key of the log.
   Both of these fields should be populated using an "official" 
-  [CT log list](https://www.gstatic.com/ct/log_list/v2/log_list.json).
+  [CT log list](https://www.gstatic.com/ct/log_list/v3/log_list.json).
 - `private_key`, which specifies the private signing key of the witness.  In its
   current state the witness does not sign STHs so this can exist in any form.
