@@ -50,7 +50,7 @@ show-int-ca: int-ca.cert
 	openssl x509 -inform pem -in $< -text -noout
 
 # Leaf Certificates
-LEAF_CERTS=leaf01.cert leaf02.cert leaf03.cert leaf04.cert leaf05.cert leaf06.cert leaf07.cert leaf08.cert leaf09.cert leaf10.cert \
+LEAF_CERTS=leaf00.cert leaf01.cert leaf02.cert leaf03.cert leaf04.cert leaf05.cert leaf06.cert leaf07.cert leaf08.cert leaf09.cert leaf10.cert \
 	leaf11.cert leaf12.cert leaf13.cert leaf14.cert leaf15.cert leaf16.cert leaf17.cert leaf18.cert leaf19.cert leaf20.cert
 LEAF_CSRS=$(subst .cert,.csr.pem,$(LEAF_CERTS))
 LEAF_CHAINS=$(subst .cert,.chain,$(LEAF_CERTS))
@@ -69,9 +69,12 @@ leaf%.chain: leaf%.cert int-ca.cert
 # Special case: include the root too
 leaf02.chain: leaf02.cert int-ca.cert fake-ca.cert
 	cat $^ > $@
+# Special case: add serverAuth EKU
+leaf00.cert: leaf00.csr.pem leaf.privkey.pem int-ca.cert
+	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user_serverAuth -CA int-ca.cert -CAkey $(INT_CA_PRIVKEY)  -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
 # Special case: add an unknown EKU
 leaf03.cert: leaf03.csr.pem leaf.privkey.pem int-ca.cert
-	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user_plus -CA int-ca.cert -CAkey int-ca.privkey.pem  -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
+	openssl x509 -req -in $< -sha256 -extfile int-ca.cfg -extensions v3_user_plus -CA int-ca.cert -CAkey $(INT_CA_PRIVKEY)  -passin pass:$(INT_CA_PWD) -set_serial 0xdeadbeef -days 2600 -out $@
 
 
 # Pair of intermediate CAs for a longer chain
