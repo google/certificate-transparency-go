@@ -106,8 +106,8 @@ func newNoLogClient(_ *loglist3.Log) (client.AddLogClient, error) {
 
 func sampleLogList() *loglist3.LogList {
 	var ll loglist3.LogList
-	if err := json.Unmarshal([]byte(testdata.SampleLogList2), &ll); err != nil {
-		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList: %v", err))
+	if err := json.Unmarshal([]byte(testdata.SampleLogList3), &ll); err != nil {
+		panic(fmt.Errorf("unable to Unmarshal testdata.SampleLogList3: %v", err))
 	}
 	return &ll
 }
