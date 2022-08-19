@@ -8,7 +8,6 @@
 package x509
 
 import (
-	"io/ioutil"
 	"os"
 )
 
@@ -25,7 +24,7 @@ func loadSystemRoots() (*CertPool, error) {
 	roots := NewCertPool()
 	var bestErr error
 	for _, file := range certFiles {
-		data, err := ioutil.ReadFile(file)
+		data, err := os.ReadFile(file)
 		if err == nil {
 			roots.AppendCertsFromPEM(data)
 			return roots, nil

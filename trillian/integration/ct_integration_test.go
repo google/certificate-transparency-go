@@ -19,8 +19,8 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -165,7 +165,7 @@ func TestInProcessCTIntegration(t *testing.T) {
 }
 
 func loadPublicKey(path string) ([]byte, error) {
-	pemKey, err := ioutil.ReadFile(path)
+	pemKey, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

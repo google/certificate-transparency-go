@@ -19,7 +19,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -51,9 +51,9 @@ func mustMarshalAny(pb proto.Message) *anypb.Any {
 }
 
 func mustReadPublicKey(path string) *keyspb.PublicKey {
-	keyPEM, err := ioutil.ReadFile(path)
+	keyPEM, err := os.ReadFile(path)
 	if err != nil {
-		panic(fmt.Sprintf("ioutil.ReadFile(%q): %v", path, err))
+		panic(fmt.Sprintf("os.ReadFile(%q): %v", path, err))
 	}
 	block, _ := pem.Decode(keyPEM)
 	pubKey, err := x509.ParsePKIXPublicKey(block.Bytes)

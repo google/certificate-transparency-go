@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -191,7 +191,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	}
 
 	// Read everything now so http.Client can reuse the connection.
-	body, err := ioutil.ReadAll(httpRsp.Body)
+	body, err := io.ReadAll(httpRsp.Body)
 	httpRsp.Body.Close()
 	if err != nil {
 		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %v", err), StatusCode: httpRsp.StatusCode, Body: body}
@@ -237,7 +237,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	// Read all of the body, if there is one, so that the http.Client can do Keep-Alive.
 	var body []byte
 	if httpRsp != nil {
-		body, err = ioutil.ReadAll(httpRsp.Body)
+		body, err = io.ReadAll(httpRsp.Body)
 		httpRsp.Body.Close()
 	}
 	if err != nil {

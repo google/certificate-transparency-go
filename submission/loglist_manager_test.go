@@ -16,7 +16,6 @@ package submission
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -107,7 +106,7 @@ First:
 	}
 
 	sampleLogListUpdate := strings.Replace(testdata.SampleLogList, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
-	if err := ioutil.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
+	if err := os.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
 		t.Fatalf("unable to update Log-list data file: %q", err)
 	}
 	select {

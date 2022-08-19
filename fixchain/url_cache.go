@@ -16,7 +16,7 @@ package fixchain
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -74,7 +74,7 @@ func (u *urlCache) getURL(url string) ([]byte, error) {
 		atomic.AddUint32(&u.badStatus, 1)
 		return nil, fmt.Errorf("can't deal with status %d", c.StatusCode)
 	}
-	r, err = ioutil.ReadAll(c.Body)
+	r, err = io.ReadAll(c.Body)
 	if err != nil {
 		atomic.AddUint32(&u.readFail, 1)
 		return nil, err

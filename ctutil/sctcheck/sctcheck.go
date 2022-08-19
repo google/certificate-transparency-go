@@ -22,7 +22,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -79,7 +78,7 @@ func main() {
 			totalInvalid += invalid
 		} else {
 			// Treat the argument as a certificate file to load.
-			data, err := ioutil.ReadFile(arg)
+			data, err := os.ReadFile(arg)
 			if err != nil {
 				glog.Errorf("%s: failed to read data: %v", arg, err)
 				continue

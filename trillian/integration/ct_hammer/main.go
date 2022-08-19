@@ -24,7 +24,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
@@ -123,7 +122,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 	uri := *srcLogURI
 	var opts jsonclient.Options
 	if *srcPubKey != "" {
-		pubkey, err := ioutil.ReadFile(*srcPubKey)
+		pubkey, err := os.ReadFile(*srcPubKey)
 		if err != nil {
 			glog.Exit(err)
 		}

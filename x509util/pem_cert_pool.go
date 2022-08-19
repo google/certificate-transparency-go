@@ -19,7 +19,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
@@ -93,7 +93,7 @@ func (p *PEMCertPool) AppendCertsFromPEM(pemCerts []byte) (ok bool) {
 
 // AppendCertsFromPEMFile adds certs from a file that contains concatenated PEM data.
 func (p *PEMCertPool) AppendCertsFromPEMFile(pemFile string) error {
-	pemData, err := ioutil.ReadFile(pemFile)
+	pemData, err := os.ReadFile(pemFile)
 	if err != nil {
 		return fmt.Errorf("failed to load PEM certs file: %v", err)
 	}

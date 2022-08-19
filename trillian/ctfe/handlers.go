@@ -23,7 +23,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -375,7 +375,7 @@ func (li *logInfo) getSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 
 // ParseBodyAsJSONChain tries to extract cert-chain out of request.
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		glog.V(1).Infof("Failed to read request body: %v", err)
 		return ct.AddChainRequest{}, err

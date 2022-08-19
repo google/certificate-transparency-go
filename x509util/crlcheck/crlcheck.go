@@ -19,7 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -172,7 +172,7 @@ func processCert(data []byte, caCerts []*x509.Certificate) error {
 		if err != nil || rsp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to get CRL from %q: %v", crldp, err)
 		}
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read CRL from %q: %v", crldp, err)
 		}

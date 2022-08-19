@@ -17,7 +17,6 @@ package submission
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
@@ -33,7 +32,7 @@ import (
 // createTempFile creates a file in the system's temp directory and writes data to it.
 // It returns the name of the file.
 func createTempFile(data string) (string, error) {
-	f, err := ioutil.TempFile("", "")
+	f, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", err
 	}
@@ -212,8 +211,8 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 
 			// Simulate Log list update.
-			if err := ioutil.WriteFile(f, []byte(tc.llNext), 0755); err != nil {
-				t.Fatalf("ioutil.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
+			if err := os.WriteFile(f, []byte(tc.llNext), 0755); err != nil {
+				t.Fatalf("os.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
 			}
 
 			beforeRefresh := time.Now()

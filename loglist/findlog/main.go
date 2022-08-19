@@ -22,8 +22,8 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -50,7 +50,7 @@ func main() {
 
 	var pubKey crypto.PublicKey
 	if *logListPubKeyFile != "" {
-		data, err := ioutil.ReadFile(*logListPubKeyFile)
+		data, err := os.ReadFile(*logListPubKeyFile)
 		if err != nil {
 			glog.Exitf("Failed to read public key: %v", err)
 		}

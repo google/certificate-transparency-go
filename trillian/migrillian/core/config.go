@@ -17,7 +17,7 @@ package core
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -27,7 +27,7 @@ import (
 // LoadConfigFromFile reads MigrillianConfig from the given filename, which
 // should contain text-protobuf encoded configuration data.
 func LoadConfigFromFile(filename string) (*configpb.MigrillianConfig, error) {
-	cfgBytes, err := ioutil.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

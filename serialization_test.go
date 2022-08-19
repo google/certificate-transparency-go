@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/pem"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -324,13 +324,13 @@ func TestUnmarshalSCT(t *testing.T) {
 func TestX509MerkleTreeLeafHash(t *testing.T) {
 	certFile := "./testdata/test-cert.pem"
 	sctFile := "./testdata/test-cert.proof"
-	certB, err := ioutil.ReadFile(certFile)
+	certB, err := os.ReadFile(certFile)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", certFile, err)
 	}
 	certDER, _ := pem.Decode(certB)
 
-	sctB, err := ioutil.ReadFile(sctFile)
+	sctB, err := os.ReadFile(sctFile)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", sctFile, err)
 	}

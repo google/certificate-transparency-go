@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -57,7 +57,7 @@ func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error)
 	} else if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("bad status response: %s", resp.Status)
 	}
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // Update attempts to clock the witness forward for the given logID.
@@ -84,7 +84,7 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %v", err)
 	}
