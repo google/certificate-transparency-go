@@ -52,6 +52,7 @@ func parsePolicyType() submission.CTPolicyType {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	plc := parsePolicyType()

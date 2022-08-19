@@ -63,6 +63,7 @@ type ctLog struct {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	if *witness == "" {
 		klog.Exit("--witness_url must not be empty")

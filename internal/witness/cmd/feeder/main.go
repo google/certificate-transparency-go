@@ -102,6 +102,7 @@ func createLogClient(key []byte, url string) (*client.LogClient, error) {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	if *witness == "" {
 		klog.Exit("--witness_url must not be empty")

@@ -47,6 +47,7 @@ var (
 type logInfoFactory func(*loglist.Log, *http.Client) (*ctutil.LogInfo, error)
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	ctx := context.Background()
 	hc := &http.Client{Timeout: *deadline}

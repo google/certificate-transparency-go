@@ -76,6 +76,7 @@ const unknownRemoteUser = "UNKNOWN_REMOTE"
 
 // nolint:staticcheck
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	ctx := context.Background()
 

@@ -60,6 +60,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	klog.CopyStandardLogTo("WARNING")
 	defer klog.Flush()

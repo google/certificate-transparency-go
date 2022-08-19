@@ -172,6 +172,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	if *logConfig == "" {
 		klog.Exit("Test aborted as no log config provided (via --log_config)")

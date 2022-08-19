@@ -36,6 +36,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	// Build a list of possible CA certs from command line arguments.

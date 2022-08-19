@@ -64,6 +64,7 @@ func addCerts(filename string, pool *x509.CertPool) {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	failed := false

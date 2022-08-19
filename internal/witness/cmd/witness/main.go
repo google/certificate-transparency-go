@@ -38,6 +38,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	if *witnessSK == "" {
