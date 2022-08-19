@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/fullstorydev/grpcurl v1.8.7
-	github.com/fullstorydev/grpcurl v1.8.6
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.8
 	github.com/google/trillian v1.5.1-0.20220819043421-0a389c4bb8d9
@@ -55,7 +54,6 @@ require (
 	github.com/go-logr/logr v1.2.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
@@ -126,6 +124,5 @@ require (
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/klog/v2 v2.70.1 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
