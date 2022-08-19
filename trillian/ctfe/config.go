@@ -18,7 +18,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -45,7 +45,7 @@ type ValidatedLogConfig struct {
 // filename, which should contain text or binary-encoded protobuf configuration
 // data.
 func LogConfigFromFile(filename string) ([]*configpb.LogConfig, error) {
-	cfgBytes, err := ioutil.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func ToMultiLogConfig(cfg []*configpb.LogConfig, beSpec string) *configpb.LogMul
 // filename, which should contain text or binary-encoded protobuf configuration data.
 // Does not do full validation of the config but checks that it is non empty.
 func MultiLogConfigFromFile(filename string) (*configpb.LogMultiConfig, error) {
-	cfgBytes, err := ioutil.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

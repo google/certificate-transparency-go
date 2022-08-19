@@ -25,10 +25,11 @@ import (
 	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -792,7 +793,7 @@ func timeFromMS(ts uint64) time.Time {
 
 // GetChain retrieves a certificate from a file of the given name and directory.
 func GetChain(dir, path string) ([]ct.ASN1Cert, error) {
-	certdata, err := ioutil.ReadFile(filepath.Join(dir, path))
+	certdata, err := os.ReadFile(filepath.Join(dir, path))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load certificate: %v", err)
 	}
@@ -849,7 +850,7 @@ func buildNewPrecertData(cert, issuer *x509.Certificate, signer crypto.Signer) (
 // MakeSigner creates a signer using the private key in the test directory.
 func MakeSigner(testDir string) (crypto.Signer, error) {
 	fileName := filepath.Join(testDir, "int-ca.privkey.pem")
-	keyPEM, err := ioutil.ReadFile(fileName)
+	keyPEM, err := os.ReadFile(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("error reading file %q: %w", fileName, err)
 	}
@@ -912,7 +913,7 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}
 		defer httpRsp.Body.Close()
-		defer ioutil.ReadAll(httpRsp.Body)
+		defer io.ReadAll(httpRsp.Body)
 		if httpRsp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}

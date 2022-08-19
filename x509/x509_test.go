@@ -18,10 +18,10 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
@@ -2864,7 +2864,7 @@ func TestParseCertificateFail(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			data, err := ioutil.ReadFile(test.in)
+			data, err := os.ReadFile(test.in)
 			if err != nil {
 				t.Fatalf("failed to read test data: %v", err)
 			}

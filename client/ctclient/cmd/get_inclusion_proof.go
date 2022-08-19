@@ -19,7 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -140,7 +140,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 }
 
 func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
-	contents, err := ioutil.ReadFile(filename)
+	contents, err := os.ReadFile(filename)
 	if err != nil {
 		glog.Exitf("Failed to read certificate file: %v", err)
 	}

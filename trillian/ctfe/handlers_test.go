@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1470,7 +1469,7 @@ func TestGetProofByHash(t *testing.T) {
 		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
 			t.Errorf("proofByHash(%q): Cache-Control response header = %q, want %q", test.req, got, want)
 		}
-		jsonData, err := ioutil.ReadAll(w.Body)
+		jsonData, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Errorf("failed to read response body: %v", err)
 			continue
@@ -1826,7 +1825,7 @@ func TestGetSTHConsistency(t *testing.T) {
 		if got, want := w.Header().Get("Cache-Control"), "public"; !strings.Contains(got, want) {
 			t.Errorf("getSTHConsistency(%q): Cache-Control response header = %q, want %q", test.req, got, want)
 		}
-		jsonData, err := ioutil.ReadAll(w.Body)
+		jsonData, err := io.ReadAll(w.Body)
 		if err != nil {
 			t.Errorf("failed to read response body: %v", err)
 			continue

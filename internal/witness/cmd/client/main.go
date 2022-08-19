@@ -22,9 +22,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -204,7 +205,7 @@ var getByScheme = map[string]func(*url.URL) ([]byte, error){
 	"http":  readHTTP,
 	"https": readHTTP,
 	"file": func(u *url.URL) ([]byte, error) {
-		return ioutil.ReadFile(u.Path)
+		return os.ReadFile(u.Path)
 	},
 }
 
@@ -215,7 +216,7 @@ func readHTTP(u *url.URL) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // readURL fetches and reads data from an HTTP-based or filesystem URL.

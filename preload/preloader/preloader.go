@@ -20,7 +20,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -141,7 +140,7 @@ func main() {
 		defer sctFile.Close()
 		sctFileWriter = sctFile
 	} else {
-		sctFileWriter = ioutil.Discard
+		sctFileWriter = io.Discard
 	}
 
 	sctWriter := zlib.NewWriter(sctFileWriter)

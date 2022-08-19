@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"testing"
@@ -179,7 +178,7 @@ type fakeCTServer struct {
 }
 
 func (s *fakeCTServer) addChain(w http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err)
 		return

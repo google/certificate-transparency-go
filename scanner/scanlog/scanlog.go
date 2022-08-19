@@ -19,10 +19,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"time"
@@ -82,7 +82,7 @@ func dumpData(entry *ct.RawLogEntry) {
 	if len(entry.Cert.Data) > 0 {
 		name := fmt.Sprintf("%s-%014d-%s.der", prefix, entry.Index, suffix)
 		filename := path.Join(*dumpDir, name)
-		if err := ioutil.WriteFile(filename, entry.Cert.Data, 0644); err != nil {
+		if err := os.WriteFile(filename, entry.Cert.Data, 0644); err != nil {
 			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
 		}
 	}
@@ -90,7 +90,7 @@ func dumpData(entry *ct.RawLogEntry) {
 	for ii := 0; ii < len(entry.Chain); ii++ {
 		name := fmt.Sprintf("%s-%014d-%02d.der", prefix, entry.Index, ii)
 		filename := path.Join(*dumpDir, name)
-		if err := ioutil.WriteFile(filename, entry.Chain[ii].Data, 0644); err != nil {
+		if err := os.WriteFile(filename, entry.Chain[ii].Data, 0644); err != nil {
 			log.Printf("Failed to dump data for CA at index %d: %v", entry.Index, err)
 		}
 	}

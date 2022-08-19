@@ -21,9 +21,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -45,11 +46,11 @@ var (
 
 func main() {
 	flag.Parse()
-	certData, err := ioutil.ReadFile("submission/hammer/testdata/precert.der")
+	certData, err := os.ReadFile("submission/hammer/testdata/precert.der")
 	if err != nil {
 		log.Fatal(err)
 	}
-	interimData, err := ioutil.ReadFile("submission/hammer/testdata/intermediate.der")
+	interimData, err := os.ReadFile("submission/hammer/testdata/intermediate.der")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func main() {
 				var scts submission.SCTBatch
 				err = json.NewDecoder(resp.Body).Decode(&scts)
 				if err != nil {
-					responseData, err := ioutil.ReadAll(resp.Body)
+					responseData, err := io.ReadAll(resp.Body)
 					if err != nil {
 						log.Fatalf("Unable to parse response: %v", err)
 					}

@@ -21,8 +21,8 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -108,7 +108,7 @@ func connect(ctx context.Context) *client.LogClient {
 	}
 	opts := jsonclient.Options{UserAgent: "ct-go-ctclient/1.0"}
 	if pubKey != "" {
-		pubkey, err := ioutil.ReadFile(pubKey)
+		pubkey, err := os.ReadFile(pubKey)
 		if err != nil {
 			glog.Exit(err)
 		}

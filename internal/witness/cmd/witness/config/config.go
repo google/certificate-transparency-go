@@ -19,9 +19,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/internal/witness/cmd/witness/impl"
@@ -64,7 +65,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to marshal log config into YAML: %v", err)
 	}
-	if err := ioutil.WriteFile(*configFile, data, 0644); err != nil {
+	if err := os.WriteFile(*configFile, data, 0644); err != nil {
 		glog.Exitf("Failed to write config to file: %v", err)
 	}
 }
@@ -73,7 +74,7 @@ var getByScheme = map[string]func(*url.URL) ([]byte, error){
 	"http":  readHTTP,
 	"https": readHTTP,
 	"file": func(u *url.URL) ([]byte, error) {
-		return ioutil.ReadFile(u.Path)
+		return os.ReadFile(u.Path)
 	},
 }
 
@@ -84,7 +85,7 @@ func readHTTP(u *url.URL) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // readURL fetches and reads data from an HTTP-based or filesystem URL.
