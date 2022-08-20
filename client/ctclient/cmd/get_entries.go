@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -55,7 +55,7 @@ func init() {
 func runGetEntries(ctx context.Context) {
 	logClient := connect(ctx)
 	if getFirst == -1 {
-		glog.Exit("No -first option supplied")
+		klog.Exit("No -first option supplied")
 	}
 	if getLast == -1 {
 		getLast = getFirst
@@ -102,7 +102,7 @@ func showRawCert(cert ct.ASN1Cert) {
 	if textOut {
 		c, err := x509.ParseCertificate(cert.Data)
 		if err != nil {
-			glog.Errorf("Error parsing certificate: %q", err.Error())
+			klog.Errorf("Error parsing certificate: %q", err.Error())
 		}
 		if c == nil {
 			return
@@ -123,6 +123,6 @@ func showParsedCert(cert *x509.Certificate) {
 
 func showPEMData(data []byte) {
 	if err := pem.Encode(os.Stdout, &pem.Block{Type: "CERTIFICATE", Bytes: data}); err != nil {
-		glog.Errorf("Failed to PEM encode cert: %q", err.Error())
+		klog.Errorf("Failed to PEM encode cert: %q", err.Error())
 	}
 }

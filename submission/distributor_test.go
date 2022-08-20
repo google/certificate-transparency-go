@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/loglist3"
@@ -34,6 +33,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/trillian/monitoring"
+	"k8s.io/klog/v2"
 )
 
 func newLocalStubLogClient(log *loglist3.Log) (client.AddLogClient, error) {
@@ -54,7 +54,7 @@ func ExampleDistributor() {
 	refresh := make(chan struct{})
 	go schedule.Every(ctx, time.Hour, func(ctx context.Context) {
 		if errs := d.RefreshRoots(ctx); len(errs) > 0 {
-			glog.Error(errs)
+			klog.Error(errs)
 		}
 		refresh <- struct{}{}
 	})

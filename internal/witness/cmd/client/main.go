@@ -29,12 +29,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	wit_api "github.com/google/certificate-transparency-go/internal/witness/api"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
 	"github.com/google/certificate-transparency-go/internal/witness/verifier"
 	"github.com/google/certificate-transparency-go/loglist3"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -63,26 +63,27 @@ type ctLog struct {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	if *witness == "" {
-		glog.Exit("--witness_url must not be empty")
+		klog.Exit("--witness_url must not be empty")
 	}
 	if *witnessPK == "" {
-		glog.Exit("--witness_pk must not be empty")
+		klog.Exit("--witness_pk must not be empty")
 	}
 	ctx := context.Background()
 	// Set up the witness client.
 	wURL, err := url.Parse(*witness)
 	if err != nil {
-		glog.Exitf("Failed to parse witness URL: %v", err)
+		klog.Exitf("Failed to parse witness URL: %v", err)
 	}
 	pk, err := ct.PublicKeyFromB64(*witnessPK)
 	if err != nil {
-		glog.Exitf("Failed to create witness public key: %v", err)
+		klog.Exitf("Failed to create witness public key: %v", err)
 	}
 	wv, err := verifier.NewWitnessVerifier(pk)
 	if err != nil {
-		glog.Exitf("Failed to create witness signature verifier: %v", err)
+		klog.Exitf("Failed to create witness signature verifier: %v", err)
 	}
 	w := Witness{
 		Client: &wh.Witness{
@@ -93,7 +94,7 @@ func main() {
 	// Set up the log data.
 	ctLogs, err := populateLogs(*logList)
 	if err != nil {
-		glog.Exitf("Failed to set up log data: %v", err)
+		klog.Exitf("Failed to set up log data: %v", err)
 	}
 	// Now poll the witness for each log.
 	wg := &sync.WaitGroup{}
@@ -102,7 +103,7 @@ func main() {
 		go func(witness *Witness, log ctLog) {
 			defer wg.Done()
 			if err := log.getSTH(ctx, witness, *interval); err != nil {
-				glog.Errorf("getSTH: %v", err)
+				klog.Errorf("getSTH: %v", err)
 			}
 		}(&w, log)
 	}
@@ -160,11 +161,11 @@ func (l *ctLog) getSTH(ctx context.Context, witness *Witness, interval time.Dura
 			ctx, cancel := context.WithTimeout(ctx, interval)
 			defer cancel()
 
-			glog.V(2).Infof("Requesting STH for %s from witness", l.name)
+			klog.V(2).Infof("Requesting STH for %s from witness", l.name)
 			if err := l.getOnce(ctx, witness); err != nil {
-				glog.Warningf("Failed to retrieve STH for %s: %v", l.name, err)
+				klog.Warningf("Failed to retrieve STH for %s: %v", l.name, err)
 			} else {
-				glog.Infof("Verified the STH for %s at size %d!", l.name, l.wsth.TreeSize)
+				klog.Infof("Verified the STH for %s at size %d!", l.name, l.wsth.TreeSize)
 			}
 		}()
 

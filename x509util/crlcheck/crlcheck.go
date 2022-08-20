@@ -24,9 +24,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -36,6 +36,7 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	// Build a list of possible CA certs from command line arguments.
@@ -43,15 +44,15 @@ func main() {
 	if *caFile != "" {
 		caDataList, err := x509util.ReadPossiblePEMFile(*caFile, "CERTIFICATE")
 		if err != nil {
-			glog.Exitf("%s: failed to read CA cert data: %v", *caFile, err)
+			klog.Exitf("%s: failed to read CA cert data: %v", *caFile, err)
 		}
 		for _, caData := range caDataList {
 			certs, err := x509.ParseCertificates(caData)
 			if err != nil {
-				glog.Errorf("%s: %v", *caFile, err)
+				klog.Errorf("%s: %v", *caFile, err)
 			}
 			if len(certs) == 0 {
-				glog.Errorf("%s: no certificates found", *caFile)
+				klog.Errorf("%s: no certificates found", *caFile)
 			}
 			caCerts = append(caCerts, certs[0])
 		}
@@ -61,12 +62,12 @@ func main() {
 	for _, arg := range flag.Args() {
 		if *expectCerts {
 			if err := processCertArg(arg, caCerts); err != nil {
-				glog.Errorf("%s: failed to read certificate data: %v", arg, err)
+				klog.Errorf("%s: failed to read certificate data: %v", arg, err)
 				errored = true
 			}
 		} else {
 			if err := processCRLArg(arg, caCerts); err != nil {
-				glog.Errorf("%s: failed to read CRL data: %v", arg, err)
+				klog.Errorf("%s: failed to read CRL data: %v", arg, err)
 				errored = true
 			}
 		}
@@ -98,11 +99,11 @@ func processCRL(data []byte, caCerts []*x509.Certificate) (*x509.CertificateList
 	if err != nil && *strict {
 		return nil, fmt.Errorf("strict CRL parse error: %v", err)
 	}
-	glog.Infof("Processing CRL:\n%s", x509util.CRLToString(certList))
+	klog.Infof("Processing CRL:\n%s", x509util.CRLToString(certList))
 
 	verified := false
 	if len(caCerts) == 0 {
-		glog.Warningf("Skipping signature validation as no CA certs available")
+		klog.Warningf("Skipping signature validation as no CA certs available")
 		verified = true
 	}
 	var verifyErr error
@@ -110,7 +111,7 @@ func processCRL(data []byte, caCerts []*x509.Certificate) (*x509.CertificateList
 		if err := caCert.CheckCertificateListSignature(certList); err != nil {
 			verifyErr = err
 		} else {
-			glog.Infof("CRL signature verified against CA cert %q", x509util.NameToString(caCert.Subject))
+			klog.Infof("CRL signature verified against CA cert %q", x509util.NameToString(caCert.Subject))
 			verifyErr = nil
 			verified = true
 			break
@@ -136,10 +137,10 @@ func processCertArg(filename string, caCerts []*x509.Certificate) error {
 		for i := 1; i < len(dataList); i++ {
 			issuer, err := x509.ParseCertificate(dataList[i])
 			if err != nil {
-				glog.Warningf("Failed to parse [%d] in chain: %v", i, err)
+				klog.Warningf("Failed to parse [%d] in chain: %v", i, err)
 				continue
 			}
-			glog.Infof("Treating cert [%d] with subject %q as potential issuer", i, x509util.NameToString(issuer.Subject))
+			klog.Infof("Treating cert [%d] with subject %q as potential issuer", i, x509util.NameToString(issuer.Subject))
 			caCerts = append(caCerts, issuer)
 		}
 	}
@@ -155,19 +156,19 @@ func processCert(data []byte, caCerts []*x509.Certificate) error {
 	}
 	issuer, err := x509util.GetIssuer(cert, client)
 	if err != nil {
-		glog.Warningf("Failed to retrieve issuer for cert: %v", err)
+		klog.Warningf("Failed to retrieve issuer for cert: %v", err)
 	}
 	if issuer != nil {
-		glog.Infof("Using issuer %q", x509util.NameToString(issuer.Subject))
+		klog.Infof("Using issuer %q", x509util.NameToString(issuer.Subject))
 		caCerts = append(caCerts, issuer)
 	}
 	expired := false
 	if time.Now().After(cert.NotAfter) {
-		glog.Errorf("Certificate is expired (since %v)", cert.NotAfter)
+		klog.Errorf("Certificate is expired (since %v)", cert.NotAfter)
 		expired = true
 	}
 	for _, crldp := range cert.CRLDistributionPoints {
-		glog.Infof("Retrieving CRL from %q", crldp)
+		klog.Infof("Retrieving CRL from %q", crldp)
 		rsp, err := client.Get(crldp)
 		if err != nil || rsp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to get CRL from %q: %v", crldp, err)
@@ -187,9 +188,9 @@ func processCert(data []byte, caCerts []*x509.Certificate) error {
 		// Check the CRL for the presence of the original cert.
 		for _, rev := range certList.TBSCertList.RevokedCertificates {
 			if rev.SerialNumber.Cmp(cert.SerialNumber) == 0 {
-				glog.Errorf("%s: certificate with serial number %v revoked at %v", crldp, cert.SerialNumber, rev.RevocationTime)
+				klog.Errorf("%s: certificate with serial number %v revoked at %v", crldp, cert.SerialNumber, rev.RevocationTime)
 				if rev.RevocationReason != x509.Unspecified {
-					glog.Errorf("  revocation reason: %s\v", x509util.RevocationReasonToString(rev.RevocationReason))
+					klog.Errorf("  revocation reason: %s\v", x509util.RevocationReasonToString(rev.RevocationReason))
 				}
 				break
 			}

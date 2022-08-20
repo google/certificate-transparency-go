@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/util"
@@ -33,6 +32,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
+	"k8s.io/klog/v2"
 )
 
 // InstanceOptions describes the options for a log instance.
@@ -83,11 +83,11 @@ type Instance struct {
 // up-to-date with any tree head changes that are not triggered by us.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	c := i.li.instanceOpts.Validated.Config
-	glog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
+	klog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
 	schedule.Every(ctx, period, func(ctx context.Context) {
-		glog.V(1).Infof("Force internal get-sth for %v (%d)", c.Prefix, c.LogId)
+		klog.V(1).Infof("Force internal get-sth for %v (%d)", c.Prefix, c.LogId)
 		if _, err := i.li.getSTH(ctx); err != nil {
-			glog.Warningf("Failed to retrieve STH for %v (%d): %v", c.Prefix, c.LogId, err)
+			klog.Warningf("Failed to retrieve STH for %v (%d): %v", c.Prefix, c.LogId, err)
 		}
 	})
 }

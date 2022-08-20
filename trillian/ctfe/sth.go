@@ -20,11 +20,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/trillian"
 	"github.com/google/trillian/types"
 	"google.golang.org/protobuf/encoding/prototext"
+	"k8s.io/klog/v2"
 )
 
 type contextKey string
@@ -129,9 +129,9 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 		req.ChargeTo = appendUserCharge(req.ChargeTo, quotaUser)
 	}
 
-	glog.V(2).Infof("%s: GetSTH => grpc.GetLatestSignedLogRoot %+v", prefix, prototext.Format(&req))
+	klog.V(2).Infof("%s: GetSTH => grpc.GetLatestSignedLogRoot %+v", prefix, prototext.Format(&req))
 	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
-	glog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
+	klog.V(2).Infof("%s: GetSTH <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func getSignedLogRoot(ctx context.Context, client trillian.TrillianLogClient, lo
 	if slr == nil {
 		return nil, errors.New("no log root returned")
 	}
-	glog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
+	klog.V(3).Infof("%s: GetSTH <= slr=%+v", prefix, slr)
 	var currentRoot types.LogRootV1
 	if err := currentRoot.UnmarshalBinary(slr.GetLogRoot()); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal root: %v", slr)

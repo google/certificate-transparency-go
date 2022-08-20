@@ -30,12 +30,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	wh "github.com/google/certificate-transparency-go/internal/witness/client/http"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist3"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -102,15 +102,16 @@ func createLogClient(key []byte, url string) (*client.LogClient, error) {
 }
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	if *witness == "" {
-		glog.Exit("--witness_url must not be empty")
+		klog.Exit("--witness_url must not be empty")
 	}
 	ctx := context.Background()
 	// Set up the witness client.
 	var w wh.Witness
 	if wURL, err := url.Parse(*witness); err != nil {
-		glog.Exitf("Failed to parse witness URL: %v", err)
+		klog.Exitf("Failed to parse witness URL: %v", err)
 	} else {
 		w = wh.Witness{
 			URL: wURL,
@@ -119,7 +120,7 @@ func main() {
 	// Now set up the log data (with no initial witness STH).
 	ctLogs, err := populateLogs(*logList)
 	if err != nil {
-		glog.Exitf("Failed to set up log data: %v", err)
+		klog.Exitf("Failed to set up log data: %v", err)
 	}
 	// Now feed each log.
 	wg := &sync.WaitGroup{}
@@ -128,7 +129,7 @@ func main() {
 		go func(witness *wh.Witness, log ctLog) {
 			defer wg.Done()
 			if err := log.feed(ctx, witness, *interval); err != nil {
-				glog.Errorf("feedLog: %v", err)
+				klog.Errorf("feedLog: %v", err)
 			}
 		}(&w, log)
 	}
@@ -145,11 +146,11 @@ func (l *ctLog) feed(ctx context.Context, witness *wh.Witness, interval time.Dur
 			ctx, cancel := context.WithTimeout(ctx, interval)
 			defer cancel()
 
-			glog.V(2).Infof("Start feedOnce for %s", l.name)
+			klog.V(2).Infof("Start feedOnce for %s", l.name)
 			if err := l.feedOnce(ctx, witness); err != nil {
-				glog.Warningf("Failed to feed for %s: %v", l.name, err)
+				klog.Warningf("Failed to feed for %s: %v", l.name, err)
 			}
-			glog.V(2).Infof("feedOnce complete for %s", l.name)
+			klog.V(2).Infof("feedOnce complete for %s", l.name)
 		}()
 
 		select {
@@ -178,11 +179,11 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 		return fmt.Errorf("failed to get latest size for %s: %v", l.name, err)
 	}
 	if wSize >= csth.TreeSize {
-		glog.V(1).Infof("Witness size %d >= log size %d for %s - nothing to do", wSize, csth.TreeSize, l.name)
+		klog.V(1).Infof("Witness size %d >= log size %d for %s - nothing to do", wSize, csth.TreeSize, l.name)
 		return nil
 	}
 
-	glog.Infof("Updating witness from size %d to %d for %s", wSize, csth.TreeSize, l.name)
+	klog.Infof("Updating witness from size %d to %d for %s", wSize, csth.TreeSize, l.name)
 	// If we want to update the witness then let's get a consistency proof.
 	var pf [][]byte
 	if wSize > 0 {
@@ -197,8 +198,8 @@ func (l *ctLog) feedOnce(ctx context.Context, w *wh.Witness) error {
 		return fmt.Errorf("failed to update STH: %v", err)
 	}
 	if errors.Is(err, wh.ErrSTHTooOld) {
-		glog.Infof("STH mismatch at log size %d for %s", wSize, l.name)
-		glog.Infof("%s", wsthRaw)
+		klog.Infof("STH mismatch at log size %d for %s", wSize, l.name)
+		klog.Infof("%s", wsthRaw)
 	}
 	// Parse the STH it returns.
 	var wsthJSON ct.GetSTHResponse

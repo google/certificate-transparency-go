@@ -25,13 +25,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/preload"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/x509"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -87,11 +87,11 @@ func sctDumper(addedCerts <-chan *preload.AddedCert, sctWriter io.Writer) {
 		if encoder != nil {
 			err := encoder.Encode(c)
 			if err != nil {
-				glog.Fatalf("failed to encode to %s: %v", *sctInputFile, err)
+				klog.Fatalf("failed to encode to %s: %v", *sctInputFile, err)
 			}
 		}
 	}
-	glog.Infof("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
+	klog.Infof("Added %d certs, %d failed, total: %d\n", numAdded, numFailed, numAdded+numFailed)
 }
 
 func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, logClient client.AddLogClient, certs <-chan *ct.LogEntry) {
@@ -101,12 +101,12 @@ func certSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert, lo
 		copy(chain[1:], c.Chain)
 		sct, err := logClient.AddChain(ctx, chain)
 		if err != nil {
-			glog.Errorf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
+			klog.Errorf("failed to add chain with CN %s: %v\n", c.X509Cert.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
 			continue
 		}
 		recordSct(addedCerts, chain[0], sct)
-		glog.V(2).Infof("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
+		klog.V(2).Infof("Added chain for CN '%s', SCT: %s\n", c.X509Cert.Subject.CommonName, sct)
 	}
 }
 
@@ -117,25 +117,25 @@ func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 		copy(chain[1:], c.Chain)
 		sct, err := logClient.AddPreChain(ctx, chain)
 		if err != nil {
-			glog.Errorf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
+			klog.Errorf("failed to add pre-chain with CN %s: %v", c.Precert.TBSCertificate.Subject.CommonName, err)
 			recordFailure(addedCerts, chain[0], err)
 			continue
 		}
 		recordSct(addedCerts, chain[0], sct)
-		glog.V(2).Infof("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
+		klog.V(2).Infof("Added precert chain for CN '%s', SCT: %s\n", c.Precert.TBSCertificate.Subject.CommonName, sct)
 	}
 }
 
 func main() {
 	flag.Parse()
-	glog.CopyStandardLogTo("WARNING")
+	klog.CopyStandardLogTo("WARNING")
 
 	var sctFileWriter io.Writer
 	var err error
 	if *sctInputFile != "" {
 		sctFile, err := os.Create(*sctInputFile)
 		if err != nil {
-			glog.Exitf("Failed to create SCT file: %v", err)
+			klog.Exitf("Failed to create SCT file: %v", err)
 		}
 		defer sctFile.Close()
 		sctFileWriter = sctFile
@@ -147,7 +147,7 @@ func main() {
 	defer func() {
 		err := sctWriter.Close()
 		if err != nil {
-			glog.Exitf("Failed to close SCT file: %v", err)
+			klog.Exitf("Failed to close SCT file: %v", err)
 		}
 	}()
 
@@ -166,7 +166,7 @@ func main() {
 		Transport: transport,
 	}, jsonclient.Options{UserAgent: "ct-go-preloader/1.0"})
 	if err != nil {
-		glog.Exitf("Failed to create client for source log: %v", err)
+		klog.Exitf("Failed to create client for source log: %v", err)
 	}
 
 	opts := scanner.ScannerOptions{
@@ -197,16 +197,16 @@ func main() {
 	if *targetTemporalLogCfg != "" {
 		cfg, err := client.TemporalLogConfigFromFile(*targetTemporalLogCfg)
 		if err != nil {
-			glog.Exitf("Failed to load temporal log config: %v", err)
+			klog.Exitf("Failed to load temporal log config: %v", err)
 		}
 		submitLogClient, err = client.NewTemporalLogClient(cfg, &http.Client{Transport: transport})
 		if err != nil {
-			glog.Exitf("Failed to create client for destination temporal log: %v", err)
+			klog.Exitf("Failed to create client for destination temporal log: %v", err)
 		}
 	} else {
 		submitLogClient, err = client.New(*targetLogURI, &http.Client{Transport: transport}, jsonclient.Options{UserAgent: "ct-go-preloader/1.0"})
 		if err != nil {
-			glog.Exitf("Failed to create client for destination log: %v", err)
+			klog.Exitf("Failed to create client for destination log: %v", err)
 		}
 	}
 
@@ -227,7 +227,7 @@ func main() {
 	addChainFunc := func(rawEntry *ct.RawLogEntry) {
 		entry, err := rawEntry.ToLogEntry()
 		if x509.IsFatal(err) {
-			glog.Errorf("Failed to parse cert at %d: %v", rawEntry.Index, err)
+			klog.Errorf("Failed to parse cert at %d: %v", rawEntry.Index, err)
 			return
 		}
 		certs <- entry
@@ -235,7 +235,7 @@ func main() {
 	addPreChainFunc := func(rawEntry *ct.RawLogEntry) {
 		entry, err := rawEntry.ToLogEntry()
 		if x509.IsFatal(err) {
-			glog.Errorf("Failed to parse precert at %d: %v", rawEntry.Index, err)
+			klog.Errorf("Failed to parse precert at %d: %v", rawEntry.Index, err)
 			return
 		}
 		precerts <- entry

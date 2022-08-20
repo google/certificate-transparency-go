@@ -26,10 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/klog/v2"
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -60,25 +60,26 @@ var (
 )
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
-	glog.CopyStandardLogTo("WARNING")
-	defer glog.Flush()
+	klog.CopyStandardLogTo("WARNING")
+	defer klog.Flush()
 
 	if *backend == "" {
-		glog.Exit("--backend flag must be specified")
+		klog.Exit("--backend flag must be specified")
 	}
 	cfg, err := getConfig()
 	if err != nil {
-		glog.Exitf("Failed to load MigrillianConfig: %v", err)
+		klog.Exitf("Failed to load MigrillianConfig: %v", err)
 	}
 	if err := core.ValidateConfig(cfg); err != nil {
-		glog.Exitf("Failed to validate MigrillianConfig: %v", err)
+		klog.Exitf("Failed to validate MigrillianConfig: %v", err)
 	}
 
-	glog.Infof("Dialling Trillian backend: %v", *backend)
+	klog.Infof("Dialling Trillian backend: %v", *backend)
 	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
-		glog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
+		klog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
 	defer conn.Close()
 
@@ -92,7 +93,7 @@ func main() {
 	for _, mc := range cfg.MigrationConfigs.Config {
 		ctrl, err := getController(ctx, mc, httpClient, mf, ef, conn)
 		if err != nil {
-			glog.Exitf("Failed to create Controller for %q: %v", mc.SourceUri, err)
+			klog.Exitf("Failed to create Controller for %q: %v", mc.SourceUri, err)
 		}
 		ctrls = append(ctrls, ctrl)
 	}
@@ -101,7 +102,7 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		err := http.ListenAndServe(*metricsEndpoint, nil)
-		glog.Fatalf("http.ListenAndServe(): %v", err)
+		klog.Fatalf("http.ListenAndServe(): %v", err)
 	}()
 
 	cctx, cancel := context.WithCancel(ctx)
@@ -186,11 +187,11 @@ func newPreorderedLogClient(
 // function which releases the resources associated with the factory.
 func getElectionFactory() (election2.Factory, func()) {
 	if *forceMaster {
-		glog.Warning("Acting as master for all logs")
+		klog.Warning("Acting as master for all logs")
 		return election2.NoopFactory{}, func() {}
 	}
 	if len(*etcdServers) == 0 {
-		glog.Exit("Either --force_master or --etcd_servers must be supplied")
+		klog.Exit("Either --force_master or --etcd_servers must be supplied")
 	}
 
 	cli, err := clientv3.New(clientv3.Config{
@@ -198,11 +199,11 @@ func getElectionFactory() (election2.Factory, func()) {
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil || cli == nil {
-		glog.Exitf("Failed to create etcd client: %v", err)
+		klog.Exitf("Failed to create etcd client: %v", err)
 	}
 	closeFn := func() {
 		if err := cli.Close(); err != nil {
-			glog.Warningf("etcd client Close(): %v", err)
+			klog.Warningf("etcd client Close(): %v", err)
 		}
 	}
 

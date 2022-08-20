@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -34,6 +33,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
 )
 
 const connectionFlags = "{--log_uri uri | --log_name name [--log_list {file|uri}]} [--pub_key file]"
@@ -47,7 +47,7 @@ var (
 )
 
 func init() {
-	// Add flags added with "flag" package, including glog, to Cobra flag set.
+	// Add flags added with "flag" package, including klog, to Cobra flag set.
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
 	flags := rootCmd.PersistentFlags()
@@ -72,7 +72,7 @@ var rootCmd = &cobra.Command{
 // appropriately. It needs to be called exactly once by main().
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
 }
 
@@ -82,15 +82,15 @@ func signatureToString(signed *ct.DigitallySigned) string {
 
 func exitWithDetails(err error) {
 	if err, ok := err.(client.RspError); ok {
-		glog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
+		klog.Infof("HTTP details: status=%d, body:\n%s", err.StatusCode, err.Body)
 	}
-	glog.Exit(err.Error())
+	klog.Exit(err.Error())
 }
 
 func connect(ctx context.Context) *client.LogClient {
 	var tlsCfg *tls.Config
 	if skipHTTPSVerify {
-		glog.Warning("Skipping HTTPS connection verification")
+		klog.Warning("Skipping HTTPS connection verification")
 		tlsCfg = &tls.Config{InsecureSkipVerify: skipHTTPSVerify}
 	}
 	httpClient := &http.Client{
@@ -110,7 +110,7 @@ func connect(ctx context.Context) *client.LogClient {
 	if pubKey != "" {
 		pubkey, err := os.ReadFile(pubKey)
 		if err != nil {
-			glog.Exit(err)
+			klog.Exit(err)
 		}
 		opts.PublicKey = string(pubkey)
 	}
@@ -119,23 +119,23 @@ func connect(ctx context.Context) *client.LogClient {
 	if logName != "" {
 		llData, err := x509util.ReadFileOrURL(logList, httpClient)
 		if err != nil {
-			glog.Exitf("Failed to read log list: %v", err)
+			klog.Exitf("Failed to read log list: %v", err)
 		}
 		ll, err := loglist.NewFromJSON(llData)
 		if err != nil {
-			glog.Exitf("Failed to build log list: %v", err)
+			klog.Exitf("Failed to build log list: %v", err)
 		}
 
 		logs := ll.FindLogByName(logName)
 		if len(logs) == 0 {
-			glog.Exitf("No log with name like %q found in loglist %q", logName, logList)
+			klog.Exitf("No log with name like %q found in loglist %q", logName, logList)
 		}
 		if len(logs) > 1 {
 			logNames := make([]string, len(logs))
 			for i, log := range logs {
 				logNames[i] = fmt.Sprintf("%q", log.Description)
 			}
-			glog.Exitf("Multiple logs with name like %q found in loglist: %s", logName, strings.Join(logNames, ","))
+			klog.Exitf("Multiple logs with name like %q found in loglist: %s", logName, strings.Join(logNames, ","))
 		}
 		uri = "https://" + logs[0].URL
 		if opts.PublicKey == "" {
@@ -143,10 +143,10 @@ func connect(ctx context.Context) *client.LogClient {
 		}
 	}
 
-	glog.V(1).Infof("Use CT log at %s", uri)
+	klog.V(1).Infof("Use CT log at %s", uri)
 	logClient, err := client.New(uri, httpClient, opts)
 	if err != nil {
-		glog.Exit(err)
+		klog.Exit(err)
 	}
 
 	return logClient

@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
@@ -30,6 +29,7 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/testonly/integration"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/klog/v2"
 
 	stestonly "github.com/google/trillian/storage/testonly"
 )
@@ -80,7 +80,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 		for _, cfg := range cfgs {
 			vCfg, err := ctfe.ValidateLogConfig(cfg)
 			if err != nil {
-				glog.Fatalf("ValidateLogConfig failed: %+v: %v", cfg, err)
+				klog.Fatalf("ValidateLogConfig failed: %+v: %v", cfg, err)
 			}
 			opts := ctfe.InstanceOptions{
 				Validated:     vCfg,
@@ -91,7 +91,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 			}
 			inst, err := ctfe.SetUpInstance(ctx, opts)
 			if err != nil {
-				glog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
+				klog.Fatalf("Failed to set up log instance for %+v: %v", cfg, err)
 			}
 			for path, handler := range inst.Handlers {
 				http.Handle(path, handler)

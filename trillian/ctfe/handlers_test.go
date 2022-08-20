@@ -32,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/golang/mock/gomock"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
@@ -49,6 +48,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
@@ -169,7 +169,7 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {
-			glog.Fatal("failed to load cert pool")
+			klog.Fatal("failed to load cert pool")
 		}
 	}
 

@@ -21,12 +21,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/klog/v2"
 )
 
 // ValidatedLogConfig represents the LogConfig with the information that has
@@ -152,7 +152,7 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 				// If "Any" is specified, then we can ignore the entire list and
 				// just disable EKU checking.
 				if ku == x509.ExtKeyUsageAny {
-					glog.Infof("%s: Found ExtKeyUsageAny, allowing all EKUs", cfg.Prefix)
+					klog.Infof("%s: Found ExtKeyUsageAny, allowing all EKUs", cfg.Prefix)
 					vCfg.KeyUsages = nil
 					break
 				}

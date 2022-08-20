@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -32,6 +31,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring"
+	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -192,13 +192,13 @@ func incErrCounter(logURL string, endpoint string, rspErr error) {
 	err, ok := rspErr.(client.RspError)
 	switch {
 	case !ok:
-		glog.Errorf("unknown_error (%s, %s) => %v", logURL, endpoint, rspErr)
+		klog.Errorf("unknown_error (%s, %s) => %v", logURL, endpoint, rspErr)
 		errCounter.Inc(logURL, endpoint, "unknown_error")
 	case err.Err != nil && err.StatusCode == http.StatusOK:
-		glog.Errorf("invalid_sct (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
+		klog.Errorf("invalid_sct (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
 		errCounter.Inc(logURL, endpoint, "invalid_sct")
 	case err.Err != nil: // err.StatusCode != http.StatusOK.
-		glog.Errorf("connection_error (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
+		klog.Errorf("connection_error (%s, %s) => HTTP details: status=%d, body:\n%s", logURL, endpoint, err.StatusCode, err.Body)
 		errCounter.Inc(logURL, endpoint, "connection_error")
 	}
 }

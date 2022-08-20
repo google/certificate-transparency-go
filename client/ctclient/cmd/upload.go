@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 var logMMD time.Duration
@@ -48,7 +48,7 @@ func init() {
 func runUpload(ctx context.Context) {
 	logClient := connect(ctx)
 	if certChain == "" {
-		glog.Exitf("No certificate chain file specified with -cert_chain")
+		klog.Exitf("No certificate chain file specified with -cert_chain")
 	}
 	chain, _ := chainFromFile(certChain)
 
@@ -76,7 +76,7 @@ func runUpload(ctx context.Context) {
 	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
 	leafHash, err := ct.LeafHashForLeaf(leafEntry)
 	if err != nil {
-		glog.Exitf("Failed to create hash of leaf: %v", err)
+		klog.Exitf("Failed to create hash of leaf: %v", err)
 	}
 
 	// Display the SCT.

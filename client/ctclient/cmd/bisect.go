@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/golang/glog"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 func init() {
@@ -45,7 +45,7 @@ func init() {
 func runBisect(ctx context.Context) {
 	logClient := connect(ctx)
 	if timestamp == 0 {
-		glog.Exit("No -timestamp option supplied")
+		klog.Exit("No -timestamp option supplied")
 	}
 	target := timestamp
 	sth, err := logClient.GetSTH(ctx)
@@ -58,18 +58,18 @@ func runBisect(ctx context.Context) {
 			exitWithDetails(err)
 		}
 		if l := len(entries.Entries); l != 1 {
-			glog.Exitf("Unexpected number (%d) of entries received requesting index %d", l, idx)
+			klog.Exitf("Unexpected number (%d) of entries received requesting index %d", l, idx)
 		}
 		logEntry, err := ct.RawLogEntryFromLeaf(idx, &entries.Entries[0])
 		if err != nil {
-			glog.Exitf("Failed to parse leaf %d: %v", idx, err)
+			klog.Exitf("Failed to parse leaf %d: %v", idx, err)
 		}
 		return logEntry
 	}
 	// Performing a binary search assumes that the timestamps are monotonically
 	// increasing.
 	idx := sort.Search(int(sth.TreeSize), func(idx int) bool {
-		glog.V(1).Infof("check timestamp at index %d", idx)
+		klog.V(1).Infof("check timestamp at index %d", idx)
 		entry := getEntry(int64(idx))
 		return entry.Leaf.TimestampedEntry.Timestamp >= uint64(target)
 	})

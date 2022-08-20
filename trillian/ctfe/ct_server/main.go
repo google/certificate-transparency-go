@@ -28,7 +28,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
@@ -48,6 +47,7 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 	"google.golang.org/protobuf/proto"
+	"k8s.io/klog/v2"
 )
 
 // Global flags that affect all log instances.
@@ -76,6 +76,7 @@ const unknownRemoteUser = "UNKNOWN_REMOTE"
 
 // nolint:staticcheck
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	ctx := context.Background()
 
@@ -108,16 +109,16 @@ func main() {
 	}
 
 	if err != nil {
-		glog.Exitf("Failed to read config: %v", err)
+		klog.Exitf("Failed to read config: %v", err)
 	}
 
 	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
 	if err != nil {
-		glog.Exitf("Invalid config: %v", err)
+		klog.Exitf("Invalid config: %v", err)
 	}
 
-	glog.CopyStandardLogTo("WARNING")
-	glog.Info("**** CT HTTP Server Starting ****")
+	klog.CopyStandardLogTo("WARNING")
+	klog.Info("**** CT HTTP Server Starting ****")
 
 	metricsAt := *metricsEndpoint
 	if metricsAt == "" {
@@ -130,36 +131,36 @@ func main() {
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
 		client, err := clientv3.New(cfg)
 		if err != nil {
-			glog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
+			klog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
 
 		httpManager, err := endpoints.NewManager(client, *etcdHTTPService)
 		if err != nil {
-			glog.Exitf("Failed to create etcd http manager: %v", err)
+			klog.Exitf("Failed to create etcd http manager: %v", err)
 		}
 		metricsManager, err := endpoints.NewManager(client, *etcdMetricsService)
 		if err != nil {
-			glog.Exitf("Failed to create etcd metrics manager: %v", err)
+			klog.Exitf("Failed to create etcd metrics manager: %v", err)
 		}
 
 		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
-		glog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
+		klog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
 		httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint})
 
 		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
-		glog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
+		klog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
 		metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt})
 
 		defer func() {
-			glog.Infof("Removing our presence in %v", etcdHTTPKey)
+			klog.Infof("Removing our presence in %v", etcdHTTPKey)
 			httpManager.DeleteEndpoint(ctx, etcdHTTPKey)
-			glog.Infof("Removing our presence in %v", etcdMetricsKey)
+			klog.Infof("Removing our presence in %v", etcdMetricsKey)
 			metricsManager.DeleteEndpoint(ctx, etcdMetricsKey)
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
 		// This should probably not be used in production. Either use etcd or a gRPC
 		// load balancer. It's only used by the integration tests.
-		glog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
+		klog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
 		res := manual.NewBuilderWithScheme("whatever")
 		backends := strings.Split(*rpcBackend, ",")
 		addrs := make([]resolver.Address, 0, len(backends))
@@ -170,14 +171,14 @@ func main() {
 		resolver.SetDefaultScheme(res.Scheme())
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), grpc.WithResolvers(res))
 	} else {
-		glog.Infof("Using regular DNS resolver")
+		klog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
 	}
 
 	// Dial all our log backends.
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for _, be := range beMap {
-		glog.Infof("Dialling backend: %v", be)
+		klog.Infof("Dialling backend: %v", be)
 		if len(beMap) == 1 {
 			// If there's only one of them we use the blocking option as we can't
 			// serve anything until connected.
@@ -185,7 +186,7 @@ func main() {
 		}
 		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
 		if err != nil {
-			glog.Exitf("Could not dial RPC server: %v: %v", be, err)
+			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
 		defer conn.Close()
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
@@ -203,7 +204,7 @@ func main() {
 	for _, c := range cfg.LogConfigs.Config {
 		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
 		if err != nil {
-			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
+			klog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 		if *getSTHInterval > 0 {
 			go inst.RunUpdateSTH(ctx, *getSTHInterval)
@@ -232,7 +233,7 @@ func main() {
 			mux.Handle("/metrics", promhttp.Handler())
 			metricsServer := http.Server{Addr: metricsAt, Handler: mux}
 			err := metricsServer.ListenAndServe()
-			glog.Warningf("Metrics server exited: %v", err)
+			klog.Warningf("Metrics server exited: %v", err)
 		}()
 	} else {
 		// Handle metrics on the DefaultServeMux.
@@ -244,7 +245,7 @@ func main() {
 	if *tracing {
 		handler, err = opencensus.EnableHTTPServerTracing(*tracingProjectID, *tracingPercent)
 		if err != nil {
-			glog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
+			klog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
 		}
 	}
 
@@ -257,19 +258,19 @@ func main() {
 		// Allow 60s for any pending requests to finish then terminate any stragglers
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 		defer cancel()
-		glog.Info("Shutting down HTTP server...")
+		klog.Info("Shutting down HTTP server...")
 		srv.Shutdown(ctx)
-		glog.Info("HTTP server shutdown")
+		klog.Info("HTTP server shutdown")
 	})
 
 	err = srv.ListenAndServe()
 	if err != http.ErrServerClosed {
-		glog.Warningf("Server exited: %v", err)
+		klog.Warningf("Server exited: %v", err)
 	}
 	// Wait will only block if the function passed to awaitSignal was called,
 	// in which case it'll block until the HTTP server has gracefully shutdown
 	shutdownWG.Wait()
-	glog.Flush()
+	klog.Flush()
 }
 
 // awaitSignal waits for standard termination signals, then runs the given
@@ -281,8 +282,8 @@ func awaitSignal(doneFn func()) {
 
 	// Now block main and wait for a signal
 	sig := <-sigs
-	glog.Warningf("Signal received: %v", sig)
-	glog.Flush()
+	klog.Warningf("Signal received: %v", sig)
+	klog.Flush()
 
 	doneFn()
 }
@@ -302,7 +303,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		MaskInternalErrors: maskInternalErrors,
 	}
 	if *quotaRemote {
-		glog.Info("Enabling quota for requesting IP")
+		klog.Info("Enabling quota for requesting IP")
 		opts.RemoteQuotaUser = func(r *http.Request) string {
 			var remoteUser = realip.FromRequest(r)
 			if len(remoteUser) == 0 {
@@ -312,7 +313,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		}
 	}
 	if *quotaIntermediate {
-		glog.Info("Enabling quota for intermediate certificates")
+		klog.Info("Enabling quota for intermediate certificates")
 		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
 	}
 	// Full handler pattern will be of the form "/logs/yyz/ct/v1/add-chain", where "/logs" is the
@@ -324,7 +325,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 	// log is at "/log/..." this is now supported.
 	lhp := globalHandlerPrefix
 	if ohPrefix := cfg.OverrideHandlerPrefix; len(ohPrefix) > 0 {
-		glog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", cfg.Prefix, ohPrefix)
+		klog.Infof("Log with prefix: %s is using a custom HandlerPrefix: %s", cfg.Prefix, ohPrefix)
 		lhp = "/" + strings.Trim(ohPrefix, "/")
 	}
 	inst, err := ctfe.SetUpInstance(ctx, opts)

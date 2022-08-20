@@ -29,11 +29,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/loglist"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
 )
@@ -47,17 +47,18 @@ var (
 type logInfoFactory func(*loglist.Log, *http.Client) (*ctutil.LogInfo, error)
 
 func main() {
+	klog.InitFlags(nil)
 	flag.Parse()
 	ctx := context.Background()
 	hc := &http.Client{Timeout: *deadline}
 
 	llData, err := x509util.ReadFileOrURL(*logList, hc)
 	if err != nil {
-		glog.Exitf("Failed to read log list: %v", err)
+		klog.Exitf("Failed to read log list: %v", err)
 	}
 	ll, err := loglist.NewFromJSON(llData)
 	if err != nil {
-		glog.Exitf("Failed to parse log list: %v", err)
+		klog.Exitf("Failed to parse log list: %v", err)
 	}
 
 	lf := ctutil.NewLogInfo
@@ -71,31 +72,31 @@ func main() {
 			// provided alongside on the connection along the way.
 			chain, valid, invalid, err = getAndCheckSiteChain(ctx, lf, arg, ll, hc)
 			if err != nil {
-				glog.Errorf("%s: failed to get cert chain: %v", arg, err)
+				klog.Errorf("%s: failed to get cert chain: %v", arg, err)
 				continue
 			}
-			glog.Errorf("Found %d external SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
+			klog.Errorf("Found %d external SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
 			totalInvalid += invalid
 		} else {
 			// Treat the argument as a certificate file to load.
 			data, err := os.ReadFile(arg)
 			if err != nil {
-				glog.Errorf("%s: failed to read data: %v", arg, err)
+				klog.Errorf("%s: failed to read data: %v", arg, err)
 				continue
 			}
 			chain, err = x509util.CertificatesFromPEM(data)
 			if err != nil {
-				glog.Errorf("%s: failed to read cert data: %v", arg, err)
+				klog.Errorf("%s: failed to read cert data: %v", arg, err)
 				continue
 			}
 		}
 		if len(chain) == 0 {
-			glog.Errorf("%s: no certificates found", arg)
+			klog.Errorf("%s: no certificates found", arg)
 			continue
 		}
 		// Check the chain for embedded SCTs.
 		valid, invalid = checkChain(ctx, lf, chain, ll, hc)
-		glog.Errorf("Found %d embedded SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
+		klog.Errorf("Found %d embedded SCTs for %q, of which %d were validated", valid+invalid, arg, valid)
 		totalInvalid += invalid
 	}
 	if totalInvalid > 0 {
@@ -113,11 +114,11 @@ func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificat
 
 	var issuer *x509.Certificate
 	if len(chain) < 2 {
-		glog.Info("No issuer in chain; attempting online retrieval")
+		klog.Info("No issuer in chain; attempting online retrieval")
 		var err error
 		issuer, err = x509util.GetIssuer(leaf, hc)
 		if err != nil {
-			glog.Errorf("Failed to get issuer online: %v", err)
+			klog.Errorf("Failed to get issuer online: %v", err)
 		}
 	} else {
 		issuer = chain[1]
@@ -127,7 +128,7 @@ func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificat
 	// leaf for all of the SCTs, as long as the timestamp field gets updated.
 	merkleLeaf, err := ct.MerkleTreeLeafForEmbeddedSCT([]*x509.Certificate{leaf, issuer}, 0)
 	if err != nil {
-		glog.Errorf("Failed to build Merkle leaf: %v", err)
+		klog.Errorf("Failed to build Merkle leaf: %v", err)
 		return 0, len(leaf.SCTList.SCTList)
 	}
 
@@ -160,7 +161,7 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 		host += ":443"
 	}
 
-	glog.Infof("Retrieve certificate chain from TLS connection to %q", host)
+	klog.Infof("Retrieve certificate chain from TLS connection to %q", host)
 	dialer := net.Dialer{Timeout: hc.Timeout}
 	conn, err := tls.DialWithDialer(&dialer, "tcp", host, &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
@@ -168,12 +169,12 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			glog.Errorf("conn.Close()=%q", err)
+			klog.Errorf("conn.Close()=%q", err)
 		}
 	}()
 
 	goChain := conn.ConnectionState().PeerCertificates
-	glog.Infof("Found chain of length %d", len(goChain))
+	klog.Infof("Found chain of length %d", len(goChain))
 
 	// Convert base crypto/x509.Certificates to our forked x509.Certificate type.
 	chain := make([]*x509.Certificate, len(goChain))
@@ -191,7 +192,7 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 	if len(scts) > 0 {
 		merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, ct.X509LogEntryType, 0 /* timestamp added later */)
 		if err != nil {
-			glog.Errorf("Failed to build Merkle tree leaf: %v", err)
+			klog.Errorf("Failed to build Merkle tree leaf: %v", err)
 			return chain, 0, len(scts), nil
 		}
 		for i, sctData := range scts {
@@ -214,44 +215,44 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, merkleLeaf *ct.MerkleTreeLeaf, sctData *x509.SerializedSCT, ll *loglist.LogList, hc *http.Client) bool {
 	sct, err := x509util.ExtractSCT(sctData)
 	if err != nil {
-		glog.Errorf("Failed to deserialize %s data: %v", subject, err)
-		glog.Errorf("Data: %x", sctData.Val)
+		klog.Errorf("Failed to deserialize %s data: %v", subject, err)
+		klog.Errorf("Data: %x", sctData.Val)
 		return false
 	}
-	glog.Infof("Examine %s with timestamp: %d (%v) from logID: %x", subject, sct.Timestamp, ct.TimestampToTime(sct.Timestamp), sct.LogID.KeyID[:])
+	klog.Infof("Examine %s with timestamp: %d (%v) from logID: %x", subject, sct.Timestamp, ct.TimestampToTime(sct.Timestamp), sct.LogID.KeyID[:])
 	log := ll.FindLogByKeyHash(sct.LogID.KeyID)
 	if log == nil {
-		glog.Warningf("Unknown logID: %x, cannot validate %s", sct.LogID, subject)
+		klog.Warningf("Unknown logID: %x, cannot validate %s", sct.LogID, subject)
 		return false
 	}
 	logInfo, err := liFactory(log, hc)
 	if err != nil {
-		glog.Errorf("Failed to build log info for %q log: %v", log.Description, err)
+		klog.Errorf("Failed to build log info for %q log: %v", log.Description, err)
 		return false
 	}
 
 	result := true
-	glog.Infof("Validate %s against log %q...", subject, logInfo.Description)
+	klog.Infof("Validate %s against log %q...", subject, logInfo.Description)
 	if err := logInfo.VerifySCTSignature(*sct, *merkleLeaf); err != nil {
-		glog.Errorf("Failed to verify %s signature from log %q: %v", subject, log.Description, err)
+		klog.Errorf("Failed to verify %s signature from log %q: %v", subject, log.Description, err)
 		result = false
 	} else {
-		glog.Infof("Validate %s against log %q... validated", subject, log.Description)
+		klog.Infof("Validate %s against log %q... validated", subject, log.Description)
 	}
 
 	if *checkInclusion {
-		glog.Infof("Check %s inclusion against log %q...", subject, log.Description)
+		klog.Infof("Check %s inclusion against log %q...", subject, log.Description)
 		index, err := logInfo.VerifyInclusion(ctx, *merkleLeaf, sct.Timestamp)
 		if err != nil {
 			age := time.Since(ct.TimestampToTime(sct.Timestamp))
 			if age < logInfo.MMD {
-				glog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
+				klog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
 			} else {
-				glog.Errorf("Failed to verify inclusion proof for %s: %v", subject, err)
+				klog.Errorf("Failed to verify inclusion proof for %s: %v", subject, err)
 			}
 			return false
 		}
-		glog.Infof("Check %s inclusion against log %q... included at %d", subject, log.Description, index)
+		klog.Infof("Check %s inclusion against log %q... included at %d", subject, log.Description, index)
 	}
 	return result
 }

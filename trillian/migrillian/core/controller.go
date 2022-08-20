@@ -23,12 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
-
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/trillian/migrillian/configpb"
+	"k8s.io/klog/v2"
 
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/util/clock"
@@ -138,12 +137,12 @@ func (c *Controller) RunWhenMasterWithRestarts(ctx context.Context) {
 	uri := c.ctClient.BaseURI()
 	treeID := c.plClient.treeID
 	for run := true; run; run = c.opts.Continuous && ctx.Err() == nil {
-		glog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
+		klog.Infof("Starting migration Controller (%d<-%q)", treeID, uri)
 		if err := c.RunWhenMaster(ctx); err != nil {
-			glog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
+			klog.Errorf("Controller.RunWhenMaster(%d<-%q): %v", treeID, uri, err)
 			continue
 		}
-		glog.Infof("Controller stopped (%d<-%q)", treeID, uri)
+		klog.Infof("Controller stopped (%d<-%q)", treeID, uri)
 	}
 }
 
@@ -166,7 +165,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 	defer func(ctx context.Context) {
 		metrics.isMaster.Set(0, c.label)
 		if err := el.Close(ctx); err != nil {
-			glog.Warningf("%s: Election.Close(): %v", c.label, err)
+			klog.Warningf("%s: Election.Close(): %v", c.label, err)
 		}
 	}(ctx)
 
@@ -183,7 +182,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 			return err
 		}
 
-		glog.Infof("%s: running as master", c.label)
+		klog.Infof("%s: running as master", c.label)
 		metrics.masterRuns.Inc(c.label)
 
 		// Run while still master (or until an error).
@@ -195,7 +194,7 @@ func (c *Controller) RunWhenMaster(ctx context.Context) error {
 		} else if mctx.Err() == nil {
 			// We are still the master, so try to resign and emit the real error.
 			if rerr := el.Resign(ctx); rerr != nil {
-				glog.Errorf("%s: Election.Resign(): %v", c.label, rerr)
+				klog.Errorf("%s: Election.Resign(): %v", c.label, rerr)
 			}
 			return err
 		}
@@ -214,7 +213,7 @@ func (c *Controller) runWithRestarts(ctx context.Context) error {
 		return err
 	}
 	for err != nil && ctx.Err() == nil {
-		glog.Errorf("%s: Controller.Run: %v", c.label, err)
+		klog.Errorf("%s: Controller.Run: %v", c.label, err)
 		sleepRandom(ctx, 0, c.opts.StartDelay)
 		err = c.Run(ctx)
 	}
@@ -280,7 +279,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 	if int64(begin) > fo.StartIndex {
 		fo.StartIndex = int64(begin)
 	}
-	glog.Infof("%s: fetching range [%d, %d)", c.label, fo.StartIndex, fo.EndIndex)
+	klog.Infof("%s: fetching range [%d, %d)", c.label, fo.StartIndex, fo.EndIndex)
 
 	fetcher := scanner.NewFetcher(c.ctClient, &fo)
 	sth, err := fetcher.Prepare(ctx)
@@ -307,7 +306,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 		go func() {
 			defer wg.Done()
 			if err := c.runSubmitter(cctx, batches); err != nil {
-				glog.Errorf("%s: Stopping due to submitter error: %v", c.label, err)
+				klog.Errorf("%s: Stopping due to submitter error: %v", c.label, err)
 				cancel() // Stop the other submitters and the Fetcher.
 			}
 		}()
@@ -342,7 +341,7 @@ func (c *Controller) verifyConsistency(ctx context.Context, treeSize uint64, roo
 		return nil
 	}
 	if c.opts.NoConsistencyCheck {
-		glog.Warningf("%s: skipping consistency check", c.label)
+		klog.Warningf("%s: skipping consistency check", c.label)
 		return nil
 	}
 	pf, err := c.ctClient.GetSTHConsistency(ctx, treeSize, sth.TreeSize)
@@ -369,7 +368,7 @@ func (c *Controller) runSubmitter(ctx context.Context, batches <-chan scanner.En
 			// shut down the Controller.
 			return fmt.Errorf("failed to add batch [%d, %d): %v", b.Start, end, err)
 		}
-		glog.Infof("%s: added batch [%d, %d)", c.label, b.Start, end)
+		klog.Infof("%s: added batch [%d, %d)", c.label, b.Start, end)
 		metrics.entriesStored.Add(entries, c.label)
 	}
 	return nil
