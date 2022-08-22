@@ -51,6 +51,7 @@ type treeMetrics struct {
 	entriesFetched   monitoring.Counter
 	entriesSeen      monitoring.Counter
 	entriesStored    monitoring.Counter
+	trillianTreeSize monitoring.Gauge
 	sthTimestamp     monitoring.Gauge
 	sthTreeSize      monitoring.Gauge
 }
@@ -67,6 +68,7 @@ func initMetrics(mf monitoring.MetricFactory) {
 			entriesFetched:   mf.NewCounter("entries_fetched", "Entries fetched from the source log.", treeID),
 			entriesSeen:      mf.NewCounter("entries_seen", "Entries seen by the submitters.", treeID),
 			entriesStored:    mf.NewCounter("entries_stored", "Entries successfully submitted to Trillian.", treeID),
+			trillianTreeSize: mf.NewGauge("trillian_tree_size", "Trillian tree size.", treeID),
 			sthTimestamp:     mf.NewGauge("sth_timestamp", "Timestamp of the last seen STH.", treeID),
 			sthTreeSize:      mf.NewGauge("sth_tree_size", "Tree size of the last seen STH.", treeID),
 		}
@@ -267,6 +269,7 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 	if err != nil {
 		return 0, err
 	}
+	metrics.trillianTreeSize.Set(float64(treeSize), c.label)
 
 	fo := c.opts.FetcherOptions
 	if fo.Continuous { // Ignore range parameters in continuous mode.
@@ -367,6 +370,7 @@ func (c *Controller) runSubmitter(ctx context.Context, batches <-chan scanner.En
 		}
 		glog.Infof("%s: added batch [%d, %d)", c.label, b.Start, end)
 		metrics.entriesStored.Add(entries, c.label)
+		metrics.trillianTreeSize.Add(float64(end), c.label)
 	}
 	return nil
 }
