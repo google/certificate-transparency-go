@@ -13,9 +13,10 @@
 
 ### Cleanup
 
- * `WithBalancerName` is deprecated and removed, using the recommended way
+ * `WithBalancerName` is deprecated and removed, using the recommended way.
  * `ctfe.PEMCertPool` type has been moved to `x509util.PEMCertPool` to reduce
    dependencies (#903).
+ * Remove log list v1 package and its dependencies.
 
 ### Migrillian
 
