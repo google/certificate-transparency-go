@@ -29,7 +29,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -53,7 +53,7 @@ func init() {
 	flags := rootCmd.PersistentFlags()
 	flags.BoolVar(&skipHTTPSVerify, "skip_https_verify", false, "Skip verification of HTTPS transport connection")
 	flags.StringVar(&logName, "log_name", "", "Name of log to retrieve information from --log_list for")
-	flags.StringVar(&logList, "log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
+	flags.StringVar(&logList, "log_list", loglist3.AllLogListURL, "Location of master log list (URL or filename)")
 	flags.StringVar(&logURI, "log_uri", "https://ct.googleapis.com/rocketeer", "CT log base URI")
 	flags.StringVar(&pubKey, "pub_key", "", "Name of file containing log's public key")
 }
@@ -121,7 +121,7 @@ func connect(ctx context.Context) *client.LogClient {
 		if err != nil {
 			klog.Exitf("Failed to read log list: %v", err)
 		}
-		ll, err := loglist.NewFromJSON(llData)
+		ll, err := loglist3.NewFromJSON(llData)
 		if err != nil {
 			klog.Exitf("Failed to build log list: %v", err)
 		}
