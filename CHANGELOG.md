@@ -30,6 +30,7 @@
  * #800: Remove dependency from `ratelimit`.
  * #927: Add read-only mode to CTFE config.
  * Update Trillian to [0a389c4](https://github.com/google/trillian/commit/0a389c4bb8d97fb3be8f55d7e5b428cf4304986f)
+ * Migrate loglist from v1 to v3 in ctclient cmd.
 
 ## v1.1.2
 
