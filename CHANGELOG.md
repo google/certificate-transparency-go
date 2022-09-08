@@ -32,6 +32,8 @@
  * Update Trillian to [0a389c4](https://github.com/google/trillian/commit/0a389c4bb8d97fb3be8f55d7e5b428cf4304986f)
  * Migrate loglist dependency from v1 to v3 in ctclient cmd.
  * Migrate loglist dependency from v1 to v3 in ctutil/loginfo.go
+ * Migrate loglist dependency from v1 to v3 in ctutil/sctscan.go
+ * Migrate loglist dependency from v1 to v3 in trillian/integration/ct_hammer/main.go
 
 ## v1.1.2
 
