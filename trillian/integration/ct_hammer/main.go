@@ -34,7 +34,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/integration"
@@ -56,7 +56,7 @@ var (
 	srcLogURI       = flag.String("src_log_uri", "", "URI for source log to copy certificates from")
 	srcPubKey       = flag.String("src_pub_key", "", "Name of file containing source log's public key")
 	srcLogName      = flag.String("src_log_name", "", "Name of source log to copy certificate from  (from --log_list)")
-	logList         = flag.String("log_list", loglist.AllLogListURL, "Location of master log list (URL or filename)")
+	logList         = flag.String("log_list", loglist3.AllLogListURL, "Location of master log list (URL or filename)")
 	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection to source log")
 	chainBufSize    = flag.Int("buffered_chains", 100, "Number of buffered certificate chains to hold")
 	startIndex      = flag.Int64("start_index", 0, "Index of start point in source log to scan from (-1 for random start index)")
@@ -133,7 +133,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 		if err != nil {
 			klog.Exitf("Failed to read log list: %v", err)
 		}
-		ll, err := loglist.NewFromJSON(llData)
+		ll, err := loglist3.NewFromJSON(llData)
 		if err != nil {
 			klog.Exitf("Failed to build log list: %v", err)
 		}

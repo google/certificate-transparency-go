@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/ctutil"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"k8s.io/klog/v2"
@@ -39,12 +39,12 @@ import (
 )
 
 var (
-	logList        = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
+	logList        = flag.String("log_list", loglist3.AllLogListURL, "Location of master CT log list (URL or filename)")
 	deadline       = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
 	checkInclusion = flag.Bool("check_inclusion", true, "Whether to check SCT inclusion in issuing CT log")
 )
 
-type logInfoFactory func(*loglist.Log, *http.Client) (*ctutil.LogInfo, error)
+type logInfoFactory func(*loglist3.Log, *http.Client) (*ctutil.LogInfo, error)
 
 func main() {
 	klog.InitFlags(nil)
@@ -56,7 +56,7 @@ func main() {
 	if err != nil {
 		klog.Exitf("Failed to read log list: %v", err)
 	}
-	ll, err := loglist.NewFromJSON(llData)
+	ll, err := loglist3.NewFromJSON(llData)
 	if err != nil {
 		klog.Exitf("Failed to parse log list: %v", err)
 	}
@@ -106,7 +106,7 @@ func main() {
 
 // checkChain iterates over any embedded SCTs in the leaf certificate of the chain
 // and checks those SCTs.  Returns the counts of valid and invalid embedded SCTs found.
-func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificate, ll *loglist.LogList, hc *http.Client) (int, int) {
+func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificate, ll *loglist3.LogList, hc *http.Client) (int, int) {
 	leaf := chain[0]
 	if len(leaf.SCTList.SCTList) == 0 {
 		return 0, 0
@@ -148,7 +148,7 @@ func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificat
 // for an HTTPS site.  Along the way it checks any external SCTs that are served
 // up on the connection alongside the chain.  Returns the chain and counts of
 // valid and invalid external SCTs found.
-func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string, ll *loglist.LogList, hc *http.Client) ([]*x509.Certificate, int, int, error) {
+func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string, ll *loglist3.LogList, hc *http.Client) ([]*x509.Certificate, int, int, error) {
 	u, err := url.Parse(target)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("failed to parse URL: %v", err)
@@ -212,7 +212,7 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 // checkSCT performs checks on an SCT and Merkle tree leaf, performing both
 // signature validation and online log inclusion checking.  Returns whether
 // the SCT is valid.
-func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, merkleLeaf *ct.MerkleTreeLeaf, sctData *x509.SerializedSCT, ll *loglist.LogList, hc *http.Client) bool {
+func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, merkleLeaf *ct.MerkleTreeLeaf, sctData *x509.SerializedSCT, ll *loglist3.LogList, hc *http.Client) bool {
 	sct, err := x509util.ExtractSCT(sctData)
 	if err != nil {
 		klog.Errorf("Failed to deserialize %s data: %v", subject, err)
@@ -246,7 +246,7 @@ func checkSCT(ctx context.Context, liFactory logInfoFactory, subject string, mer
 		if err != nil {
 			age := time.Since(ct.TimestampToTime(sct.Timestamp))
 			if age < logInfo.MMD {
-				klog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MaximumMergeDelay)
+				klog.Warningf("Failed to verify inclusion proof (%v) but %s timestamp is only %v old, less than log's MMD of %d seconds", err, subject, age, log.MMD)
 			} else {
 				klog.Errorf("Failed to verify inclusion proof for %s: %v", subject, err)
 			}

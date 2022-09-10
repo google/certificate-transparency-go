@@ -27,7 +27,7 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctutil"
 	"github.com/google/certificate-transparency-go/jsonclient"
-	"github.com/google/certificate-transparency-go/loglist"
+	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/scanner"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -36,7 +36,7 @@ import (
 
 var (
 	logURI        = flag.String("log_uri", "https://ct.googleapis.com/pilot", "CT log base URI")
-	logList       = flag.String("log_list", loglist.AllLogListURL, "Location of master CT log list (URL or filename)")
+	logList       = flag.String("log_list", loglist3.AllLogListURL, "Location of master CT log list (URL or filename)")
 	inclusion     = flag.Bool("inclusion", false, "Whether to do inclusion checking")
 	deadline      = flag.Duration("deadline", 30*time.Second, "Timeout deadline for HTTP requests")
 	batchSize     = flag.Int("batch_size", 1000, "Max number of entries to request at per call to get-entries")
@@ -71,7 +71,7 @@ func main() {
 	if err != nil {
 		klog.Exitf("Failed to read log list: %v", err)
 	}
-	ll, err := loglist.NewFromJSON(llData)
+	ll, err := loglist3.NewFromJSON(llData)
 	if err != nil {
 		klog.Exitf("Failed to parse log list: %v", err)
 	}
