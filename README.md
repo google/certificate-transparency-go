@@ -6,7 +6,7 @@
 
 This repository holds Go code related to
 [Certificate Transparency](https://www.certificate-transparency.org/) (CT).  The
-repository requires Go version 1.9.
+repository requires Go version 1.17.
 
  - [Repository Structure](#repository-structure)
  - [Trillian CT Personality](#trillian-ct-personality)
@@ -58,9 +58,6 @@ The main parts of the repository are:
  - Other libraries related to CT:
    - `ctutil/` holds utility functions for validating and verifying CT data
      structures.
-   - `loglist/` has a library for reading v1 JSON lists of CT Logs.
-   - `loglist2/` has a library for reading
-     [v2 JSON lists of CT Logs](https://www.certificate-transparency.org/known-logs).
    - `loglist3/` has a library for reading
      [v3 JSON lists of CT Logs](https://groups.google.com/a/chromium.org/g/ct-policy/c/IdbrdAcDQto/m/i5KPyzYwBAAJ).
 
