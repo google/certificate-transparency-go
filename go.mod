@@ -19,7 +19,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.1
 	go.etcd.io/etcd/client/v3 v3.5.5
 	go.etcd.io/etcd/etcdctl/v3 v3.5.5
-	go.etcd.io/etcd/v3 v3.5.4
+	go.etcd.io/etcd/v3 v3.5.5
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
@@ -96,7 +96,7 @@ require (
 	go.etcd.io/etcd/pkg/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/server/v3 v3.5.5 // indirect
-	go.etcd.io/etcd/tests/v3 v3.5.4 // indirect
+	go.etcd.io/etcd/tests/v3 v3.5.5 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.25.0 // indirect
 	go.opentelemetry.io/otel v1.0.1 // indirect
