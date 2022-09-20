@@ -635,10 +635,12 @@ go.etcd.io/etcd/raft/v3 v3.5.5/go.mod h1:76TA48q03g1y1VpTue92jZLr9lIHKUNcYdZOOGy
 go.etcd.io/etcd/server/v3 v3.5.4/go.mod h1:S5/YTU15KxymM5l3T6b09sNOHPXqGYIZStpuuGbb65c=
 go.etcd.io/etcd/server/v3 v3.5.5 h1:jNjYm/9s+f9A9r6+SC4RvNaz6AqixpOvhrFdT0PvIj0=
 go.etcd.io/etcd/server/v3 v3.5.5/go.mod h1:rZ95vDw/jrvsbj9XpTqPrTAB9/kzchVdhRirySPkUBc=
-go.etcd.io/etcd/tests/v3 v3.5.4 h1:wiYG8vbDwZO2UatQE9Z3GIv2z52jGg5DvEkTDXm090c=
 go.etcd.io/etcd/tests/v3 v3.5.4/go.mod h1:ymig8LjkI1zqAxxMsl+nntzG21dND2hh0UQXl9BaJP8=
-go.etcd.io/etcd/v3 v3.5.4 h1:IWyDYI27KTWKGv1OS0Hzysr6514E6e7qfRUVpzr4YFQ=
+go.etcd.io/etcd/tests/v3 v3.5.5 h1:QMfo2twT9Erol77/aypdJGN1vtuQ4VNSGnb5cRiIRo8=
+go.etcd.io/etcd/tests/v3 v3.5.5/go.mod h1:WUfOEAmIWBoqOtLmHeCp4WbGw3Q0sRK9ECO24zL1/g8=
 go.etcd.io/etcd/v3 v3.5.4/go.mod h1:c6jK4IfuWwJU26FD9SeI4cAtvlfu9Iacaxu0vRses1k=
+go.etcd.io/etcd/v3 v3.5.5 h1:Dd0pMrzlu2T0FsxDSomE4+8PNxpNJFLKP/cMrZiK/9s=
+go.etcd.io/etcd/v3 v3.5.5/go.mod h1:LLAaIJ/5esg1ip96fRglrSGlWWGaCo1Hal3CulymK14=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=
