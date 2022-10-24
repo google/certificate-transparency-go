@@ -137,7 +137,7 @@ func connect(ctx context.Context) *client.LogClient {
 			}
 			klog.Exitf("Multiple logs with name like %q found in loglist: %s", logName, strings.Join(logNames, ","))
 		}
-		uri = "https://" + logs[0].URL
+		uri = logs[0].URL
 		if opts.PublicKey == "" {
 			opts.PublicKeyDER = logs[0].Key
 		}
