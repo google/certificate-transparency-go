@@ -1,5 +1,7 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
+## HEAD
+
 ## v1.1.4
 
 [Published 2022-10-21](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.4)
