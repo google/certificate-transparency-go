@@ -132,6 +132,7 @@ func chainFromSite(target string) ([]*x509.Certificate, error) {
 		host += ":443"
 	}
 
+	// Insecure TLS connection here so we can always proceed.
 	conn, err := tls.Dial("tcp", host, &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to dial %q: %v", target, host, err)
