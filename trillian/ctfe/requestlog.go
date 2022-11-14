@@ -16,6 +16,7 @@ package ctfe
 
 import (
 	"context"
+	"encoding/hex"
 	"time"
 
 	"github.com/google/certificate-transparency-go/x509"
@@ -92,7 +93,8 @@ func (dlr *DefaultRequestLog) LogPrefix(_ context.Context, p string) {
 
 // AddDERToChain logs the raw bytes of a submitted certificate.
 func (dlr *DefaultRequestLog) AddDERToChain(_ context.Context, d []byte) {
-	klog.V(vLevel).Infof("RL: Cert DER: %x", d)
+	// Explicit hex encoding below to satisfy CodeQL:
+	klog.V(vLevel).Infof("RL: Cert DER: %s", hex.EncodeToString(d))
 }
 
 // AddCertToChain logs some issuer / subject / timing fields from a
@@ -127,7 +129,8 @@ func (dlr *DefaultRequestLog) TreeSize(_ context.Context, ts int64) {
 
 // LeafHash logs request parameters.
 func (dlr *DefaultRequestLog) LeafHash(_ context.Context, lh []byte) {
-	klog.V(vLevel).Infof("RL: LeafHash: %x", lh)
+	// Explicit hex encoding below to satisfy CodeQL:
+	klog.V(vLevel).Infof("RL: LeafHash: %s", hex.EncodeToString(lh))
 }
 
 // IssueSCT logs an SCT that will be issued to a client.

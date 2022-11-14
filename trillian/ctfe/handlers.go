@@ -389,7 +389,7 @@ func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 
 	// The cert chain is not allowed to be empty. We'll defer other validation for later
 	if len(req.Chain) == 0 {
-		klog.V(1).Infof("Request chain is empty: %s", body)
+		klog.V(1).Infof("Request chain is empty: %q", body)
 		return ct.AddChainRequest{}, errors.New("cert chain was empty")
 	}
 
@@ -891,9 +891,9 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 	// The type of the leaf must match the one the handler expects
 	if isPrecert != expectingPrecert {
 		if expectingPrecert {
-			klog.Warningf("%s: Cert (or precert with invalid CT ext) submitted as precert chain: %x", li.LogPrefix, req.Chain)
+			klog.Warningf("%s: Cert (or precert with invalid CT ext) submitted as precert chain: %q", li.LogPrefix, req.Chain)
 		} else {
-			klog.Warningf("%s: Precert (or cert with invalid CT ext) submitted as cert chain: %x", li.LogPrefix, req.Chain)
+			klog.Warningf("%s: Precert (or cert with invalid CT ext) submitted as cert chain: %q", li.LogPrefix, req.Chain)
 		}
 		return nil, fmt.Errorf("cert / precert mismatch: %T", expectingPrecert)
 	}
