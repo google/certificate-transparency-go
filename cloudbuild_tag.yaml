@@ -23,6 +23,9 @@ substitutions:
   _CLUSTER_NAME: trillian-opensource-ci
   _MASTER_ZONE: us-central1-a
 
+# Cloud Build logs sent to GCS bucket
+logsBucket: 'gs://trillian-cloudbuild-logs'
+
 steps:
 # First build a "ct_testbase" docker image which contains most of the tools we need for the later steps:
 - name: 'gcr.io/cloud-builders/docker'
