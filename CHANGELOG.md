@@ -6,10 +6,6 @@
 
 [Published 2022-10-21](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.4)
 
-### JSONClient
-
- * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
-
 ### Cleanup
 
  * Remove log list v1 package and its dependencies.
@@ -25,6 +21,7 @@
  * Migrate loglist dependency from v1 to v3 in ctutil/loginfo.go
  * Migrate loglist dependency from v1 to v3 in ctutil/sctscan.go
  * Migrate loglist dependency from v1 to v3 in trillian/integration/ct_hammer/main.go
+ * Downgrade 429 errors to verbosity 2
 
 ## v1.1.3
 
@@ -34,6 +31,10 @@
 
  * Breaking change to API for `integration.HammerCTLog`:
     * Added `ctx` as first argument, and terminate loop if it becomes cancelled
+
+### JSONClient
+
+ * PostAndParseWithRetry now does backoff-and-retry upon receiving HTTP 429.
 
 ### Cleanup
 
