@@ -6,6 +6,10 @@
 
  * Remove v2 log list package files.
 
+ ### Misc
+
+ * Updated golangci-lint to v1.50.1 (developers should update to this version)
+
 ## v1.1.4
 
 [Published 2022-10-21](https://github.com/google/certificate-transparency-go/releases/tag/v1.1.4)
