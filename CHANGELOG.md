@@ -4,7 +4,7 @@
 
 ### Cleanup
 
- * Remove v2 log list package and its dependencies.
+ * Remove v2 log list package files.
 
 ## v1.1.4
 
