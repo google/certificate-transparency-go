@@ -13,7 +13,6 @@ repository requires Go version 1.17.
  - [Working on the Code](#working-on-the-code)
      - [Running Codebase Checks](#running-codebase-checks)
      - [Rebuilding Generated Code](#rebuilding-generated-code)
-     - [Updating Vendor Code](#updating-vendor-code)
 
 ## Repository Structure
 
@@ -85,7 +84,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.46.1
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh
@@ -111,7 +110,7 @@ the original files; if you do, you'll need to install the prerequisites:
 
 - tools written in `go` can be installed with a single run of `go install`
   (courtesy of [`tools.go`](./tools/tools.go) and `go.mod`).
-- `protoc` tool: you'll need [version 3.12.4](https://github.com/protocolbuffers/protobuf/releases/tag/v3.12.4) installed, and `PATH` updated to include its `bin/` directory.
+- `protoc` tool: you'll need [version 3.20.1](https://github.com/protocolbuffers/protobuf/releases/tag/v3.20.1) installed, and `PATH` updated to include its `bin/` directory.
 
 With tools installed, run the following:
 
