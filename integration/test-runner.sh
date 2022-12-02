@@ -5,7 +5,7 @@
 # full presubmit/integration test.
 # It's equivalent to the "script:" section in the travis config.
 
-./scripts/presubmit.sh ${PRESUBMIT_OPTS}
+./scripts/presubmit.sh ${PRESUBMIT_OPTS} || exit 1
 
 # Check re-generation didn't change anything
 status=$(git status --porcelain | egrep -v 'coverage|go\.(mod|sum)') || :
