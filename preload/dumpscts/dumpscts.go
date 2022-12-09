@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Dumpscts prints out SCTs writen to a file by the preloader command in
+// Dumpscts prints out SCTs written to a file by the preloader command in
 // the ../preloader directory.
 package main
 
