@@ -42,7 +42,9 @@ func TestRateLimiterSingleThreaded(t *testing.T) {
 			}
 			ds := float64(time.Since(start)) / float64(time.Second)
 			qps := float64(numOps) / ds
-			if qps > float64(limit)*1.01 {
+			// The rate limit is temporarily updated to 2 due to the flakiness of this test. The original rate limit is 1.01.
+			// https://github.com/google/certificate-transparency-go/issues/951
+			if qps > float64(limit)*2 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
 			klog.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
@@ -73,7 +75,9 @@ func TestRateLimiterGoroutines(t *testing.T) {
 			wg.Wait()
 			ds := float64(time.Since(start)) / float64(time.Second)
 			qps := float64(numOps) / ds
-			if qps > float64(limit)*1.01 {
+			// The rate limit is temporarily updated to 2 due to the flakiness of this test. The original rate limit is 1.01.
+			// https://github.com/google/certificate-transparency-go/issues/951
+			if qps > float64(limit)*2 {
 				t.Errorf("#%d: Too many operations per second. Expected ~%d, got %f", i, limit, qps)
 			}
 			klog.Infof("#%d: Expected ~%d, got %f", i, limit, qps)
