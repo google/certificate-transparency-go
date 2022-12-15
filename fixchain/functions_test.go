@@ -16,6 +16,7 @@ package fixchain
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,7 +30,8 @@ import (
 
 type nilLimiter struct{}
 
-func (l *nilLimiter) Wait() {
+func (l *nilLimiter) Wait(ctx context.Context) error {
+	return nil
 }
 
 func newNilLimiter() *nilLimiter {

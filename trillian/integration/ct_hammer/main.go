@@ -32,7 +32,6 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/client"
-	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
@@ -42,6 +41,7 @@ import (
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 	"k8s.io/klog/v2"
 )
 
@@ -91,11 +91,11 @@ var (
 	strictSTHConsistencySize = flag.Bool("strict_sth_consistency_size", true, "If set to true, hammer will use only tree sizes from STHs it's seen for consistency proofs, otherwise it'll choose a random size for the smaller tree")
 )
 
-func newLimiter(rate int) integration.Limiter {
-	if rate <= 0 {
+func newLimiter(limit int) integration.Limiter {
+	if limit <= 0 {
 		return nil
 	}
-	return ratelimiter.NewLimiter(rate)
+	return rate.NewLimiter(rate.Limit(limit), 1)
 }
 
 // copierGeneratorFactory returns a function that creates per-Log ChainGenerator instances

@@ -30,7 +30,7 @@ import (
 // Limiter is an interface to allow different rate limiters to be used with the
 // Logger.
 type Limiter interface {
-	Wait()
+	Wait(context.Context) error
 }
 
 // Logger contains methods to asynchronously log certificate chains to a
@@ -163,7 +163,7 @@ func (l *Logger) postChain(p *toPost) {
 		derChain = append(derChain, ct.ASN1Cert{Data: cert.Raw})
 	}
 
-	l.limiter.Wait()
+	l.limiter.Wait(l.ctx)
 	atomic.AddUint32(&l.posted, 1)
 	_, err := l.client.AddChain(l.ctx, derChain)
 	if err != nil {
