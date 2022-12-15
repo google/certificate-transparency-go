@@ -28,9 +28,9 @@ import (
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/fixchain"
-	"github.com/google/certificate-transparency-go/fixchain/ratelimiter"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
+	"golang.org/x/time/rate"
 )
 
 // Assumes chains to be stores in a file in JSON encoded with the certificates
@@ -106,7 +106,7 @@ func main() {
 	// As-is, this will log errors as strings.
 	go logStringErrors(&wg, errors, errDir)
 
-	limiter := ratelimiter.NewLimiter(1000)
+	limiter := rate.NewLimiter(rate.Limit(1000), 1)
 	c := &http.Client{}
 	logClient, err := client.New(logURL, c, jsonclient.Options{UserAgent: "ct-go-fixchain/1.0"})
 	if err != nil {
