@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Binary scanlog allows an existing CT Log to be scanned for certificates of interest.
 package main
 
 import (
