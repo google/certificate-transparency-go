@@ -238,7 +238,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 	return f.sthBackoff.Retry(ctx, func() error {
 		sth, err := f.client.GetSTH(ctx)
 		if err != nil {
-			return err
+			return backoff.RetriableErrorf("GetSTH: %v", err)
 		}
 		klog.V(2).Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
 
