@@ -98,7 +98,7 @@ steps:
   id: 'race_detection'
   env:
     - 'GOFLAGS=-race'
-    - 'PRESUBMIT_OPTS=--no-linters'
+    - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
@@ -107,7 +107,7 @@ steps:
   id: 'etcd_with_coverage'
   env:
     - 'GOFLAGS='
-    - 'PRESUBMIT_OPTS=--no-linters --coverage'
+    - 'PRESUBMIT_OPTS=--no-linters --no-generate --coverage'
     - 'WITH_ETCD=true'
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
@@ -117,7 +117,7 @@ steps:
   id: 'etcd_with_race'
   env:
     - 'GOFLAGS=-race'
-    - 'PRESUBMIT_OPTS=--no-linters'
+    - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'WITH_ETCD=true'
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
@@ -127,7 +127,7 @@ steps:
   id: 'with_pkcs11_and_race'
   env:
     - 'GOFLAGS=-race --tags=pkcs11'
-    - 'PRESUBMIT_OPTS=--no-linters'
+    - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'WITH_PKCS11=true'
     - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
