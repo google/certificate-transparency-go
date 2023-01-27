@@ -59,7 +59,7 @@ var int64TestData = []int64Test{
 	{[]byte{0xff}, true, true, -1},
 	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, true, true, -9223372036854775808},
 	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, false, false, 0},
-	{[]byte{}, false, false, 0},
+	{[]byte{}, false, true, 0},
 	{[]byte{0x00, 0x7f}, false, true, 127},
 	{[]byte{0xff, 0xf0}, false, true, -16},
 }
@@ -68,7 +68,7 @@ func TestParseInt64(t *testing.T) {
 	for i, test := range int64TestData {
 		ret, err := parseInt64(test.in, false, "fieldname")
 		if (err == nil) != test.ok {
-			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
+			t.Errorf("#%d: Incorrect error result (success? %t, expected: %t)", i, err == nil, test.ok)
 		}
 		if test.ok && ret != test.out {
 			t.Errorf("#%d: Bad result: %v (expected %v)", i, ret, test.out)
@@ -76,7 +76,7 @@ func TestParseInt64(t *testing.T) {
 
 		ret, err = parseInt64(test.in, true, "fieldname")
 		if (err == nil) != test.okLax {
-			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+			t.Errorf("#%d: Incorrect lax error result (success? %t, expected: %t)", i, err == nil, test.okLax)
 		}
 		if test.okLax && ret != test.out {
 			t.Errorf("#%d: Bad lax result: %v (expected %v)", i, ret, test.out)
@@ -101,7 +101,7 @@ var int32TestData = []int32Test{
 	{[]byte{0xff}, true, true, -1},
 	{[]byte{0x80, 0x00, 0x00, 0x00}, true, true, -2147483648},
 	{[]byte{0x80, 0x00, 0x00, 0x00, 0x00}, false, false, 0},
-	{[]byte{}, false, false, 0},
+	{[]byte{}, false, true, 0},
 	{[]byte{0x00, 0x7f}, false, true, 127},
 	{[]byte{0xff, 0xf0}, false, true, -16},
 }
@@ -110,7 +110,7 @@ func TestParseInt32(t *testing.T) {
 	for i, test := range int32TestData {
 		ret, err := parseInt32(test.in, false, "fieldname")
 		if (err == nil) != test.ok {
-			t.Errorf("#%d: Incorrect error result (did fail? %v, expected: %v)", i, err == nil, test.ok)
+			t.Errorf("#%d: Incorrect error result (did fail? %t, expected: %t)", i, err == nil, test.ok)
 		}
 		if test.ok && int32(ret) != test.out {
 			t.Errorf("#%d: Bad result: %v (expected %v)", i, ret, test.out)
@@ -118,7 +118,7 @@ func TestParseInt32(t *testing.T) {
 
 		ret, err = parseInt32(test.in, true, "fieldname")
 		if (err == nil) != test.okLax {
-			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+			t.Errorf("#%d: Incorrect lax error result (success? %t, expected: %t)", i, err == nil, test.okLax)
 		}
 		if test.okLax && int32(ret) != test.out {
 			t.Errorf("#%d: Bad lax result: %v (expected %v)", i, ret, test.out)
@@ -138,7 +138,7 @@ var bigIntTests = []struct {
 	{[]byte{0x00, 0xff}, true, true, "255"},
 	{[]byte{0xff, 0x00}, true, true, "-256"},
 	{[]byte{0x01, 0x00}, true, true, "256"},
-	{[]byte{}, false, false, ""},
+	{[]byte{}, false, true, "0"},
 	{[]byte{0x00, 0x7f}, false, true, "127"},
 	{[]byte{0xff, 0xf0}, false, true, "-16"},
 }
@@ -167,7 +167,7 @@ func TestParseBigInt(t *testing.T) {
 
 		ret, err = parseBigInt(test.in, true, "fieldname")
 		if (err == nil) != test.okLax {
-			t.Errorf("#%d: Incorrect lax error result (did fail? %v, expected: %v)", i, err == nil, test.okLax)
+			t.Errorf("#%d: Incorrect lax error result (success? %t, expected: %t)", i, err == nil, test.okLax)
 		}
 		if test.okLax {
 			if ret.String() != test.base10 {

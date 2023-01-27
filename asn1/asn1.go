@@ -106,13 +106,13 @@ func parseBool(bytes []byte, fieldName string) (ret bool, err error) {
 // checkInteger returns nil if the given bytes are a valid DER-encoded
 // INTEGER and an error otherwise.
 func checkInteger(bytes []byte, lax bool, fieldName string) error {
+	if lax {
+		return nil
+	}
 	if len(bytes) == 0 {
 		return StructuralError{"empty integer", fieldName}
 	}
 	if len(bytes) == 1 {
-		return nil
-	}
-	if lax {
 		return nil
 	}
 	if (bytes[0] == 0 && bytes[1]&0x80 == 0) || (bytes[0] == 0xff && bytes[1]&0x80 == 0x80) {
