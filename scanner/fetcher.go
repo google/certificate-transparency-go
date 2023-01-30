@@ -117,10 +117,10 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 		klog.Errorf("%s: GetSTH() failed: %v", f.uri, err)
 		return nil, err
 	}
-	klog.Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
+	klog.V(1).Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
 
 	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size {
-		klog.Infof("%s: Reset EndIndex from %d to %d", f.uri, f.opts.EndIndex, size)
+		klog.V(1).Infof("%s: Reset EndIndex from %d to %d", f.uri, f.opts.EndIndex, size)
 		f.opts.EndIndex = size
 	}
 	f.sth = sth
