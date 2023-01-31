@@ -21,6 +21,7 @@
 //     ISO8859-1.
 //   - checkInteger() allows integers that are not minimally encoded (and
 //     so are not correct DER).
+//   - checkInteger() treats zero-length integers as equal to zero.
 //   - parseObjectIdentifier() allows zero-length OIDs.
 //   - Better diagnostics on which particular field causes errors.
 package asn1
