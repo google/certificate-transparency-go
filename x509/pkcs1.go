@@ -47,7 +47,7 @@ type pkcs1PublicKey struct {
 // This kind of key is commonly encoded in PEM blocks of type "RSA PRIVATE KEY".
 func ParsePKCS1PrivateKey(der []byte) (*rsa.PrivateKey, error) {
 	var priv pkcs1PrivateKey
-	rest, err := asn1.Unmarshal(der, &priv)
+	rest, err := asn1.UnmarshalWithParams(der, &priv, "lax")
 	if len(rest) > 0 {
 		return nil, asn1.SyntaxError{Msg: "trailing data"}
 	}
@@ -138,7 +138,7 @@ func MarshalPKCS1PrivateKey(key *rsa.PrivateKey) []byte {
 // This kind of key is commonly encoded in PEM blocks of type "RSA PUBLIC KEY".
 func ParsePKCS1PublicKey(der []byte) (*rsa.PublicKey, error) {
 	var pub pkcs1PublicKey
-	rest, err := asn1.Unmarshal(der, &pub)
+	rest, err := asn1.UnmarshalWithParams(der, &pub, "lax")
 	if err != nil {
 		if _, err := asn1.Unmarshal(der, &publicKeyInfo{}); err == nil {
 			return nil, errors.New("x509: failed to parse public key (use ParsePKIXPublicKey instead for this key format)")

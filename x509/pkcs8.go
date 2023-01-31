@@ -35,7 +35,7 @@ type pkcs8 struct {
 // This kind of key is commonly encoded in PEM blocks of type "PRIVATE KEY".
 func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 	var privKey pkcs8
-	if _, err := asn1.Unmarshal(der, &privKey); err != nil {
+	if _, err := asn1.UnmarshalWithParams(der, &privKey, "lax"); err != nil {
 		if _, err := asn1.Unmarshal(der, &ecPrivateKey{}); err == nil {
 			return nil, errors.New("x509: failed to parse private key (use ParseECPrivateKey instead for this key format)")
 		}
@@ -55,7 +55,7 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 	case privKey.Algo.Algorithm.Equal(OIDPublicKeyECDSA):
 		bytes := privKey.Algo.Parameters.FullBytes
 		namedCurveOID := new(asn1.ObjectIdentifier)
-		if _, err := asn1.Unmarshal(bytes, namedCurveOID); err != nil {
+		if _, err := asn1.UnmarshalWithParams(bytes, namedCurveOID, "lax"); err != nil {
 			namedCurveOID = nil
 		}
 		key, err = parseECPrivateKey(namedCurveOID, privKey.PrivateKey)
@@ -69,7 +69,7 @@ func ParsePKCS8PrivateKey(der []byte) (key interface{}, err error) {
 			return nil, errors.New("x509: invalid Ed25519 private key parameters")
 		}
 		var curvePrivateKey []byte
-		if _, err := asn1.Unmarshal(privKey.PrivateKey, &curvePrivateKey); err != nil {
+		if _, err := asn1.UnmarshalWithParams(privKey.PrivateKey, &curvePrivateKey, "lax"); err != nil {
 			return nil, fmt.Errorf("x509: invalid Ed25519 private key: %v", err)
 		}
 		if l := len(curvePrivateKey); l != ed25519.SeedSize {
