@@ -8,7 +8,7 @@
 
  ### Misc
 
- * Updated golangci-lint to v1.50.1 (developers should update to this version).
+ * Updated golangci-lint to v1.51.1 (developers should update to this version).
  * Bump Go version from 1.17 to 1.19.
 
 ## v1.1.4
