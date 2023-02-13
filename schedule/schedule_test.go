@@ -48,6 +48,7 @@ func TestEvery(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			test := test
 			t.Parallel()
 			ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 			defer cancel()
