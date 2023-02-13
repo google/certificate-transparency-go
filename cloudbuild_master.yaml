@@ -79,7 +79,7 @@ steps:
 
       # Cache all the modules we'll need too
       go mod download
-      go test -i ./...
+      go test ./...
 
       # Wait for trillian logserver to be up
       until nc -z deployment_trillian-log-server_1 8090; do echo .; sleep 5; done
