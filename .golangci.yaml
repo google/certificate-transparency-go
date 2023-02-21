@@ -35,12 +35,3 @@ linters:
 issues:
   # Don't turn off any checks by default. We can do this explicitly if needed.
   exclude-use-default: false
-  # List of regexps of issue texts to exclude.
-  #
-  # But independently of this option we use default exclude patterns,
-  # it can be disabled by `exclude-use-default: false`.
-  # To list all excluded by default patterns execute `golangci-lint run --help`
-  #
-  # Default: https://golangci-lint.run/usage/false-positives/#default-exclusions
-  exclude:
-    - "rand.Seed has been deprecated since Go 1.20 and an alternative has been available since Go 1.0"
