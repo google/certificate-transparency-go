@@ -24,7 +24,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -64,7 +63,6 @@ var (
 	parallelFetch   = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 
 	metricsEndpoint     = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will not be exposed")
-	seed                = flag.Int64("seed", -1, "Seed for random number generation")
 	logConfig           = flag.String("log_config", "", "File holding log config in JSON")
 	mmd                 = flag.Duration("mmd", 2*time.Minute, "Default MMD for logs")
 	operations          = flag.Uint64("operations", ^uint64(0), "Number of operations to perform")
@@ -177,11 +175,6 @@ func main() {
 	if *logConfig == "" {
 		klog.Exit("Test aborted as no log config provided (via --log_config)")
 	}
-	if *seed == -1 {
-		*seed = time.Now().UTC().UnixNano() & 0xFFFFFFFF
-	}
-	fmt.Printf("Today's test has been brought to you by the letters C and T and the number %#x\n", *seed)
-	rand.Seed(*seed)
 
 	cfg, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {

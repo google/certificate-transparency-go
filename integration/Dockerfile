@@ -11,7 +11,7 @@ ENV GO111MODULE=on
 RUN apt-get update && apt-get -y install build-essential curl docker-compose lsof netcat unzip wget xxd
 
 RUN cd /usr/bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && mv jq-linux64 /usr/bin/jq && chmod +x /usr/bin/jq
-RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.51.1
 RUN mkdir protoc && \
     (cd protoc && \
     PROTOC_VERSION=3.20.1 && \
