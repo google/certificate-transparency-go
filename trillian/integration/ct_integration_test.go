@@ -38,7 +38,6 @@ var (
 	httpServers    = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
 	metricsServers = flag.String("ct_metrics_servers", "localhost:8093", "Comma-separated list of (assumed interchangeable) metrics servers, each as address:port")
 	testDir        = flag.String("testdata_dir", "testdata", "Name of directory with test data")
-	seed           = flag.Int64("seed", -1, "Seed for random number generation")
 	logConfig      = flag.String("log_config", "", "File holding log config in JSON")
 	mmd            = flag.Duration("mmd", 30*time.Second, "MMD for tested logs")
 	skipStats      = flag.Bool("skip_stats", false, "Skip checks of expected log statistics")
@@ -49,11 +48,6 @@ func commonSetup(t *testing.T) []*configpb.LogConfig {
 	if *logConfig == "" {
 		t.Skip("Integration test skipped as no log config provided")
 	}
-	if *seed == -1 {
-		*seed = time.Now().UTC().UnixNano() & 0xFFFFFFFF
-	}
-	fmt.Printf("Today's test has been brought to you by the letters C and T and the number %#x\n", *seed)
-	rand.Seed(*seed)
 
 	cfgs, err := ctfe.LogConfigFromFile(*logConfig)
 	if err != nil {
