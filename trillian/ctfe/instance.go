@@ -92,6 +92,15 @@ func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	})
 }
 
+// Return the public key from the instance's signer.
+func (i *Instance) GetPublicKey() crypto.PublicKey {
+	if i.li != nil && i.li.signer != nil {
+		return i.li.signer.Public()
+	} else {
+		return nil
+	}
+}
+
 // SetUpInstance sets up a log (or log mirror) instance using the provided
 // configuration, and returns an object containing a set of handlers for this
 // log, and an STH getter.
