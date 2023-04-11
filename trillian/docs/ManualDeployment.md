@@ -299,8 +299,9 @@ Each Log instance needs configuration for:
        }
      }
      ```
- - `public_key`: The corresponding public key for the log instance.  (This is
-   not actually used by the CTFE, but is worth including for reference and for
+ - `public_key`: The corresponding public key for the log instance.  When
+   both the public and private keys are specified, they will be checked for
+   consistency.  (The public key is also worth including for reference and for
    use by test tools.)
 
 **Cross-check**: The config file should be accepted at start-up by the

@@ -2,6 +2,10 @@
 
 ## HEAD
 
+### Public/Private Key Consistency
+
+ * #1044: If a public key has been configured for a log, check that it is consistent with the private key.
+
 ### Cleanup
 
  * Remove v2 log list package files.
