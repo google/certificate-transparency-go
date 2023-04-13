@@ -18,6 +18,9 @@ package main
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"flag"
 	"fmt"
 	"net/http"
@@ -201,6 +204,7 @@ func main() {
 
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
+	var publicKeys []crypto.PublicKey
 	for _, c := range cfg.LogConfigs.Config {
 		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
 		if err != nil {
@@ -208,6 +212,28 @@ func main() {
 		}
 		if *getSTHInterval > 0 {
 			go inst.RunUpdateSTH(ctx, *getSTHInterval)
+		}
+
+		// Ensure that this log does not share the same private key as any other
+		// log that has already been set up and registered.
+		if publicKey := inst.GetPublicKey(); publicKey != nil {
+			for _, p := range publicKeys {
+				switch pub := publicKey.(type) {
+				case *ecdsa.PublicKey:
+					if pub.Equal(p) {
+						klog.Exitf("Same private key used by more than one log")
+					}
+				case ed25519.PublicKey:
+					if pub.Equal(p) {
+						klog.Exitf("Same private key used by more than one log")
+					}
+				case *rsa.PublicKey:
+					if pub.Equal(p) {
+						klog.Exitf("Same private key used by more than one log")
+					}
+				}
+			}
+			publicKeys = append(publicKeys, publicKey)
 		}
 	}
 

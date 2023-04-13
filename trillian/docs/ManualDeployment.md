@@ -188,9 +188,9 @@ log instances, each configured separately in the config file.
 
 ### Key Generation
 
-Each CT Log needs to have a private key that is used to sign cryptographic
-content from the Log.  The [OpenSSL](https://www.openssl.org/) command line can
-be used to
+Each CT Log needs to have a unique private key that is used to sign
+cryptographic content from the Log.  The [OpenSSL](https://www.openssl.org/)
+command line can be used to
 [generate](https://wiki.openssl.org/index.php/Command_Line_Elliptic_Curve_Operations#Generating_EC_Keys_and_Parameters)
 a suitable private key.
 
