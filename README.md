@@ -71,10 +71,7 @@ and is [documented separately](trillian/README.md).
 ## Working on the Code
 
 Developers who want to make changes to the codebase need some additional
-dependencies and tools, described in the following sections.  The
-[Travis configuration](.travis.yml) for the codebase is also useful reference
-for the required tools and scripts, as it may be more up-to-date than this
-document.
+dependencies and tools, described in the following sections.
 
 ### Running Codebase Checks
 
