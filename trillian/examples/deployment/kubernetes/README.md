@@ -65,14 +65,3 @@ If you want to change the `configmap` you'll need to:
 1. Delete the old `configmap` like so: `kubectl delete configmap ctfe-configmap`.
 1. Create the updated `configmap` as before.
 1. Re-run `deploy.sh` to force kubernetes to update the pods.
-
-
-## Continuous Integration Example
-
-The master continuous integration (CI)
-[script](https://github.com/google/certificate-transparency-go/blob/master/.travis.yml)
-provides an example of deploying a CT Log.  The Travis configuration is set up
-to deploy new builds from the `master` branch of the repo to our GCP
-environment, using the
-[deploy_gce_ci.sh](https://github.com/google/certificate-transparency-go/blob/master/scripts/deploy_gce_ci.sh)
-script (which sets environment variables appropriately for that environment).
