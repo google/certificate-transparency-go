@@ -122,7 +122,7 @@ Merkle tree.
  - The `--mysql_uri` option indicates where the MySQL database is available.
  - The `--sequencer_interval`, `--batch_size` and `--num_sequencers` options
    provide control over the timing and batching of sequencing operations.
- - The `--force-master` option allows the signer to assume that it is the only
+ - The `--force_master` option allows the signer to assume that it is the only
    instance running (more on this [later](#primary-signer-election)).
  - The `--logtostderr` option emits more debug logging, which is helpful while
    getting a deployment running.
