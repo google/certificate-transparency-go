@@ -105,7 +105,7 @@ The next step is to deploy two Trillian processes, the log server and the log
 signer.  These binaries are not specific to CT or to WebPKI certificates; they
 provide a general mechanism for transparently recording data in a Merkle tree.
 
-The log server (`github.com/google/trillian/server/trillian_log_server`) exposes
+The log server (`github.com/google/trillian/cmd/trillian_log_server`) exposes
 a gRPC interface that allows various primitives for querying and adding to the
 underlying Merkle tree.  These operations are translated into operations on the
 storage layer, which are SQL operations in this example.
@@ -116,7 +116,7 @@ storage layer, which are SQL operations in this example.
 
 However, add operations are not immediately incorporated into the Merkle tree.
 Instead, pending add operations are queued up and a separate process, the log
-signer (`github.com/google/trillian/server/trillian_log_signer`) periodically
+signer (`github.com/google/trillian/cmd/trillian_log_signer`) periodically
 reads pending entries from the queue.  The signer gives these entries unique,
 monotonicallly increasing, sequence numbers and incorporates them into the
 Merkle tree.
