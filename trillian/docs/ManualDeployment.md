@@ -79,8 +79,6 @@ MariaDB [test]> show tables;
 | Tables_in_test    |
 +-------------------+
 | LeafData          |
-| MapHead           |
-| MapLeaf           |
 | SequencedLeafData |
 | Subtree           |
 | TreeControl       |
@@ -88,7 +86,7 @@ MariaDB [test]> show tables;
 | Trees             |
 | Unsequenced       |
 +-------------------+
-9 rows in set (0.00 sec)
+7 rows in set (0.00 sec)
 
 MariaDB [test]> exit
 Bye
