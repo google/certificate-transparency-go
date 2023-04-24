@@ -143,14 +143,6 @@ deployment process.
  - The `--admin_server` option for `createtree` indicates the address
    (host:port) that tree creation gRPC requests should be sent to; it should
    match the `--rpc_endpoint` for the log server.
- - Other options (`--pem_key_path`, `--pem_key_password`,
-   `--signature_algorithm`) allow control of the private keys used for
-   *Trillian*'s signatures over the log's contents.  **Note** that this
-   is not the private key used for signing externally-visible content of the CT
-   log (see [below](#key-generation)). (Instead, these signatures allow for
-   future deployment scenarios where the Trillian services are operated by a
-   different entity than the CT personality, and so a trust boundary between
-   the two is needed.)
  - The `--max_root_duration` option should be set to less than the log's MMD.
    This ensures that the log periodically produces a fresh STH even if there are
    no updates. Make sure to leave a reasonable safety margin (e.g., 23h59m seems
