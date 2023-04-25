@@ -354,7 +354,7 @@ script should (mostly) make sense.
 browser should show JSON that indicates an empty tree.
 Alternatively, the `ctclient` command-line tool shows the same information:
 ```bash
-% go run github.com/google/certificate-transparency-go/client/ctclient --log_uri http://localhost:6966/aramis sth
+go run github.com/google/certificate-transparency-go/client/ctclient@master get-sth --log_uri http://localhost:6966/aramis
 2018-10-12 11:28:08.544 +0100 BST (timestamp 1539340088544): Got STH for V1 log (size=11718) at http://localhost:6966/aramis, hash 6fb36fcca60d61aa85e04ff0c34a87782f12d08568118602eec0208d85c3a40d
 Signature: Hash=SHA256 Sign=ECDSA
 Value=3045022100df855f0fd097a45070e2eb244c7cb63effda942f2d30308e3b84a72e1d16118b0220038e55f142501402cf03790b3997081f82ffe47f2d3f3b667e1c484aecf40a33
