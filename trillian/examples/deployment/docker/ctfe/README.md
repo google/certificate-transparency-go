@@ -63,11 +63,11 @@ docker compose --profile frontend up
 ```
 
 This will bring up the whole stack. Assuming there are no errors in the log,
-then the following command should return an empty tree head with HTTP status
-code 200:
+then the following command should return tree head for tree size 0.
 
 ```bash
 # Terminal 2
-curl -i localhost:8080/testlog/ct/v1/get-sth
+cd ~/git/certificate-transparency-go
+go run ./client/ctclient get-sth --log_uri http://localhost:8080/testlog
 ```
 
