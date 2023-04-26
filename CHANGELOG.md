@@ -2,6 +2,8 @@
 
 ## HEAD
 
+## v.1.1.5
+
 ### Public/Private Key Consistency
 
  * #1044: If a public key has been configured for a log, check that it is consistent with the private key.
