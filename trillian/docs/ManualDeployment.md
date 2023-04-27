@@ -79,8 +79,6 @@ MariaDB [test]> show tables;
 | Tables_in_test    |
 +-------------------+
 | LeafData          |
-| MapHead           |
-| MapLeaf           |
 | SequencedLeafData |
 | Subtree           |
 | TreeControl       |
@@ -88,7 +86,7 @@ MariaDB [test]> show tables;
 | Trees             |
 | Unsequenced       |
 +-------------------+
-9 rows in set (0.00 sec)
+7 rows in set (0.00 sec)
 
 MariaDB [test]> exit
 Bye
@@ -105,7 +103,7 @@ The next step is to deploy two Trillian processes, the log server and the log
 signer.  These binaries are not specific to CT or to WebPKI certificates; they
 provide a general mechanism for transparently recording data in a Merkle tree.
 
-The log server (`github.com/google/trillian/server/trillian_log_server`) exposes
+The log server (`github.com/google/trillian/cmd/trillian_log_server`) exposes
 a gRPC interface that allows various primitives for querying and adding to the
 underlying Merkle tree.  These operations are translated into operations on the
 storage layer, which are SQL operations in this example.
@@ -114,9 +112,20 @@ storage layer, which are SQL operations in this example.
  - The `--rpc_endpoint` option for the log server indicates the port that the
    gRPC methods are available on.
 
+e.g.:
+```bash
+$ go run github.com/google/trillian/cmd/trillian_log_server --mysql_uri="root@tcp(localhost:3306)/test" --rpc_endpoint=:8080 --http_endpoint=:8081 --logtostderr
+I0424 18:36:20.378082   65882 main.go:97] **** Log Server Starting ****
+I0424 18:36:20.378732   65882 quota_provider.go:46] Using MySQL QuotaManager
+I0424 18:36:20.379453   65882 main.go:180] RPC server starting on :8080
+I0424 18:36:20.379522   65882 main.go:141] HTTP server starting on :8081
+I0424 18:36:20.379709   65882 main.go:188] Deleted tree GC started
+...
+```
+
 However, add operations are not immediately incorporated into the Merkle tree.
 Instead, pending add operations are queued up and a separate process, the log
-signer (`github.com/google/trillian/server/trillian_log_signer`) periodically
+signer (`github.com/google/trillian/cmd/trillian_log_signer`) periodically
 reads pending entries from the queue.  The signer gives these entries unique,
 monotonicallly increasing, sequence numbers and incorporates them into the
 Merkle tree.
@@ -124,10 +133,23 @@ Merkle tree.
  - The `--mysql_uri` option indicates where the MySQL database is available.
  - The `--sequencer_interval`, `--batch_size` and `--num_sequencers` options
    provide control over the timing and batching of sequencing operations.
- - The `--force-master` option allows the signer to assume that it is the only
+ - The `--force_master` option allows the signer to assume that it is the only
    instance running (more on this [later](#primary-signer-election)).
  - The `--logtostderr` option emits more debug logging, which is helpful while
    getting a deployment running.
+
+e.g.:
+```bash
+$ go run github.com/google/trillian/cmd/trillian_log_signer --mysql_uri="root@tcp(localhost:3306)/test" --force_master --rpc_endpoint=:8090 --http_endpoint=:8091 --logtostderr
+I0424 18:37:17.716095   66067 main.go:108] **** Log Signer Starting ****
+W0424 18:37:17.717141   66067 main.go:139] **** Acting as master for all logs ****
+I0424 18:37:17.717154   66067 quota_provider.go:46] Using MySQL QuotaManager
+I0424 18:37:17.717329   66067 operation_manager.go:328] Log operation manager starting
+I0424 18:37:17.717431   66067 main.go:180] RPC server starting on :8090
+I0424 18:37:17.717530   66067 main.go:141] HTTP server starting on :8091
+I0424 18:37:17.717794   66067 operation_manager.go:285] Acting as master for 0 / 0 active logs: master for:
+...
+```
 
 <img src="images/Deployment2Trillian.png" width="650">
 
@@ -145,19 +167,22 @@ deployment process.
  - The `--admin_server` option for `createtree` indicates the address
    (host:port) that tree creation gRPC requests should be sent to; it should
    match the `--rpc_endpoint` for the log server.
- - Other options (`--pem_key_path`, `--pem_key_password`,
-   `--signature_algorithm`) allow control of the private keys used for
-   *Trillian*'s signatures over the log's contents.  **Note** that this
-   is not the private key used for signing externally-visible content of the CT
-   log (see [below](#key-generation)). (Instead, these signatures allow for
-   future deployment scenarios where the Trillian services are operated by a
-   different entity than the CT personality, and so a trust boundary between
-   the two is needed.)
  - The `--max_root_duration` option should be set to less than the log's MMD.
    This ensures that the log periodically produces a fresh STH even if there are
    no updates. Make sure to leave a reasonable safety margin (e.g., 23h59m seems
    risky for MMD=24h, while 1h or 12h feels safe).
 
+e.g.:
+```bash
+$ go run github.com/google/trillian/cmd/createtree --admin_server=:8080
+I0424 18:40:27.992970   66832 main.go:106] Creating tree tree_state:ACTIVE tree_type:LOG max_root_duration:{seconds:3600}
+W0424 18:40:27.993107   66832 rpcflags.go:36] Using an insecure gRPC connection to Trillian
+I0424 18:40:27.993276   66832 admin.go:50] CreateTree...
+I0424 18:40:27.997381   66832 admin.go:95] Initialising Log 3871182205569895248...
+I0424 18:40:28.000074   66832 admin.go:106] Initialised Log (3871182205569895248) with new SignedTreeHead:
+log_root:"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00 \xe3\xb0\xc4B\x98\xfc\x1c\x14\x9a\xfb\xf4șo\xb9$'\xaeA\xe4d\x9b\x93L\xa4\x95\x99\x1bxR\xb8U\x17Xﶃ\xe3\xf3=\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+3871182205569895248
+```
 
 **Cross-check**: Once a new tree has been provisioned, the debug logging for the running
 `trillian_log_signer` should include a mention of the new tree.
@@ -329,8 +354,7 @@ script should (mostly) make sense.
 browser should show JSON that indicates an empty tree.
 Alternatively, the `ctclient` command-line tool shows the same information:
 ```bash
-% go install github.com/google/certificate-transparency-go/client/ctclient
-% ctclient --log_uri http://localhost:6966/aramis sth
+go run github.com/google/certificate-transparency-go/client/ctclient@master get-sth --log_uri http://localhost:6966/aramis
 2018-10-12 11:28:08.544 +0100 BST (timestamp 1539340088544): Got STH for V1 log (size=11718) at http://localhost:6966/aramis, hash 6fb36fcca60d61aa85e04ff0c34a87782f12d08568118602eec0208d85c3a40d
 Signature: Hash=SHA256 Sign=ECDSA
 Value=3045022100df855f0fd097a45070e2eb244c7cb63effda942f2d30308e3b84a72e1d16118b0220038e55f142501402cf03790b3997081f82ffe47f2d3f3b667e1c484aecf40a33
@@ -365,7 +389,7 @@ of all of the different log server instances.
 
 The simplest (but not very flexible) way to do this is a comma-separated list:
 ```
-ct_server --log_rpc_server host1:port1,host2:port2,host3:port3
+go run github.com/google/certificate-transparency-go/trillian/ctfe/ct_server --log_rpc_server host1:port1,host2:port2,host3:port3
 ```
 
 (More flexible approaches are discussed [below](#service-discovery).)
