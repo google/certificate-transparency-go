@@ -15,3 +15,8 @@ linters-settings:
       - github.com/gogo/protobuf/proto
       - encoding/asn1
       - crypto/x509
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
