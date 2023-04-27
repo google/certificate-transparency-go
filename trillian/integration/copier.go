@@ -152,17 +152,16 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 		Continuous:    true,
 		StartIndex:    startIndex,
 	}
-	certFetcher := scanner.NewFetcher(client, &fetchOpts)
 	go func() {
+		certFetcher := scanner.NewFetcher(client, &fetchOpts)
 		if err := certFetcher.Run(ctx, func(batch scanner.EntryBatch) {
 			generator.processBatch(batch, generator.certs, ct.X509LogEntryType)
 		}); err != nil {
 			klog.Errorf("processBatch(): %v", err)
 		}
 	}()
-
-	precertFetcher := scanner.NewFetcher(client, &fetchOpts)
 	go func() {
+		precertFetcher := scanner.NewFetcher(client, &fetchOpts)
 		if err := precertFetcher.Run(ctx, func(batch scanner.EntryBatch) {
 			generator.processBatch(batch, generator.precerts, ct.PrecertLogEntryType)
 		}); err != nil {
