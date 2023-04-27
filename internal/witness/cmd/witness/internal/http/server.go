@@ -27,6 +27,7 @@ import (
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 )
 
 // Server is the core handler implementation of the witness.
@@ -76,7 +77,9 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(sth)
+	if _, err := w.Write(sth); err != nil {
+		klog.Errorf("Write(): %v", err)
+	}
 }
 
 // getSTH returns an STH stored for a given log.
@@ -93,7 +96,9 @@ func (s *Server) getSTH(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(sth)
+	if _, err := w.Write(sth); err != nil {
+		klog.Errorf("Write(): %v", err)
+	}
 }
 
 // getLogs returns a list of all logs the witness is aware of.
@@ -109,7 +114,9 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/json")
-	w.Write(logList)
+	if _, err := w.Write(logList); err != nil {
+		klog.Errorf("Write(): %v", err)
+	}
 }
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.

@@ -307,7 +307,9 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 			if err != nil {
 				return
 			}
-			GetSCTs(ctx, d, chain, asPreChain, pendingGroup)
+			if _, err := GetSCTs(ctx, d, chain, asPreChain, pendingGroup); err != nil {
+				klog.Errorf("GetSCTs(): %v", err)
+			}
 		}()
 	}
 	return GetSCTs(ctx, d, chain, asPreChain, groups)
@@ -369,7 +371,9 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	if err := d.buildLogClients(lcBuilder, d.usableLl); err != nil {
 		return nil, err
 	}
-	d.buildLogClients(lcBuilder, d.pendingQualifiedLl)
+	if err := d.buildLogClients(lcBuilder, d.pendingQualifiedLl); err != nil {
+		return nil, err
+	}
 
 	if mf == nil {
 		mf = monitoring.InertMetricFactory{}

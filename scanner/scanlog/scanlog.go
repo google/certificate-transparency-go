@@ -220,8 +220,12 @@ func main() {
 
 	ctx := context.Background()
 	if *printChains {
-		s.Scan(ctx, logFullChain, logFullChain)
+		if err := s.Scan(ctx, logFullChain, logFullChain); err != nil {
+			log.Fatal(err)
+		}
 	} else {
-		s.Scan(ctx, logCertInfo, logPrecertInfo)
+		if err := s.Scan(ctx, logCertInfo, logPrecertInfo); err != nil {
+			log.Fatal(err)
+		}
 	}
 }

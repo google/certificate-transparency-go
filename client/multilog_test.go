@@ -340,10 +340,14 @@ func TestTemporalAddChain(t *testing.T) {
 		switch r.URL.Path {
 		case "/ct/v1/add-chain":
 			data, _ := sctToJSON(testdata.TestCertProof)
-			w.Write(data)
+			if _, err := w.Write(data); err != nil {
+				t.Error(err)
+			}
 		case "/ct/v1/add-pre-chain":
 			data, _ := sctToJSON(testdata.TestPreCertProof)
-			w.Write(data)
+			if _, err := w.Write(data); err != nil {
+				t.Error(err)
+			}
 		default:
 			t.Fatalf("Incorrect URL path: %s", r.URL.Path)
 		}

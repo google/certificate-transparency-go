@@ -29,7 +29,9 @@ import (
 
 func testdataSCT() *ct.SignedCertificateTimestamp {
 	var sct ct.SignedCertificateTimestamp
-	tls.Unmarshal(testdata.TestPreCertProof, &sct)
+	if _, err := tls.Unmarshal(testdata.TestPreCertProof, &sct); err != nil {
+		panic(err)
+	}
 	return &sct
 }
 

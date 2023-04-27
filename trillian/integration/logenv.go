@@ -98,7 +98,9 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 			}
 		}
 		http.Handle("/metrics", promhttp.Handler())
-		server.Serve(listener)
+		if err := server.Serve(listener); err != http.ErrServerClosed {
+			klog.Fatalf("server.Serve(): %v", err)
+		}
 	}(logEnv, &server, listener, cfgs)
 	return &CTLogEnv{
 		logEnv:       logEnv,

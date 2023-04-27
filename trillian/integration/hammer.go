@@ -976,7 +976,9 @@ func (s *hammerState) String() string {
 }
 
 func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (int, error) {
-	s.cfg.Limiter.Wait(ctx)
+	if err := s.cfg.Limiter.Wait(ctx); err != nil {
+		return http.StatusRequestTimeout, fmt.Errorf("Limiter.Wait(): %v", err)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1014,7 +1016,9 @@ func (s *hammerState) performOp(ctx context.Context, ep ctfe.EntrypointName) (in
 }
 
 func (s *hammerState) performInvalidOp(ctx context.Context, ep ctfe.EntrypointName) error {
-	s.cfg.Limiter.Wait(ctx)
+	if err := s.cfg.Limiter.Wait(ctx); err != nil {
+		return fmt.Errorf("Limiter.Wait(): %v", err)
+	}
 	switch ep {
 	case ctfe.AddChainName:
 		return s.addChainInvalid(ctx)

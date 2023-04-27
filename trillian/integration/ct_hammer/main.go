@@ -253,7 +253,9 @@ func main() {
 		mcData, _ := base64.StdEncoding.DecodeString(mc)
 		b := bytes.NewReader(mcData)
 		r, _ := gzip.NewReader(b)
-		io.Copy(os.Stdout, r)
+		if _, err := io.Copy(os.Stdout, r); err != nil {
+			klog.Exitf("Failed to print banner!")
+		}
 		r.Close()
 		fmt.Print("\n\nHammer Time\n\n")
 	}

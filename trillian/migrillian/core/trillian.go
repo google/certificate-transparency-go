@@ -115,7 +115,7 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 	}
 
 	var err error
-	bo.Retry(ctx, func() error {
+	boerr := bo.Retry(ctx, func() error {
 		var rsp *trillian.AddSequencedLeavesResponse
 		rsp, err = c.cli.AddSequencedLeaves(ctx, &req)
 		switch status.Code(err) {
@@ -133,8 +133,12 @@ func (c *PreorderedLogClient) addSequencedLeaves(ctx context.Context, b *scanner
 			return nil // Stop backing off, and return err as is below.
 		}
 	})
-
-	return err
+	if err != nil {
+		// Return the more specific error if available
+		return err
+	}
+	// Return the timeout, or nil on success
+	return boerr
 }
 
 func (c *PreorderedLogClient) buildLogLeaf(index int64, entry *ct.LeafEntry) (*trillian.LogLeaf, error) {
