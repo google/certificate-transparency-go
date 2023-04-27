@@ -145,5 +145,8 @@ func (s *ProxyServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t.Execute(w, data)
+	if err := t.Execute(w, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

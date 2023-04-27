@@ -214,8 +214,9 @@ func (c *Controller) runWithRestarts(ctx context.Context) error {
 	}
 	for err != nil && ctx.Err() == nil {
 		klog.Errorf("%s: Controller.Run: %v", c.label, err)
-		sleepRandom(ctx, 0, c.opts.StartDelay)
-		err = c.Run(ctx)
+		if slerr := sleepRandom(ctx, 0, c.opts.StartDelay); slerr == nil {
+			err = c.Run(ctx)
+		}
 	}
 	return ctx.Err()
 }

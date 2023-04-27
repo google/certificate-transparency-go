@@ -25,7 +25,6 @@ import (
 	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
@@ -913,7 +912,6 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}
 		defer httpRsp.Body.Close()
-		defer io.ReadAll(httpRsp.Body)
 		if httpRsp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}

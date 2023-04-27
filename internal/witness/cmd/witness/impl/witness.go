@@ -134,6 +134,8 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	}()
 	<-ctx.Done()
 	klog.Info("Server shutting down")
-	hServer.Shutdown(ctx)
+	if err := hServer.Shutdown(ctx); err != nil {
+		klog.Errorf("Shutdown(): %v", err)
+	}
 	return <-e
 }

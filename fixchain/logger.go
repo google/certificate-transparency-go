@@ -163,7 +163,9 @@ func (l *Logger) postChain(p *toPost) {
 		derChain = append(derChain, ct.ASN1Cert{Data: cert.Raw})
 	}
 
-	l.limiter.Wait(l.ctx)
+	if err := l.limiter.Wait(l.ctx); err != nil {
+		log.Println(err)
+	}
 	atomic.AddUint32(&l.posted, 1)
 	_, err := l.client.AddChain(l.ctx, derChain)
 	if err != nil {

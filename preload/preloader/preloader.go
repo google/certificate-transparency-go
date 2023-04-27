@@ -241,7 +241,9 @@ func main() {
 		}
 		precerts <- entry
 	}
-	s.Scan(ctx, addChainFunc, addPreChainFunc)
+	if err := s.Scan(ctx, addChainFunc, addPreChainFunc); err != nil {
+		klog.Errorf("Scan(): %v", err)
+	}
 
 	close(certs)
 	close(precerts)

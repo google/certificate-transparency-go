@@ -148,17 +148,25 @@ func main() {
 
 		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
 		klog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
-		httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint})
+		if err := httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint}); err != nil {
+			klog.Exitf("AddEndpoint(): %v", err)
+		}
 
 		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
 		klog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
-		metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt})
+		if err := metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt}); err != nil {
+			klog.Exitf("AddEndpoint(): %v", err)
+		}
 
 		defer func() {
 			klog.Infof("Removing our presence in %v", etcdHTTPKey)
-			httpManager.DeleteEndpoint(ctx, etcdHTTPKey)
+			if err := httpManager.DeleteEndpoint(ctx, etcdHTTPKey); err != nil {
+				klog.Errorf("DeleteEndpoint(): %v", err)
+			}
 			klog.Infof("Removing our presence in %v", etcdMetricsKey)
-			metricsManager.DeleteEndpoint(ctx, etcdMetricsKey)
+			if err := metricsManager.DeleteEndpoint(ctx, etcdMetricsKey); err != nil {
+				klog.Errorf("DeleteEndpoint(): %v", err)
+			}
 		}()
 	} else if strings.Contains(*rpcBackend, ",") {
 		// This should probably not be used in production. Either use etcd or a gRPC
@@ -249,7 +257,9 @@ func main() {
 	// Export a healthz target.
 	corsMux.HandleFunc("/healthz", func(resp http.ResponseWriter, req *http.Request) {
 		// TODO(al): Wire this up to tell the truth.
-		resp.Write([]byte("ok"))
+		if _, err := resp.Write([]byte("ok")); err != nil {
+			klog.Errorf("resp.Write(): %v", err)
+		}
 	})
 
 	if metricsAt != *httpEndpoint {
@@ -285,7 +295,9 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 		defer cancel()
 		klog.Info("Shutting down HTTP server...")
-		srv.Shutdown(ctx)
+		if err := srv.Shutdown(ctx); err != nil {
+			klog.Errorf("srv.Shutdown(): %v", err)
+		}
 		klog.Info("HTTP server shutdown")
 	})
 

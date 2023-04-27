@@ -122,13 +122,17 @@ func dh(h string, expLen int) []byte {
 	return r
 }
 
-func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
+func mustCreateDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
-	return db, db.Close
+	return db, func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	}
 }
 
 func mustCreatePK(pkPem string) crypto.PublicKey {
