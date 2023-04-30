@@ -36,7 +36,7 @@ This brings up everything except the CTFE. Now to provision the logs.
 ```bash
 # Terminal 2
 cd ~/git/trillian/
-docker exec -i ctfe_db_1 mysql -pzaphod -Dtest < ./storage/mysql/schema/storage.sql
+docker exec -i ctfe-db mysql -pzaphod -Dtest < ./storage/mysql/schema/storage.sql
 ```
 
 The CTFE requires some configuration files. First prepare a directory containing
@@ -51,7 +51,7 @@ mkdir ${CTFE_CONF_DIR}
 TREE_ID=$(go run github.com/google/trillian/cmd/createtree@master --admin_server=localhost:8090)
 sed "s/@TREE_ID@/$TREE_ID/" ~/git/certificate-transparency-go/trillian/examples/deployment/docker/ctfe/ct_server.cfg > ${CTFE_CONF_DIR}/ct_server.cfg
 cp ./trillian/testdata/fake-ca.cert ${CTFE_CONF_DIR}
-docker volume create --driver local --opt type=none --opt device=${CTFE_CONF_DIR}--opt o=bind ctfe_config
+docker volume create --driver local --opt type=none --opt device=${CTFE_CONF_DIR} --opt o=bind ctfe_config
 ```
 
 Now that this configuration is available, you can bring up the CTFE:
