@@ -1,0 +1,73 @@
+version: "3.1"
+
+services:
+  db:
+    container_name: ctfe-db
+    image: mariadb
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=zaphod
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=test
+      - MYSQL_PASSWORD=zaphod
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  trillian-log-server:
+    image: gcr.io/trillian-opensource-ci/log_server
+    command: [
+      "--storage_system=mysql",
+      "--mysql_uri=test:zaphod@tcp(db:3306)/test",
+      "--rpc_endpoint=0.0.0.0:8090",
+      "--http_endpoint=0.0.0.0:8091",
+      "--alsologtostderr",
+    ]
+    restart: always
+    ports:
+      - "8090:8090"
+      - "8091:8091"
+    depends_on:
+      - db
+
+  trillian-log-signer:
+    image: gcr.io/trillian-opensource-ci/log_signer
+    command: [
+      "--storage_system=mysql",
+      "--mysql_uri=test:zaphod@tcp(db:3306)/test",
+      "--rpc_endpoint=0.0.0.0:8090",
+      "--http_endpoint=0.0.0.0:8091",
+      "--force_master",
+      "--alsologtostderr",
+    ]
+    restart: always
+    ports:
+      - "8092:8091"
+    depends_on:
+      - db
+      - trillian-log-server
+
+  ctfe:
+    image: gcr.io/trillian-opensource-ci/ctfe
+    profiles: ["frontend"]
+    command: [
+      "--log_rpc_server=trillian-log-server:8090",
+      "--log_config=/ctfe-config/ct_server.cfg",
+      "--http_endpoint=0.0.0.0:8091",
+      "--alsologtostderr",
+    ]
+    restart: always
+    ports:
+      - "8080:8091"
+    volumes:
+      - ctfe_config:/ctfe-config:ro
+    depends_on:
+      - trillian-log-server
+
+volumes:
+  ctfe_config:
+    external: true
