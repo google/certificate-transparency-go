@@ -33,6 +33,7 @@ type LogGroupInfo struct {
 	Name          string
 	LogURLs       map[string]bool    // set of members
 	MinInclusions int                // Required number of submissions.
+	MinOperators  int                // Required number of distinct CT log operators.
 	IsBase        bool               // True only for Log-group covering all logs.
 	LogWeights    map[string]float32 // weights used for submission, default weight is 1
 	wMu           sync.RWMutex       // guards weights
@@ -203,6 +204,15 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 		lifetimeInMonths--
 	}
 	return lifetimeInMonths
+}
+
+// lifetimeInDays calculates and returns cert lifetime expressed in days
+// flooring incomplete days.
+func lifetimeInDays(cert *x509.Certificate) int {
+	start := cert.NotBefore
+	end := cert.NotAfter
+	days := end.Sub(start).Hours() / 24
+	return int(days)
 }
 
 // GroupSet is set of Log-group names.

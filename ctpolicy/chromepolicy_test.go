@@ -21,10 +21,10 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData {
+func wantedGroups(base int, minusBob bool) LogPolicyData {
 	gi := LogPolicyData{
-		"Google-operated": {
-			Name: "Google-operated",
+		"Google": {
+			Name: "Google",
 			LogURLs: map[string]bool{
 				"https://ct.googleapis.com/logs/argon2020/": true,
 				"https://ct.googleapis.com/aviator/":        true,
@@ -32,8 +32,7 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 				"https://ct.googleapis.com/rocketeer/":      true,
 				"https://ct.googleapis.com/racketeer/":      true,
 			},
-			MinInclusions: goog,
-			IsBase:        false,
+			IsBase: false,
 			LogWeights: map[string]float32{
 				"https://ct.googleapis.com/logs/argon2020/": 1.0,
 				"https://ct.googleapis.com/aviator/":        1.0,
@@ -42,13 +41,12 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 				"https://ct.googleapis.com/racketeer/":      1.0,
 			},
 		},
-		"Non-Google-operated": {
-			Name: "Non-Google-operated",
+		"Bob's CT Log Shop": {
+			Name: "Bob's CT Log Shop",
 			LogURLs: map[string]bool{
 				"https://log.bob.io": true,
 			},
-			MinInclusions: nonGoog,
-			IsBase:        false,
+			IsBase: false,
 			LogWeights: map[string]float32{
 				"https://log.bob.io": 1.0,
 			},
@@ -64,6 +62,7 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 				"https://log.bob.io":                        true,
 			},
 			MinInclusions: base,
+			MinOperators:  minOperators,
 			IsBase:        true,
 			LogWeights: map[string]float32{
 				"https://ct.googleapis.com/logs/argon2020/": 1.0,
@@ -78,8 +77,8 @@ func wantedGroups(goog int, nonGoog int, base int, minusBob bool) LogPolicyData 
 	if minusBob {
 		delete(gi[BaseName].LogURLs, "https://log.bob.io")
 		delete(gi[BaseName].LogWeights, "https://log.bob.io")
-		delete(gi["Non-Google-operated"].LogURLs, "https://log.bob.io")
-		delete(gi["Non-Google-operated"].LogWeights, "https://log.bob.io")
+		delete(gi["Bob's CT Log Shop"].LogURLs, "https://log.bob.io")
+		delete(gi["Bob's CT Log Shop"].LogWeights, "https://log.bob.io")
 	}
 	return gi
 }
@@ -93,22 +92,22 @@ func TestCheckChromePolicy(t *testing.T) {
 		{
 			name: "Short",
 			cert: getTestCertPEMShort(),
-			want: wantedGroups(1, 1, 2, false),
+			want: wantedGroups(2, false),
 		},
 		{
 			name: "2-year",
 			cert: getTestCertPEM2Years(),
-			want: wantedGroups(1, 1, 3, false),
+			want: wantedGroups(3, false),
 		},
 		{
 			name: "3-year",
 			cert: getTestCertPEM3Years(),
-			want: wantedGroups(1, 1, 4, false),
+			want: wantedGroups(3, false),
 		},
 		{
 			name: "Long",
 			cert: getTestCertPEMLongOriginal(),
-			want: wantedGroups(1, 1, 5, false),
+			want: wantedGroups(3, false),
 		},
 	}
 
@@ -123,62 +122,6 @@ func TestCheckChromePolicy(t *testing.T) {
 			}
 			if err != nil {
 				t.Errorf("LogsByGroup returned an error when not expected: %v", err)
-			}
-		})
-	}
-}
-
-func TestCheckChromePolicyWarnings(t *testing.T) {
-	tests := []struct {
-		name    string
-		cert    *x509.Certificate
-		want    LogPolicyData
-		warning string
-	}{
-		{
-			name:    "Short",
-			cert:    getTestCertPEMShort(),
-			want:    LogPolicyData{},
-			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
-		},
-		{
-			name:    "2-year",
-			cert:    getTestCertPEM2Years(),
-			want:    LogPolicyData{},
-			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
-		},
-		{
-			name:    "3-year",
-			cert:    getTestCertPEM3Years(),
-			want:    LogPolicyData{},
-			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
-		},
-		{
-			name:    "Long",
-			cert:    getTestCertPEMLongOriginal(),
-			want:    LogPolicyData{},
-			warning: "trying to assign 1 minimal inclusion number while only 0 logs are part of group \"Non-Google-operated\"",
-		},
-	}
-
-	var policy ChromeCTPolicy
-	sampleLogList := sampleLogList(t)
-	// Removing Bob-log.
-	sampleLogList.Operators = sampleLogList.Operators[:1]
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-
-			got, err := policy.LogsByGroup(test.cert, sampleLogList)
-			if diff := pretty.Compare(test.want, got); diff != "" {
-				t.Errorf("LogsByGroup: (-want +got)\n%s", diff)
-			}
-			if err == nil && len(test.warning) > 0 {
-				t.Errorf("LogsByGroup returned no error when expected")
-			} else if err != nil {
-				if err.Error() != test.warning {
-					t.Errorf("LogsByGroup returned error message %q while expected %q", err.Error(), test.warning)
-				}
 			}
 		})
 	}

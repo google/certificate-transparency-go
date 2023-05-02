@@ -27,7 +27,7 @@ import (
 
 func getTestCertPEMShort() *x509.Certificate {
 	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
-	cert.NotAfter = time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC)
+	cert.NotAfter = time.Date(2012, 6, 1, 0, 0, 0, 0, time.UTC)
 	return cert
 }
 
@@ -99,6 +99,52 @@ func TestLifetimeInMonths(t *testing.T) {
 			got := lifetimeInMonths(cert)
 			if got != test.want {
 				t.Errorf("lifetimeInMonths(%v, %v)=%d, want %d", test.notBefore, test.notAfter, got, test.want)
+			}
+		})
+	}
+}
+
+func TestLifetimeInDays(t *testing.T) {
+	tests := []struct {
+		name      string
+		notBefore time.Time
+		notAfter  time.Time
+		want      int
+	}{
+		{
+			name:      "ExactDays",
+			notBefore: time.Date(2012, 6, 1, 0, 0, 0, 0, time.UTC),
+			notAfter:  time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC),
+			want:      214,
+		},
+		{
+			name:      "ExactYears",
+			notBefore: time.Date(2012, 6, 1, 0, 0, 0, 0, time.UTC),
+			notAfter:  time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC),
+			want:      944,
+		},
+		{
+			name:      "PartialSingleDay",
+			notBefore: time.Date(2012, 6, 1, 0, 0, 0, 0, time.UTC),
+			notAfter:  time.Date(2012, 6, 1, 15, 0, 0, 0, time.UTC),
+			want:      0,
+		},
+		{
+			name:      "PartialDays",
+			notBefore: time.Date(2012, 6, 25, 0, 0, 0, 0, time.UTC),
+			notAfter:  time.Date(2012, 6, 30, 12, 0, 0, 0, time.UTC),
+			want:      5,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cert := getTestCertPEMLongOriginal()
+			cert.NotBefore = test.notBefore
+			cert.NotAfter = test.notAfter
+			got := lifetimeInDays(cert)
+			if got != test.want {
+				t.Errorf("lifetimeInDays(%v, %v)=%d, want %d", test.notBefore, test.notAfter, got, test.want)
 			}
 		})
 	}
