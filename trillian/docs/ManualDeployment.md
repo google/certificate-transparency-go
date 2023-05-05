@@ -285,24 +285,6 @@ for feeding to `ct-server` can thus be produced with:
 % cat /etc/ssl/certs/* > ca-roots.pem
 ```
 
-**Cross-check**: Once the CTFE is configured and running
-([below](#ctfe-start-up)), opening
-`http://localhost:<port>/<prefix>/ct/v1/get-roots` shows the configured roots.
-Alternatively, the `ctclient` command-line tool shows the same information in a
-more friendly way:
-
-```bash
-% go install github.com/google/certificate-transparency-go/client/ctclient
-% ctclient --log_uri http://localhost:6966/aramis getroots
-Certificate:
-    Data:
-        Version: 3 (0x2)
-        Serial Number: 67554046 (0x406cafe)
-    Signature Algorithm: ECDSA-SHA256
-...
-```
-
-
 ### CTFE Configuration
 
 The information from the previous steps now needs to be assembled into a
@@ -344,6 +326,14 @@ can be started.
    it should match the `--rpc_endpoint` for the [log server](#trillian-services).
  - The `--http_endpoint` option indicates the port that the CTFE should respond
    to HTTP(S) requests on.
+   
+ e.g.
+ ```bash
+ CTFE_CONFIG=/path/to/your/ctfe_config_file
+ TRILLIAN_LOG_SERVER_RPC_ENDPOINT=localhost:8080
+ go run github.com/google/certificate-transparency-go/trillian/ctfe/ct_server --log_config ${CTFE_CONFIG} --http_endpoint=localhost:6966 --log_rpc_server ${TRILLIAN_LOG_SERVER_RPC_ENDPOINT} --logtostderr
+     
+ ```
 
 At this point, a complete (but minimal) CT Log setup is available. The manual
 set up steps up to this point match the
@@ -359,6 +349,22 @@ go run github.com/google/certificate-transparency-go/client/ctclient@master get-
 Signature: Hash=SHA256 Sign=ECDSA
 Value=3045022100df855f0fd097a45070e2eb244c7cb63effda942f2d30308e3b84a72e1d16118b0220038e55f142501402cf03790b3997081f82ffe47f2d3f3b667e1c484aecf40a33
 ```
+
+**Cross-check**: Once the CTFE is configured and running, opening
+`http://localhost:<port>/<prefix>/ct/v1/get-roots` shows the configured roots.
+Alternatively, the `ctclient` command-line tool shows the same information in a
+more friendly way:
+
+```bash
+go run github.com/google/certificate-transparency-go/client/ctclient@master getroots --log_uri http://localhost:6966/aramis
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 67554046 (0x406cafe)
+    Signature Algorithm: ECDSA-SHA256
+...
+```
+
 
 <img src="images/Deployment3CTFE.png" width="650">
 
