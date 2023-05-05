@@ -342,7 +342,9 @@ script should (mostly) make sense.
 
 **Cross-check**: Opening `http://localhost:<port>/<prefix>/ct/v1/get-sth` in a
 browser should show JSON that indicates an empty tree.
+
 Alternatively, the `ctclient` command-line tool shows the same information:
+e.g.
 ```bash
 go run github.com/google/certificate-transparency-go/client/ctclient@master get-sth --log_uri http://localhost:6966/aramis
 2018-10-12 11:28:08.544 +0100 BST (timestamp 1539340088544): Got STH for V1 log (size=11718) at http://localhost:6966/aramis, hash 6fb36fcca60d61aa85e04ff0c34a87782f12d08568118602eec0208d85c3a40d
@@ -352,11 +354,12 @@ Value=3045022100df855f0fd097a45070e2eb244c7cb63effda942f2d30308e3b84a72e1d16118b
 
 **Cross-check**: Once the CTFE is configured and running, opening
 `http://localhost:<port>/<prefix>/ct/v1/get-roots` shows the configured roots.
+
 Alternatively, the `ctclient` command-line tool shows the same information in a
 more friendly way:
-
+e.g.
 ```bash
-go run github.com/google/certificate-transparency-go/client/ctclient@master getroots --log_uri http://localhost:6966/aramis
+go run github.com/google/certificate-transparency-go/client/ctclient@master get-roots --log_uri http://localhost:6966/aramis
 Certificate:
     Data:
         Version: 3 (0x2)
