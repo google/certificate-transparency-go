@@ -2,6 +2,12 @@
 
 ## HEAD
 
+## v1.1.6
+
+## Dependency update
+
+ * Bump Trillian to v1.5.2
+
 ## v1.1.5
 
 ### Public/Private Key Consistency
