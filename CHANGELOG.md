@@ -2,7 +2,7 @@
 
 ## HEAD
 
-## v.1.1.5
+## v1.1.5
 
 ### Public/Private Key Consistency
 
