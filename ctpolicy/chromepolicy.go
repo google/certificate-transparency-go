@@ -15,12 +15,15 @@
 package ctpolicy
 
 import (
+	"time"
+
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (
-	minOperators = 2 // minimum number of distinct CT log operators that issue an SCT.
+	minOperators = 2                   // minimum number of distinct CT log operators that issue an SCT.
+	dayInSeconds = 86400 * time.Second // number of seconds in a day.
 )
 
 // ChromeCTPolicy implements logic for complying with Chrome's CT log policy
@@ -43,8 +46,8 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 		groups[info.Name] = info
 	}
 	var incCount int
-	switch m := lifetimeInDays(cert); {
-	case m <= 180:
+	switch t := certLifetime(cert); {
+	case t <= 180*dayInSeconds:
 		incCount = 2
 	default:
 		incCount = 3

@@ -18,6 +18,7 @@ package ctpolicy
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
@@ -206,13 +207,11 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 	return lifetimeInMonths
 }
 
-// lifetimeInDays calculates and returns cert lifetime expressed in days
-// flooring incomplete days.
-func lifetimeInDays(cert *x509.Certificate) int {
+// certLifetime calculates and returns the lifetime of the given certificate in seconds
+func certLifetime(cert *x509.Certificate) time.Duration {
 	start := cert.NotBefore
 	end := cert.NotAfter
-	days := end.Sub(start).Hours() / 24
-	return int(days)
+	return end.Sub(start)
 }
 
 // GroupSet is set of Log-group names.
