@@ -7,6 +7,7 @@
 ## Dependency update
 
  * Bump Trillian to v1.5.2
+ * Bump Prometheus to v0.43.1
 
 ## v1.1.5
 
