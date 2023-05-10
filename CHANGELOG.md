@@ -5,6 +5,13 @@
 ### Chrome CT Policy Update
  * #906: Update chromepolicy.go to follow the updated Chrome CT policy.
  
+## v1.1.6
+
+## Dependency update
+
+ * Bump Trillian to v1.5.2
+ * Bump Prometheus to v0.43.1
+
 ## v1.1.5
 
 ### Public/Private Key Consistency
