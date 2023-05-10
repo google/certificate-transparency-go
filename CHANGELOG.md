@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Dependency update
+ * # Update Prometheus to v0.35.0
+
 ## v1.1.5
 
 ### Public/Private Key Consistency
