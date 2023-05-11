@@ -115,7 +115,7 @@ func TestCertLifetime(t *testing.T) {
 			name:      "ExactDays",
 			notBefore: time.Date(2012, 6, 1, 0, 0, 0, 0, time.UTC),
 			notAfter:  time.Date(2013, 1, 1, 0, 0, 0, 0, time.UTC),
-			want:      18489600000000000,
+			want:      18489600 * time.Second,
 		},
 		{
 			name:      "ExactYears",
@@ -144,7 +144,7 @@ func TestCertLifetime(t *testing.T) {
 			cert.NotAfter = test.notAfter
 			got := certLifetime(cert)
 			if got != test.want {
-				t.Errorf("lifetimeInDays(%v, %v)=%d, want %d", test.notBefore, test.notAfter, got, test.want)
+				t.Errorf("certLifetime(%v, %v)=%d, want %d", test.notBefore, test.notAfter, got, test.want)
 			}
 		})
 	}

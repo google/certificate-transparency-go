@@ -207,7 +207,7 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 	return lifetimeInMonths
 }
 
-// certLifetime calculates and returns the lifetime of the given certificate in seconds
+// certLifetime calculates and returns the lifetime of the given certificate as a time.Duration
 func certLifetime(cert *x509.Certificate) time.Duration {
 	start := cert.NotBefore
 	end := cert.NotAfter

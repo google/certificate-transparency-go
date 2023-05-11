@@ -54,10 +54,10 @@ type groupState struct {
 type safeSubmissionState struct {
 	mu          sync.Mutex
 	logToGroups map[string]ctpolicy.GroupSet
-	groupNeeds  map[string]int
-	minGroups   int
+	groupNeeds  map[string]int // number of logs that need to be submitted for each group.
+	minGroups   int            // minimum number of distinct groups that need a log submitted.
 
-	groups  map[string]bool
+	groups  map[string]bool // set of groups that have a log submitted.
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
 }

@@ -23,7 +23,7 @@ import (
 
 const (
 	minOperators = 2                   // minimum number of distinct CT log operators that issue an SCT.
-	dayInSeconds = 86400 * time.Second // number of seconds in a day.
+	dayDuration  = 86400 * time.Second // time.Duration of one day
 )
 
 // ChromeCTPolicy implements logic for complying with Chrome's CT log policy
@@ -47,7 +47,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	}
 	var incCount int
 	switch t := certLifetime(cert); {
-	case t <= 180*dayInSeconds:
+	case t <= 180*dayDuration:
 		incCount = 2
 	default:
 		incCount = 3
