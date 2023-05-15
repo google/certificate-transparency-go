@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Chrome CT Policy Update
+ * #906: Update chromepolicy.go to follow the updated Chrome CT policy.
+ 
 ## v1.1.6
 
 ## Dependency update

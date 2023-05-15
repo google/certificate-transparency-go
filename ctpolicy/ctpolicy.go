@@ -18,6 +18,7 @@ package ctpolicy
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
@@ -33,6 +34,7 @@ type LogGroupInfo struct {
 	Name          string
 	LogURLs       map[string]bool    // set of members
 	MinInclusions int                // Required number of submissions.
+	MinOperators  int                // Required number of distinct CT log operators.
 	IsBase        bool               // True only for Log-group covering all logs.
 	LogWeights    map[string]float32 // weights used for submission, default weight is 1
 	wMu           sync.RWMutex       // guards weights
@@ -203,6 +205,13 @@ func lifetimeInMonths(cert *x509.Certificate) int {
 		lifetimeInMonths--
 	}
 	return lifetimeInMonths
+}
+
+// certLifetime calculates and returns the lifetime of the given certificate as a time.Duration
+func certLifetime(cert *x509.Certificate) time.Duration {
+	start := cert.NotBefore
+	end := cert.NotAfter
+	return end.Sub(start)
 }
 
 // GroupSet is set of Log-group names.

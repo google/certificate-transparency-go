@@ -54,8 +54,10 @@ type groupState struct {
 type safeSubmissionState struct {
 	mu          sync.Mutex
 	logToGroups map[string]ctpolicy.GroupSet
-	groupNeeds  map[string]int
+	groupNeeds  map[string]int // number of logs that need to be submitted for each group.
+	minGroups   int            // minimum number of distinct groups that need a log submitted.
 
+	groups  map[string]bool // set of groups that have a log submitted.
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
 }
@@ -67,6 +69,10 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 	for _, g := range groups {
 		s.groupNeeds[g.Name] = g.MinInclusions
 	}
+	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
+		s.minGroups = baseGroup.MinOperators
+	}
+	s.groups = make(map[string]bool)
 	s.results = make(map[string]*submissionResult)
 	s.cancels = make(map[string]context.CancelFunc)
 	return &s
@@ -116,6 +122,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		if sub.groupNeeds[groupName] > 0 {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		}
+		sub.groups[groupName] = true
 		sub.groupNeeds[groupName]--
 	}
 
@@ -164,6 +171,9 @@ func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	needs, ok := sub.groupNeeds[groupName]
 	if !ok {
 		return true
+	}
+	if len(sub.groups) < sub.minGroups {
+		return false
 	}
 	return needs <= 0
 }
