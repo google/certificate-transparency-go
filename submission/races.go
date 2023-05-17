@@ -90,6 +90,12 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 	sub.results[logURL] = &submissionResult{}
 	isAwaited := false
 	for g := range sub.logToGroups[logURL] {
+		if sub.minGroups > 0 {
+			if g != ctpolicy.BaseName && !sub.groups[g] {
+				isAwaited = true
+				break
+			}
+		}
 		if sub.groupNeeds[g] > 0 {
 			isAwaited = true
 			break
@@ -118,6 +124,9 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		// Ignore the base group (All-logs) here to check separately.
 		if groupName == ctpolicy.BaseName {
 			continue
+		}
+		if sub.minGroups > 0 && !sub.groups[groupName] {
+			sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		}
 		if sub.groupNeeds[groupName] > 0 {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
@@ -152,6 +161,12 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	for logURL, groupSet := range sub.logToGroups {
 		isAwaited := false
 		for g := range groupSet {
+			if sub.minGroups > 0 {
+				if g != ctpolicy.BaseName && !sub.groups[g] {
+					isAwaited = true
+					break
+				}
+			}
 			if sub.groupNeeds[g] > 0 {
 				isAwaited = true
 				break
