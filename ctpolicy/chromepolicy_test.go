@@ -80,12 +80,6 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 		delete(gi["Bob's CT Log Shop"].LogURLs, "https://log.bob.io")
 		delete(gi["Bob's CT Log Shop"].LogWeights, "https://log.bob.io")
 	}
-	switch {
-	case base == 2:
-		gi[BaseName].MaxSubmissions = 1
-	case base == 3:
-		gi[BaseName].MaxSubmissions = 2
-	}
 	return gi
 }
 

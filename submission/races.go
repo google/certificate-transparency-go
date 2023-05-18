@@ -72,7 +72,12 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 	}
 	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
 		s.minGroups = baseGroup.MinOperators
-		s.maxSubmissionsPerGroup = baseGroup.MaxSubmissions
+		switch {
+		case s.minGroups == 2:
+			s.maxSubmissionsPerGroup = 1
+		case s.minGroups == 3:
+			s.maxSubmissionsPerGroup = 2
+		}
 	}
 	s.groups = make(map[string]int)
 	s.results = make(map[string]*submissionResult)
