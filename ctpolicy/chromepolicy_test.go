@@ -74,6 +74,12 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 			},
 		},
 	}
+	switch {
+	case base == 2:
+		gi[BaseName].MaxSubmissionsPerOperator = 1
+	case base == 3:
+		gi[BaseName].MaxSubmissionsPerOperator = 2
+	}
 	if minusBob {
 		delete(gi[BaseName].LogURLs, "https://log.bob.io")
 		delete(gi[BaseName].LogWeights, "https://log.bob.io")

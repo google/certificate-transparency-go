@@ -52,8 +52,8 @@ type groupState struct {
 // When some group is complete cancels all requests that are not needed by any
 // group.
 type safeSubmissionState struct {
-	mu		       sync.Mutex
-	logToGroups	       map[string]ctpolicy.GroupSet
+	mu                     sync.Mutex
+	logToGroups            map[string]ctpolicy.GroupSet
 	groupNeeds             map[string]int // number of logs that need to be submitted for each group.
 	minGroups              int            // minimum number of distinct groups that need a log submitted.
 	maxSubmissionsPerGroup int            // maximum number of logs that can be submitted to a group.
@@ -72,12 +72,7 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 	}
 	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
 		s.minGroups = baseGroup.MinOperators
-		switch {
-		case s.minGroups == 2:
-			s.maxSubmissionsPerGroup = 1
-		case s.minGroups == 3:
-			s.maxSubmissionsPerGroup = 2
-		}
+		s.maxSubmissionsPerGroup = baseGroup.MaxSubmissionsPerOperator
 	}
 	s.groups = make(map[string]int)
 	s.results = make(map[string]*submissionResult)
@@ -136,7 +131,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 			continue
 		}
 		nonBaseGroupName = groupName
-		if sub.minGroups > 0 && sub.groups[groupName] < sub.maxSubmissionsPerGroup{
+		if sub.minGroups > 0 && sub.groups[groupName] < sub.maxSubmissionsPerGroup {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		}
 		if sub.groupNeeds[groupName] > 0 {

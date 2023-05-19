@@ -45,18 +45,21 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 		}
 		groups[info.Name] = info
 	}
-	var incCount int
+	var incCount, maxSubmissionsPerGroup int
 	switch t := certLifetime(cert); {
 	case t <= 180*dayDuration:
 		incCount = 2
+		maxSubmissionsPerGroup = 1
 	default:
 		incCount = 3
+		maxSubmissionsPerGroup = 2
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
 	if err != nil {
 		return nil, err
 	}
 	baseGroup.MinOperators = minOperators
+	baseGroup.MaxSubmissionsPerOperator = maxSubmissionsPerGroup
 	groups[baseGroup.Name] = baseGroup
 	return groups, nil
 }
