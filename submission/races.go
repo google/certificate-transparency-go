@@ -55,7 +55,6 @@ type safeSubmissionState struct {
 	mu                     sync.Mutex
 	logToGroups            map[string]ctpolicy.GroupSet
 	groupNeeds             map[string]int // number of logs that need to be submitted for each group.
-	minGroups              int            // minimum number of distinct groups that need a log submitted.
 	maxSubmissionsPerGroup int            // maximum number of logs that can be submitted to a group.
 
 	groups  map[string]int // number of logs submitted to each group..
@@ -71,7 +70,6 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 		s.groupNeeds[g.Name] = g.MinInclusions
 	}
 	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
-		s.minGroups = baseGroup.MinOperators
 		s.maxSubmissionsPerGroup = baseGroup.MaxSubmissionsPerOperator
 	}
 	s.groups = make(map[string]int)
@@ -92,11 +90,9 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 	sub.results[logURL] = &submissionResult{}
 	isAwaited := false
 	for g := range sub.logToGroups[logURL] {
-		if sub.minGroups > 0 {
-			if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
-				isAwaited = true
-				break
-			}
+		if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
+			isAwaited = true
+			break
 		}
 		if sub.groupNeeds[g] > 0 {
 			isAwaited = true
@@ -131,7 +127,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 			continue
 		}
 		nonBaseGroupName = groupName
-		if sub.minGroups > 0 && sub.groups[groupName] < sub.maxSubmissionsPerGroup {
+		if sub.groups[groupName] < sub.maxSubmissionsPerGroup {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		}
 		if sub.groupNeeds[groupName] > 0 {
@@ -156,7 +152,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 			// Set the result only if the base group still needs SCTs more than total counts
 			// of minimum inclusions for other groups.
 			if sub.groupNeeds[ctpolicy.BaseName] > minInclusionsForOtherGroup {
-				if sub.minGroups == 0 || sub.groups[nonBaseGroupName] < sub.maxSubmissionsPerGroup {
+				if sub.groups[nonBaseGroupName] < sub.maxSubmissionsPerGroup {
 					sub.results[logURL] = &submissionResult{sct: sct, err: err}
 					sub.groupNeeds[ctpolicy.BaseName]--
 				}
@@ -169,11 +165,9 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	for logURL, groupSet := range sub.logToGroups {
 		isAwaited := false
 		for g := range groupSet {
-			if sub.minGroups > 0 {
-				if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
-					isAwaited = true
-					break
-				}
+			if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
+				isAwaited = true
+				break
 			}
 			if sub.groupNeeds[g] > 0 {
 				isAwaited = true
@@ -195,8 +189,10 @@ func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	if !ok {
 		return true
 	}
-	if len(sub.groups) < sub.minGroups {
-		return false
+	for _, submission := range sub.groups {
+		if submission < sub.maxSubmissionsPerGroup {
+			return false
+		}
 	}
 	return needs <= 0
 }

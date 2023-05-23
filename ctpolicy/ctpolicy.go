@@ -34,7 +34,6 @@ type LogGroupInfo struct {
 	Name                      string
 	LogURLs                   map[string]bool    // set of members
 	MinInclusions             int                // Required number of submissions.
-	MinOperators              int                // Required number of distinct CT log operators.
 	MaxSubmissionsPerOperator int                // Maximum number of submissions from a CT log operator.
 	IsBase                    bool               // True only for Log-group covering all logs.
 	LogWeights                map[string]float32 // weights used for submission, default weight is 1
