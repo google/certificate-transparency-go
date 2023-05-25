@@ -73,10 +73,10 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 			},
 		},
 	}
-	switch {
-	case base == 2:
+	switch base {
+	case 2:
 		gi[BaseName].MaxSubmissionsPerOperator = 1
-	case base == 3:
+	case 3:
 		gi[BaseName].MaxSubmissionsPerOperator = 2
 	}
 	if minusBob {
