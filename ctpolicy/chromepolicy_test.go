@@ -61,8 +61,9 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 				"https://ct.googleapis.com/racketeer/":      true,
 				"https://log.bob.io":                        true,
 			},
-			MinInclusions: base,
-			IsBase:        true,
+			MinInclusions:        base,
+			MinDistinctOperators: minDistinctOperators,
+			IsBase:               true,
 			LogWeights: map[string]float32{
 				"https://ct.googleapis.com/logs/argon2020/": 1.0,
 				"https://ct.googleapis.com/aviator/":        1.0,
@@ -72,12 +73,6 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 				"https://log.bob.io":                        1.0,
 			},
 		},
-	}
-	switch base {
-	case 2:
-		gi[BaseName].MaxSubmissionsPerOperator = 1
-	case 3:
-		gi[BaseName].MaxSubmissionsPerOperator = 2
 	}
 	if minusBob {
 		delete(gi[BaseName].LogURLs, "https://log.bob.io")

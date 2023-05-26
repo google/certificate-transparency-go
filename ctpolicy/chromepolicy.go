@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	dayDuration = 86400 * time.Second // time.Duration of one day
+	dayDuration          = 86400 * time.Second // time.Duration of one day
+	minDistinctOperators = 2                   // Number of distinct CT log operators that submit an SCT
 )
 
 // ChromeCTPolicy implements logic for complying with Chrome's CT log policy
@@ -44,20 +45,18 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 		}
 		groups[info.Name] = info
 	}
-	var incCount, maxSubmissionsPerOperator int
+	var incCount int
 	switch t := certLifetime(cert); {
 	case t <= 180*dayDuration:
 		incCount = 2
-		maxSubmissionsPerOperator = 1
 	default:
 		incCount = 3
-		maxSubmissionsPerOperator = 2
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
 	if err != nil {
 		return nil, err
 	}
-	baseGroup.MaxSubmissionsPerOperator = maxSubmissionsPerOperator
+	baseGroup.MinDistinctOperators = minDistinctOperators
 	groups[baseGroup.Name] = baseGroup
 	return groups, nil
 }

@@ -242,7 +242,6 @@ func buildStubCTPolicy(n int) stubCTPolicy {
 
 func (stubP stubCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist3.LogList) (ctpolicy.LogPolicyData, error) {
 	baseGroup, err := ctpolicy.BaseGroupFor(approved, stubP.baseNum)
-	baseGroup.MaxSubmissionsPerOperator = 1
 	groups := ctpolicy.LogPolicyData{baseGroup.Name: baseGroup}
 	return groups, err
 }

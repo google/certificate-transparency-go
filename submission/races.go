@@ -52,12 +52,12 @@ type groupState struct {
 // When some group is complete cancels all requests that are not needed by any
 // group.
 type safeSubmissionState struct {
-	mu                     sync.Mutex
-	logToGroups            map[string]ctpolicy.GroupSet
-	groupNeeds             map[string]int // number of logs that need to be submitted for each group.
-	maxSubmissionsPerGroup int            // maximum number of logs that can be submitted to a group.
+	mu                sync.Mutex
+	logToGroups       map[string]ctpolicy.GroupSet
+	groupNeeds        map[string]int // number of logs that need to be submitted for each group.
+	minDistinctGroups int            // number of groups that need a submission
 
-	groups  map[string]int // number of logs submitted to each group..
+	groups  map[string]bool // groups that have a stored result
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
 }
@@ -70,9 +70,9 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 		s.groupNeeds[g.Name] = g.MinInclusions
 	}
 	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
-		s.maxSubmissionsPerGroup = baseGroup.MaxSubmissionsPerOperator
+		s.minDistinctGroups = baseGroup.MinDistinctOperators
 	}
-	s.groups = make(map[string]int)
+	s.groups = make(map[string]bool)
 	s.results = make(map[string]*submissionResult)
 	s.cancels = make(map[string]context.CancelFunc)
 	return &s
@@ -90,10 +90,6 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 	sub.results[logURL] = &submissionResult{}
 	isAwaited := false
 	for g := range sub.logToGroups[logURL] {
-		if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
-			isAwaited = true
-			break
-		}
 		if sub.groupNeeds[g] > 0 {
 			isAwaited = true
 			break
@@ -119,21 +115,21 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	}
 	// group name associated with logURL outside of BaseName.
 	// (this assumes the logURL is associated with only one group ignoring BaseName)
-	var nonBaseGroupName string
 	// If at least one group needs that SCT, result is set. Otherwise dumped.
 	for groupName := range sub.logToGroups[logURL] {
 		// Ignore the base group (All-logs) here to check separately.
 		if groupName == ctpolicy.BaseName {
 			continue
 		}
-		nonBaseGroupName = groupName
-		if sub.groups[groupName] < sub.maxSubmissionsPerGroup {
+		// Set the result if the group does not have a submission.
+		if !sub.groups[groupName] {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
+			sub.groups[groupName] = true
 		}
 		if sub.groupNeeds[groupName] > 0 {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
+			sub.groups[groupName] = true
 		}
-		sub.groups[groupName]++
 		sub.groupNeeds[groupName]--
 	}
 
@@ -143,19 +139,12 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 			// It is already processed in a non-base group, so we can reduce the groupNeeds for the base group as well.
 			sub.groupNeeds[ctpolicy.BaseName]--
 		} else if sub.groupNeeds[ctpolicy.BaseName] > 0 {
-			minInclusionsForOtherGroup := 0
-			for g, cnt := range sub.groupNeeds {
-				if g != ctpolicy.BaseName && cnt > 0 {
-					minInclusionsForOtherGroup += cnt
-				}
-			}
+			extraSubmissions := sub.minDistinctGroups - len(sub.groups)
 			// Set the result only if the base group still needs SCTs more than total counts
 			// of minimum inclusions for other groups.
-			if sub.groupNeeds[ctpolicy.BaseName] > minInclusionsForOtherGroup {
-				if sub.groups[nonBaseGroupName] < sub.maxSubmissionsPerGroup {
-					sub.results[logURL] = &submissionResult{sct: sct, err: err}
-					sub.groupNeeds[ctpolicy.BaseName]--
-				}
+			if sub.groupNeeds[ctpolicy.BaseName] > extraSubmissions {
+				sub.results[logURL] = &submissionResult{sct: sct, err: err}
+				sub.groupNeeds[ctpolicy.BaseName]--
 			}
 		}
 	}
@@ -165,10 +154,6 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	for logURL, groupSet := range sub.logToGroups {
 		isAwaited := false
 		for g := range groupSet {
-			if g != ctpolicy.BaseName && sub.groups[g] < sub.maxSubmissionsPerGroup {
-				isAwaited = true
-				break
-			}
 			if sub.groupNeeds[g] > 0 {
 				isAwaited = true
 				break
@@ -189,10 +174,8 @@ func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	if !ok {
 		return true
 	}
-	for _, submission := range sub.groups {
-		if submission < sub.maxSubmissionsPerGroup {
-			return false
-		}
+	if len(sub.groups) < sub.minDistinctGroups {
+		return false
 	}
 	return needs <= 0
 }
