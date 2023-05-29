@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Add support for IBM Z operating system z/OS
+ * Add build tags for zos
+
 ### Chrome CT Policy Update
  * #906: Update chromepolicy.go to follow the updated Chrome CT policy.
  
