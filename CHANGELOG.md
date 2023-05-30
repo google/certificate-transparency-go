@@ -2,6 +2,7 @@
 
 ## HEAD
 
+<<<<<<< HEAD
 ### Fix flaky submission failures
 * #1084: CT flaky submission failures
 
