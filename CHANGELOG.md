@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Add support for WASI port
+* Add build tags for wasip1 GOOS
+
 ### Add support for IBM Z operating system z/OS
 * Add build tags for zos
 
