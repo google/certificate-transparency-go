@@ -9,7 +9,7 @@ require (
 	github.com/google/trillian v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/prometheus/client_golang v1.15.1
 	github.com/rs/cors v1.9.0
 	github.com/sergi/go-diff v1.3.1
