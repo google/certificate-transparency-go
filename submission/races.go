@@ -52,11 +52,11 @@ type groupState struct {
 // When some group is complete cancels all requests that are not needed by any
 // group.
 type safeSubmissionState struct {
-	mu                sync.Mutex
-	logToGroups       map[string]ctpolicy.GroupSet
-	minSubmissions    int            // number of logs that need to be submitted.
-	minDistinctGroups int            // number of groups that need a submission
-	groupsSubmitted   map[string]int // number of logs submitted to each group.
+	mu                   sync.Mutex
+	logToGroups          map[string]ctpolicy.GroupSet
+	remainingSubmissions int            // number of logs that still need to be submitted.
+	minDistinctGroups    int            // number of groups that need a submission
+	groupsSubmitted      map[string]int // number of logs submitted to each group.
 
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
@@ -66,7 +66,7 @@ func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState 
 	var s safeSubmissionState
 	s.logToGroups = ctpolicy.GroupByLogs(groups)
 	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
-		s.minSubmissions = baseGroup.MinInclusions
+		s.remainingSubmissions = baseGroup.MinInclusions
 		s.minDistinctGroups = baseGroup.MinDistinctOperators
 	}
 	s.groupsSubmitted = make(map[string]int)
@@ -85,7 +85,7 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 		return false
 	}
 	sub.results[logURL] = &submissionResult{}
-	if sub.minSubmissions <= 0 {
+	if sub.remainingSubmissions <= 0 {
 		return false
 	}
 	sub.cancels[logURL] = cancel
@@ -121,14 +121,14 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	if sub.logToGroups[logURL][ctpolicy.BaseName] {
 		if sub.results[logURL].sct != nil {
 			// It is already processed in a non-base group, so we can reduce the groupNeeds for the base group as well.
-			sub.minSubmissions--
-		} else if sub.minSubmissions > 0 {
+			sub.remainingSubmissions--
+		} else if sub.remainingSubmissions > 0 {
 			extraSubmissions := sub.minDistinctGroups - len(sub.groupsSubmitted)
 			// Set the result only if the base group still needs SCTs more than total counts
 			// of minimum inclusions for other groups.
-			if sub.minSubmissions > extraSubmissions {
+			if sub.remainingSubmissions > extraSubmissions {
 				sub.results[logURL] = &submissionResult{sct: sct, err: err}
-				sub.minSubmissions--
+				sub.remainingSubmissions--
 			}
 		}
 	}
@@ -136,7 +136,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 	// Cancel any pending Log-requests for which there're no more awaiting
 	// Log-groups.
 	for logURL := range sub.logToGroups {
-		if sub.minSubmissions <= 0 && sub.cancels[logURL] != nil {
+		if sub.remainingSubmissions <= 0 && sub.cancels[logURL] != nil {
 			sub.cancels[logURL]()
 			sub.cancels[logURL] = nil
 		}
@@ -150,7 +150,7 @@ func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	if len(sub.groupsSubmitted) < sub.minDistinctGroups {
 		return false
 	}
-	return sub.minSubmissions <= 0
+	return sub.remainingSubmissions <= 0
 }
 
 func (sub *safeSubmissionState) collectSCTs() []*AssignedSCT {
