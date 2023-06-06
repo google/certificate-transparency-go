@@ -93,7 +93,7 @@ func TestGetSCTs(t *testing.T) {
 			name:   "singleGroupOneSCT",
 			sbMock: &mockSubmitter{fixedDelay: map[byte]time.Duration{'a': 0}, firstLetterURLReqNumber: make(map[byte]int)},
 			groups: ctpolicy.LogPolicyData{
-				"a": {
+				ctpolicy.BaseName: {
 					Name:          "a",
 					LogURLs:       map[string]bool{"a1.com": true, "a2.com": true},
 					MinInclusions: 1,
@@ -107,7 +107,7 @@ func TestGetSCTs(t *testing.T) {
 			name:   "singleGroupMultiSCT",
 			sbMock: &mockSubmitter{fixedDelay: map[byte]time.Duration{'a': 0}, firstLetterURLReqNumber: make(map[byte]int)},
 			groups: ctpolicy.LogPolicyData{
-				"a": {
+				ctpolicy.BaseName: {
 					Name:          "a",
 					LogURLs:       map[string]bool{"a1.com": true, "a2.com": true, "a3.com": true, "a4.com": true, "a5.com": true},
 					MinInclusions: 3,
