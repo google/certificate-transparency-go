@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
@@ -255,14 +256,14 @@ func showKeyAuthorizations(buf *bytes.Buffer, auths AuthorizationList, prefix st
 	}
 
 	showOptionalHex(buf, prefix, "Attestation Application Id", auths.AttestationApplicationId)
-	showOptionalHex(buf, prefix, "Attestation Id Brand", auths.AttestationIdBrand)
-	showOptionalHex(buf, prefix, "Attestation Id Device", auths.AttestationIdDevice)
-	showOptionalHex(buf, prefix, "Attestation Id Product", auths.AttestationIdProduct)
-	showOptionalHex(buf, prefix, "Attestation Id Serial", auths.AttestationIdSerial)
-	showOptionalHex(buf, prefix, "Attestation Id IMEI", auths.AttestationIdImei)
-	showOptionalHex(buf, prefix, "Attestation Id MEID", auths.AttestationIdMeid)
-	showOptionalHex(buf, prefix, "Attestation Id Manufacturer", auths.AttestationIdManufacturer)
-	showOptionalHex(buf, prefix, "Attestation Id Model", auths.AttestationIdModel)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Brand", auths.AttestationIdBrand)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Device", auths.AttestationIdDevice)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Product", auths.AttestationIdProduct)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Serial", auths.AttestationIdSerial)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id IMEI", auths.AttestationIdImei)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id MEID", auths.AttestationIdMeid)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Manufacturer", auths.AttestationIdManufacturer)
+	showOptionalHexUtf8(buf, prefix, "Attestation Id Model", auths.AttestationIdModel)
 	if auths.VendorPatchlevel != -1 {
 		buf.WriteString(fmt.Sprintf("%sVendor Patchlevel: %d\n", prefix, auths.VendorPatchlevel))
 	}
@@ -432,8 +433,26 @@ func showOptionalHex(buf *bytes.Buffer, prefix string, name string, val []byte) 
 	showHex(buf, prefix, name, val)
 }
 
+func showOptionalHexUtf8(buf *bytes.Buffer, prefix string, name string, val []byte) {
+	if len(val) == 0 {
+		return
+	}
+	showHexUtf8(buf, prefix, name, val)
+}
+
 func showHex(buf *bytes.Buffer, prefix string, name string, val []byte) {
 	buf.WriteString(fmt.Sprintf("%s%s:\n", prefix, name))
 	appendHexData(buf, val, 64, prefix+"    ")
+	buf.WriteString("\n")
+}
+
+func showHexUtf8(buf *bytes.Buffer, prefix string, name string, val []byte) {
+	buf.WriteString(fmt.Sprintf("%s%s:\n", prefix, name))
+	appendHexData(buf, val, 64, prefix+"    ")
+	// The hex data might also be a valid string.
+	if utf8.Valid(val) {
+		buf.WriteString(fmt.Sprintf(" == '%s'", string(val)))
+	}
+
 	buf.WriteString("\n")
 }
