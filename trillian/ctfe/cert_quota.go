@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -38,5 +39,5 @@ const CertificateQuotaUserPrefix = "@intermediate"
 // See tests for examples.
 func QuotaUserForCert(c *x509.Certificate) string {
 	spkiHash := sha256.Sum256(c.RawSubjectPublicKeyInfo)
-	return fmt.Sprintf("%s %s %s", CertificateQuotaUserPrefix, c.Subject.String(), hex.EncodeToString(spkiHash[0:5]))
+	return fmt.Sprintf("%s %s %s", CertificateQuotaUserPrefix, strings.ReplaceAll(c.Subject.String(), "/", "%2F"), hex.EncodeToString(spkiHash[0:5]))
 }
