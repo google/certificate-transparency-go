@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	dayDuration          = 86400 * time.Second // time.Duration of one day
-	minDistinctOperators = 2                   // Number of distinct CT log operators that submit an SCT
+	dayDuration          = 24 * time.Hour // time.Duration of one day
+	minDistinctOperators = 2              // Number of distinct CT log operators that submit an SCT
 )
 
 // ChromeCTPolicy implements logic for complying with Chrome's CT log policy
