@@ -123,12 +123,14 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 			// The cert has been observed in a non-base group, so account for it.
 			sub.remainingSubmissions--
 		} else if sub.remainingSubmissions > 0 {
-			// uniqueSubmissions represents the number of required submissions that need to be
-			// submitted from a distinct CT log operator.
-			uniqueSubmissions := sub.minDistinctGroups - len(sub.groupsSubmitted)
+			// Arriving at this portion of the code implies that the result contains an SCT from
+			// the same log operator.
+			// reservedSubmissions represents the number of submissions that still need to be
+			// submitted from different log operators.
+			reservedSubmissions := sub.minDistinctGroups - len(sub.groupsSubmitted)
 			// Set the result only if the base group still needs SCTs more than total counts
 			// of minimum inclusions for other groups.
-			if sub.remainingSubmissions > uniqueSubmissions {
+			if sub.remainingSubmissions > reservedSubmissions {
 				sub.results[logURL] = &submissionResult{sct: sct, err: err}
 				sub.remainingSubmissions--
 			}
