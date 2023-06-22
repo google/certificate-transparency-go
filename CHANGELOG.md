@@ -13,7 +13,10 @@
 
 ### Chrome CT Policy Update
  * #906: Update chromepolicy.go to follow the updated Chrome CT policy.
- 
+
+### Misc
+ * #1059: Escape forward slashes in certificate Subject names when used as user quota id strings.
+
 ## v1.1.6
 
 ## Dependency update
@@ -32,7 +35,7 @@
 
  * Remove v2 log list package files.
 
- ### Misc
+### Misc
 
  * Updated golangci-lint to v1.51.1 (developers should update to this version).
  * Bump Go version from 1.17 to 1.19.
