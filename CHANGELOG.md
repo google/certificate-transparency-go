@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Fix flaky submission failures
+* #1084: CT flaky submission failures
+
 ### Add support for WASI port
 * Add build tags for wasip1 GOOS
 
