@@ -40,6 +40,7 @@ func mustParseTime(format string, sTime string) time.Time {
 }
 
 var sampleLogList = LogList{
+	IsAllLogs:        true,
 	Version:          "1.1.1c",
 	LogListTimestamp: mustParseTime(time.UnixDate, "Fri Dec 3 11:06:00 UTC 2021"),
 	Operators: []*Operator{
@@ -158,7 +159,7 @@ func TestJSONMarshal(t *testing.T) {
 		{
 			name: "MultiValid",
 			in:   sampleLogList,
-			want: `{"version":"1.1.1c","log_list_timestamp":"2021-12-03T11:06:00Z","operators":[` +
+			want: `{"is_all_logs":true,"version":"1.1.1c","log_list_timestamp":"2021-12-03T11:06:00Z","operators":[` +
 				`{"name":"Google","email":["google-ct-logs@googlegroups.com"],"logs":[` +
 				`{"description":"Google 'Aviator' log","log_id":"aPaY+B9kgr46jO65KB1M/HFRXWeT1ETRCmesu09P+8Q=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1/TMabLkDpCjiupacAlP7xNi0I1JYP8bQFAHDG1xhtolSY1l4QgNRzRrvSe8liE+NPWHdjGxfx3JhTsN9x8/6Q==","url":"https://ct.googleapis.com/aviator/","dns":"aviator.ct.googleapis.com","mmd":86400,"state":{"readonly":{"timestamp":"2016-11-30T13:24:18.33Z","final_tree_head":{"sha256_root_hash":"LcGcZRsm+LGYmrlyC5LXhV1T6OD8iH5dNlb0sEJl9bA=","tree_size":46466472}}},"temporal_interval":{"start_inclusive":"2014-03-07T11:06:00Z","end_exclusive":"2015-03-07T12:00:00Z"}},` +
 				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400,"state":{"usable":{"timestamp":"2018-02-27T00:00:00Z"}}},` +
