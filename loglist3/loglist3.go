@@ -47,6 +47,9 @@ const (
 
 // LogList holds a collection of CT logs, grouped by operator.
 type LogList struct {
+	// IsAllLogs is set to true if the list contains all known logs, not
+	// only usable ones.
+	IsAllLogs bool `json:"is_all_logs,omitempty"`
 	// Version is the version of the log list.
 	Version string `json:"version,omitempty"`
 	// LogListTimestamp is the time at which the log list was published.

@@ -14,6 +14,9 @@
 ### Chrome CT Policy Update
  * #906: Update chromepolicy.go to follow the updated Chrome CT policy.
 
+### LogList
+ * Add support for "is_all_logs" field
+
 ### Misc
  * #1059: Escape forward slashes in certificate Subject names when used as user quota id strings.
 
