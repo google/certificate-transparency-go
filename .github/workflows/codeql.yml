@@ -20,6 +20,9 @@ on:
   schedule:
     - cron: '24 17 * * 1'
 
+# Declare default permissions as read only.
+permissions: read-all
+
 jobs:
   analyze:
     name: Analyze
