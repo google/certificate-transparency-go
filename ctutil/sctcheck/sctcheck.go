@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -113,15 +114,19 @@ func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificat
 	}
 
 	var issuer *x509.Certificate
-	if len(chain) < 2 {
+	for _, c := range chain[1:] {
+		if bytes.Equal(c.SubjectKeyId, leaf.SubjectKeyId) {
+			issuer = c
+		}
+	}
+
+	if issuer == nil {
 		klog.Info("No issuer in chain; attempting online retrieval")
 		var err error
 		issuer, err = x509util.GetIssuer(leaf, hc)
 		if err != nil {
 			klog.Errorf("Failed to get issuer online: %v", err)
 		}
-	} else {
-		issuer = chain[1]
 	}
 
 	// Build a Merkle leaf that corresponds to the embedded SCTs.  We can use the same
