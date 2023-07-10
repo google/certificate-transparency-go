@@ -6,7 +6,6 @@ WORKDIR /testbase
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
-ENV GO111MODULE=on
 
 RUN apt-get update && apt-get -y install build-essential curl docker-compose lsof netcat-openbsd unzip wget xxd
 
