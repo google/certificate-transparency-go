@@ -116,7 +116,7 @@ func checkChain(ctx context.Context, lf logInfoFactory, chain []*x509.Certificat
 	var issuer *x509.Certificate
 	for i := 1; i < len(chain); i++ {
 		c := chain[i]
-		if bytes.Equal(c.SubjectKeyId, leaf.SubjectKeyId) {
+		if bytes.Equal(c.RawSubject, leaf.RawIssuer) && c.CheckSignature(leaf.SignatureAlgorithm, leaf.RawTBSCertificate, leaf.Signature) == nil {
 			issuer = c
 			if i > 1 {
 				klog.Warningf("Certificate chain out of order; issuer cert found at index %d", i)
