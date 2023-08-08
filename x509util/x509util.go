@@ -23,6 +23,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/sha1"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
@@ -83,6 +84,28 @@ func OIDInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) (in
 		}
 	}
 	return count, critical
+}
+
+type publicKeyInfo struct {
+	Raw       asn1.RawContent
+	Algorithm pkix.AlgorithmIdentifier
+	PublicKey asn1.BitString
+}
+
+// Calculate the key ID from the subject public key of the certificate, according to the
+// section 4.2.1.2 of RFC 5280:
+// - parse the SubjectPublicKey into SEQUENCE { AlgorithmIdentifier, BIT STRING}
+// - extract the contents of the BIT STRING (no tag/len/unused-bit-count)
+// - SHA-1 hash the result
+func CalculateSubjectKeyId(cert *x509.Certificate) ([]byte, error) {
+	var pki publicKeyInfo
+	if rest, err := asn1.Unmarshal(cert.RawSubjectPublicKeyInfo, &pki); err != nil {
+		return nil, err
+	} else if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after ASN.1 of public-key")
+	}
+	hash := sha1.Sum(pki.PublicKey.Bytes)
+	return hash[:], nil
 }
 
 // String formatting for various X.509/ASN.1 types
@@ -477,6 +500,11 @@ func showSubjectKeyID(result *bytes.Buffer, cert *x509.Certificate) {
 		result.WriteString(fmt.Sprintf("            X509v3 Subject Key Identifier:"))
 		showCritical(result, critical)
 		result.WriteString(fmt.Sprintf("                keyid:%v\n", hex.EncodeToString(cert.SubjectKeyId)))
+
+		calcKeyId, err := CalculateSubjectKeyId(cert)
+		if err == nil && !bytes.Equal(calcKeyId, cert.SubjectKeyId) {
+			result.WriteString(fmt.Sprintf("                NOTE: keyid != calculated value %v\n", hex.EncodeToString(calcKeyId)))
+		}
 	}
 }
 
