@@ -1,15 +1,36 @@
 version: 2
 updates:
 - package-ecosystem: gomod
-  directory: "/"
+  directory: /
   schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-- package-ecosystem: "github-actions"
-  directory: "/"
+    interval: daily
+
+- package-ecosystem: github-actions
+  directory: /
   schedule:
-    interval: "weekly"
-- package-ecosystem: "docker"
-  directory: "/"
+    interval: daily
+
+- package-ecosystem: docker
+  directory: /integration
   schedule:
-    interval: "weekly"
+    interval: daily
+
+- package-ecosystem: docker
+  directory: /internal/witness/cmd/feeder
+  schedule:
+    interval: daily
+
+- package-ecosystem: docker
+  directory: /internal/witness/cmd/witness
+  schedule:
+    interval: daily
+
+- package-ecosystem: docker
+  directory: /trillian/examples/deployment/docker/ctfe
+  schedule:
+    interval: daily
+
+- package-ecosystem: docker
+  directory: /trillian/examples/deployment/docker/envsubst
+  schedule:
+    interval: daily
