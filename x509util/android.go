@@ -270,7 +270,7 @@ func showKeyAuthorizations(buf *bytes.Buffer, auths AuthorizationList, prefix st
 		buf.WriteString(fmt.Sprintf("%sOS Patchlevel: %d\n", prefix, auths.OsPatchlevel))
 	}
 
-	showOptionalHex(buf, prefix, "Attestation Application Id", auths.AttestationApplicationId)
+	showOptionalAttestationAppId(buf, prefix,  auths.AttestationApplicationId)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Brand", auths.AttestationIdBrand)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Device", auths.AttestationIdDevice)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Product", auths.AttestationIdProduct)
@@ -469,5 +469,48 @@ func showHexUtf8(buf *bytes.Buffer, prefix string, name string, val []byte) {
 		buf.WriteString(fmt.Sprintf(" == '%s'", string(val)))
 	}
 
+	buf.WriteString("\n")
+}
+
+// AndroidAttestationAppId describes an Android application identifier.
+type AndroidAttestationAppId struct {
+	PackageInfoRecords []AndroidPackageInfoRecord `asn1:"set"`
+	SignatureDigests [][]byte `asn1:"set"`
+}
+
+// AndroidPackageInfoRecord hold a package info record from Android.
+type AndroidPackageInfoRecord struct {
+	PackageName []byte
+	Version int
+}
+
+func AndroidAppInfoFromData(val []byte) (*AndroidAttestationAppId, error) {
+	var appId AndroidAttestationAppId
+	rest, err := asn1.Unmarshal(val, &appId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal attestation app ID: %v", err)
+	} else if len(rest) > 0 {
+		return nil, fmt.Errorf("trailing data (%d bytes) after attestation app ID", len(rest))
+	}
+	return &appId, nil
+}
+
+func showOptionalAttestationAppId(buf *bytes.Buffer, prefix string, val []byte) {
+	if len(val) == 0 {
+		return
+	}
+	buf.WriteString(fmt.Sprintf("%sAttestation Application Id:\n", prefix))
+	// Attempt to parse as app ID
+	appId, err := AndroidAppInfoFromData(val)
+	if err == nil {
+		for _, pkg := range appId.PackageInfoRecords {
+			buf.WriteString(fmt.Sprintf("%s    Name:%q Version:%d\n", prefix, pkg.PackageName, pkg.Version))
+		}
+		for _, sig := range appId.SignatureDigests {
+			buf.WriteString(fmt.Sprintf("%s    Signature: %x", prefix, sig))
+		}
+	} else {
+		appendHexData(buf, val, 64, prefix+"    ")
+	}
 	buf.WriteString("\n")
 }
