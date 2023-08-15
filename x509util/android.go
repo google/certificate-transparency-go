@@ -29,6 +29,10 @@ import (
 // Android attestation info.
 var OIDExtensionAndroidAttestation = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 1, 17}
 
+// OIDExtensionRkpInfo is the OID value for an X.509 extension that holds Android
+// remote key provisioning info.
+var OIDExtensionAndroidRkpInfo = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 1, 30}
+
 // AndroidAttestationInfo holds attestation information attached to an Android
 // hardware-backed key, describing features of the key and the device that issued
 // it. See https://developer.android.com/training/articles/security-key-attestation for
@@ -145,6 +149,17 @@ func AttestInfoFromCert(cert *x509.Certificate) (*AndroidAttestationInfo, error)
 		}
 	}
 	return nil, errors.New("no Android Attestation extension found")
+}
+
+func showAndroidRkpInfo(result *bytes.Buffer, cert *x509.Certificate) {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(OIDExtensionAndroidRkpInfo) {
+			result.WriteString(fmt.Sprintf("            Android RKP Information:"))
+			showCritical(result, ext.Critical)
+			appendHexData(result, ext.Value, 16, "                ")
+			result.WriteString("\n")
+		}
+	}
 }
 
 func showAndroidAttestation(result *bytes.Buffer, cert *x509.Certificate) {
