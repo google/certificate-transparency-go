@@ -316,6 +316,8 @@ func newLogInfo(
 
 	if cfg.IsMirror {
 		isMirrorLog.Set(1.0, label)
+	} else {
+		isMirrorLog.Set(0.0, label)
 	}
 	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
 	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
