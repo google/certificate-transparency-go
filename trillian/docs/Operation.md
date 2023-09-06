@@ -71,7 +71,7 @@ this incorporation relies on a single point of failure (the
 [signer](ManualDeployment.md#primary-signer-election)).  As such, there are
 some CT-specific metrics that can also be alerted on:
 
- - The age of the most recent Merkle treee head.
+ - The age of the most recent Merkle tree head.
  - The size of the current backlog of unmerged submissions.
  - Per-log instance counts of primary signer instances (which is normally 1,
    can transiently be 0, but should never be > 1).
