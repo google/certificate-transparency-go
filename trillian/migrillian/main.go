@@ -51,7 +51,7 @@ var (
 	etcdServers   = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
 	lockDir       = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
 	electionDelay = flag.Duration("election_delay", 0, "Max random pause before participating in master election")
-	backend       = flag.String("backend", "", "GRPC endpoing to connect to Trillian logservers")
+	backend       = flag.String("backend", "", "GRPC endpoint to connect to Trillian logservers")
 
 	metricsEndpoint = flag.String("metrics_endpoint", "localhost:8099", "Endpoint for serving metrics")
 
