@@ -127,7 +127,7 @@ However, add operations are not immediately incorporated into the Merkle tree.
 Instead, pending add operations are queued up and a separate process, the log
 signer (`github.com/google/trillian/cmd/trillian_log_signer`) periodically
 reads pending entries from the queue.  The signer gives these entries unique,
-monotonicallly increasing, sequence numbers and incorporates them into the
+monotonically increasing, sequence numbers and incorporates them into the
 Merkle tree.
 
  - The `--mysql_uri` option indicates where the MySQL database is available.
