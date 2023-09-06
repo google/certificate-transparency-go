@@ -58,7 +58,7 @@ type InstanceOptions struct {
 	// given request. This string will be used as a User quota key.
 	// If unset, no quota will be requested for remote users.
 	RemoteQuotaUser func(*http.Request) string
-	// CertificateQuotaUser returns a string represeing the passed in
+	// CertificateQuotaUser returns a string representing the passed in
 	// intermediate certificate. This string will be user as a User quota key for
 	// the cert. Quota will be requested for each intermediate in an
 	// add-[pre]-chain request so as to allow individual issuers to be rate
