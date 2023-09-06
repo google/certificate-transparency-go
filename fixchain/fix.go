@@ -188,7 +188,7 @@ func (fix *toFix) augmentIntermediates(cert *x509.Certificate, length int, seen 
 	// certificates and recursively build the chains from those certificates,
 	// adding every cert to the pool of intermediates, running the verifier at
 	// every cert addition, and returning verified chains of fix.cert as soon
-	// as thay are found.
+	// as they are found.
 	var retferrs []*FixError
 	for _, url := range cert.IssuingCertificateURL {
 		icerts, ferr := fix.getIntermediates(url)
