@@ -126,7 +126,7 @@ func (fix *toFix) fixChain() ([][]*x509.Certificate, []*FixError) {
 		if ferrs != nil {
 			retferrs = append(retferrs, ferrs...)
 		}
-		// If adding certs from the chains steming from this cert resulted in
+		// If adding certs from the chains stemming from this cert resulted in
 		// successful verification of chains for fix.cert to fix.root, return
 		// the chains.
 		if chains != nil {
