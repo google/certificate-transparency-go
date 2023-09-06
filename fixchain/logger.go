@@ -139,7 +139,7 @@ type toPost struct {
 }
 
 // postToLog() is used during the initial queueing of chains to avoid spinning
-// up an excessive number of goroutines, and unecessarily using up memory. If
+// up an excessive number of goroutines, and unnecessarily using up memory. If
 // asyncPostToLog() was called instead, then every time a new chain was queued,
 // a new goroutine would be created, each holding their own chain - regardless
 // of whether there were postServers available to process them or not.  If a
