@@ -186,7 +186,7 @@ func (fix *toFix) augmentIntermediates(cert *x509.Certificate, length int, seen 
 
 	// For each url in the AIA information of cert, get the corresponding
 	// certificates and recursively build the chains from those certificates,
-	// adding every cert to the pool of intermdiates, running the verifier at
+	// adding every cert to the pool of intermediates, running the verifier at
 	// every cert addition, and returning verified chains of fix.cert as soon
 	// as thay are found.
 	var retferrs []*FixError
