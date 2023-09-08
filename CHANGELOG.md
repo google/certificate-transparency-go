@@ -165,7 +165,7 @@ entries whose `start` parameter does not fall on a multiple of the maximum
 permitted number of entries, will have their responses truncated such that
 subsequent requests will align with this boundary.
 This is intended to coerce callers of `get-entries` into all using the same
-`start` and `end` parameters and thereby increase the cachability of
+`start` and `end` parameters and thereby increase the cacheability of
 these requests.
 
 e.g.:
