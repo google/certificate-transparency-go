@@ -133,7 +133,7 @@ type HammerConfig struct {
 	// Rate limiter
 	Limiter Limiter
 	// MaxParallelChains sets the upper limit for the number of parallel
-	// add-*-chain requests to make when the biasing model says to perfom an add.
+	// add-*-chain requests to make when the biasing model says to perform an add.
 	MaxParallelChains int
 	// EmitInterval defines how frequently stats are logged.
 	EmitInterval time.Duration
