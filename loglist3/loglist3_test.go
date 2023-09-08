@@ -85,7 +85,7 @@ var sampleLogList = LogList{
 				{
 					Description: "Google 'Racketeer' log",
 					LogID:       deb64("7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g="),
-					// Key value chosed to have a hash that starts ee4... (specifically ee412fe25948348961e2f3e08c682e813ec0ff770b6d75171763af3014ff9768)
+					// Key value chosen to have a hash that starts ee4... (specifically ee412fe25948348961e2f3e08c682e813ec0ff770b6d75171763af3014ff9768)
 					Key: deb64("Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg=="),
 					URL: "https://ct.googleapis.com/racketeer/",
 					MMD: 86400,
