@@ -126,7 +126,7 @@ func sampleUncollectableLogList() *loglist3.LogList {
 	ll.Operators[0].Logs = append(ll.Operators[0].Logs, &loglist3.Log{
 		Description: "Does not return roots", Key: []byte("VW5jb2xsZWN0YWJsZUxvZ0xpc3Q="),
 		URL:   "uncollectable-roots/log/",
-		DNS:   "uncollectavle.ct.googleapis.com",
+		DNS:   "uncollectable.ct.googleapis.com",
 		MMD:   123,
 		State: &loglist3.LogStates{Usable: &loglist3.LogState{}},
 	})
