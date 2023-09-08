@@ -61,7 +61,7 @@ type InstanceOptions struct {
 	// CertificateQuotaUser returns a string represeing the passed in
 	// intermediate certificate. This string will be user as a User quota key for
 	// the cert. Quota will be requested for each intermediate in an
-	// add-[pre]-chain request so as to allow individual issers to be rate
+	// add-[pre]-chain request so as to allow individual issuers to be rate
 	// limited. If unset, no quota will be requested for intermediate
 	// certificates.
 	CertificateQuotaUser func(*x509.Certificate) string
