@@ -265,7 +265,7 @@ func testVerifySCTSignatureFailsForIncorrectLeafBytes(t *testing.T, sct SignedCe
 		old := entry.Leaf.TimestampedEntry.X509Entry.Data[i]
 		corruptByteAt(entry.Leaf.TimestampedEntry.X509Entry.Data, i)
 		if err := sv.VerifySCTSignature(sct, entry); err == nil {
-			t.Fatalf("Incorrectly verfied signature over corrupted leaf data, uncovered byte at %d?", i)
+			t.Fatalf("Incorrectly verified signature over corrupted leaf data, uncovered byte at %d?", i)
 		}
 		entry.Leaf.TimestampedEntry.X509Entry.Data[i] = old
 	}
