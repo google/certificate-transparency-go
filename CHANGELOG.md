@@ -20,6 +20,7 @@
 ### Misc
  * #1059: Escape forward slashes in certificate Subject names when used as user quota id strings.
  * Bump Go version from 1.19 to 1.20.
+ * Fix typos
 
 ## v1.1.6
 
