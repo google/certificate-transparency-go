@@ -1,6 +1,6 @@
 module github.com/google/certificate-transparency-go
 
-go 1.19
+go 1.20
 
 require (
 	github.com/fullstorydev/grpcurl v1.8.7
