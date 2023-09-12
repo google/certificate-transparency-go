@@ -100,7 +100,7 @@ ct_provision() {
 
   echo "CT Integration Configuration in ${CT_CFG}:"
   cat "${CT_CFG}"
-  echo "CT Lifeycle Configuration in ${CT_LIFECYCLE_CFG}:"
+  echo "CT Lifecycle Configuration in ${CT_LIFECYCLE_CFG}:"
   cat "${CT_LIFECYCLE_CFG}"
   echo
 }

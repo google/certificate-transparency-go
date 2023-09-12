@@ -137,7 +137,7 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		}
 	}
 
-	// Cancel any pending Log-requests for which there're no more awaiting
+	// Cancel any pending Log-requests for which there are no more awaiting
 	// Log-groups.
 	for logURL := range sub.logToGroups {
 		if sub.remainingSubmissions <= 0 && sub.cancels[logURL] != nil {

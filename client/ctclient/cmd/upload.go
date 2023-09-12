@@ -38,7 +38,7 @@ func init() {
 			runUpload(cmd.Context())
 		},
 	}
-	// TODO(pavelkalinnikov): Don't share this parameter wiith get-inclusion-proof.
+	// TODO(pavelkalinnikov): Don't share this parameter with get-inclusion-proof.
 	cmd.Flags().StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	cmd.Flags().DurationVar(&logMMD, "log_mmd", 24*time.Hour, "Log's maximum merge delay")
 	rootCmd.AddCommand(&cmd)

@@ -126,7 +126,7 @@ func (fix *toFix) fixChain() ([][]*x509.Certificate, []*FixError) {
 		if ferrs != nil {
 			retferrs = append(retferrs, ferrs...)
 		}
-		// If adding certs from the chains steming from this cert resulted in
+		// If adding certs from the chains stemming from this cert resulted in
 		// successful verification of chains for fix.cert to fix.root, return
 		// the chains.
 		if chains != nil {
@@ -186,9 +186,9 @@ func (fix *toFix) augmentIntermediates(cert *x509.Certificate, length int, seen 
 
 	// For each url in the AIA information of cert, get the corresponding
 	// certificates and recursively build the chains from those certificates,
-	// adding every cert to the pool of intermdiates, running the verifier at
+	// adding every cert to the pool of intermediates, running the verifier at
 	// every cert addition, and returning verified chains of fix.cert as soon
-	// as thay are found.
+	// as they are found.
 	var retferrs []*FixError
 	for _, url := range cert.IssuingCertificateURL {
 		icerts, ferr := fix.getIntermediates(url)

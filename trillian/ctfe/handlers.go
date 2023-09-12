@@ -981,7 +981,7 @@ func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64,
 		// of MaxGetEntriesAllowed.
 		// This is intended to coerce large runs of get-entries requests (e.g. by
 		// monitors/mirrors) into all requesting the same start/end ranges,
-		// thereby making the responses more readily cachable.
+		// thereby making the responses more readily cacheable.
 		d := (end + 1) % maxRange
 		end = end - d
 		alignedGetEntries.Inc(strconv.FormatInt(logID, 10), strconv.FormatBool(d == 0))
