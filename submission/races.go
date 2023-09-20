@@ -52,12 +52,12 @@ type groupState struct {
 // When some group is complete cancels all requests that are not needed by any
 // group.
 type safeSubmissionState struct {
-	mu                   sync.Mutex
-	logToGroups          map[string]ctpolicy.GroupSet
-	remainingSubmissions int             // number of logs that still need to be submitted.
-	minDistinctGroups    int             // number of groups that need a submission
-	groupsSubmitted      map[string]bool // number of logs submitted to each group.
+	mu          sync.Mutex
+	logToGroups map[string]ctpolicy.GroupSet
+	groupNeeds  map[string]int // number of logs that need to be submitted for each group.
+	minGroups   int            // minimum number of distinct groups that need a log submitted.
 
+	groups  map[string]bool // set of groups that have a log submitted.
 	results map[string]*submissionResult
 	cancels map[string]context.CancelFunc
 }
@@ -65,11 +65,14 @@ type safeSubmissionState struct {
 func newSafeSubmissionState(groups ctpolicy.LogPolicyData) *safeSubmissionState {
 	var s safeSubmissionState
 	s.logToGroups = ctpolicy.GroupByLogs(groups)
-	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
-		s.remainingSubmissions = baseGroup.MinInclusions
-		s.minDistinctGroups = baseGroup.MinDistinctOperators
+	s.groupNeeds = make(map[string]int)
+	for _, g := range groups {
+		s.groupNeeds[g.Name] = g.MinInclusions
 	}
-	s.groupsSubmitted = make(map[string]bool)
+	if baseGroup, ok := groups[ctpolicy.BaseName]; ok {
+		s.minGroups = baseGroup.MinOperators
+	}
+	s.groups = make(map[string]bool)
 	s.results = make(map[string]*submissionResult)
 	s.cancels = make(map[string]context.CancelFunc)
 	return &s
@@ -85,7 +88,15 @@ func (sub *safeSubmissionState) request(logURL string, cancel context.CancelFunc
 		return false
 	}
 	sub.results[logURL] = &submissionResult{}
-	if sub.remainingSubmissions <= 0 {
+	isAwaited := false
+	for g := range sub.logToGroups[logURL] {
+		if sub.groupNeeds[g] > 0 {
+			isAwaited = true
+			break
+		}
+	}
+	if !isAwaited {
+		// No groups expecting result from this Log.
 		return false
 	}
 	sub.cancels[logURL] = cancel
@@ -102,45 +113,51 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 		sub.results[logURL] = &submissionResult{sct: sct, err: err}
 		return
 	}
-	// group name associated with logURL outside of BaseName.
-	// (this assumes the logURL is associated with only one group ignoring BaseName)
 	// If at least one group needs that SCT, result is set. Otherwise dumped.
 	for groupName := range sub.logToGroups[logURL] {
 		// Ignore the base group (All-logs) here to check separately.
 		if groupName == ctpolicy.BaseName {
 			continue
 		}
-		// Set the result if the group does not have a submission.
-		if !sub.groupsSubmitted[groupName] {
+		if sub.groupNeeds[groupName] > 0 {
 			sub.results[logURL] = &submissionResult{sct: sct, err: err}
-			sub.groupsSubmitted[groupName] = true
 		}
+		sub.groups[groupName] = true
+		sub.groupNeeds[groupName]--
 	}
 
 	// Check the base group (All-logs) only
 	if sub.logToGroups[logURL][ctpolicy.BaseName] {
 		if sub.results[logURL].sct != nil {
-			// The cert has been observed in a non-base group, so account for it.
-			sub.remainingSubmissions--
-		} else if sub.remainingSubmissions > 0 {
-			// Arriving at this portion of the code implies that the result contains an SCT from
-			// the same log operator.
-			// reservedSubmissions represents the number of submissions that still need to be
-			// submitted from different log operators.
-			reservedSubmissions := sub.minDistinctGroups - len(sub.groupsSubmitted)
+			// It is already processed in a non-base group, so we can reduce the groupNeeds for the base group as well.
+			sub.groupNeeds[ctpolicy.BaseName]--
+		} else if sub.groupNeeds[ctpolicy.BaseName] > 0 {
+			minInclusionsForOtherGroup := 0
+			for g, cnt := range sub.groupNeeds {
+				if g != ctpolicy.BaseName && cnt > 0 {
+					minInclusionsForOtherGroup += cnt
+				}
+			}
 			// Set the result only if the base group still needs SCTs more than total counts
 			// of minimum inclusions for other groups.
-			if sub.remainingSubmissions > reservedSubmissions {
+			if sub.groupNeeds[ctpolicy.BaseName] > minInclusionsForOtherGroup {
 				sub.results[logURL] = &submissionResult{sct: sct, err: err}
-				sub.remainingSubmissions--
+				sub.groupNeeds[ctpolicy.BaseName]--
 			}
 		}
 	}
 
 	// Cancel any pending Log-requests for which there are no more awaiting
 	// Log-groups.
-	for logURL := range sub.logToGroups {
-		if sub.remainingSubmissions <= 0 && sub.cancels[logURL] != nil {
+	for logURL, groupSet := range sub.logToGroups {
+		isAwaited := false
+		for g := range groupSet {
+			if sub.groupNeeds[g] > 0 {
+				isAwaited = true
+				break
+			}
+		}
+		if !isAwaited && sub.cancels[logURL] != nil {
 			sub.cancels[logURL]()
 			sub.cancels[logURL] = nil
 		}
@@ -148,13 +165,17 @@ func (sub *safeSubmissionState) setResult(logURL string, sct *ct.SignedCertifica
 }
 
 // groupComplete returns true iff the specified group has all the SCTs it needs.
-func (sub *safeSubmissionState) groupComplete() bool {
+func (sub *safeSubmissionState) groupComplete(groupName string) bool {
 	sub.mu.Lock()
 	defer sub.mu.Unlock()
-	if len(sub.groupsSubmitted) < sub.minDistinctGroups {
+	needs, ok := sub.groupNeeds[groupName]
+	if !ok {
+		return true
+	}
+	if len(sub.groups) < sub.minGroups {
 		return false
 	}
-	return sub.remainingSubmissions <= 0
+	return needs <= 0
 }
 
 func (sub *safeSubmissionState) collectSCTs() []*AssignedSCT {
@@ -205,7 +226,7 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
 				return
 			case <-timeoutchan:
 			}
-			if state.groupComplete() {
+			if state.groupComplete(group.Name) {
 				cancel()
 				return
 			}
@@ -222,14 +243,14 @@ func groupRace(ctx context.Context, chain []ct.ASN1Cert, asPreChain bool,
 	for range session {
 		select {
 		case <-ctx.Done():
-			return groupState{Name: group.Name, Success: state.groupComplete()}
+			return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
 		case <-counter:
-			if state.groupComplete() {
+			if state.groupComplete(group.Name) {
 				return groupState{Name: group.Name, Success: true}
 			}
 		}
 	}
-	return groupState{Name: group.Name, Success: state.groupComplete()}
+	return groupState{Name: group.Name, Success: state.groupComplete(group.Name)}
 }
 
 func parallelNums(groups ctpolicy.LogPolicyData) map[string]int {
