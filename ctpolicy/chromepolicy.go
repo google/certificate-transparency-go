@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	dayDuration          = 24 * time.Hour // time.Duration of one day
-	minDistinctOperators = 2              // Number of distinct CT log operators that submit an SCT
+	minOperators = 2                   // minimum number of distinct CT log operators that issue an SCT.
+	dayDuration  = 86400 * time.Second // time.Duration of one day
 )
 
 // ChromeCTPolicy implements logic for complying with Chrome's CT log policy
@@ -56,7 +56,7 @@ func (chromeP ChromeCTPolicy) LogsByGroup(cert *x509.Certificate, approved *logl
 	if err != nil {
 		return nil, err
 	}
-	baseGroup.MinDistinctOperators = minDistinctOperators
+	baseGroup.MinOperators = minOperators
 	groups[baseGroup.Name] = baseGroup
 	return groups, nil
 }

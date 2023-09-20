@@ -61,9 +61,9 @@ func wantedGroups(base int, minusBob bool) LogPolicyData {
 				"https://ct.googleapis.com/racketeer/":      true,
 				"https://log.bob.io":                        true,
 			},
-			MinInclusions:        base,
-			MinDistinctOperators: minDistinctOperators,
-			IsBase:               true,
+			MinInclusions: base,
+			MinOperators:  minOperators,
+			IsBase:        true,
 			LogWeights: map[string]float32{
 				"https://ct.googleapis.com/logs/argon2020/": 1.0,
 				"https://ct.googleapis.com/aviator/":        1.0,
