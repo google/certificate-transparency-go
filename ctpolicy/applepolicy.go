@@ -15,6 +15,8 @@
 package ctpolicy
 
 import (
+	"errors"
+
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/x509"
 )
@@ -26,22 +28,32 @@ type AppleCTPolicy struct{}
 // https://support.apple.com/en-us/HT205280. Returns an error if it's not
 // possible to satisfy the policy with the provided loglist.
 func (appleP AppleCTPolicy) LogsByGroup(cert *x509.Certificate, approved *loglist3.LogList) (LogPolicyData, error) {
+	groups := LogPolicyData{}
+	for _, op := range approved.Operators {
+		info := &LogGroupInfo{Name: op.Name, IsBase: false}
+		info.LogURLs = make(map[string]bool)
+		info.LogWeights = make(map[string]float32)
+		for _, l := range op.Logs {
+			info.LogURLs[l.URL] = true
+			info.LogWeights[l.URL] = 1.0
+		}
+		groups[info.Name] = info
+	}
 	var incCount int
-	switch m := lifetimeInMonths(cert); {
-	case m < 15:
+	switch t := certLifetime(cert); {
+	case t <= 180*dayDuration:
 		incCount = 2
-	case m <= 27:
+	case t <= 398*dayDuration && t > 180*dayDuration:
 		incCount = 3
-	case m <= 39:
-		incCount = 4
 	default:
-		incCount = 5
+		return nil, errors.New("certificate limetime out of bounds")
 	}
 	baseGroup, err := BaseGroupFor(approved, incCount)
 	if err != nil {
 		return nil, err
 	}
-	groups := LogPolicyData{baseGroup.Name: baseGroup}
+	baseGroup.MinDistinctOperators = minDistinctOperators
+	groups[baseGroup.Name] = baseGroup
 	return groups, nil
 }
 

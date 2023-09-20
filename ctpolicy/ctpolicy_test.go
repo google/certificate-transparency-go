@@ -31,6 +31,24 @@ func getTestCertPEMShort() *x509.Certificate {
 	return cert
 }
 
+func getTestCertPEM10Days() *x509.Certificate {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
+	cert.NotAfter = time.Date(2012, 6, 11, 0, 0, 0, 0, time.UTC)
+	return cert
+}
+
+func getTestCertPEM90Days() *x509.Certificate {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
+	cert.NotAfter = time.Date(2012, 8, 30, 0, 0, 0, 0, time.UTC)
+	return cert
+}
+
+func getTestCertPEM1Year() *x509.Certificate {
+	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
+	cert.NotAfter = time.Date(2013, 6, 1, 0, 0, 0, 0, time.UTC)
+	return cert
+}
+
 func getTestCertPEM2Years() *x509.Certificate {
 	cert, _ := x509util.CertificateFromPEM([]byte(testdata.TestCertPEM))
 	cert.NotAfter = time.Date(2014, 1, 1, 0, 0, 0, 0, time.UTC)

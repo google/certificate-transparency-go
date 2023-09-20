@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### Update Apple CT Policy
+* #770: Update Apple SCT Policy for 2021/4/21
+
 ### Fix flaky submission failures
 * #1084: CT flaky submission failures
 
