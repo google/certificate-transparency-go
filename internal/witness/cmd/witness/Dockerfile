@@ -1,4 +1,4 @@
-FROM golang:1.21.1-bookworm@sha256:a0b3bc435cf2118e62db49d611bcdfa87a525be6fdf49179a5c9dbd4d0f1c63f AS builder
+FROM golang:1.21.1-bookworm@sha256:114b9cc39f435cfc34e2d48d0cb12cba2015a87f359f5dbf3ee3b6cf3591b7fb AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -18,7 +18,7 @@ COPY . .
 RUN go build -o /build/bin/witness ./internal/witness/cmd/witness
 
 # Build release image
-FROM golang:1.21.1-bookworm@sha256:a0b3bc435cf2118e62db49d611bcdfa87a525be6fdf49179a5c9dbd4d0f1c63f
+FROM golang:1.21.1-bookworm@sha256:114b9cc39f435cfc34e2d48d0cb12cba2015a87f359f5dbf3ee3b6cf3591b7fb
 
 COPY --from=builder /build/bin/witness /bin/witness
 ENTRYPOINT ["/bin/witness"]
