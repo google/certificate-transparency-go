@@ -12,7 +12,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build ./trillian/ctfe/ct_server
 
-FROM gcr.io/distroless/base@sha256:46c5b9bd3e3efff512e28350766b54355fce6337a0b44ba3f822ab918eca4520
+FROM gcr.io/distroless/base@sha256:a35b6525fde5572656e24109064dd147fbaedc26e5a7ccd147ff3ed3a4308c21
 
 COPY --from=build /build/ct_server /
 
