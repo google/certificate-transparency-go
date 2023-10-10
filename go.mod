@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/fullstorydev/grpcurl v1.8.7
 	github.com/golang/mock v1.6.0
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/trillian v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/kylelemons/godebug v1.1.0
