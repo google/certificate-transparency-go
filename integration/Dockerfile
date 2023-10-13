@@ -1,6 +1,6 @@
 # This Dockerfile builds a base image for the certificate-transparency-go CloudBuild integration testing.
 # See https://hub.docker.com/_/golang for the set of golang base images.
-FROM golang:1.21.3-bookworm@sha256:5cc7ddc9406bf8f2f2e3bb70192716cd39823c892516fb9031007b95ee007965 as ct_testbase
+FROM golang:1.21.3-bookworm@sha256:20f9ab52a8c3598ef13f86c9bc3b94db400e13df115ecacd8c3dfd0c0f060208 as ct_testbase
 
 WORKDIR /testbase
 
