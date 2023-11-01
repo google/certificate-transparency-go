@@ -174,11 +174,11 @@ func main() {
 		klog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
 		res := manual.NewBuilderWithScheme("whatever")
 		backends := strings.Split(*rpcBackend, ",")
-		addrs := make([]resolver.Address, 0, len(backends))
+		endpoints := make([]resolver.Endpoint, 0, len(backends))
 		for _, backend := range backends {
-			addrs = append(addrs, resolver.Address{Addr: backend, Type: resolver.Backend})
+			endpoints = append(endpoints, resolver.Endpoint{Addresses: []resolver.Address{{Addr: backend}}})
 		}
-		res.InitialState(resolver.State{Addresses: addrs})
+		res.InitialState(resolver.State{Endpoints: endpoints})
 		resolver.SetDefaultScheme(res.Scheme())
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), grpc.WithResolvers(res))
 	} else {
