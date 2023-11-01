@@ -3,18 +3,23 @@
 ## HEAD
 
 ### Add support for WASI port
+
 * Add build tags for wasip1 GOOS
 
 ### Add support for IBM Z operating system z/OS
+
 * Add build tags for zos
 
 ### LogList
- * Add support for "is_all_logs" field
+
+* Add support for "is_all_logs" field
 
 ### Misc
- * #1059: Escape forward slashes in certificate Subject names when used as user quota id strings.
- * Bump Go version from 1.19 to 1.20.
- * Fix typos
+
+* #1059: Escape forward slashes in certificate Subject names when used as user quota id strings.
+* Bump Go version from 1.19 to 1.20.
+* Bump golangci-lint from 1.51.1 to 1.55.1 (developers should update to this version).
+* Fix typos
 
 ## v1.1.6
 
