@@ -81,7 +81,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.1
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh
