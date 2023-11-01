@@ -4,8 +4,8 @@
 
 ## v1.1.7
 
-* Recommended go version for development: 1.20
-  * This is the version used by the cloudbuild presubmits. Using a different version can lead to presubmits failing due to unexpected diffs.
+* Recommended Go version for development: 1.20
+  * This is the version used by the Cloud Build presubmits. Using a different version can lead to presubmits failing due to unexpected diffs.
 
 * Bump golangci-lint from 1.51.1 to 1.55.1 (developers should update to this version).
 
