@@ -10,9 +10,9 @@ COPY go.sum .
 RUN go mod download
 COPY . .
 
-RUN CGO_ENABLED=0 go build ./trillian/ctfe/ct_server
+RUN go build ./trillian/ctfe/ct_server
 
-FROM gcr.io/distroless/base@sha256:b31a6e02605827e77b7ebb82a0ac9669ec51091edd62c2c076175e05556f4ab9
+FROM gcr.io/distroless/base-debian12@sha256:1dfdb5ed7d9a66dcfc90135b25a46c25a85cf719b619b40c249a2445b9d055f5
 
 COPY --from=build /build/ct_server /
 
