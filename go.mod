@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/rs/cors v1.10.1
 	github.com/sergi/go-diff v1.3.1
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/transparency-dev/merkle v0.0.2
