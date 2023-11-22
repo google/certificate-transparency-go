@@ -14,6 +14,10 @@ repository requires Go version 1.20.
      - [Running Codebase Checks](#running-codebase-checks)
      - [Rebuilding Generated Code](#rebuilding-generated-code)
 
+## Support
+
+- Slack: https://transparency-dev.slack.com/ ([invitation](https://join.slack.com/t/transparency-dev/shared_invite/zt-27pkqo21d-okUFhur7YZ0rFoJVIOPznQ))
+
 ## Repository Structure
 
 The main parts of the repository are:
