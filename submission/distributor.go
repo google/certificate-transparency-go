@@ -93,6 +93,8 @@ type Distributor struct {
 
 	policy            ctpolicy.CTPolicy
 	pendingLogsPolicy ctpolicy.CTPolicy
+
+	disableRootChecking bool
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -101,6 +103,9 @@ type Distributor struct {
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
 func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
+	if d.disableRootChecking {
+		return nil
+	}
 	type RootsResult struct {
 		LogURL string
 		Roots  *x509util.PEMCertPool
@@ -252,6 +257,13 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 
 	// Helper function establishing responsibility of locking while determining log list and root chain.
 	compatibleLogsAndChain := func() (loglist3.LogList, []*x509.Certificate, error) {
+		parsedChain, err := parseRawChain(rawChain)
+		if err != nil {
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+		}
+		if d.disableRootChecking {
+			return d.usableLl.Compatible(parsedChain[0], nil, loglist3.LogRoots{}), parsedChain, nil
+		}
 		d.mu.RLock()
 		defer d.mu.RUnlock()
 		vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
@@ -265,10 +277,6 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		}
 
 		// Chain might be rooted to the Log which has no root-info yet.
-		parsedChain, err := parseRawChain(rawChain)
-		if err != nil {
-			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
-		}
 		return d.usableLl.Compatible(parsedChain[0], nil, d.logRoots), parsedChain, nil
 	}
 	compatibleLogs, parsedChain, err := compatibleLogsAndChain()
@@ -349,7 +357,7 @@ func BuildLogClient(log *loglist3.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
+func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory, distributorOptions ...DistributorOption) (*Distributor, error) {
 	var d Distributor
 	// Divide Logs by statuses.
 	d.ll = ll
@@ -379,6 +387,11 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 		mf = monitoring.InertMetricFactory{}
 	}
 	distOnce.Do(func() { distInitMetrics(mf) })
+	for _, option := range distributorOptions {
+		if err := option.Apply(&d); err != nil {
+			return nil, fmt.Errorf("unable to apply distributor option %v: %w", option, err)
+		}
+	}
 	return &d, nil
 }
 
@@ -396,3 +409,15 @@ func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist3.L
 	}
 	return nil
 }
+
+type DistributorOption interface {
+	Apply(d *Distributor) error
+}
+
+type DisableRootCheckingDistributorOption struct {}
+
+func (DisableRootCheckingDistributorOption) Apply(d *Distributor) error {
+	d.disableRootChecking = true
+	return nil
+}
+
