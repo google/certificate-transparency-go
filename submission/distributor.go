@@ -16,6 +16,7 @@ package submission
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,6 +35,11 @@ import (
 	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
+)
+
+var (
+	DistributorNotEnoughCompatibleLogsErr = errors.New("distributor does not have enough compatible Logs to comply with the policy")
+	DistributorUnableToProcessEmptyChainErr = errors.New("distributor unable to process empty chain")
 )
 
 var (
@@ -252,7 +258,7 @@ func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
 // on asPreChain param.
 func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool, asPreChain bool) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
-		return nil, fmt.Errorf("distributor unable to process empty chain")
+		return nil, DistributorUnableToProcessEmptyChainErr
 	}
 
 	// Helper function establishing responsibility of locking while determining log list and root chain.
@@ -273,7 +279,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		}
 		if d.rootDataFull {
 			// Could not verify the chain while root info for logs is complete.
-			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %w", err)
 		}
 
 		// Chain might be rooted to the Log which has no root-info yet.
@@ -303,7 +309,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	// Set up policy structs.
 	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)
 	if err != nil {
-		return nil, fmt.Errorf("distributor does not have enough compatible Logs to comply with the policy: %v", err)
+		return nil, fmt.Errorf("%w: %w", DistributorNotEnoughCompatibleLogsErr, err)
 	}
 	chain := make([]ct.ASN1Cert, len(parsedChain))
 	for i, c := range parsedChain {

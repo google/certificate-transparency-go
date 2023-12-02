@@ -25,6 +25,10 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
+var (
+	NoRfcCompliantPathFoundErr = errors.New("no RFC compliant path to root found when trying to validate chain")
+)
+
 // IsPrecertificate tests if a certificate is a pre-certificate as defined in CT.
 // An error is returned if the CT extension is present but is not ASN.1 NULL as defined
 // by the spec.
@@ -172,7 +176,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		}
 	}
 
-	return nil, errors.New("no RFC compliant path to root found when trying to validate chain")
+	return nil, NoRfcCompliantPathFoundErr
 }
 
 func chainsEquivalent(inChain []*x509.Certificate, verifiedChain []*x509.Certificate) bool {

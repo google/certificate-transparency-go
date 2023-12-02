@@ -28,6 +28,7 @@ import (
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/testdata"
+	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/go-cmp/cmp"
@@ -176,10 +177,11 @@ func TestNewDistributorLogClients(t *testing.T) {
 
 func TestNewDistributorRootPools(t *testing.T) {
 	testCases := []struct {
-		name     string
-		ll       *loglist3.LogList
-		rootNum  map[string]int
-		wantErrs int
+		name               string
+		ll                 *loglist3.LogList
+		rootNum            map[string]int
+		wantErrs           int
+		distributorOptions []DistributorOption
 	}{
 		{
 			name: "InactiveZeroRoots",
@@ -189,18 +191,34 @@ func TestNewDistributorRootPools(t *testing.T) {
 			wantErrs: 1,
 		},
 		{
+			name: "InactiveZeroRoots-NoRootChecking",
+			ll:   sampleValidLogList(),
+			// aviator is not active; 1 of 2 icarus roots is not x509 struct
+			rootNum:            map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 0, "https://ct.googleapis.com/icarus/": 0},
+			wantErrs:           0,
+			distributorOptions: []DistributorOption{DisableRootCheckingDistributorOption{}},
+		},
+		{
 			name: "CouldNotCollect",
 			ll:   sampleUncollectableLogList(),
 			// aviator is not active; uncollectable client cannot provide roots
 			rootNum:  map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 4, "https://ct.googleapis.com/icarus/": 1, "uncollectable-roots/log/": 0},
 			wantErrs: 2,
 		},
+		{
+			name: "CouldNotCollect-NoRootChecking",
+			ll:   sampleUncollectableLogList(),
+			// aviator is not active; uncollectable client cannot provide roots
+			rootNum:            map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 0, "https://ct.googleapis.com/icarus/": 0, "uncollectable-roots/log/": 0},
+			wantErrs:           0,
+			distributorOptions: []DistributorOption{DisableRootCheckingDistributorOption{}},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient, monitoring.InertMetricFactory{})
+			dist, _ := NewDistributor(tc.ll, ctpolicy.ChromeCTPolicy{}, newLocalStubLogClient, monitoring.InertMetricFactory{}, tc.distributorOptions...)
 
 			if errs := dist.RefreshRoots(ctx); len(errs) != tc.wantErrs {
 				t.Errorf("dist.RefreshRoots() = %v, want %d errors", errs, tc.wantErrs)
@@ -258,7 +276,7 @@ func TestDistributorAddChain(t *testing.T) {
 		pemChainFile string
 		getRoots     bool
 		scts         []*AssignedSCT
-		wantErr      bool
+		wantErr      error
 	}{
 		{
 			name:         "MalformedChainRequest with log roots available",
@@ -267,7 +285,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      true,
+			wantErr: ctfe.NoRfcCompliantPathFoundErr,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -276,7 +294,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     false,
 			scts:         nil,
-			wantErr:      true,
+			wantErr: DistributorNotEnoughCompatibleLogsErr,
 		},
 		{
 			name:         "CallBeforeInit",
@@ -284,7 +302,7 @@ func TestDistributorAddChain(t *testing.T) {
 			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
 			scts:         nil,
-			wantErr:      true,
+			wantErr: DistributorUnableToProcessEmptyChainErr,
 		},
 		{
 			name:         "InsufficientSCTsForPolicy",
@@ -293,7 +311,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.chain", // subleaf chain is fake-ca-1-rooted
 			getRoots:     true,
 			scts:         []*AssignedSCT{},
-			wantErr:      true, // Not enough SCTs for policy
+			wantErr:      DistributorNotEnoughCompatibleLogsErr,
 		},
 		{
 			name:         "FullChain1Policy",
@@ -307,7 +325,6 @@ func TestDistributorAddChain(t *testing.T) {
 					SCT:    testSCT("https://ct.googleapis.com/rocketeer/"),
 				},
 			},
-			wantErr: false,
 		},
 		// TODO(merkulova): Add tests to cover more cases where log roots aren't available
 	}
@@ -326,10 +343,10 @@ func TestDistributorAddChain(t *testing.T) {
 			}
 
 			scts, err := dist.AddChain(context.Background(), pemFileToDERChain(tc.pemChainFile), false /* loadPendingLogs */)
-
-			if gotErr := err != nil; gotErr != tc.wantErr {
-				t.Fatalf("dist.AddChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
-			} else if gotErr {
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("dist.AddPreChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
+			}
+			if err != nil {
 				return
 			}
 
@@ -354,7 +371,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 		pemChainFile string
 		getRoots     bool
 		scts         []*AssignedSCT
-		wantErr      bool
+		wantErr      error
 	}{
 		{
 			name:         "MalformedChainRequest with log roots available",
@@ -363,7 +380,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      true,
+			wantErr:      ctfe.NoRfcCompliantPathFoundErr,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -372,7 +389,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.misordered.chain",
 			getRoots:     false,
 			scts:         nil,
-			wantErr:      true,
+			wantErr:      DistributorNotEnoughCompatibleLogsErr,
 		},
 		{
 			name:         "CallBeforeInit",
@@ -380,7 +397,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
 			scts:         nil,
-			wantErr:      true,
+			wantErr:      DistributorUnableToProcessEmptyChainErr,
 		},
 		{
 			name:         "InsufficientSCTsForPolicy",
@@ -389,7 +406,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.chain", // subleaf chain is fake-ca-1-rooted
 			getRoots:     true,
 			scts:         []*AssignedSCT{},
-			wantErr:      true, // Not enough SCTs for policy
+			wantErr:      DistributorNotEnoughCompatibleLogsErr,
 		},
 		{
 			name:         "FullChain1Policy",
@@ -403,7 +420,6 @@ func TestDistributorAddPreChain(t *testing.T) {
 					SCT:    testSCT("https://ct.googleapis.com/rocketeer/"),
 				},
 			},
-			wantErr: false,
 		},
 		// TODO(merkulova): Add tests to cover more cases where log roots aren't available
 	}
@@ -422,10 +438,10 @@ func TestDistributorAddPreChain(t *testing.T) {
 			}
 
 			scts, err := dist.AddPreChain(context.Background(), pemFileToDERChain(tc.pemChainFile), true /* loadPendingLogs */)
-
-			if gotErr := err != nil; gotErr != tc.wantErr {
+			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("dist.AddPreChain(from %q) = (_, error: %v), want err? %t", tc.pemChainFile, err, tc.wantErr)
-			} else if gotErr {
+			}
+			if err != nil {
 				return
 			}
 
