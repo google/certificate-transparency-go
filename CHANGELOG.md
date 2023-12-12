@@ -2,6 +2,10 @@
 
 ## HEAD
 
+### Add support for AIX
+
+* Add build tags for AIX operating system
+
 ## v1.1.7
 
 * Recommended Go version for development: 1.20
