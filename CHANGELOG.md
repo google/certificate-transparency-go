@@ -6,6 +6,10 @@
 
 * Add build tags for AIX operating system
 
+### Misc
+
+* Return HTTP 504 instead of HTTP 408 upon timeout or cancellation of a backend connection context by @robstradling in https://github.com/google/certificate-transparency-go/pull/1313
+
 ## v1.1.7
 
 * Recommended Go version for development: 1.20
