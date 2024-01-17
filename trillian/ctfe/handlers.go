@@ -1101,7 +1101,7 @@ func (li *logInfo) toHTTPStatus(err error) int {
 	case codes.OK:
 		return http.StatusOK
 	case codes.Canceled, codes.DeadlineExceeded:
-		return http.StatusRequestTimeout
+		return http.StatusGatewayTimeout
 	case codes.InvalidArgument, codes.OutOfRange, codes.AlreadyExists:
 		return http.StatusBadRequest
 	case codes.NotFound:
