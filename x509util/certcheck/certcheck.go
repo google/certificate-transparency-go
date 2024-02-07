@@ -36,7 +36,7 @@ var (
 	useSystemRoots           = flag.Bool("system_roots", false, "Use system roots")
 	verbose                  = flag.Bool("verbose", false, "Verbose output")
 	strict                   = flag.Bool("strict", true, "Set non-zero exit code for non-fatal errors in parsing")
-	validate                 = flag.Bool("validate", false, "Validate certificate signatures")
+	validate                 = flag.Bool("validate", false, "Validate certificate signatures (leaf to root)")
 	checkTime                = flag.Bool("check_time", false, "Check current validity of certificate")
 	checkName                = flag.Bool("check_name", true, "Check certificate name validity")
 	checkEKU                 = flag.Bool("check_eku", true, "Check EKU nesting validity")
@@ -46,7 +46,7 @@ var (
 	checkRevoked             = flag.Bool("check_revocation", false, "Check revocation status of certificate")
 )
 
-func addCerts(filename string, pool *x509.CertPool) {
+func addCerts(filename string, pool *x509.CertPool, validateSelfSigned bool) {
 	if filename != "" {
 		dataList, err := x509util.ReadPossiblePEMFile(filename, "CERTIFICATE")
 		if err != nil {
@@ -58,6 +58,12 @@ func addCerts(filename string, pool *x509.CertPool) {
 				glog.Exitf("Failed to parse certificate from %s: %v", filename, err)
 			}
 			for _, cert := range certs {
+				if validateSelfSigned {
+					err := cert.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+					if err != nil {
+						glog.Exitf("Failed to verify self-signature on root cert from %s: %v", filename, err)
+					}
+				}
 				pool.AddCert(cert)
 			}
 		}
@@ -105,6 +111,7 @@ func main() {
 		}
 		if *validate && len(chain) > 0 {
 			opts := x509.VerifyOptions{
+				KeyUsages:                      []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 				DisableTimeChecks:              !*checkTime,
 				DisableCriticalExtensionChecks: !*checkUnknownCriticalExts,
 				DisableNameChecks:              !*checkName,
@@ -220,11 +227,10 @@ func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile
 		}
 		roots = systemRoots
 	}
-	opts.KeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageAny}
 	opts.Roots = roots
 	opts.Intermediates = x509.NewCertPool()
-	addCerts(rootsFile, opts.Roots)
-	addCerts(intermediatesFile, opts.Intermediates)
+	addCerts(rootsFile, opts.Roots /* validate_self_signed= */, true)
+	addCerts(intermediatesFile, opts.Intermediates /* validate_self_signed= */, false)
 
 	if !useSystemRoots && len(rootsFile) == 0 {
 		// No root CA certs provided, so assume the chain is self-contained.
@@ -241,6 +247,32 @@ func validateChain(chain []*x509.Certificate, opts x509.VerifyOptions, rootsFile
 			opts.Intermediates.AddCert(chain[i])
 		}
 	}
+
+	failed := false
+	for i, cert := range chain {
+		var msg string
+		var signer *x509.Certificate
+		if i == len(chain)-1 {
+			signer = cert
+			msg = "self-signature"
+		} else {
+			signer = chain[i+1]
+			msg = fmt.Sprintf("signature from cert [%d]", i+1)
+		}
+
+		err := signer.CheckSignature(cert.SignatureAlgorithm, cert.RawTBSCertificate, cert.Signature)
+		if err != nil {
+			glog.Errorf("Failed to verify %s on certificate [%d]: %v", msg, i, err)
+			failed = true
+		} else if *verbose {
+			fmt.Printf("Certificate [%d] with subject %q has valid %s\n", i, cert.Subject, msg)
+		}
+	}
+	if failed {
+		glog.Exitf("Signature verification failed")
+	}
+
+	// Also do full x509 verification according to the options.
 	_, err := chain[0].Verify(opts)
 	return err
 }
