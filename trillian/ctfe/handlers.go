@@ -47,7 +47,8 @@ import (
 )
 
 var (
-	alignGetEntries = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
+	alignGetEntries   = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
+	getEntriesMetrics = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
 )
 
 const (
@@ -106,19 +107,20 @@ const (
 var (
 	// Metrics are all per-log (label "logid"), but may also be
 	// per-entrypoint (label "ep") or per-return-code (label "rc").
-	once               sync.Once
-	knownLogs          monitoring.Gauge     // logid => value (always 1.0)
-	isMirrorLog        monitoring.Gauge     // logid => value (either 0.0 or 1.0)
-	maxMergeDelay      monitoring.Gauge     // logid => value
-	expMergeDelay      monitoring.Gauge     // logid => value
-	lastSCTTimestamp   monitoring.Gauge     // logid => value
-	lastSTHTimestamp   monitoring.Gauge     // logid => value
-	lastSTHTreeSize    monitoring.Gauge     // logid => value
-	frozenSTHTimestamp monitoring.Gauge     // logid => value
-	reqsCounter        monitoring.Counter   // logid, ep => value
-	rspsCounter        monitoring.Counter   // logid, ep, rc => value
-	rspLatency         monitoring.Histogram // logid, ep, rc => value
-	alignedGetEntries  monitoring.Counter   // logid, aligned => count
+	once                       sync.Once
+	knownLogs                  monitoring.Gauge     // logid => value (always 1.0)
+	isMirrorLog                monitoring.Gauge     // logid => value (either 0.0 or 1.0)
+	maxMergeDelay              monitoring.Gauge     // logid => value
+	expMergeDelay              monitoring.Gauge     // logid => value
+	lastSCTTimestamp           monitoring.Gauge     // logid => value
+	lastSTHTimestamp           monitoring.Gauge     // logid => value
+	lastSTHTreeSize            monitoring.Gauge     // logid => value
+	frozenSTHTimestamp         monitoring.Gauge     // logid => value
+	reqsCounter                monitoring.Counter   // logid, ep => value
+	rspsCounter                monitoring.Counter   // logid, ep, rc => value
+	rspLatency                 monitoring.Histogram // logid, ep, rc => value
+	alignedGetEntries          monitoring.Counter   // logid, aligned => count
+	getEntriesStartPercentiles monitoring.Histogram // logid => percentile
 )
 
 // setupMetrics initializes all the exported metrics.
@@ -135,6 +137,12 @@ func setupMetrics(mf monitoring.MetricFactory) {
 	rspsCounter = mf.NewCounter("http_rsps", "Number of responses", "logid", "ep", "rc")
 	rspLatency = mf.NewHistogram("http_latency", "Latency of responses in seconds", "logid", "ep", "rc")
 	alignedGetEntries = mf.NewCounter("aligned_get_entries", "Number of get-entries requests which were aligned to size limit boundaries", "logid", "aligned")
+	getEntriesStartPercentiles = mf.NewHistogramWithBuckets(
+		"get_leaves_start_percentiles",
+		"Start index of GetLeavesByRange request using percentage of current log size at the time",
+		monitoring.PercentileBuckets(5),
+		"logid",
+	)
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
@@ -750,6 +758,10 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		// explicitly here.
 		return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
 	}
+	if *getEntriesMetrics {
+		label := strconv.FormatInt(req.LogId, 10)
+		recordStartPercent(start, currentRoot.TreeSize, label)
+	}
 	// Do some sanity checks on the result.
 	if len(rsp.Leaves) > int(count) {
 		return http.StatusInternalServerError, fmt.Errorf("backend returned too many leaves: %d vs [%d,%d]", len(rsp.Leaves), start, end)
@@ -1101,7 +1113,7 @@ func (li *logInfo) toHTTPStatus(err error) int {
 	case codes.OK:
 		return http.StatusOK
 	case codes.Canceled, codes.DeadlineExceeded:
-		return http.StatusRequestTimeout
+		return http.StatusGatewayTimeout
 	case codes.InvalidArgument, codes.OutOfRange, codes.AlreadyExists:
 		return http.StatusBadRequest
 	case codes.NotFound:
@@ -1120,5 +1132,14 @@ func (li *logInfo) toHTTPStatus(err error) int {
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+// recordStartPercent works out what percentage of the current log size an index corresponds to,
+// and records this to the getEntriesStartPercentiles histogram.
+func recordStartPercent(leafIndex int64, treeSize uint64, labelVals ...string) {
+	if treeSize > 0 {
+		percent := float64(leafIndex) / float64(treeSize) * 100.0
+		getEntriesStartPercentiles.Observe(percent, labelVals...)
 	}
 }
