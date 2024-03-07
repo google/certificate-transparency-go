@@ -2,11 +2,15 @@
 
 ## HEAD
 
+* Recommended Go version for development: 1.21
+  * This is the version used by the Cloud Build presubmits. Using a different version can lead to presubmits failing due to unexpected diffs.
+
 ### Add support for AIX
 
 * Add build tags for AIX operating system
 
 ### Monitoring
+
 * Add a distribution metric to monitor the start of get-entries requests
 
 ### Misc
