@@ -196,7 +196,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 			// aviator is not active; 1 of 2 icarus roots is not x509 struct
 			rootNum:            map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 0, "https://ct.googleapis.com/icarus/": 0},
 			wantErrs:           0,
-			distributorOptions: []DistributorOption{DisableRootCheckingDistributorOption{}},
+			distributorOptions: []DistributorOption{DisableRootCompatibilityCheckingDistributorOption{}},
 		},
 		{
 			name: "CouldNotCollect",
@@ -211,7 +211,7 @@ func TestNewDistributorRootPools(t *testing.T) {
 			// aviator is not active; uncollectable client cannot provide roots
 			rootNum:            map[string]int{"https://ct.googleapis.com/aviator/": 0, "https://ct.googleapis.com/rocketeer/": 0, "https://ct.googleapis.com/icarus/": 0, "uncollectable-roots/log/": 0},
 			wantErrs:           0,
-			distributorOptions: []DistributorOption{DisableRootCheckingDistributorOption{}},
+			distributorOptions: []DistributorOption{DisableRootCompatibilityCheckingDistributorOption{}},
 		},
 	}
 
@@ -285,7 +285,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr: ctfe.NoRfcCompliantPathFoundErr,
+			wantErr:      ctfe.NoRfcCompliantPathFoundErr,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -294,7 +294,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     false,
 			scts:         nil,
-			wantErr: DistributorNotEnoughCompatibleLogsErr,
+			wantErr:      DistributorNotEnoughCompatibleLogsErr,
 		},
 		{
 			name:         "CallBeforeInit",
@@ -302,7 +302,7 @@ func TestDistributorAddChain(t *testing.T) {
 			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
 			scts:         nil,
-			wantErr: DistributorUnableToProcessEmptyChainErr,
+			wantErr:      DistributorUnableToProcessEmptyChainErr,
 		},
 		{
 			name:         "InsufficientSCTsForPolicy",

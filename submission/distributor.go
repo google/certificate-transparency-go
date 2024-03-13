@@ -419,13 +419,17 @@ func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist3.L
 	return nil
 }
 
+// DistributorOption allows the setting of internal behavior on the distributor.
 type DistributorOption interface {
+	// Apply applies a change to the distributor.
 	Apply(d *Distributor) error
 }
 
-type DisableRootCheckingDistributorOption struct{}
+// DisableRootCompatibilityCheckingDistributorOption disables the root compatibility
+// checking that the distributor does before submitting a certificate to CT logs.
+type DisableRootCompatibilityCheckingDistributorOption struct{}
 
-func (DisableRootCheckingDistributorOption) Apply(d *Distributor) error {
+func (DisableRootCompatibilityCheckingDistributorOption) Apply(d *Distributor) error {
 	d.rootCompatibilityCheckDisabled = true
 	return nil
 }
