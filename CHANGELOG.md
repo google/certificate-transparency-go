@@ -2,6 +2,10 @@
 
 ## HEAD
 
+### Root compatibility checking
+
+* Adds the ability for a CT client to disable root compatibile checking: https://github.com/google/certificate-transparency-go/pull/1258
+
 ### Add support for AIX
 
 * Add build tags for AIX operating system

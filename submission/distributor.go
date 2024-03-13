@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	DistributorNotEnoughCompatibleLogsErr = errors.New("distributor does not have enough compatible Logs to comply with the policy")
+	DistributorNotEnoughCompatibleLogsErr   = errors.New("distributor does not have enough compatible Logs to comply with the policy")
 	DistributorUnableToProcessEmptyChainErr = errors.New("distributor unable to process empty chain")
 )
 
@@ -100,7 +100,10 @@ type Distributor struct {
 	policy            ctpolicy.CTPolicy
 	pendingLogsPolicy ctpolicy.CTPolicy
 
-	disableRootChecking bool
+	// rootCompatibilityCheckDisabled being set to true disables the root
+	// compatibility checking the distributor does before sending a
+	// certificate to a given CT log.
+	rootCompatibilityCheckDisabled bool
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -109,7 +112,7 @@ type Distributor struct {
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
 func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
-	if d.disableRootChecking {
+	if d.rootCompatibilityCheckDisabled {
 		return nil
 	}
 	type RootsResult struct {
@@ -267,7 +270,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		if err != nil {
 			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
 		}
-		if d.disableRootChecking {
+		if d.rootCompatibilityCheckDisabled {
 			return d.usableLl.Compatible(parsedChain[0], nil, loglist3.LogRoots{}), parsedChain, nil
 		}
 		d.mu.RLock()
@@ -420,10 +423,9 @@ type DistributorOption interface {
 	Apply(d *Distributor) error
 }
 
-type DisableRootCheckingDistributorOption struct {}
+type DisableRootCheckingDistributorOption struct{}
 
 func (DisableRootCheckingDistributorOption) Apply(d *Distributor) error {
-	d.disableRootChecking = true
+	d.rootCompatibilityCheckDisabled = true
 	return nil
 }
-
