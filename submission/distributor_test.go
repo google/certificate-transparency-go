@@ -285,7 +285,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      ctfe.ErrNoRfcCompliantPathFound,
+			wantErr:      ctfe.ErrNoRFCCompliantPathFound,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -380,7 +380,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      ctfe.ErrNoRfcCompliantPathFound,
+			wantErr:      ctfe.ErrNoRFCCompliantPathFound,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
