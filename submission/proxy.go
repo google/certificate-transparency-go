@@ -165,10 +165,6 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist3.LogList) er
 		// losing ll info. No good.
 		return err
 	}
-	// Don't periodically refresh the roots if we're not going to bother checking them.
-	if d.rootCompatibilityCheckDisabled {
-		return nil
-	}
 
 	// Start refreshing roots periodically so they stay up-to-date.
 	refreshCtx, refreshCancel := context.WithCancel(ctx)

@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	NoRfcCompliantPathFoundErr = errors.New("no RFC compliant path to root found when trying to validate chain")
+	ErrNoRFCCompliantPathFound = errors.New("no RFC compliant path to root found when trying to validate chain")
 )
 
 // IsPrecertificate tests if a certificate is a pre-certificate as defined in CT.
@@ -176,7 +176,7 @@ func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x50
 		}
 	}
 
-	return nil, NoRfcCompliantPathFoundErr
+	return nil, ErrNoRFCCompliantPathFound
 }
 
 func chainsEquivalent(inChain []*x509.Certificate, verifiedChain []*x509.Certificate) bool {
