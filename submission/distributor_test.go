@@ -285,7 +285,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      ctfe.NoRfcCompliantPathFoundErr,
+			wantErr:      ctfe.ErrNoRfcCompliantPathFound,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -294,7 +294,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.misordered.chain",
 			getRoots:     false,
 			scts:         nil,
-			wantErr:      DistributorNotEnoughCompatibleLogsErr,
+			wantErr:      ErrDistributorNotEnoughCompatibleLogs,
 		},
 		{
 			name:         "CallBeforeInit",
@@ -302,7 +302,7 @@ func TestDistributorAddChain(t *testing.T) {
 			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
 			scts:         nil,
-			wantErr:      DistributorUnableToProcessEmptyChainErr,
+			wantErr:      ErrDistributorUnableToProcessEmptyChain,
 		},
 		{
 			name:         "InsufficientSCTsForPolicy",
@@ -311,7 +311,7 @@ func TestDistributorAddChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf.chain", // subleaf chain is fake-ca-1-rooted
 			getRoots:     true,
 			scts:         []*AssignedSCT{},
-			wantErr:      DistributorNotEnoughCompatibleLogsErr,
+			wantErr:      ErrDistributorNotEnoughCompatibleLogs,
 		},
 		{
 			name:         "FullChain1Policy",
@@ -380,7 +380,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.misordered.chain",
 			getRoots:     true,
 			scts:         nil,
-			wantErr:      ctfe.NoRfcCompliantPathFoundErr,
+			wantErr:      ctfe.ErrNoRfcCompliantPathFound,
 		},
 		{
 			name:         "MalformedChainRequest without log roots available",
@@ -389,7 +389,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.misordered.chain",
 			getRoots:     false,
 			scts:         nil,
-			wantErr:      DistributorNotEnoughCompatibleLogsErr,
+			wantErr:      ErrDistributorNotEnoughCompatibleLogs,
 		},
 		{
 			name:         "CallBeforeInit",
@@ -397,7 +397,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			plc:          ctpolicy.ChromeCTPolicy{},
 			pemChainFile: "",
 			scts:         nil,
-			wantErr:      DistributorUnableToProcessEmptyChainErr,
+			wantErr:      ErrDistributorUnableToProcessEmptyChain,
 		},
 		{
 			name:         "InsufficientSCTsForPolicy",
@@ -406,7 +406,7 @@ func TestDistributorAddPreChain(t *testing.T) {
 			pemChainFile: "../trillian/testdata/subleaf-pre.chain", // subleaf chain is fake-ca-1-rooted
 			getRoots:     true,
 			scts:         []*AssignedSCT{},
-			wantErr:      DistributorNotEnoughCompatibleLogsErr,
+			wantErr:      ErrDistributorNotEnoughCompatibleLogs,
 		},
 		{
 			name:         "FullChain1Policy",

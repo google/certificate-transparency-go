@@ -38,8 +38,8 @@ import (
 )
 
 var (
-	DistributorNotEnoughCompatibleLogsErr   = errors.New("distributor does not have enough compatible Logs to comply with the policy")
-	DistributorUnableToProcessEmptyChainErr = errors.New("distributor unable to process empty chain")
+	ErrDistributorNotEnoughCompatibleLogs   = errors.New("distributor does not have enough compatible Logs to comply with the policy")
+	ErrDistributorUnableToProcessEmptyChain = errors.New("distributor unable to process empty chain")
 )
 
 var (
@@ -261,7 +261,7 @@ func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
 // on asPreChain param.
 func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool, asPreChain bool) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
-		return nil, DistributorUnableToProcessEmptyChainErr
+		return nil, ErrDistributorUnableToProcessEmptyChain
 	}
 
 	// Helper function establishing responsibility of locking while determining log list and root chain.
@@ -312,7 +312,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	// Set up policy structs.
 	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", DistributorNotEnoughCompatibleLogsErr, err)
+		return nil, fmt.Errorf("%w: %w", ErrDistributorNotEnoughCompatibleLogs, err)
 	}
 	chain := make([]ct.ASN1Cert, len(parsedChain))
 	for i, c := range parsedChain {
