@@ -16,6 +16,7 @@ package submission
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,6 +35,11 @@ import (
 	"k8s.io/klog/v2"
 
 	ct "github.com/google/certificate-transparency-go"
+)
+
+var (
+	DistributorNotEnoughCompatibleLogsErr   = errors.New("distributor does not have enough compatible Logs to comply with the policy")
+	DistributorUnableToProcessEmptyChainErr = errors.New("distributor unable to process empty chain")
 )
 
 var (
@@ -93,6 +99,11 @@ type Distributor struct {
 
 	policy            ctpolicy.CTPolicy
 	pendingLogsPolicy ctpolicy.CTPolicy
+
+	// rootCompatibilityCheckDisabled being set to true disables the root
+	// compatibility checking the distributor does before sending a
+	// certificate to a given CT log.
+	rootCompatibilityCheckDisabled bool
 }
 
 // RefreshRoots requests roots from Logs and updates local copy.
@@ -101,6 +112,9 @@ type Distributor struct {
 // If at least one root was successfully parsed for a log, log roots set gets
 // the update.
 func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
+	if d.rootCompatibilityCheckDisabled {
+		return nil
+	}
 	type RootsResult struct {
 		LogURL string
 		Roots  *x509util.PEMCertPool
@@ -247,11 +261,18 @@ func parseRawChain(rawChain [][]byte) ([]*x509.Certificate, error) {
 // on asPreChain param.
 func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool, asPreChain bool) ([]*AssignedSCT, error) {
 	if len(rawChain) == 0 {
-		return nil, fmt.Errorf("distributor unable to process empty chain")
+		return nil, DistributorUnableToProcessEmptyChainErr
 	}
 
 	// Helper function establishing responsibility of locking while determining log list and root chain.
 	compatibleLogsAndChain := func() (loglist3.LogList, []*x509.Certificate, error) {
+		parsedChain, err := parseRawChain(rawChain)
+		if err != nil {
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
+		}
+		if d.rootCompatibilityCheckDisabled {
+			return d.usableLl.Compatible(parsedChain[0], nil, loglist3.LogRoots{}), parsedChain, nil
+		}
 		d.mu.RLock()
 		defer d.mu.RUnlock()
 		vOpts := ctfe.NewCertValidationOpts(d.rootPool, time.Time{}, false, false, nil, nil, false, nil)
@@ -261,14 +282,10 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		}
 		if d.rootDataFull {
 			// Could not verify the chain while root info for logs is complete.
-			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %v", err)
+			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to process cert-chain: %w", err)
 		}
 
 		// Chain might be rooted to the Log which has no root-info yet.
-		parsedChain, err := parseRawChain(rawChain)
-		if err != nil {
-			return loglist3.LogList{}, nil, fmt.Errorf("distributor unable to parse cert-chain: %v", err)
-		}
 		return d.usableLl.Compatible(parsedChain[0], nil, d.logRoots), parsedChain, nil
 	}
 	compatibleLogs, parsedChain, err := compatibleLogsAndChain()
@@ -295,7 +312,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	// Set up policy structs.
 	groups, err := d.policy.LogsByGroup(parsedChain[0], &compatibleLogs)
 	if err != nil {
-		return nil, fmt.Errorf("distributor does not have enough compatible Logs to comply with the policy: %v", err)
+		return nil, fmt.Errorf("%w: %w", DistributorNotEnoughCompatibleLogsErr, err)
 	}
 	chain := make([]ct.ASN1Cert, len(parsedChain))
 	for i, c := range parsedChain {
@@ -349,7 +366,7 @@ func BuildLogClient(log *loglist3.Log) (client.AddLogClient, error) {
 // The Distributor will asynchronously fetch the latest roots from all of the
 // logs when active. Call Run() to fetch roots and init regular updates to keep
 // the local copy of the roots up-to-date.
-func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory) (*Distributor, error) {
+func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogClientBuilder, mf monitoring.MetricFactory, distributorOptions ...DistributorOption) (*Distributor, error) {
 	var d Distributor
 	// Divide Logs by statuses.
 	d.ll = ll
@@ -379,6 +396,11 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 		mf = monitoring.InertMetricFactory{}
 	}
 	distOnce.Do(func() { distInitMetrics(mf) })
+	for _, option := range distributorOptions {
+		if err := option.Apply(&d); err != nil {
+			return nil, fmt.Errorf("unable to apply distributor option %v: %w", option, err)
+		}
+	}
 	return &d, nil
 }
 
@@ -394,5 +416,20 @@ func (d *Distributor) buildLogClients(lcBuilder LogClientBuilder, ll *loglist3.L
 			d.logClients[log.URL] = lc
 		}
 	}
+	return nil
+}
+
+// DistributorOption allows the setting of internal behavior on the distributor.
+type DistributorOption interface {
+	// Apply applies a change to the distributor.
+	Apply(d *Distributor) error
+}
+
+// DisableRootCompatibilityCheckingDistributorOption disables the root compatibility
+// checking that the distributor does before submitting a certificate to CT logs.
+type DisableRootCompatibilityCheckingDistributorOption struct{}
+
+func (DisableRootCompatibilityCheckingDistributorOption) Apply(d *Distributor) error {
+	d.rootCompatibilityCheckDisabled = true
 	return nil
 }
