@@ -1118,8 +1118,10 @@ func (li *logInfo) toHTTPStatus(err error) int {
 		return http.StatusBadRequest
 	case codes.NotFound:
 		return http.StatusNotFound
-	case codes.PermissionDenied, codes.ResourceExhausted:
+	case codes.PermissionDenied:
 		return http.StatusForbidden
+	case codes.ResourceExhausted:
+		return http.StatusTooManyRequests
 	case codes.Unauthenticated:
 		return http.StatusUnauthorized
 	case codes.FailedPrecondition:
