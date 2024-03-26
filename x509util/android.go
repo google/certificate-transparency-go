@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // OIDExtensionAndroidAttestation is the OID value for an X.509 extension that holds
@@ -66,6 +67,12 @@ type AndroidVmComponent struct {
 	SecurityVersion int64
 	CodeHash        []byte
 	AuthorityHash   []byte
+}
+
+// RkpProvisioningInfo describes remotely provisioned key information
+type RkpProvisioningInfo struct {
+	CertsSigned30Days  int64                `cbor:"1,keyasint"`
+	Manufacturer       *string              `cbor:"2,keyasint,omitempty"`
 }
 
 func securityLevelToString(lvl asn1.Enumerated) string {
@@ -189,6 +196,22 @@ func VmInfoFromCert(cert *x509.Certificate) (*AndroidVmAttestationInfo, error) {
 	return nil, errors.New("no Android VM Attestation extension found")
 }
 
+// RkpInfoFromCert retrieves and parses an Android VM attestation information extension
+// from a certificate, if present.
+func RkpInfoFromCert(cert *x509.Certificate) (*RkpProvisioningInfo, error) {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(OIDExtensionAndroidRkpInfo) {
+			var rkpInfo RkpProvisioningInfo
+			err := cbor.Unmarshal(ext.Value, &rkpInfo)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal RKP CBOR info: %v", err)
+			}
+			return &rkpInfo, nil
+		}
+	}
+	return nil, errors.New("no Android RKP Attestation extension found")
+}
+
 func showAndroidVmAttestation(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(OIDExtensionAndroidVmAttestation, cert.Extensions)
 	if count == 0 {
@@ -214,13 +237,20 @@ func showAndroidVmAttestation(result *bytes.Buffer, cert *x509.Certificate) {
 }
 
 func showAndroidRkpInfo(result *bytes.Buffer, cert *x509.Certificate) {
-	for _, ext := range cert.Extensions {
-		if ext.Id.Equal(OIDExtensionAndroidRkpInfo) {
-			result.WriteString(fmt.Sprintf("            Android RKP Information:"))
-			showCritical(result, ext.Critical)
-			appendHexData(result, ext.Value, 16, "                ")
-			result.WriteString("\n")
-		}
+	count, critical := OIDInExtensions(OIDExtensionAndroidRkpInfo, cert.Extensions)
+	if count == 0 {
+		return
+	}
+	result.WriteString(fmt.Sprintf("            Android RKP Information:"))
+	showCritical(result, critical)
+	rkpInfo, err := RkpInfoFromCert(cert)
+	if err != nil {
+		result.WriteString(fmt.Sprintf("              Failed to CBOR-decode RKP info: (%s)\n", err))
+		return
+	}
+	result.WriteString(fmt.Sprintf("              Certs Signed Last 30d: %d\n", rkpInfo.CertsSigned30Days))
+	if rkpInfo.Manufacturer != nil {
+		result.WriteString(fmt.Sprintf("              Manufacturer: %s\n", *rkpInfo.Manufacturer))
 	}
 }
 
