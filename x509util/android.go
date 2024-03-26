@@ -33,6 +33,10 @@ var OIDExtensionAndroidAttestation = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 111
 // remote key provisioning info.
 var OIDExtensionAndroidRkpInfo = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 1, 30}
 
+// OIDExtensionAndroidVmAttestation is the OID value for an X.509 extension that holds
+// Android attestation info for a virtual machine.
+var OIDExtensionAndroidVmAttestation = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 11129, 2, 1, 29, 1}
+
 // AndroidAttestationInfo holds attestation information attached to an Android
 // hardware-backed key, describing features of the key and the device that issued
 // it. See https://developer.android.com/training/articles/security-key-attestation for
@@ -46,6 +50,22 @@ type AndroidAttestationInfo struct {
 	UniqueId                 []byte
 	SoftwareEnforced         AuthorizationList
 	HardwareEnforced         AuthorizationList
+}
+
+// AndroidVmAttestationInfo holds attestation information attached to an Android virtual
+// machine.
+type AndroidVmAttestationInfo struct {
+	AttestationChallenge []byte
+	IsVmSecure           bool
+	VmComponents         []AndroidVmComponent
+}
+
+// AndroidVmComponent describes one attested component of an Android VM.
+type AndroidVmComponent struct {
+	Name            string
+	SecurityVersion int64
+	CodeHash        []byte
+	AuthorityHash   []byte
 }
 
 func securityLevelToString(lvl asn1.Enumerated) string {
@@ -149,6 +169,48 @@ func AttestInfoFromCert(cert *x509.Certificate) (*AndroidAttestationInfo, error)
 		}
 	}
 	return nil, errors.New("no Android Attestation extension found")
+}
+
+// VmInfoFromCert retrieves and parses an Android VM attestation information extension
+// from a certificate, if present.
+func VmInfoFromCert(cert *x509.Certificate) (*AndroidVmAttestationInfo, error) {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(OIDExtensionAndroidVmAttestation) {
+			var vmInfo AndroidVmAttestationInfo
+			rest, err := asn1.Unmarshal(ext.Value, &vmInfo)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal attestation info: %v", err)
+			} else if len(rest) > 0 {
+				return nil, fmt.Errorf("trailing data (%d bytes) after attestation info", len(rest))
+			}
+			return &vmInfo, nil
+		}
+	}
+	return nil, errors.New("no Android VM Attestation extension found")
+}
+
+func showAndroidVmAttestation(result *bytes.Buffer, cert *x509.Certificate) {
+	count, critical := OIDInExtensions(OIDExtensionAndroidVmAttestation, cert.Extensions)
+	if count == 0 {
+		return
+	}
+	result.WriteString(fmt.Sprintf("            Android VM Information:"))
+	showCritical(result, critical)
+	vmInfo, err := VmInfoFromCert(cert)
+	if err != nil {
+		result.WriteString(fmt.Sprintf("              Failed to decode VM info: (%s)\n", err))
+		return
+	}
+	showHex(result, "              ", "Attestation Challenge", vmInfo.AttestationChallenge)
+	result.WriteString(fmt.Sprintf("              Is VM Secure: %t\n", vmInfo.IsVmSecure))
+	result.WriteString(fmt.Sprintf("              Components:\n"))
+	for _, component := range vmInfo.VmComponents {
+		result.WriteString(fmt.Sprintf("                  Component:\n"))
+		result.WriteString(fmt.Sprintf("                      Name: %s\n", component.Name))
+		result.WriteString(fmt.Sprintf("                      Security Version: %d\n", component.SecurityVersion))
+		showHex(result, "                      ", "Code Hash", component.CodeHash)
+		showHex(result, "                      ", "Authority Hash", component.AuthorityHash)
+	}
 }
 
 func showAndroidRkpInfo(result *bytes.Buffer, cert *x509.Certificate) {
@@ -270,7 +332,7 @@ func showKeyAuthorizations(buf *bytes.Buffer, auths AuthorizationList, prefix st
 		buf.WriteString(fmt.Sprintf("%sOS Patchlevel: %d\n", prefix, auths.OsPatchlevel))
 	}
 
-	showOptionalAttestationAppId(buf, prefix,  auths.AttestationApplicationId)
+	showOptionalAttestationAppId(buf, prefix, auths.AttestationApplicationId)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Brand", auths.AttestationIdBrand)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Device", auths.AttestationIdDevice)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Product", auths.AttestationIdProduct)
@@ -475,13 +537,13 @@ func showHexUtf8(buf *bytes.Buffer, prefix string, name string, val []byte) {
 // AndroidAttestationAppId describes an Android application identifier.
 type AndroidAttestationAppId struct {
 	PackageInfoRecords []AndroidPackageInfoRecord `asn1:"set"`
-	SignatureDigests [][]byte `asn1:"set"`
+	SignatureDigests   [][]byte                   `asn1:"set"`
 }
 
 // AndroidPackageInfoRecord hold a package info record from Android.
 type AndroidPackageInfoRecord struct {
 	PackageName []byte
-	Version int
+	Version     int
 }
 
 func AndroidAppInfoFromData(val []byte) (*AndroidAttestationAppId, error) {
