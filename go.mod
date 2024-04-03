@@ -21,7 +21,7 @@ require (
 	go.etcd.io/etcd/etcdctl/v3 v3.5.13
 	go.etcd.io/etcd/v3 v3.5.13
 	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.23.0
 	golang.org/x/time v0.5.0
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
