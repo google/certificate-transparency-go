@@ -83,6 +83,9 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 	if err != nil {
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
+	if resp.Request.Method != "PUT" {
+		return nil, fmt.Errorf("PUT request to %q was converted to %s request to %q", u.String(), resp.Request.Method, resp.Request.URL)
+	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
