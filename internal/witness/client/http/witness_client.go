@@ -84,6 +84,7 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
 	if resp.Request.Method != "PUT" {
+		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections#permanent_redirections
 		return nil, fmt.Errorf("PUT request to %q was converted to %s request to %q", u.String(), resp.Request.Method, resp.Request.URL)
 	}
 	defer resp.Body.Close()
