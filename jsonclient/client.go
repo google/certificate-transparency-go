@@ -250,7 +250,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	}
 	if httpRsp.Request.Method != http.MethodPost {
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections#permanent_redirections
-		return nil, nil, fmt.Errorf("PUT request to %q was converted to %s request to %q", fullURI, httpRsp.Request.Method, httpRsp.Request.URL)
+		return nil, nil, fmt.Errorf("POST request to %q was converted to %s request to %q", fullURI, httpRsp.Request.Method, httpRsp.Request.URL)
 	}
 
 	if httpRsp.StatusCode == http.StatusOK {
