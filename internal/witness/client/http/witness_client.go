@@ -43,7 +43,7 @@ func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -75,7 +75,7 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(reqBody))
+	req, err := http.NewRequest(http.MethodPut, u.String(), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
