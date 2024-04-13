@@ -99,7 +99,12 @@ func main() {
 				if err != nil {
 					log.Fatalf("http.Post(%s)=(_,%q); want (_,nil)", url, err)
 				}
-				defer resp.Body.Close()
+
+				defer func() {
+					if err := resp.Body.Close(); err != nil {
+						log.Fatalf("Unable to close response body: %v", err)
+					}
+				}()
 				var scts submission.SCTBatch
 				err = json.NewDecoder(resp.Body).Decode(&scts)
 				if err != nil {

@@ -52,8 +52,11 @@ func TestFirstRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList3, err)
 	}
-	defer os.Remove(f)
-
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			t.Errorf("failed to remove the named file: %q", err)
+		}
+	}()
 	llr := NewLogListRefresher(f)
 	llm := NewLogListManager(llr, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -75,7 +78,11 @@ func TestSecondRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList3, err)
 	}
-	defer os.Remove(f)
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			t.Errorf("failed to remove the named file: %q", err)
+		}
+	}()
 
 	llr := NewLogListRefresher(f)
 	llm := NewLogListManager(llr, monitoring.InertMetricFactory{})
