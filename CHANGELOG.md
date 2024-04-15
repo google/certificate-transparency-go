@@ -6,6 +6,10 @@
 
 * Adds the ability for a CT client to disable root compatibile checking: https://github.com/google/certificate-transparency-go/pull/1258
 
+### Fixes
+
+* Return 429 Too Many Requests for gRPC error code `ResourceExhausted` from Trillian.
+
 ## v1.1.8
 
 * Recommended Go version for development: 1.21
