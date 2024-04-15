@@ -311,7 +311,7 @@ func TestGetRoots(t *testing.T) {
 	defer info.mockCtrl.Finish()
 	handler := AppHandler{Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet}
 
-	req, err := http.NewRequest("GET", "http://example.com/ct/v1/get-roots", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/ct/v1/get-roots", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestAddChainWhitespace(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 			handler := AppHandler{Info: info.li, Handler: addChain, Name: "AddChain", Method: http.MethodPost}
-			req, err := http.NewRequest("POST", "http://example.com/ct/v1/add-chain", strings.NewReader(test.body))
+			req, err := http.NewRequest(http.MethodPost, "http://example.com/ct/v1/add-chain", strings.NewReader(test.body))
 			if err != nil {
 				t.Fatalf("Failed to create POST request: %v", err)
 			}
@@ -775,7 +775,7 @@ func TestGetSTH(t *testing.T) {
 				srReq.ChargeTo = &trillian.ChargeTo{User: []string{test.wantQuotaUser}}
 			}
 			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), cmpMatcher{srReq}).Return(test.rpcRsp, test.rpcErr)
-			req, err := http.NewRequest("GET", "http://example.com/ct/v1/get-sth", nil)
+			req, err := http.NewRequest(http.MethodGet, "http://example.com/ct/v1/get-sth", nil)
 			if err != nil {
 				t.Errorf("Failed to create request: %v", err)
 				return
@@ -1010,7 +1010,7 @@ func TestGetEntries(t *testing.T) {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
 		handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
 		path := fmt.Sprintf("/ct/v1/get-entries?%s", test.req)
-		req, err := http.NewRequest("GET", path, nil)
+		req, err := http.NewRequest(http.MethodGet, path, nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
 			continue
@@ -1187,7 +1187,7 @@ func TestGetEntriesRanges(t *testing.T) {
 			}
 
 			path := fmt.Sprintf("/ct/v1/get-entries?start=%d&end=%d", test.start, test.end)
-			req, err := http.NewRequest("GET", path, nil)
+			req, err := http.NewRequest(http.MethodGet, path, nil)
 			if err != nil {
 				t.Fatalf("Failed to create request: %v", err)
 			}
@@ -1444,7 +1444,7 @@ func TestGetProofByHash(t *testing.T) {
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
-		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/proof-by-hash?%s", test.req), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/ct/v1/proof-by-hash?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
 			continue
@@ -1792,7 +1792,7 @@ func TestGetSTHConsistency(t *testing.T) {
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
-		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/get-sth-consistency?%s", test.req), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/ct/v1/get-sth-consistency?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
 			continue
@@ -2126,7 +2126,7 @@ func TestGetEntryAndProof(t *testing.T) {
 
 	for _, test := range tests {
 		info.setRemoteQuotaUser(test.wantQuotaUser)
-		req, err := http.NewRequest("GET", fmt.Sprintf("/ct/v1/get-entry-and-proof?%s", test.req), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("/ct/v1/get-entry-and-proof?%s", test.req), nil)
 		if err != nil {
 			t.Errorf("Failed to create request: %v", err)
 			continue
@@ -2250,7 +2250,7 @@ func makeAddChainRequest(t *testing.T, li *logInfo, body io.Reader) *httptest.Re
 
 func makeAddChainRequestInternal(t *testing.T, handler AppHandler, path string, body io.Reader) *httptest.ResponseRecorder {
 	t.Helper()
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://example.com/ct/v1/%s", path), body)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://example.com/ct/v1/%s", path), body)
 	if err != nil {
 		t.Fatalf("Failed to create POST request: %v", err)
 	}
