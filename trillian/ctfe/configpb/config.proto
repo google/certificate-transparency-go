@@ -20,6 +20,7 @@ package configpb;
 
 import "crypto/keyspb/keyspb.proto";
 import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 message LogBackend {
@@ -45,7 +46,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 20
+// NEXT_ID: 23
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -132,6 +133,33 @@ message LogConfig {
   // A list of X.509 extension OIDs, in dotted string form (e.g. "2.3.4.5")
   // which should cause submissions to be rejected.
   repeated string reject_extensions = 18;
+
+  // CTFE storage connection string in the following format in general:
+  // driver://[username[:password]@][protocol[(host[:port])]][/[schema|database][?options]]
+  //
+  // MySQL/MariaDB:
+  // mysql://[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
+  //
+  // This is required when the non-leaf certificate chain storage backend is
+  // CTFE.
+  // 
+  // Warning: CT log operators are advised not to share the non-leaf 
+  // certificate chain among multiple logs due to the log lifecycle.
+  string ctfe_storage_connection_string = 20;
+
+  // An optional list of storage backends for non-leaf certificate chain in 
+  // ExtraData. Log operators may want to use both Trillian GRPC and CTFE as  
+  // the storage backends to ensure the data availability at the beginning. 
+  // By default, the storage backend is Trillian GRPC. To use CTFE as the  
+  // storage backend, the CTFE storage connection string needs to be specified.
+  enum NonLeafCertificateChainStorageBackend {
+    NON_LEAF_CERTIFICATE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
+    NON_LEAF_CERTIFICATE_CHAIN_STORAGE_BACKEND_CTFE = 1;
+  }
+  repeated NonLeafCertificateChainStorageBackend extra_data_non_leaf_certificate_chain_storage_backends = 21;
+
+  // CTFE non-leaf certificate chain cache.
+  Cache extra_data_non_leaf_certificate_chain_cache = 22;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
@@ -153,4 +181,27 @@ message SignedTreeHead {
   int64 timestamp = 2;
   bytes sha256_root_hash = 3;
   bytes tree_head_signature = 4;
+}
+
+// Cache describes the cache type and configurations.
+//
+// NEXT_ID: 5
+message Cache {
+  // CacheType represents the underlying cache type implementation.
+  // If unspecified, no cache is used.
+  enum CacheType {
+    CACHE_TYPE_NONE = 0;
+    CACHE_TYPE_LRU = 1;
+  }
+  CacheType type = 1;
+
+  // Cache size 0 means unlimited size. Default is 0.
+  int64 size = 2;
+
+  // Cache ttl 0 means cache will never expire. Default is 0.
+  google.protobuf.Duration ttl = 3;
+
+  // If set, the data is loaded when necessary. Default preloads all data 
+  // into the cache on startup.
+  bool is_lazy_loading = 4;
 }
