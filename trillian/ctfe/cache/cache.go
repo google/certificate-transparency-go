@@ -10,7 +10,7 @@ type NonLeafCertificateChainCache interface {
 	// Contains returns whether the hash exists in the cache.
 	Contains(ctx context.Context, hash string) (bool, error)
 
-	// Get returns the non-leaf certificate chain by the hash.
+	// Get returns the non-leaf certificate chain associated with the provided hash.
 	Get(ctx context.Context, hash string) ([]byte, error)
 
 	// Set inserts the key-value pair of non-leaf certificate chain.
