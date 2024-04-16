@@ -392,8 +392,8 @@ type LogConfig struct {
 	// This is required when the non-leaf certificate chain storage backend is
 	// CTFE.
 	//
-	// Warning: CT log operators are advised not to share the non-leaf
-	// certificate chain among multiple logs due to the log lifecycle.
+	// Warning: CT log operators are advised not to re-use the same connection
+	// string across multiple LogConfigs due to the log lifecycle.
 	CtfeStorageConnectionString                     string                                            `protobuf:"bytes,20,opt,name=ctfe_storage_connection_string,json=ctfeStorageConnectionString,proto3" json:"ctfe_storage_connection_string,omitempty"`
 	ExtraDataNonLeafCertificateChainStorageBackends []LogConfig_NonLeafCertificateChainStorageBackend `protobuf:"varint,21,rep,packed,name=extra_data_non_leaf_certificate_chain_storage_backends,json=extraDataNonLeafCertificateChainStorageBackends,proto3,enum=configpb.LogConfig_NonLeafCertificateChainStorageBackend" json:"extra_data_non_leaf_certificate_chain_storage_backends,omitempty"`
 	// CTFE non-leaf certificate chain cache.
