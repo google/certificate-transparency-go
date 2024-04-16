@@ -397,6 +397,7 @@ type LogConfig struct {
 	CtfeStorageConnectionString                     string                                            `protobuf:"bytes,20,opt,name=ctfe_storage_connection_string,json=ctfeStorageConnectionString,proto3" json:"ctfe_storage_connection_string,omitempty"`
 	ExtraDataNonLeafCertificateChainStorageBackends []LogConfig_NonLeafCertificateChainStorageBackend `protobuf:"varint,21,rep,packed,name=extra_data_non_leaf_certificate_chain_storage_backends,json=extraDataNonLeafCertificateChainStorageBackends,proto3,enum=configpb.LogConfig_NonLeafCertificateChainStorageBackend" json:"extra_data_non_leaf_certificate_chain_storage_backends,omitempty"`
 	// CTFE non-leaf certificate chain cache.
+	// Setting the cache size (if available in the cache type) avoids the unexpected certificate chain growth rate.
 	ExtraDataNonLeafCertificateChainCache *Cache `protobuf:"bytes,22,opt,name=extra_data_non_leaf_certificate_chain_cache,json=extraDataNonLeafCertificateChainCache,proto3" json:"extra_data_non_leaf_certificate_chain_cache,omitempty"`
 }
 

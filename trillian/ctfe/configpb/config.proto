@@ -159,6 +159,7 @@ message LogConfig {
   repeated NonLeafCertificateChainStorageBackend extra_data_non_leaf_certificate_chain_storage_backends = 21;
 
   // CTFE non-leaf certificate chain cache.
+  // Setting the cache size (if available in the cache type) avoids the unexpected certificate chain growth rate.
   Cache extra_data_non_leaf_certificate_chain_cache = 22;
 }
 
