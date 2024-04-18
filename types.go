@@ -248,6 +248,23 @@ type CertificateChain struct {
 	Entries []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
 }
 
+// PrecertChainEntryHash is an extended PrecertChainEntry with the
+// NonLeafCertificateChainHash field added to store the hash of the
+// CertificateChain field of PrecertChainEntry.
+type PrecertChainEntryHash struct {
+	PreCertificate              ASN1Cert   `tls:"minlen:1,maxlen:16777215"`
+	CertificateChain            []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
+	NonLeafCertificateChainHash []byte     `tls:"minlen:0,maxlen:32"`
+}
+
+// CertificateChainHash is an extended CertificateChain with the
+// NonLeafCertificateChainHash field added to store the hash of the
+// Entries field of CertificateChain.
+type CertificateChainHash struct {
+	Entries                     []ASN1Cert `tls:"minlen:0,maxlen:16777215"`
+	NonLeafCertificateChainHash []byte     `tls:"minlen:0,maxlen:32"`
+}
+
 // JSONDataEntry holds arbitrary data.
 type JSONDataEntry struct {
 	Data []byte `tls:"minlen:0,maxlen:1677215"`
