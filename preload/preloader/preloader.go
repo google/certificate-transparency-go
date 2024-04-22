@@ -138,7 +138,11 @@ func main() {
 		if err != nil {
 			klog.Exitf("Failed to create SCT file: %v", err)
 		}
-		defer sctFile.Close()
+		defer func() {
+			if err := sctFile.Close(); err != nil {
+				klog.Exitf("Failed to close SCT file: %v", err)
+			}
+		}()
 		sctFileWriter = sctFile
 	} else {
 		sctFileWriter = io.Discard
