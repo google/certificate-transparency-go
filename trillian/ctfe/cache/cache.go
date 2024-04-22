@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package cache defines the IssuanceChainCache type, which allows different cache implementation with Get and Set operations.
 package cache
 
 import "context"
