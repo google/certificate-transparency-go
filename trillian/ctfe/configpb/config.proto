@@ -140,27 +140,26 @@ message LogConfig {
   // MySQL/MariaDB:
   // mysql://[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
   //
-  // This is required when the non-leaf certificate chain storage backend is
-  // CTFE.
+  // This is required when the issuance chain storage backend is CTFE.
   // 
   // Warning: CT log operators are advised not to re-use the same connection 
   // string across multiple LogConfigs due to the log lifecycle.
   string ctfe_storage_connection_string = 20;
 
-  // An optional list of storage backends for non-leaf certificate chain in 
-  // ExtraData. Log operators may want to use both Trillian GRPC and CTFE as  
+  // An optional list of storage backends for issuance chain in 
+  // ExtraData. Log operators may want to use both Trillian GRPC and CTFE as 
   // the storage backends to ensure the data availability at the beginning. 
-  // By default, the storage backend is Trillian GRPC. To use CTFE as the  
+  // By default, the storage backend is Trillian GRPC. To use CTFE as the 
   // storage backend, the CTFE storage connection string needs to be specified.
-  enum NonLeafCertificateChainStorageBackend {
-    NON_LEAF_CERTIFICATE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
-    NON_LEAF_CERTIFICATE_CHAIN_STORAGE_BACKEND_CTFE = 1;
+  enum IssuanceChainStorageBackend {
+    ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
+    ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
   }
-  repeated NonLeafCertificateChainStorageBackend extra_data_non_leaf_certificate_chain_storage_backends = 21;
+  repeated IssuanceChainStorageBackend extra_data_issuance_chain_storage_backends = 21;
 
-  // CTFE non-leaf certificate chain cache.
+  // CTFE issuance chain cache.
   // Setting the cache size (if available in the cache type) avoids the unexpected certificate chain growth rate.
-  Cache extra_data_non_leaf_certificate_chain_cache = 22;
+  Cache extra_data_issuance_chain_cache = 22;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
