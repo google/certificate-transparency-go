@@ -81,7 +81,12 @@ func main() {
 	if err != nil {
 		klog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
-	defer conn.Close()
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			klog.Exitf("Failed to close RPC connection %v\n", err)
+		}
+	}()
 
 	httpClient := getHTTPClient()
 	mf := prometheus.MetricFactory{}

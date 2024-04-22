@@ -17,6 +17,7 @@ package submission
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -36,13 +37,17 @@ func createTempFile(data string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func(){
+		if err := f.Close(); err != nil {
+			log.Fatalf("Failed to close file: %v\n", err)
+		}
+	}()
 	if _, err := f.WriteString(data); err != nil {
 		return "", err
 	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
+	// if err := f.Close(); err != nil {
+	// 	return "", err
+	// }
 	return f.Name(), nil
 }
 
@@ -54,7 +59,11 @@ func ExampleLogListRefresher() {
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(f)
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			log.Fatalf("Can't remove temp file %v\n", err)
+		}
+	}()
 
 	llr := NewLogListRefresher(f)
 
@@ -137,7 +146,11 @@ func TestNewLogListRefresher(t *testing.T) {
 			if err != nil {
 				t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", tc.ll, err)
 			}
-			defer os.Remove(f)
+			defer func() {
+				if err := os.Remove(f); err != nil {
+					log.Fatalf("Can't remove temp file %v\n", err)
+				}
+			}()
 
 			beforeRefresh := time.Now()
 			llr := NewLogListRefresher(f)
@@ -203,7 +216,11 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", tc.ll, err)
 			}
-			defer os.Remove(f)
+			defer func() {
+				if err := os.Remove(f); err != nil {
+					log.Fatalf("Can't remove temp file %v\n", err)
+				}
+			}()
 
 			llr := NewLogListRefresher(f)
 			if _, err := llr.Refresh(); err != nil {

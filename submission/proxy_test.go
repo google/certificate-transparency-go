@@ -96,7 +96,11 @@ func TestProxyInitState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList3, err)
 	}
-	defer os.Remove(f)
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			t.Fatalf("Can't remove temp file %v\n", err)
+		}
+	}()
 
 	llr := NewLogListRefresher(f)
 	p := NewProxy(NewLogListManager(llr, nil), GetDistributorBuilder(ChromeCTPolicy, buildStubNoRootsLogClient, imf), imf)

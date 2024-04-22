@@ -199,7 +199,11 @@ func main() {
 		if err != nil {
 			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
-		defer conn.Close()
+		defer func(){
+			if err := conn.Close(); err != nil {
+				klog.Exitf("Could not close RPC connection: %v", err)
+			}
+		}() 
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
 	}
 

@@ -40,7 +40,11 @@ func processChains(file string, fl *fixchain.FixAndLog) {
 	if err != nil {
 		log.Fatalf("Can't open %q: %s", file, err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Can't close file: %v\n", err)
+		}
+	}()
 
 	type Chain struct {
 		Chain [][]byte
@@ -84,7 +88,11 @@ func contentStore(baseDir string, subDir string, content []byte) {
 	if err != nil {
 		log.Fatalf("Can't create %q: %s", fn, err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Can't close file: %v\n", err)
+		}
+	}()
 	if _, err := f.Write(content); err != nil {
 		log.Fatalf("Can't write to %q: %v", fn, err)
 	}

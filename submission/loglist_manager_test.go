@@ -52,7 +52,11 @@ func TestFirstRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList3, err)
 	}
-	defer os.Remove(f)
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			t.Fatalf("failed to remove temp file: %v\n", err)
+		}
+	}()
 
 	llr := NewLogListRefresher(f)
 	llm := NewLogListManager(llr, nil)
@@ -75,7 +79,11 @@ func TestSecondRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createTempFile(%q) = (_, %q), want (_, nil)", testdata.SampleLogList3, err)
 	}
-	defer os.Remove(f)
+	defer func() {
+		if err := os.Remove(f); err != nil {
+			t.Fatalf("failed to remove temp file: %v\n", err)
+		}
+	}()
 
 	llr := NewLogListRefresher(f)
 	llm := NewLogListManager(llr, monitoring.InertMetricFactory{})

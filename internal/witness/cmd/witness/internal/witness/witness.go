@@ -27,6 +27,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -119,8 +120,11 @@ func (w *Witness) GetLogs() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
+	defer func(){
+		if err := rows.Close(); err != nil {
+			log.Fatalf("Can't close rows %v\n", err)
+		}
+	}()
 	var logs []string
 	for rows.Next() {
 		var logID string

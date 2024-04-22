@@ -147,7 +147,11 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				if err != nil {
 					panic("Failed to decode: " + err.Error())
 				}
-				defer r.Body.Close()
+				defer func() {
+					if err := r.Body.Close(); err != nil {
+						panic("Failed to close request body: " + err.Error())
+					}
+				}()
 			}
 			fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "data": "%s"}`, s.TreeSize, s.Timestamp, s.Data)
 		case "/error":
@@ -160,7 +164,11 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				if err != nil {
 					panic("Failed to decode: " + err.Error())
 				}
-				defer r.Body.Close()
+				defer func() {
+					if err := r.Body.Close(); err != nil {
+						panic("Failed to close request body: " + err.Error())
+					}
+				}()
 			}
 			http.Error(w, "error page", params.RespCode)
 		case "/malformed":

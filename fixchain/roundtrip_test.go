@@ -55,7 +55,12 @@ func (rt testRoundTripper) RoundTrip(request *http.Request) (*http.Response, err
 		}, nil
 	case "https://ct.googleapis.com/pilot/ct/v1/add-chain":
 		body, err := io.ReadAll(request.Body)
-		request.Body.Close()
+		if err := request.Body.Close(); err != nil {
+			errStr := fmt.Sprintf("#%d: Could not close request body: %s", rt.testIndex, err.Error())
+			rt.t.Error(errStr)
+			return nil, errors.New(errStr)
+		}
+
 		if err != nil {
 			errStr := fmt.Sprintf("#%d: Could not read request body: %s", rt.testIndex, err.Error())
 			rt.t.Error(errStr)
@@ -201,7 +206,12 @@ func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response,
 
 	// Check Body
 	body, err := io.ReadAll(request.Body)
-	request.Body.Close()
+	if err := request.Body.Close(); err != nil {
+		errStr := fmt.Sprintf("#%d: Could not close request body: %s", rt.testIndex, err.Error())
+		rt.t.Error(errStr)
+		return nil, errors.New(errStr)
+	}
+	
 	if err != nil {
 		errStr := fmt.Sprintf("#%d: Could not read request body: %s", rt.testIndex, err.Error())
 		rt.t.Error(errStr)

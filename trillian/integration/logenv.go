@@ -17,6 +17,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -113,7 +114,9 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 
 // Close shuts down the servers.
 func (env *CTLogEnv) Close() {
-	env.ctListener.Close()
+	if err := env.ctListener.Close(); err != nil {
+		log.Fatalf("Can't close listener %v\n", err)
+	}
 	env.wg.Wait()
 	env.logEnv.Close()
 }

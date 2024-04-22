@@ -216,7 +216,11 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			klog.Exitf("failed to close response body %v\n", err)
+		}
+	}()
 	return io.ReadAll(resp.Body)
 }
 

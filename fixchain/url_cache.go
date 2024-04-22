@@ -68,7 +68,11 @@ func (u *urlCache) getURL(url string) ([]byte, error) {
 		atomic.AddUint32(&u.errors, 1)
 		return nil, err
 	}
-	defer c.Body.Close()
+	defer func(){
+		if err := c.Body.Close(); err != nil {
+			log.Fatalf("can't close response body: %v\n", err)
+		}
+	}()
 	// TODO(katjoyce): Add caching of permanent errors.
 	if c.StatusCode != 200 {
 		atomic.AddUint32(&u.badStatus, 1)
