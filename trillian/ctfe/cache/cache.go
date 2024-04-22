@@ -18,7 +18,9 @@ import "context"
 
 // IssuanceChainCache is an interface which allows CTFE binaries to use different cache implementations for issuance chains.
 type IssuanceChainCache interface {
-	// IsLazyLoading returns whether lazy loading is enabled.
+	// IsLazyLoading returns whether lazy loading is enabled for the cache. This value comes from the the log configuration.
+	// When IsLazyLoading is true, the issuance chain is inserted into the cache when there is a cache miss.
+	// When IsLazyLoading is false, the issuance chains are expected to be preloaded into the cache during initialization.
 	IsLazyLoading() bool
 
 	// Get returns the issuance chain associated with the provided hash.
