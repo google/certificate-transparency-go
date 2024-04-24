@@ -146,16 +146,14 @@ message LogConfig {
   // string across multiple LogConfigs due to the log lifecycle.
   string ctfe_storage_connection_string = 20;
 
-  // An optional list of storage backends for issuance chain in 
-  // ExtraData. Log operators may want to use both Trillian GRPC and CTFE as 
-  // the storage backends to ensure the data availability at the beginning. 
+  // An optional storage backend for the issuance chain in ExtraData. 
   // By default, the storage backend is Trillian GRPC. To use CTFE as the 
   // storage backend, the CTFE storage connection string needs to be specified.
   enum IssuanceChainStorageBackend {
     ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
     ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
   }
-  repeated IssuanceChainStorageBackend extra_data_issuance_chain_storage_backends = 21;
+  IssuanceChainStorageBackend extra_data_issuance_chain_storage_backend = 21;
 
   // CTFE issuance chain cache.
   // Setting the cache size (if available in the cache type) avoids the unexpected certificate chain growth rate.
