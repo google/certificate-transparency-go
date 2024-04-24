@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package storage defines the IssuanceChainStorage type, which allows different storage implementation for the key-value pairs of issuance chains.
 package storage
 
 import (
