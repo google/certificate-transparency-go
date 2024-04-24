@@ -23,9 +23,9 @@ type IssuanceChainStorage interface {
 	// FindAll returns all key-value pairs of issuance chains.
 	FindAll(ctx context.Context) (map[string][]byte, error)
 
-	// FindByHash returns the issuance chain associated with the provided hash.
-	FindByHash(ctx context.Context, hash string) ([]byte, error)
+	// FindByKey returns the issuance chain associated with the provided key.
+	FindByKey(ctx context.Context, key string) ([]byte, error)
 
 	// Add inserts the key-value pair of issuance chain.
-	Add(ctx context.Context, hash string, chain []byte) error
+	Add(ctx context.Context, key string, chain []byte) error
 }
