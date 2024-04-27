@@ -21,9 +21,6 @@ import (
 
 // IssuanceChainStorage is an interface which allows CTFE binaries to use different storage implementations for issuance chains.
 type IssuanceChainStorage interface {
-	// FindAll returns all key-value pairs of issuance chains.
-	FindAll(ctx context.Context) (map[string][]byte, error)
-
 	// FindByKey returns the issuance chain associated with the provided key.
 	FindByKey(ctx context.Context, key string) ([]byte, error)
 
