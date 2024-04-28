@@ -46,7 +46,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 23
+// NEXT_ID: 22
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -154,10 +154,6 @@ message LogConfig {
     ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
   }
   IssuanceChainStorageBackend extra_data_issuance_chain_storage_backend = 21;
-
-  // CTFE issuance chain cache.
-  // Setting the cache size (if available in the cache type) avoids the unexpected certificate chain growth rate.
-  Cache extra_data_issuance_chain_cache = 22;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
@@ -179,27 +175,4 @@ message SignedTreeHead {
   int64 timestamp = 2;
   bytes sha256_root_hash = 3;
   bytes tree_head_signature = 4;
-}
-
-// Cache describes the cache type and configurations.
-//
-// NEXT_ID: 5
-message Cache {
-  // CacheType represents the underlying cache type implementation.
-  // If unspecified, no cache is used.
-  enum CacheType {
-    CACHE_TYPE_NONE = 0;
-    CACHE_TYPE_LRU = 1;
-  }
-  CacheType type = 1;
-
-  // Cache size 0 means unlimited size. Default is 0.
-  int64 size = 2;
-
-  // Cache ttl 0 means cache will never expire. Default is 0.
-  google.protobuf.Duration ttl = 3;
-
-  // If set, the data is loaded when necessary. Default preloads all data 
-  // into the cache on startup.
-  bool is_lazy_loading = 4;
 }
