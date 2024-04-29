@@ -20,7 +20,6 @@ package configpb;
 
 import "crypto/keyspb/keyspb.proto";
 import "google/protobuf/any.proto";
-import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 message LogBackend {
@@ -149,6 +148,7 @@ message LogConfig {
   // An optional storage backend for the issuance chain in ExtraData. 
   // By default, the storage backend is Trillian GRPC. To use CTFE as the 
   // storage backend, the CTFE storage connection string needs to be specified.
+  // Do not change this value during the log's lifetime.
   enum IssuanceChainStorageBackend {
     ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
     ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
