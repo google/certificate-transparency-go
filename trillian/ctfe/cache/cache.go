@@ -25,8 +25,8 @@ type IssuanceChainCache interface {
 	IsLazyLoading() bool
 
 	// Get returns the issuance chain associated with the provided hash.
-	Get(ctx context.Context, hash string) ([]byte, error)
+	Get(ctx context.Context, key []byte) ([]byte, error)
 
 	// Set inserts the key-value pair of issuance chain.
-	Set(ctx context.Context, hash string, chain []byte) error
+	Set(ctx context.Context, key []byte, chain []byte) error
 }
