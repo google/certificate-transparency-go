@@ -45,7 +45,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 20
+// NEXT_ID: 22
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -132,6 +132,28 @@ message LogConfig {
   // A list of X.509 extension OIDs, in dotted string form (e.g. "2.3.4.5")
   // which should cause submissions to be rejected.
   repeated string reject_extensions = 18;
+
+  // CTFE storage connection string in the following format in general:
+  // driver://[username[:password]@][protocol[(host[:port])]][/[schema|database][?options]]
+  //
+  // MySQL/MariaDB:
+  // mysql://[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
+  //
+  // This is required when the issuance chain storage backend is CTFE.
+  // 
+  // Warning: CT log operators are advised not to re-use the same connection 
+  // string across multiple LogConfigs due to the log lifecycle.
+  string ctfe_storage_connection_string = 20;
+
+  // An optional storage backend for the issuance chain in ExtraData. 
+  // By default, the storage backend is Trillian GRPC. To use CTFE as the 
+  // storage backend, the CTFE storage connection string needs to be specified.
+  // Do not change this value during the log's lifetime.
+  enum IssuanceChainStorageBackend {
+    ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC = 0;
+    ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
+  }
+  IssuanceChainStorageBackend extra_data_issuance_chain_storage_backend = 21;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
