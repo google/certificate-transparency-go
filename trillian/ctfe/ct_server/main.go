@@ -112,12 +112,12 @@ func main() {
 	}
 
 	if err != nil {
-		klog.Exitf("Failed to read config: %v", err)
+		klog.Errorf("Failed to read config: %v", err)
 	}
 
 	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
 	if err != nil {
-		klog.Exitf("Invalid config: %v", err)
+		klog.Errorf("Invalid config: %v", err)
 	}
 
 	klog.CopyStandardLogTo("WARNING")
@@ -134,28 +134,28 @@ func main() {
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
 		client, err := clientv3.New(cfg)
 		if err != nil {
-			klog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
+			klog.Errorf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
 
 		httpManager, err := endpoints.NewManager(client, *etcdHTTPService)
 		if err != nil {
-			klog.Exitf("Failed to create etcd http manager: %v", err)
+			klog.Errorf("Failed to create etcd http manager: %v", err)
 		}
 		metricsManager, err := endpoints.NewManager(client, *etcdMetricsService)
 		if err != nil {
-			klog.Exitf("Failed to create etcd metrics manager: %v", err)
+			klog.Errorf("Failed to create etcd metrics manager: %v", err)
 		}
 
 		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
 		klog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
 		if err := httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint}); err != nil {
-			klog.Exitf("AddEndpoint(): %v", err)
+			klog.Errorf("AddEndpoint(): %v", err)
 		}
 
 		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
 		klog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
 		if err := metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt}); err != nil {
-			klog.Exitf("AddEndpoint(): %v", err)
+			klog.Errorf("AddEndpoint(): %v", err)
 		}
 
 		defer func() {
@@ -197,11 +197,11 @@ func main() {
 		}
 		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
 		if err != nil {
-			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
+			klog.Errorf("Could not dial RPC server: %v: %v", be, err)
 		}
 		defer func(){
 			if err := conn.Close(); err != nil {
-				klog.Exitf("Could not close RPC connection: %v", err)
+				klog.Errorf("Could not close RPC connection: %v", err)
 			}
 		}() 
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
@@ -220,7 +220,7 @@ func main() {
 	for _, c := range cfg.LogConfigs.Config {
 		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
 		if err != nil {
-			klog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
+			klog.Errorf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 		if *getSTHInterval > 0 {
 			go inst.RunUpdateSTH(ctx, *getSTHInterval)
@@ -285,7 +285,7 @@ func main() {
 	if *tracing {
 		handler, err = opencensus.EnableHTTPServerTracing(*tracingProjectID, *tracingPercent)
 		if err != nil {
-			klog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
+			klog.Errorf("Failed to initialize stackdriver / opencensus tracing: %v", err)
 		}
 	}
 

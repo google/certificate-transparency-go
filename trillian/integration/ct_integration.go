@@ -914,7 +914,7 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 		}
 		defer func() {
 			if err := httpRsp.Body.Close(); err != nil {
-				log.Fatalf("Can't close http response body %v\n", err)
+				log.Fatalf("Operation to close http response body failed:  %v\n", err)
 			}
 		}()
 
@@ -990,7 +990,7 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 	}
 	defer func(){
 		if err := conn.Close(); err != nil {
-			log.Fatalf("Failed to close RPC connection %v\n", err)
+			log.Fatalf("Operation to close RPC connection failed: %v\n", err)
 		}
 	}()
 

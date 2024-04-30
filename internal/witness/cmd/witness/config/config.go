@@ -87,7 +87,7 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("Can't close response body %v\n", err)
+			log.Fatalf("Operation to close response body failed: %v\n", err)
 		}
 	}()
 	return io.ReadAll(resp.Body)

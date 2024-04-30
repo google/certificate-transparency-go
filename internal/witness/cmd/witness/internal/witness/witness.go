@@ -122,7 +122,7 @@ func (w *Witness) GetLogs() ([]string, error) {
 	}
 	defer func(){
 		if err := rows.Close(); err != nil {
-			log.Fatalf("Can't close rows %v\n", err)
+			log.Fatalf("Operation to close rows failed: %v\n", err)
 		}
 	}()
 	var logs []string

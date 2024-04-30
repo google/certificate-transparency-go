@@ -70,7 +70,7 @@ func (u *urlCache) getURL(url string) ([]byte, error) {
 	}
 	defer func(){
 		if err := c.Body.Close(); err != nil {
-			log.Fatalf("can't close response body: %v\n", err)
+			log.Fatalf("Operation to close response body failed: %v\n", err)
 		}
 	}()
 	// TODO(katjoyce): Add caching of permanent errors.

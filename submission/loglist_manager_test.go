@@ -54,7 +54,7 @@ func TestFirstRefresh(t *testing.T) {
 	}
 	defer func() {
 		if err := os.Remove(f); err != nil {
-			t.Fatalf("failed to remove temp file: %v\n", err)
+			t.Fatalf("Operation to remove temp file failed: %v\n", err)
 		}
 	}()
 
@@ -81,7 +81,7 @@ func TestSecondRefresh(t *testing.T) {
 	}
 	defer func() {
 		if err := os.Remove(f); err != nil {
-			t.Fatalf("failed to remove temp file: %v\n", err)
+			t.Fatalf("Operation to remove temp file failed: %v\n", err)
 		}
 	}()
 

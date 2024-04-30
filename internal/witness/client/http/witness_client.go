@@ -54,7 +54,7 @@ func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("Can't close response body %v\n", err)
+			log.Fatalf("Failed to close response body: %v\n", err)
 		}
 	}()
 	if resp.StatusCode == 404 {
@@ -94,7 +94,7 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("Can't close response body %v\n", err)
+			log.Fatalf("Failed to close response body: %v\n", err)
 		}
 	}()
 	body, err := io.ReadAll(resp.Body)

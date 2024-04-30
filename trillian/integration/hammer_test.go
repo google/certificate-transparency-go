@@ -222,12 +222,12 @@ func (s *fakeCTServer) addChain(w http.ResponseWriter, req *http.Request) {
 func (s *fakeCTServer) close() {
 	if s.server != nil {
 		if err := s.server.Close(); err != nil {
-			klog.Errorf("Failed to close server %v\n", err)
+			klog.Errorf("Operation to close server failed: %v\n", err)
 		}
 	}
 	if s.lis != nil {
 		if err := s.lis.Close(); err != nil {
-			klog.Errorf("Failed to close server listener %v\n", err)
+			klog.Errorf("Operation to close server listener failed: %v\n", err)
 		}
 	}
 }
