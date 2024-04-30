@@ -23,24 +23,15 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type IssuanceChainStorageBackend string
-
-const (
-	IssuanceChainStorageBackendTrillianGRPC = IssuanceChainStorageBackend("TrillianGRPC")
-	IssuanceChainStorageBackendCTFE         = IssuanceChainStorageBackend("CTFE")
-)
-
 type IssuanceChainService struct {
-	storageBackend IssuanceChainStorageBackend
-	storage        storage.IssuanceChainStorage
-	cache          cache.IssuanceChainCache
+	storage storage.IssuanceChainStorage
+	cache   cache.IssuanceChainCache
 }
 
-func NewIssuanceChainService(ctx context.Context, storageBackend IssuanceChainStorageBackend, s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *IssuanceChainService {
+func NewIssuanceChainService(ctx context.Context, s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *IssuanceChainService {
 	service := &IssuanceChainService{
-		storageBackend: storageBackend,
-		storage:        s,
-		cache:          c,
+		storage: s,
+		cache:   c,
 	}
 
 	return service
