@@ -46,14 +46,6 @@ func NewIssuanceChainService(ctx context.Context, storageBackend IssuanceChainSt
 	return service
 }
 
-func (s *IssuanceChainService) IsTrillianGRPCStorageBackendEnabled() bool {
-	return s.storageBackend == IssuanceChainStorageBackendTrillianGRPC
-}
-
-func (s *IssuanceChainService) IsCTFEStorageBackendEnabled() bool {
-	return s.storageBackend == IssuanceChainStorageBackendCTFE
-}
-
 // GetByHash returns the issuance chain with hash as the input.
 func (s *IssuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]byte, error) {
 	// Return if found in cache.
