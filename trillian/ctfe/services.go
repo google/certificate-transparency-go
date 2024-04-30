@@ -79,6 +79,7 @@ func (s *IssuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 	return hash, nil
 }
 
+// ChainHash returns the SHA-256 hash of the chain.
 func (s *IssuanceChainService) ChainHash(chain []byte) []byte {
 	checksum := sha256.Sum256(chain)
 	return checksum[:]
