@@ -23,13 +23,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type IssuanceChainService struct {
+type issuanceChainService struct {
 	storage storage.IssuanceChainStorage
 	cache   cache.IssuanceChainCache
 }
 
-func NewIssuanceChainService(s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *IssuanceChainService {
-	service := &IssuanceChainService{
+func NewIssuanceChainService(s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *issuanceChainService {
+	service := &issuanceChainService{
 		storage: s,
 		cache:   c,
 	}
@@ -38,7 +38,7 @@ func NewIssuanceChainService(s storage.IssuanceChainStorage, c cache.IssuanceCha
 }
 
 // GetByHash returns the issuance chain with hash as the input.
-func (s *IssuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]byte, error) {
+func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]byte, error) {
 	// Return if found in cache.
 	chain, err := s.cache.Get(ctx, hash)
 	if chain != nil || err != nil {
@@ -62,7 +62,7 @@ func (s *IssuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 
 // Add adds the issuance chain into the storage and cache and returns the hash
 // of the chain.
-func (s *IssuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, error) {
+func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, error) {
 	hash := s.chainHash(chain)
 
 	if err := s.storage.Add(ctx, hash, chain); err != nil {
@@ -79,7 +79,7 @@ func (s *IssuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 }
 
 // ChainHash returns the SHA-256 hash of the chain.
-func (s *IssuanceChainService) chainHash(chain []byte) []byte {
+func (s *issuanceChainService) chainHash(chain []byte) []byte {
 	checksum := sha256.Sum256(chain)
 	return checksum[:]
 }
