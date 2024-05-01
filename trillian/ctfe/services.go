@@ -28,7 +28,7 @@ type IssuanceChainService struct {
 	cache   cache.IssuanceChainCache
 }
 
-func NewIssuanceChainService(ctx context.Context, s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *IssuanceChainService {
+func NewIssuanceChainService(s storage.IssuanceChainStorage, c cache.IssuanceChainCache) *IssuanceChainService {
 	service := &IssuanceChainService{
 		storage: s,
 		cache:   c,
