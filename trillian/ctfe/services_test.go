@@ -68,7 +68,7 @@ func TestIssuanceChainServiceChainHashLen(t *testing.T) {
 	issuanceChainService := NewIssuanceChainService(nil, nil)
 
 	for _, test := range tests {
-		got := len(issuanceChainService.ChainHash(test.chain))
+		got := len(issuanceChainService.chainHash(test.chain))
 		if got != want {
 			t.Errorf("len(ChainHash(%v)) = %d, want %d", test.chain, got, want)
 		}
