@@ -63,7 +63,7 @@ func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 // Add adds the issuance chain into the storage and cache and returns the hash
 // of the chain.
 func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, error) {
-	hash := s.chainHash(chain)
+	hash := issuanceChainHash(chain)
 
 	if err := s.storage.Add(ctx, hash, chain); err != nil {
 		return nil, err
@@ -78,8 +78,8 @@ func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 	return hash, nil
 }
 
-// ChainHash returns the SHA-256 hash of the chain.
-func (s *issuanceChainService) chainHash(chain []byte) []byte {
+// issuanceChainHash returns the SHA-256 hash of the chain.
+func issuanceChainHash(chain []byte) []byte {
 	checksum := sha256.Sum256(chain)
 	return checksum[:]
 }

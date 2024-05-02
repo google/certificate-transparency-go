@@ -54,7 +54,7 @@ func TestIssuanceChainServiceAddAndGet(t *testing.T) {
 	}
 }
 
-func TestIssuanceChainServiceChainHashLen(t *testing.T) {
+func TestIssuanceChainHashLen(t *testing.T) {
 	want := sha256.Size
 	tests := []struct {
 		chain []byte
@@ -65,12 +65,10 @@ func TestIssuanceChainServiceChainHashLen(t *testing.T) {
 		{nil},
 	}
 
-	issuanceChainService := newIssuanceChainService(nil, nil)
-
 	for _, test := range tests {
-		got := len(issuanceChainService.chainHash(test.chain))
+		got := len(issuanceChainHash(test.chain))
 		if got != want {
-			t.Errorf("len(ChainHash(%v)) = %d, want %d", test.chain, got, want)
+			t.Errorf("len(issuanceChainHash(%v)) = %d, want %d", test.chain, got, want)
 		}
 	}
 }
