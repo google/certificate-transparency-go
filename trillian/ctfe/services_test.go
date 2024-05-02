@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -33,8 +34,8 @@ func TestIssuanceChainServiceAddAndGet(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	storage := newFakeIssuanceChainStorage()
-	cache := newFakeIssuanceChainCache()
+	storage := &fakeIssuanceChainStorage{}
+	cache := &fakeIssuanceChainCache{}
 	issuanceChainService := newIssuanceChainService(storage, cache)
 
 	for _, test := range tests {
@@ -85,39 +86,31 @@ func readTestData(t *testing.T, filename string) []byte {
 }
 
 type fakeIssuanceChainStorage struct {
-	chains map[string][]byte
+	chains sync.Map
 }
 
-func newFakeIssuanceChainStorage() fakeIssuanceChainStorage {
-	return fakeIssuanceChainStorage{
-		chains: make(map[string][]byte),
-	}
+func (s *fakeIssuanceChainStorage) FindByKey(_ context.Context, key []byte) ([]byte, error) {
+	val, _ := s.chains.Load(string(key))
+	chain, _ := val.([]byte)
+	return chain, nil
 }
 
-func (s fakeIssuanceChainStorage) FindByKey(_ context.Context, key []byte) ([]byte, error) {
-	return s.chains[string(key)], nil
-}
-
-func (s fakeIssuanceChainStorage) Add(_ context.Context, key []byte, chain []byte) error {
-	s.chains[string(key)] = chain
+func (s *fakeIssuanceChainStorage) Add(_ context.Context, key []byte, chain []byte) error {
+	s.chains.Store(string(key), chain)
 	return nil
 }
 
 type fakeIssuanceChainCache struct {
-	chains map[string][]byte
+	chains sync.Map
 }
 
-func newFakeIssuanceChainCache() fakeIssuanceChainCache {
-	return fakeIssuanceChainCache{
-		chains: make(map[string][]byte),
-	}
+func (c *fakeIssuanceChainCache) Get(_ context.Context, key []byte) ([]byte, error) {
+	val, _ := c.chains.Load(string(key))
+	chain, _ := val.([]byte)
+	return chain, nil
 }
 
-func (c fakeIssuanceChainCache) Get(_ context.Context, key []byte) ([]byte, error) {
-	return c.chains[string(key)], nil
-}
-
-func (c fakeIssuanceChainCache) Set(_ context.Context, key []byte, chain []byte) error {
-	c.chains[string(key)] = chain
+func (c *fakeIssuanceChainCache) Set(_ context.Context, key []byte, chain []byte) error {
+	c.chains.Store(string(key), chain)
 	return nil
 }
