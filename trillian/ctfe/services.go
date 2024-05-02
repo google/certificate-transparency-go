@@ -53,9 +53,11 @@ func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 
 	// If there is any error from cache set, do not return the error because
 	// the chain is still available for read.
-	if err := s.cache.Set(ctx, hash, chain); err != nil {
-		klog.Errorf("failed to set hash and chain into cache: %v", err)
-	}
+	go func(ctx context.Context, hash, chain []byte) {
+		if err := s.cache.Set(ctx, hash, chain); err != nil {
+			klog.Errorf("failed to set hash and chain into cache: %v", err)
+		}
+	}(ctx, hash, chain)
 
 	return chain, nil
 }
@@ -71,9 +73,11 @@ func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 
 	// If there is any error from cache set, do not return the error because
 	// the chain is already stored.
-	if err := s.cache.Set(ctx, hash, chain); err != nil {
-		klog.Errorf("failed to set hash and chain into cache: %v", err)
-	}
+	go func(ctx context.Context, hash, chain []byte) {
+		if err := s.cache.Set(ctx, hash, chain); err != nil {
+			klog.Errorf("failed to set hash and chain into cache: %v", err)
+		}
+	}(ctx, hash, chain)
 
 	return hash, nil
 }
