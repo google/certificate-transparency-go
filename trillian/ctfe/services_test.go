@@ -35,7 +35,7 @@ func TestIssuanceChainServiceAddAndGet(t *testing.T) {
 	ctx := context.Background()
 	storage := newFakeIssuanceChainStorage()
 	cache := newFakeIssuanceChainCache()
-	issuanceChainService := NewIssuanceChainService(storage, cache)
+	issuanceChainService := newIssuanceChainService(storage, cache)
 
 	for _, test := range tests {
 		hash, err := issuanceChainService.Add(ctx, test.chain)
@@ -65,7 +65,7 @@ func TestIssuanceChainServiceChainHashLen(t *testing.T) {
 		{nil},
 	}
 
-	issuanceChainService := NewIssuanceChainService(nil, nil)
+	issuanceChainService := newIssuanceChainService(nil, nil)
 
 	for _, test := range tests {
 		got := len(issuanceChainService.chainHash(test.chain))
