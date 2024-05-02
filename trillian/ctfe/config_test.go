@@ -260,6 +260,33 @@ func TestValidateLogConfig(t *testing.T) {
 			},
 		},
 		{
+			desc:    "invalid-ctfe-storage-connection-string-mysql",
+			wantErr: "failed to parse ctfe_storage_connection_string for mysql driver",
+			cfg: &configpb.LogConfig{
+				LogId:                       123,
+				PrivateKey:                  privKey,
+				CtfeStorageConnectionString: "mysql://test:zaphod@localhost:3306/test",
+			},
+		},
+		{
+			desc:    "unsupported-driver-in-ctfe-storage-connection-string",
+			wantErr: "unsupported driver in ctfe_storage_connection_string",
+			cfg: &configpb.LogConfig{
+				LogId:                       123,
+				PrivateKey:                  privKey,
+				CtfeStorageConnectionString: "spanner://test:zaphod@tcp(localhost:3306)/test",
+			},
+		},
+		{
+			desc:    "missing-ctfe-storage-connection-string-when-issuance-chain-storage-backend-ctfe",
+			wantErr: "missing ctfe_storage_connection_string when issuance chain storage backend is CTFE",
+			cfg: &configpb.LogConfig{
+				LogId:                                123,
+				PrivateKey:                           privKey,
+				ExtraDataIssuanceChainStorageBackend: configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE,
+			},
+		},
+		{
 			desc: "ok",
 			cfg: &configpb.LogConfig{
 				LogId:      123,
@@ -334,6 +361,31 @@ func TestValidateLogConfig(t *testing.T) {
 				PublicKey:  pubKey,
 				PrivateKey: privKey,
 				FrozenSth:  validSTH,
+			},
+		},
+		{
+			desc: "ok-ctfe-storage-connection-string-mysql",
+			cfg: &configpb.LogConfig{
+				LogId:                       123,
+				PrivateKey:                  privKey,
+				CtfeStorageConnectionString: "mysql://test:zaphod@tcp(localhost:3306)/test",
+			},
+		},
+		{
+			desc: "ok-extra-data-issuance-chain-storage-backend-trillian",
+			cfg: &configpb.LogConfig{
+				LogId:                                123,
+				PrivateKey:                           privKey,
+				ExtraDataIssuanceChainStorageBackend: configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC,
+			},
+		},
+		{
+			desc: "ok-extra-data-issuance-chain-storage-backend-ctfe",
+			cfg: &configpb.LogConfig{
+				LogId:                                123,
+				PrivateKey:                           privKey,
+				ExtraDataIssuanceChainStorageBackend: configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE,
+				CtfeStorageConnectionString:          "mysql://test:zaphod@tcp(localhost:3306)/test",
 			},
 		},
 	} {
