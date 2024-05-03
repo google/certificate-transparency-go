@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
@@ -32,13 +34,15 @@ import (
 // ValidatedLogConfig represents the LogConfig with the information that has
 // been successfully parsed as a result of validating it.
 type ValidatedLogConfig struct {
-	Config        *configpb.LogConfig
-	PubKey        crypto.PublicKey
-	PrivKey       proto.Message
-	KeyUsages     []x509.ExtKeyUsage
-	NotAfterStart *time.Time
-	NotAfterLimit *time.Time
-	FrozenSTH     *ct.SignedTreeHead
+	Config                               *configpb.LogConfig
+	PubKey                               crypto.PublicKey
+	PrivKey                              proto.Message
+	KeyUsages                            []x509.ExtKeyUsage
+	NotAfterStart                        *time.Time
+	NotAfterLimit                        *time.Time
+	FrozenSTH                            *ct.SignedTreeHead
+	CTFEStorageConnectionString          string
+	ExtraDataIssuanceChainStorageBackend configpb.LogConfig_IssuanceChainStorageBackend
 }
 
 // LogConfigFromFile creates a slice of LogConfig options from the given
@@ -209,6 +213,25 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 			return nil, fmt.Errorf("signature verification failed: %v", err)
 		}
 	}
+
+	switch cfg.ExtraDataIssuanceChainStorageBackend {
+	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE:
+		// Validate the combination of CtfeStorageConnectionString and ExtraDataIssuanceChainStorageBackend
+		if len(cfg.CtfeStorageConnectionString) == 0 {
+			return nil, errors.New("missing ctfe_storage_connection_string when issuance chain storage backend is CTFE")
+		}
+		// Validate CTFEStorageConnectionString
+		if !strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
+			return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
+		}
+		if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
+			return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
+		}
+		vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
+	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC:
+		// Nothing to validate for Trillian gRPC
+	}
+	vCfg.ExtraDataIssuanceChainStorageBackend = cfg.ExtraDataIssuanceChainStorageBackend
 
 	return &vCfg, nil
 }
