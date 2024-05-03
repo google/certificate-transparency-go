@@ -214,21 +214,25 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 		}
 	}
 
-	// Validate CTFEStorageConnectionString
-	if len(cfg.CtfeStorageConnectionString) > 0 {
-		if strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
-			if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
-				return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
-			}
-		} else {
-			return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
+	switch cfg.ExtraDataIssuanceChainStorageBackend {
+	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE:
+		// Validate the combination of CtfeStorageConnectionString and ExtraDataIssuanceChainStorageBackend
+		if len(cfg.CtfeStorageConnectionString) == 0 {
+			return nil, errors.New("missing ctfe_storage_connection_string when issuance chain storage backend is CTFE")
 		}
-		vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
-	}
-
-	// Validate the combination of CtfeStorageConnectionString and ExtraDataIssuanceChainStorageBackend
-	if len(cfg.CtfeStorageConnectionString) == 0 && cfg.ExtraDataIssuanceChainStorageBackend == configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE {
-		return nil, errors.New("missing ctfe_storage_connection_string when issuance chain storage backend is CTFE")
+		// Validate CTFEStorageConnectionString
+		if len(cfg.CtfeStorageConnectionString) > 0 {
+			if strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
+				if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
+					return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
+				}
+			} else {
+				return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
+			}
+			vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
+		}
+	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC:
+		// Nothing to validate for Trillian gRPC
 	}
 	vCfg.ExtraDataIssuanceChainStorageBackend = cfg.ExtraDataIssuanceChainStorageBackend
 

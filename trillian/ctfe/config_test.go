@@ -263,18 +263,20 @@ func TestValidateLogConfig(t *testing.T) {
 			desc:    "invalid-ctfe-storage-connection-string-mysql",
 			wantErr: "failed to parse ctfe_storage_connection_string for mysql driver",
 			cfg: &configpb.LogConfig{
-				LogId:                       123,
-				PrivateKey:                  privKey,
-				CtfeStorageConnectionString: "mysql://test:zaphod@localhost:3306/test",
+				LogId:                                123,
+				PrivateKey:                           privKey,
+				CtfeStorageConnectionString:          "mysql://test:zaphod@localhost:3306/test",
+				ExtraDataIssuanceChainStorageBackend: configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE,
 			},
 		},
 		{
 			desc:    "unsupported-driver-in-ctfe-storage-connection-string",
 			wantErr: "unsupported driver in ctfe_storage_connection_string",
 			cfg: &configpb.LogConfig{
-				LogId:                       123,
-				PrivateKey:                  privKey,
-				CtfeStorageConnectionString: "spanner://test:zaphod@tcp(localhost:3306)/test",
+				LogId:                                123,
+				PrivateKey:                           privKey,
+				CtfeStorageConnectionString:          "spanner://test:zaphod@tcp(localhost:3306)/test",
+				ExtraDataIssuanceChainStorageBackend: configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE,
 			},
 		},
 		{
