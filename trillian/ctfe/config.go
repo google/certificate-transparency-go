@@ -221,16 +221,13 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 			return nil, errors.New("missing ctfe_storage_connection_string when issuance chain storage backend is CTFE")
 		}
 		// Validate CTFEStorageConnectionString
-		if len(cfg.CtfeStorageConnectionString) > 0 {
-			if strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
-				if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
-					return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
-				}
-			} else {
-				return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
-			}
-			vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
+		if !strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
+			return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
 		}
+		if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
+			return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
+		}
+		vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
 	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC:
 		// Nothing to validate for Trillian gRPC
 	}
