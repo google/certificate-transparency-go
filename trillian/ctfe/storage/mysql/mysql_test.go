@@ -30,7 +30,12 @@ func TestIssuanceChainFindByKeySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	testVal := readTestData(t, "leaf00.chain")
 	testKey := sha256.Sum256(testVal)
@@ -57,7 +62,12 @@ func TestIssuanceChainAddSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	tests := setupTestData(t,
 		"leaf00.chain",
