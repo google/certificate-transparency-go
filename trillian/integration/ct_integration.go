@@ -913,7 +913,7 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 		}
 		defer func() {
 			if err := httpRsp.Body.Close(); err != nil {
-				fmt.Printf("Operation to close http response body failed:  %v\n", err)
+				fmt.Printf("Operation to close http response body failed: %v\n", err)
 			}
 		}()
 
