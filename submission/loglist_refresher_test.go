@@ -37,17 +37,14 @@ func createTempFile(data string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func(){
+	defer func() {
 		if err := f.Close(); err != nil {
-			log.Fatalf("Operation to close file failed: %v\n", err)
+			log.Fatalf("Operation to close file failed: %v", err)
 		}
 	}()
 	if _, err := f.WriteString(data); err != nil {
 		return "", err
 	}
-	// if err := f.Close(); err != nil {
-	// 	return "", err
-	// }
 	return f.Name(), nil
 }
 
@@ -61,7 +58,7 @@ func ExampleLogListRefresher() {
 	}
 	defer func() {
 		if err := os.Remove(f); err != nil {
-			log.Fatalf("Operation to remove temp file failed: %v\n", err)
+			log.Fatalf("Operation to remove temp file failed: %v", err)
 		}
 	}()
 
@@ -148,7 +145,7 @@ func TestNewLogListRefresher(t *testing.T) {
 			}
 			defer func() {
 				if err := os.Remove(f); err != nil {
-					log.Fatalf("Operation to remove temp file failed: %v\n", err)
+					t.Fatalf("Operation to remove temp file failed: %v", err)
 				}
 			}()
 
@@ -218,7 +215,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 			defer func() {
 				if err := os.Remove(f); err != nil {
-					log.Fatalf("Operation to remove temp file failed: %v\n", err)
+					t.Fatalf("Operation to remove temp file failed: %v", err)
 				}
 			}()
 

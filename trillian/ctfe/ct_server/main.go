@@ -112,12 +112,12 @@ func main() {
 	}
 
 	if err != nil {
-		klog.Errorf("Failed to read config: %v", err)
+		klog.Exitf("Failed to read config: %v", err)
 	}
 
 	beMap, err := ctfe.ValidateLogMultiConfig(cfg)
 	if err != nil {
-		klog.Errorf("Invalid config: %v", err)
+		klog.Exitf("Invalid config: %v", err)
 	}
 
 	klog.CopyStandardLogTo("WARNING")
@@ -134,16 +134,16 @@ func main() {
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
 		client, err := clientv3.New(cfg)
 		if err != nil {
-			klog.Errorf("Failed to connect to etcd at %v: %v", *etcdServers, err)
+			klog.Exitf("Failed to connect to etcd at %v: %v", *etcdServers, err)
 		}
 
 		httpManager, err := endpoints.NewManager(client, *etcdHTTPService)
 		if err != nil {
-			klog.Errorf("Failed to create etcd http manager: %v", err)
+			klog.Exitf("Failed to create etcd http manager: %v", err)
 		}
 		metricsManager, err := endpoints.NewManager(client, *etcdMetricsService)
 		if err != nil {
-			klog.Errorf("Failed to create etcd metrics manager: %v", err)
+			klog.Exitf("Failed to create etcd metrics manager: %v", err)
 		}
 
 		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
@@ -197,13 +197,13 @@ func main() {
 		}
 		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
 		if err != nil {
-			klog.Errorf("Could not dial RPC server: %v: %v", be, err)
+			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
-		defer func(){
+		defer func() {
 			if err := conn.Close(); err != nil {
 				klog.Errorf("Could not close RPC connection: %v", err)
 			}
-		}() 
+		}()
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
 	}
 
@@ -220,7 +220,7 @@ func main() {
 	for _, c := range cfg.LogConfigs.Config {
 		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
 		if err != nil {
-			klog.Errorf("Failed to set up log instance for %+v: %v", cfg, err)
+			klog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
 		if *getSTHInterval > 0 {
 			go inst.RunUpdateSTH(ctx, *getSTHInterval)
@@ -285,7 +285,7 @@ func main() {
 	if *tracing {
 		handler, err = opencensus.EnableHTTPServerTracing(*tracingProjectID, *tracingPercent)
 		if err != nil {
-			klog.Errorf("Failed to initialize stackdriver / opencensus tracing: %v", err)
+			klog.Exitf("Failed to initialize stackdriver / opencensus tracing: %v", err)
 		}
 	}
 

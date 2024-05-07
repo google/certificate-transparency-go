@@ -211,7 +211,7 @@ func (rt postTestRoundTripper) RoundTrip(request *http.Request) (*http.Response,
 		rt.t.Error(errStr)
 		return nil, errors.New(errStr)
 	}
-	
+
 	if err != nil {
 		errStr := fmt.Sprintf("#%d: Could not read request body: %s", rt.testIndex, err.Error())
 		rt.t.Error(errStr)

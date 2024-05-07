@@ -42,7 +42,7 @@ func processChains(file string, fl *fixchain.FixAndLog) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			log.Fatalf("Can't close file: %v\n", err)
+			log.Fatalf("Can't close file: %v", err)
 		}
 	}()
 
@@ -90,7 +90,7 @@ func contentStore(baseDir string, subDir string, content []byte) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			log.Fatalf("Can't close file: %v\n", err)
+			log.Fatalf("Can't close file: %v", err)
 		}
 	}()
 	if _, err := f.Write(content); err != nil {

@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -87,7 +86,7 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
-			log.Fatalf("Operation to close response body failed: %v\n", err)
+			klog.Errorf("Operation to close response body failed: %v", err)
 		}
 	}()
 	return io.ReadAll(resp.Body)

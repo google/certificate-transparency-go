@@ -25,7 +25,6 @@ import (
 	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -914,7 +913,7 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 		}
 		defer func() {
 			if err := httpRsp.Body.Close(); err != nil {
-				log.Fatalf("Operation to close http response body failed:  %v\n", err)
+				fmt.Printf("Operation to close http response body failed:  %v\n", err)
 			}
 		}()
 
@@ -988,9 +987,9 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 	if err != nil {
 		return err
 	}
-	defer func(){
+	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Fatalf("Operation to close RPC connection failed: %v\n", err)
+			fmt.Printf("Operation to close RPC connection failed: %v\n", err)
 		}
 	}()
 

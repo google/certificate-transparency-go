@@ -145,11 +145,11 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				decoder := json.NewDecoder(r.Body)
 				err := decoder.Decode(&s)
 				if err != nil {
-					panic("Failed to decode: " + err.Error())
+					t.Fatalf("Failed to decode: " + err.Error())
 				}
 				defer func() {
 					if err := r.Body.Close(); err != nil {
-						panic("Failed to close request body: " + err.Error())
+						t.Fatalf("Failed to close request body: " + err.Error())
 					}
 				}()
 			}
@@ -162,11 +162,11 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				decoder := json.NewDecoder(r.Body)
 				err := decoder.Decode(&params)
 				if err != nil {
-					panic("Failed to decode: " + err.Error())
+					t.Fatalf("Failed to decode: " + err.Error())
 				}
 				defer func() {
 					if err := r.Body.Close(); err != nil {
-						panic("Failed to close request body: " + err.Error())
+						t.Fatalf("Failed to close request body: " + err.Error())
 					}
 				}()
 			}

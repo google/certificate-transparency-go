@@ -84,7 +84,7 @@ func main() {
 
 	defer func() {
 		if err := conn.Close(); err != nil {
-			klog.Exitf("Could not close RPC connection: %v\n", err)
+			klog.Errorf("Could not close RPC connection: %v", err)
 		}
 	}()
 

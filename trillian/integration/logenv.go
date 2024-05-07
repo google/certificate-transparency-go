@@ -115,7 +115,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 // Close shuts down the servers.
 func (env *CTLogEnv) Close() {
 	if err := env.ctListener.Close(); err != nil {
-		log.Fatalf("Operation to close listener failed: %v\n", err)
+		log.Fatalf("Operation to close listener failed: %v", err)
 	}
 	env.wg.Wait()
 	env.logEnv.Close()
