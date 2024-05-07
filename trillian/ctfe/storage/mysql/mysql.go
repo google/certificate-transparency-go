@@ -82,8 +82,11 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 	// Verify data source name format.
 	conn := strings.Split(dataSourceName, "://")
-	if len(conn) != 2 || conn[0] != "mysql" {
+	if len(conn) != 2 {
 		return nil, errors.New("could not parse MySQL data source name")
+	}
+	if conn[0] != "mysql" {
+		return nil, errors.New("expect data source name to start with mysql")
 	}
 
 	db, err := sql.Open("mysql", conn[1])
