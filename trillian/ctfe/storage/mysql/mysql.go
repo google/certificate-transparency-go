@@ -40,7 +40,7 @@ type IssuanceChainStorage struct {
 func NewIssuanceChainStorage(ctx context.Context, dbConn string) *IssuanceChainStorage {
 	db, err := open(ctx, dbConn)
 	if err != nil {
-		panic(fmt.Sprintf("failed to open database: %v", err))
+		klog.Exitf(fmt.Sprintf("failed to open database: %v", err))
 	}
 
 	return &IssuanceChainStorage{
@@ -92,7 +92,7 @@ func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", conn[1])
 	if err != nil {
 		// Don't log data source name as it could contain credentials.
-		klog.Fatalf("could not open MySQL database, check config: %s", err)
+		klog.Errorf("could not open MySQL database, check config: %s", err)
 		return nil, err
 	}
 
