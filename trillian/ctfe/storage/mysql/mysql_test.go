@@ -68,7 +68,9 @@ func TestIssuanceChainAddSuccess(t *testing.T) {
 	storage := mockIssuanceChainStorage(db)
 	for k, v := range tests {
 		mock.ExpectExec("INSERT INTO IssuanceChain").WithArgs([]byte(k), v).WillReturnResult(sqlmock.NewResult(1, 1))
-		storage.Add(context.Background(), []byte(k), v)
+		if err := storage.Add(context.Background(), []byte(k), v); err != nil {
+			t.Errorf("issuanceChainStorage.Add: %v", err)
+		}
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
