@@ -256,7 +256,9 @@ func main() {
 		if _, err := io.Copy(os.Stdout, r); err != nil {
 			klog.Exitf("Failed to print banner!")
 		}
-		r.Close()
+		if err := r.Close(); err != nil {
+			klog.Exitf("Failed to close reader: %v", err)
+		}
 		fmt.Print("\n\nHammer Time\n\n")
 	}
 

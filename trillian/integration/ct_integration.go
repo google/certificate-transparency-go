@@ -911,7 +911,12 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 		if err != nil {
 			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}
-		defer httpRsp.Body.Close()
+		defer func() {
+			if err := httpRsp.Body.Close(); err != nil {
+				fmt.Printf("Operation to close http response body failed: %v\n", err)
+			}
+		}()
+
 		if httpRsp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("got HTTP Status %q", httpRsp.Status)
 		}
@@ -982,7 +987,11 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			fmt.Printf("Operation to close RPC connection failed: %v\n", err)
+		}
+	}()
 
 	adminClient := trillian.NewTrillianAdminClient(conn)
 	_, err = adminClient.UpdateTree(ctx, req)

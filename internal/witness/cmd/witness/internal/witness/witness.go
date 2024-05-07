@@ -119,8 +119,11 @@ func (w *Witness) GetLogs() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
+	defer func() {
+		if err := rows.Close(); err != nil {
+			klog.Errorf("Operation to close rows failed: %v", err)
+		}
+	}()
 	var logs []string
 	for rows.Next() {
 		var logID string

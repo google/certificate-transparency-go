@@ -27,6 +27,7 @@ import (
 	"os"
 
 	wit_api "github.com/google/certificate-transparency-go/internal/witness/api"
+	"k8s.io/klog/v2"
 )
 
 // ErrSTHTooOld is returned if the STH passed to Update needs to be updated.
@@ -51,7 +52,11 @@ func (w Witness) GetLatestSTH(ctx context.Context, logID string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			klog.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 	if resp.StatusCode == 404 {
 		return nil, os.ErrNotExist
 	} else if resp.StatusCode != 200 {
@@ -87,7 +92,11 @@ func (w Witness) Update(ctx context.Context, logID string, sth []byte, proof [][
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections#permanent_redirections
 		return nil, fmt.Errorf("PUT request to %q was converted to %s request to %q", u.String(), resp.Request.Method, resp.Request.URL)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			klog.Errorf("Failed to close response body: %v", err)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %v", err)

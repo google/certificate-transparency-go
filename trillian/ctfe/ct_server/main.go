@@ -149,13 +149,13 @@ func main() {
 		etcdHTTPKey := fmt.Sprintf("%s/%s", *etcdHTTPService, *httpEndpoint)
 		klog.Infof("Announcing our presence at %v with %+v", etcdHTTPKey, *httpEndpoint)
 		if err := httpManager.AddEndpoint(ctx, etcdHTTPKey, endpoints.Endpoint{Addr: *httpEndpoint}); err != nil {
-			klog.Exitf("AddEndpoint(): %v", err)
+			klog.Errorf("AddEndpoint(): %v", err)
 		}
 
 		etcdMetricsKey := fmt.Sprintf("%s/%s", *etcdMetricsService, metricsAt)
 		klog.Infof("Announcing our presence in %v with %+v", *etcdMetricsService, metricsAt)
 		if err := metricsManager.AddEndpoint(ctx, etcdMetricsKey, endpoints.Endpoint{Addr: metricsAt}); err != nil {
-			klog.Exitf("AddEndpoint(): %v", err)
+			klog.Errorf("AddEndpoint(): %v", err)
 		}
 
 		defer func() {
@@ -199,7 +199,11 @@ func main() {
 		if err != nil {
 			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
-		defer conn.Close()
+		defer func() {
+			if err := conn.Close(); err != nil {
+				klog.Errorf("Could not close RPC connection: %v", err)
+			}
+		}()
 		clientMap[be.Name] = trillian.NewTrillianLogClient(conn)
 	}
 

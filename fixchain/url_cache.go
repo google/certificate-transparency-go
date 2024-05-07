@@ -17,11 +17,12 @@ package fixchain
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 type lockedCache struct {
@@ -68,7 +69,11 @@ func (u *urlCache) getURL(url string) ([]byte, error) {
 		atomic.AddUint32(&u.errors, 1)
 		return nil, err
 	}
-	defer c.Body.Close()
+	defer func() {
+		if err := c.Body.Close(); err != nil {
+			klog.Errorf("Operation to close response body failed: %v", err)
+		}
+	}()
 	// TODO(katjoyce): Add caching of permanent errors.
 	if c.StatusCode != 200 {
 		atomic.AddUint32(&u.badStatus, 1)
@@ -91,7 +96,7 @@ func newURLCache(c *http.Client, logStats bool) *urlCache {
 		t := time.NewTicker(time.Second)
 		go func() {
 			for range t.C {
-				log.Printf("url cache: %d hits, %d misses, %d errors, "+
+				klog.Infof("url cache: %d hits, %d misses, %d errors, "+
 					"%d bad status, %d read fail, %d cached", u.hit,
 					u.miss, u.errors, u.badStatus, u.readFail,
 					len(u.cache.m))
