@@ -84,11 +84,12 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
-		// Don't log data source name as it could contain credentials
+		// Don't log data source name as it could contain credentials.
 		klog.Warningf("Could not open MySQL database, check config: %s", err)
 		return nil, err
 	}
 
+	// Enable strict SQL mode to ensure consistent behaviour among different storage engines when handling invalid or missing values in data-change statements.
 	if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
 		klog.Warningf("Failed to set strict mode on mysql db: %s", err)
 		return nil, err
