@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -37,12 +38,9 @@ type IssuanceChainStorage struct {
 
 // NewIssuanceChainStorage takes the database connection string as the input and return the IssuanceChainStorage.
 func NewIssuanceChainStorage(ctx context.Context, dbConn string) *IssuanceChainStorage {
-	conn := strings.Split(dbConn, "://")
-
-	db, err := open(ctx, conn[1])
+	db, err := open(ctx, dbConn)
 	if err != nil {
-		klog.Errorf("failed to open database: %v", err)
-		return nil
+		panic(fmt.Sprintf("failed to open database: %v", err))
 	}
 
 	return &IssuanceChainStorage{
@@ -82,16 +80,22 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 
 // open takes the data source name and returns the sql.DB object.
 func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", dataSourceName)
+	// Verify data source name format.
+	conn := strings.Split(dataSourceName, "://")
+	if len(conn) != 2 || conn[0] != "mysql" {
+		return nil, errors.New("could not parse MySQL data source name")
+	}
+
+	db, err := sql.Open("mysql", conn[1])
 	if err != nil {
 		// Don't log data source name as it could contain credentials.
-		klog.Warningf("Could not open MySQL database, check config: %s", err)
+		klog.Fatalf("could not open MySQL database, check config: %s", err)
 		return nil, err
 	}
 
 	// Enable strict SQL mode to ensure consistent behaviour among different storage engines when handling invalid or missing values in data-change statements.
 	if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
-		klog.Warningf("Failed to set strict mode on mysql db: %s", err)
+		klog.Warningf("failed to set strict mode on mysql db: %s", err)
 		return nil, err
 	}
 
