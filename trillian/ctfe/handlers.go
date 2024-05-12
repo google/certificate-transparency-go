@@ -278,6 +278,8 @@ type logInfo struct {
 	signer crypto.Signer
 	// sthGetter provides STHs for the log
 	sthGetter STHGetter
+	// issuanceChainService provides the issuance chain add and get operations
+	issuanceChainService *issuanceChainService
 }
 
 // newLogInfo creates a new instance of logInfo.
@@ -286,6 +288,7 @@ func newLogInfo(
 	validationOpts CertValidationOpts,
 	signer crypto.Signer,
 	timeSource util.TimeSource,
+	issuanceChainService *issuanceChainService,
 ) *logInfo {
 	vCfg := instanceOpts.Validated
 	cfg := vCfg.Config
@@ -329,6 +332,8 @@ func newLogInfo(
 	}
 	maxMergeDelay.Set(float64(cfg.MaxMergeDelaySec), label)
 	expMergeDelay.Set(float64(cfg.ExpectedMergeDelaySec), label)
+
+	li.issuanceChainService = issuanceChainService
 
 	return li
 }
@@ -459,6 +464,19 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
 	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano)
+
+	// If CTFE storage is enabled for issuance chain, add the chain to storage and cache, get the chain hash for Trillian gRPC.
+	if li.issuanceChainService.IsCTFEStorageEnabled() {
+		// TODO: Check how to convert []ct.ASN1Cert to []byte correctly.
+		issuanceChain, err := asn1.Marshal(extractRawCerts(chain)[1:])
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to marshal issuance chain: %s", err)
+		}
+		_, err = li.issuanceChainService.Add(ctx, issuanceChain)
+		if err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
+		}
+	}
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
 	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
@@ -770,6 +788,10 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		if leaf.LeafIndex != start+int64(i) {
 			return http.StatusInternalServerError, fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
 		}
+
+		if err := li.issuanceChainService.FixLogLeaf(ctx, leaf); err != nil {
+			return http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
+		}
 	}
 	leaves = rsp.Leaves
 
@@ -857,6 +879,10 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		return http.StatusInternalServerError, fmt.Errorf("got RPC bad response (missing proof), possible extra info: %v", rsp)
 	}
 
+	if err := li.issuanceChainService.FixLogLeaf(ctx, rsp.Leaf); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
+	}
+
 	// Build and marshal the response to the client
 	jsonRsp := ct.GetEntryAndProofResponse{
 		LeafInput: rsp.Leaf.LeafValue,
@@ -929,7 +955,27 @@ func buildLogLeafForAddChain(li *logInfo,
 	merkleLeaf ct.MerkleTreeLeaf, chain []*x509.Certificate, isPrecert bool,
 ) (trillian.LogLeaf, error) {
 	raw := extractRawCerts(chain)
-	return util.BuildLogLeaf(li.LogPrefix, merkleLeaf, 0, raw[0], raw[1:], isPrecert)
+	issuanceChain := raw[1:]
+
+	// Trillian gRPC storage backend is enabled and CTFE storage backend is disabled.
+	if li.issuanceChainService.storage == nil {
+		return util.BuildLogLeaf(li.LogPrefix, merkleLeaf, 0, raw[0], issuanceChain, isPrecert)
+	}
+
+	// CTFE storage backend is enabled.
+	// TODO: Check how to convert []ct.ASN1Cert to []byte correctly.
+	chainBytes, err := asn1.Marshal(issuanceChain)
+	if err != nil {
+		return trillian.LogLeaf{}, err
+	}
+	hash := issuanceChainHash(chainBytes)
+
+	// Set issuance chain to nil if Trillian gRPC storage backend is not enabled.
+	if li.issuanceChainService.storage != nil {
+		issuanceChain = nil
+	}
+
+	return util.BuildLogLeafWithHash(li.LogPrefix, merkleLeaf, 0, raw[0], issuanceChain, []byte(hash), isPrecert)
 }
 
 // marshalAndWriteAddChainResponse is used by add-chain and add-pre-chain to create and write

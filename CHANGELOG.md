@@ -2,6 +2,21 @@
 
 ## HEAD
 
+### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
+
+To reduce CT/Trillian database storage by deduplication of the entire issuance chain (intermediate certificate(s) and root certificate) that is currently stored in the Trillian merkle tree leaf ExtraData field. Storage cost should be reduced by at least 33% for newly deduplicated entries. 
+
+No operation is required for existing logs when the change is rolled out. Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](https://github.com/google/certificate-transparency-go/blob/master/trillian/ctfe/configpb/config.proto).
+
+- `ctfe_storage_connection_string`
+- `extra_data_issuance_chain_storage_backend`
+
+An optional LRU cache can be enabled by providing the following flags.
+
+- `cache_type`
+- `cache_size`
+- `cache_ttl`
+
 ### Submission proxy: Root compatibility checking
 
 * Adds the ability for a CT client to disable root compatibile checking: https://github.com/google/certificate-transparency-go/pull/1258

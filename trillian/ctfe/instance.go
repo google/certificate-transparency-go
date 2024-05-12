@@ -29,6 +29,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/storage"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -174,7 +176,19 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		return nil, fmt.Errorf("failed to parse RejectExtensions: %v", err)
 	}
 
-	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
+	// Initialise IssuanceChainService with IssuanceChainStorage and IssuanceChainCache
+	issuanceChainStorage, err := storage.NewIssuanceChainStorage(ctx, vCfg.ExtraDataIssuanceChainStorageBackend, vCfg.CTFEStorageConnectionString)
+	if err != nil {
+		return nil, err
+	}
+	issuanceChainCache, err := cache.NewIssuanceChainCache(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	issuanceChainService := newIssuanceChainService(issuanceChainStorage, issuanceChainCache)
+
+	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource), issuanceChainService)
 	return logInfo, nil
 }
 
