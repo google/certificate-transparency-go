@@ -27,8 +27,8 @@ import (
 
 var (
 	cacheType = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
-	size      = flag.Int("cache_size", 0, "Size parameter set to 0 makes cache of unlimited size")
-	ttl       = flag.Duration("cache_ttl", 0*time.Second, "Providing 0 TTL turns expiring off")
+	size      = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
+	ttl       = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 )
 
 // IssuanceChainCache is an interface which allows CTFE binaries to use different cache implementations for issuance chains.
