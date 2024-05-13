@@ -94,7 +94,7 @@ func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 
 func (s *issuanceChainService) FixLogLeaf(ctx context.Context, leaf *trillian.LogLeaf) error {
 	// Skip if CTFE storage backend is not enabled.
-	if s.storage == nil {
+	if !s.IsCTFEStorageEnabled() {
 		return nil
 	}
 
