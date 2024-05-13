@@ -958,7 +958,7 @@ func buildLogLeafForAddChain(li *logInfo,
 	issuanceChain := raw[1:]
 
 	// Trillian gRPC storage backend is enabled and CTFE storage backend is disabled.
-	if li.issuanceChainService.storage == nil {
+	if !li.issuanceChainService.IsCTFEStorageEnabled() {
 		return util.BuildLogLeaf(li.LogPrefix, merkleLeaf, 0, raw[0], issuanceChain, isPrecert)
 	}
 
@@ -970,10 +970,8 @@ func buildLogLeafForAddChain(li *logInfo,
 	}
 	hash := issuanceChainHash(chainBytes)
 
-	// Set issuance chain to nil if Trillian gRPC storage backend is not enabled.
-	if li.issuanceChainService.storage != nil {
-		issuanceChain = nil
-	}
+	// Set issuance chain to nil to save the Trillian storage.
+	issuanceChain = nil
 
 	return util.BuildLogLeafWithHash(li.LogPrefix, merkleLeaf, 0, raw[0], issuanceChain, []byte(hash), isPrecert)
 }
