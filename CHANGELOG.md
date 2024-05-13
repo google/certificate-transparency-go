@@ -6,7 +6,7 @@
 
 To reduce CT/Trillian database storage by deduplication of the entire issuance chain (intermediate certificate(s) and root certificate) that is currently stored in the Trillian merkle tree leaf ExtraData field. Storage cost should be reduced by at least 33% for newly deduplicated entries. 
 
-No operation is required for existing logs when the change is rolled out. Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](https://github.com/google/certificate-transparency-go/blob/master/trillian/ctfe/configpb/config.proto).
+No operation is required for existing logs when the change is rolled out. Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto). See [example](trillian/examples/deployment/docker/ctfe/ct_server_mysql.cfg).
 
 - `ctfe_storage_connection_string`
 - `extra_data_issuance_chain_storage_backend`
