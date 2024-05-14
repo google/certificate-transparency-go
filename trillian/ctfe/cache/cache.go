@@ -40,7 +40,7 @@ type IssuanceChainCache interface {
 	Set(ctx context.Context, key []byte, chain []byte) error
 }
 
-// NewIssuanceChainCache returns nil for noop type or lru.IssuanceChainCache for lru cache type.
+// NewIssuanceChainCache returns noop.IssuanceChainCache for noop type or lru.IssuanceChainCache for lru cache type.
 func NewIssuanceChainCache(_ context.Context) (IssuanceChainCache, error) {
 	switch *cacheType {
 	case "noop":
