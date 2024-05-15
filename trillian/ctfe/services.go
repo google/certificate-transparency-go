@@ -92,6 +92,9 @@ func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 	return hash, nil
 }
 
+// FixLogLeaf recreates the LogLeaf.ExtraData if CTFE storage backend is
+// enabled and the type of LogLeaf.ExtraData contains any hash (e.g.
+// PrecertChainEntryHash, CertificateChainHash).
 func (s *issuanceChainService) FixLogLeaf(ctx context.Context, leaf *trillian.LogLeaf) error {
 	// Skip if CTFE storage backend is not enabled.
 	if !s.IsCTFEStorageEnabled() {
