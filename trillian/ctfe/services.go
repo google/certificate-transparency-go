@@ -17,6 +17,7 @@ package ctfe
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/asn1"
@@ -49,6 +50,11 @@ func (s *issuanceChainService) IsCTFEStorageEnabled() bool {
 
 // GetByHash returns the issuance chain with hash as the input.
 func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]byte, error) {
+	// Return err if CTFE storage backend is not enabled.
+	if !s.IsCTFEStorageEnabled() {
+		return nil, errors.New("failed to GetByHash when storage is nil")
+	}
+
 	// Return if found in cache.
 	chain, err := s.cache.Get(ctx, hash)
 	if chain != nil || err != nil {
@@ -75,6 +81,11 @@ func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 // Add adds the issuance chain into the storage and cache and returns the hash
 // of the chain.
 func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, error) {
+	// Return err if CTFE storage backend is not enabled.
+	if !s.IsCTFEStorageEnabled() {
+		return nil, errors.New("failed to Add when storage is nil")
+	}
+
 	hash := issuanceChainHash(chain)
 
 	if err := s.storage.Add(ctx, hash, chain); err != nil {
