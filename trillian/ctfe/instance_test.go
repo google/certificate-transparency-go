@@ -24,6 +24,7 @@ import (
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/keys/pem"
@@ -257,7 +258,7 @@ func TestSetUpInstanceSetsValidationOpts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ValidateLogConfig(): %v", err)
 			}
-			opts := InstanceOptions{Validated: vCfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}}
+			opts := InstanceOptions{Validated: vCfg, Deadline: time.Second, MetricFactory: monitoring.InertMetricFactory{}, CacheType: cache.NOOP, CacheOption: cache.Option{}}
 
 			inst, err := SetUpInstance(ctx, opts)
 			if err != nil {

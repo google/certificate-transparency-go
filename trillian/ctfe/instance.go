@@ -74,6 +74,10 @@ type InstanceOptions struct {
 	// MaskInternalErrors indicates if internal server errors should be masked
 	// or returned to the user containing the full error message.
 	MaskInternalErrors bool
+	// CacheType is the CTFE cache type.
+	CacheType cache.Type
+	// CacheOption includes the cache size and time-to-live (TTL).
+	CacheOption cache.Option
 }
 
 // Instance is a set up log/mirror instance. It must be created with the
@@ -183,7 +187,7 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		return nil, err
 	}
 	// issuanceChainCache is nil if the cache related flags are not defined.
-	issuanceChainCache, err := cache.NewIssuanceChainCache(ctx)
+	issuanceChainCache, err := cache.NewIssuanceChainCache(ctx, opts.CacheType, opts.CacheOption)
 	if err != nil {
 		return nil, err
 	}

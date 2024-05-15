@@ -18,18 +18,24 @@ package cache
 import (
 	"context"
 	"errors"
-	"flag"
 	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/cache/lru"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/cache/noop"
 )
 
-var (
-	cacheType = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
-	size      = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
-	ttl       = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
+type Type string
+
+const (
+	Unknown Type = ""
+	NOOP    Type = "noop"
+	LRU     Type = "lru"
 )
+
+type Option struct {
+	Size int
+	TTL  time.Duration
+}
 
 // IssuanceChainCache is an interface which allows CTFE binaries to use different cache implementations for issuance chains.
 type IssuanceChainCache interface {
@@ -41,18 +47,18 @@ type IssuanceChainCache interface {
 }
 
 // NewIssuanceChainCache returns noop.IssuanceChainCache for noop type or lru.IssuanceChainCache for lru cache type.
-func NewIssuanceChainCache(_ context.Context) (IssuanceChainCache, error) {
-	switch *cacheType {
-	case "noop":
+func NewIssuanceChainCache(_ context.Context, cacheType Type, option Option) (IssuanceChainCache, error) {
+	switch cacheType {
+	case Unknown, NOOP:
 		return &noop.IssuanceChainCache{}, nil
-	case "lru":
-		if *size < 0 {
+	case LRU:
+		if option.Size < 0 {
 			return nil, errors.New("invalid cache_size flag")
 		}
-		if *ttl < 0*time.Second {
+		if option.TTL < 0*time.Second {
 			return nil, errors.New("invalid cache_ttl flag")
 		}
-		return lru.NewIssuanceChainCache(lru.CacheOption{Size: *size, TTL: *ttl}), nil
+		return lru.NewIssuanceChainCache(lru.CacheOption{Size: option.Size, TTL: option.TTL}), nil
 	}
 
 	return nil, errors.New("invalid cache_type flag")
