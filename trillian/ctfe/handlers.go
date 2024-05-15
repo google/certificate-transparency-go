@@ -477,7 +477,6 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// and cache, and then build log leaf. If Trillian gRPC is enabled for
 	// issuance chain, build the log leaf.
 	if li.issuanceChainService.IsCTFEStorageEnabled() {
-		// TODO: Check how to convert []ct.ASN1Cert to []byte correctly.
 		issuanceChain, err := asn1.Marshal(raw[1:])
 		if err != nil {
 			return http.StatusInternalServerError, fmt.Errorf("failed to marshal issuance chain: %s", err)
