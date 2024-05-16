@@ -804,6 +804,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	return http.StatusOK, nil
 }
 
+// rpcGetLeavesByRange calls Trillian GetLeavesByRange RPC and fixes issuance chain in each log leaf if necessary.
 func rpcGetLeavesByRange(ctx context.Context, li *logInfo, req *trillian.GetLeavesByRangeRequest) (*trillian.GetLeavesByRangeResponse, int, error) {
 	rsp, err := li.rpcClient.GetLeavesByRange(ctx, req)
 	if err != nil {
@@ -901,6 +902,7 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	return http.StatusOK, nil
 }
 
+// rpcGetEntryAndProof calls Trillian GetEntryAndProof RPC and fixes issuance chain in the log leaf if necessary.
 func rpcGetEntryAndProof(ctx context.Context, li *logInfo, req *trillian.GetEntryAndProofRequest) (*trillian.GetEntryAndProofResponse, int, error) {
 	rsp, err := li.rpcClient.GetEntryAndProof(ctx, req)
 	if err != nil {
