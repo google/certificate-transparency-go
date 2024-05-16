@@ -80,9 +80,9 @@ func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 	return chain, nil
 }
 
-// Add adds the issuance chain into the storage and cache and returns the hash
+// add adds the issuance chain into the storage and cache and returns the hash
 // of the chain.
-func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, error) {
+func (s *issuanceChainService) add(ctx context.Context, chain []byte) ([]byte, error) {
 	// Return err if CTFE storage backend is not enabled.
 	if !s.IsCTFEStorageEnabled() {
 		return nil, errors.New("failed to Add when storage is nil")
@@ -117,7 +117,7 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 		if err != nil {
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to marshal issuance chain: %s", err)
 		}
-		hash, err := s.Add(ctx, issuanceChain)
+		hash, err := s.add(ctx, issuanceChain)
 		if err != nil {
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
 		}
