@@ -4,9 +4,11 @@
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 
-To reduce CT/Trillian database storage by deduplication of the entire issuance chain (intermediate certificate(s) and root certificate) that is currently stored in the Trillian merkle tree leaf ExtraData field. Storage cost should be reduced by at least 33% for new CT logs with this feature enabled.
+To reduce CT/Trillian database storage by deduplication of the entire issuance chain (intermediate certificate(s) and root certificate) that is currently stored in the Trillian merkle tree leaf ExtraData field. Storage cost should be reduced by at least 33% for new CT logs with this feature enabled. Currently only MySQL/MariaDB is supported to store the issuance chain in the CTFE database.
 
-Existing logs are not affected by this change. Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto). See [example](trillian/examples/deployment/docker/ctfe/ct_server_mysql.cfg).
+Existing logs are not affected by this change. 
+
+Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto). See [example](trillian/examples/deployment/docker/ctfe/ct_server.cfg).
 
 - `ctfe_storage_connection_string`
 - `extra_data_issuance_chain_storage_backend`
@@ -16,6 +18,8 @@ An optional LRU cache can be enabled by providing the following flags.
 - `cache_type`
 - `cache_size`
 - `cache_ttl`
+
+This change is tested in Cloud Build tests using the `mysql:8.2` Docker image.
 
 ### Submission proxy: Root compatibility checking
 
