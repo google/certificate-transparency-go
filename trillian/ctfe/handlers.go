@@ -750,10 +750,11 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		Count:      count,
 		ChargeTo:   li.chargeUser(r),
 	}
-	rsp, err := li.rpcClient.GetLeavesByRange(ctx, &req)
+	rsp, httpStatus, err := rpcGetLeavesByRange(ctx, li, &req)
 	if err != nil {
-		return li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
+		return httpStatus, err
 	}
+
 	var currentRoot types.LogRootV1
 	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
@@ -774,10 +775,6 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	for i, leaf := range rsp.Leaves {
 		if leaf.LeafIndex != start+int64(i) {
 			return http.StatusInternalServerError, fmt.Errorf("backend returned unexpected leaf index: rsp.Leaves[%d].LeafIndex=%d for range [%d,%d]", i, leaf.LeafIndex, start, end)
-		}
-
-		if err := li.issuanceChainService.FixLogLeaf(ctx, leaf); err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
 		}
 	}
 	leaves = rsp.Leaves
@@ -805,6 +802,20 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	}
 
 	return http.StatusOK, nil
+}
+
+func rpcGetLeavesByRange(ctx context.Context, li *logInfo, req *trillian.GetLeavesByRangeRequest) (*trillian.GetLeavesByRangeResponse, int, error) {
+	rsp, err := li.rpcClient.GetLeavesByRange(ctx, req)
+	if err != nil {
+		return nil, li.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %s", err)
+	}
+	for _, leaf := range rsp.Leaves {
+		if err := li.issuanceChainService.FixLogLeaf(ctx, leaf); err != nil {
+			return nil, http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
+		}
+	}
+
+	return rsp, http.StatusOK, nil
 }
 
 func getRoots(_ context.Context, li *logInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
@@ -843,9 +854,9 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		TreeSize:  treeSize,
 		ChargeTo:  li.chargeUser(r),
 	}
-	rsp, err := li.rpcClient.GetEntryAndProof(ctx, &req)
+	rsp, httpStatus, err := rpcGetEntryAndProof(ctx, li, &req)
 	if err != nil {
-		return li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %s", err)
+		return httpStatus, err
 	}
 
 	var currentRoot types.LogRootV1
@@ -864,10 +875,6 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 	if treeSize > 1 && len(rsp.Proof.Hashes) == 0 {
 		return http.StatusInternalServerError, fmt.Errorf("got RPC bad response (missing proof), possible extra info: %v", rsp)
-	}
-
-	if err := li.issuanceChainService.FixLogLeaf(ctx, rsp.Leaf); err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
 	}
 
 	// Build and marshal the response to the client
@@ -892,6 +899,18 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	return http.StatusOK, nil
+}
+
+func rpcGetEntryAndProof(ctx context.Context, li *logInfo, req *trillian.GetEntryAndProofRequest) (*trillian.GetEntryAndProofResponse, int, error) {
+	rsp, err := li.rpcClient.GetEntryAndProof(ctx, req)
+	if err != nil {
+		return nil, li.toHTTPStatus(err), fmt.Errorf("backend GetEntryAndProof request failed: %s", err)
+	}
+	if err := li.issuanceChainService.FixLogLeaf(ctx, rsp.Leaf); err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to fix log leaf: %v", rsp)
+	}
+
+	return rsp, http.StatusOK, nil
 }
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
