@@ -466,40 +466,19 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano)
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
-	var leaf trillian.LogLeaf
 	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %s", err)
 	}
-	raw := extractRawCerts(chain)
-
-	// If CTFE storage is enabled for issuance chain, add the chain to storage
-	// and cache, and then build log leaf. If Trillian gRPC is enabled for
-	// issuance chain, build the log leaf.
-	if li.issuanceChainService.IsCTFEStorageEnabled() {
-		issuanceChain, err := asn1.Marshal(raw[1:])
-		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to marshal issuance chain: %s", err)
-		}
-		hash, err := li.issuanceChainService.Add(ctx, issuanceChain)
-		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
-		}
-		leaf, err = util.BuildLogLeafWithHash(li.LogPrefix, *merkleLeaf, 0, raw[0], nil, hash, isPrecert)
-		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %s", err)
-		}
-	} else {
-		leaf, err = util.BuildLogLeaf(li.LogPrefix, *merkleLeaf, 0, raw[0], raw[1:], isPrecert)
-		if err != nil {
-			return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %s", err)
-		}
+	leaf, err := li.issuanceChainService.BuildLogLeaf(ctx, chain, li.LogPrefix, merkleLeaf, isPrecert)
+	if err != nil {
+		return http.StatusInternalServerError, err
 	}
 
 	// Send the Merkle tree leaf on to the Log server.
 	req := trillian.QueueLeafRequest{
 		LogId:    li.logID,
-		Leaf:     &leaf,
+		Leaf:     leaf,
 		ChargeTo: li.chargeUser(r),
 	}
 	if li.instanceOpts.CertificateQuotaUser != nil {

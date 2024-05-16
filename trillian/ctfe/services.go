@@ -24,6 +24,8 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/storage"
+	"github.com/google/certificate-transparency-go/trillian/util"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"k8s.io/klog/v2"
 
@@ -101,6 +103,37 @@ func (s *issuanceChainService) Add(ctx context.Context, chain []byte) ([]byte, e
 	}(ctx, hash, chain)
 
 	return hash, nil
+}
+
+// BuildLogLeaf builds the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
+func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.Certificate, logPrefix string, merkleLeaf *ct.MerkleTreeLeaf, isPrecert bool) (*trillian.LogLeaf, error) {
+	leaf := trillian.LogLeaf{}
+	raw := extractRawCerts(chain)
+
+	// If CTFE storage is enabled for issuance chain, add the chain to storage
+	// and cache, and then build log leaf. If Trillian gRPC is enabled for
+	// issuance chain, build the log leaf.
+	if s.IsCTFEStorageEnabled() {
+		issuanceChain, err := asn1.Marshal(raw[1:])
+		if err != nil {
+			return &leaf, fmt.Errorf("failed to marshal issuance chain: %s", err)
+		}
+		hash, err := s.Add(ctx, issuanceChain)
+		if err != nil {
+			return &leaf, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
+		}
+		leaf, err := util.BuildLogLeafWithHash(logPrefix, *merkleLeaf, 0, raw[0], nil, hash, isPrecert)
+		if err != nil {
+			return &leaf, fmt.Errorf("failed to build LogLeaf: %s", err)
+		}
+	} else {
+		leaf, err := util.BuildLogLeaf(logPrefix, *merkleLeaf, 0, raw[0], raw[1:], isPrecert)
+		if err != nil {
+			return &leaf, fmt.Errorf("failed to build LogLeaf: %s", err)
+		}
+	}
+
+	return &leaf, nil
 }
 
 // FixLogLeaf recreates the LogLeaf.ExtraData if CTFE storage backend is
