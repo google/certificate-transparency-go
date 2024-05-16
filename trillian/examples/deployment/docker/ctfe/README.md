@@ -39,6 +39,7 @@ First bring up the trillian instance and the database:
 # Terminal 1
 cd ${GIT_HOME}/certificate-transparency-go/trillian/examples/deployment/docker/ctfe/
 docker compose up
+docker exec -i ctfe-db mariadb -pzaphod -Dtest < ${GIT_HOME}/certificate-transparency-go/trillian/ctfe/storage/mysql/schema.sql
 ```
 
 This brings up everything except the CTFE. Now to provision the logs.
