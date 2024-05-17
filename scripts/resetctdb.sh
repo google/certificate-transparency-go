@@ -41,13 +41,11 @@ collect_vars() {
   # handle flags
   FORCE=false
   VERBOSE=false
-  ONLY_IMPORT_SCHEMA=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --force) FORCE=true ;;
       --verbose) VERBOSE=true ;;
-      --only_import_schema) ONLY_IMPORT_SCHEMA=true ;;
       --help) usage; exit ;;
       *) FLAGS+=("$1")
     esac
@@ -77,14 +75,6 @@ main() {
 
   if [ -z ${REPLY+x} ] || [[ $REPLY =~ ^[Yy]$ ]]
   then
-    if [[ ${ONLY_IMPORT_SCHEMA} = 'true' ]]
-    then
-      echo "Importing schema only..."
-      import_schema
-      echo "Imported schema"
-      exit 0 
-    fi
-
     echo "Resetting DB..."
     mysql "${FLAGS[@]}" -e "DROP DATABASE IF EXISTS ${MYSQL_DATABASE};" || \
       die "Error: Failed to drop database '${MYSQL_DATABASE}'."
@@ -94,14 +84,10 @@ main() {
       die "Error: Failed to create user '${MYSQL_USER}@${MYSQL_USER_HOST}'."
     mysql "${FLAGS[@]}" -e "GRANT ALL ON ${MYSQL_DATABASE}.* TO ${MYSQL_USER}@'${MYSQL_USER_HOST}'" || \
       die "Error: Failed to grant '${MYSQL_USER}' user all privileges on '${MYSQL_DATABASE}'."
-    import_schema
+    mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} < ${CT_GO_PATH}/trillian/ctfe/storage/mysql/schema.sql || \
+      die "Error: Failed to import schema in '${MYSQL_DATABASE}' database."
     echo "Reset Complete"
   fi
-}
-
-import_schema() {
-  mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} < ${CT_GO_PATH}/trillian/ctfe/storage/mysql/schema.sql || \
-    die "Error: Failed to import schema in '${MYSQL_DATABASE}' database."
 }
 
 main "$@"
