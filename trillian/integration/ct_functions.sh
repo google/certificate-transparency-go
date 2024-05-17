@@ -33,6 +33,9 @@ ct_prep_test() {
   echo "Provisioning logs for CT"
   ct_provision "${RPC_SERVER_1}"
 
+  # Wipe the CT test database
+  yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
+
   echo "Launching CT personalities"
   for ((i=0; i < http_server_count; i++)); do
     local port=$(pick_unused_port)
@@ -68,9 +71,6 @@ ct_prep_test() {
         PROMETHEUS_PID=$!
     fi
   fi
-
-  # Wipe the CT test database
-  yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh"
 }
 
 # ct_provision generates a CT configuration file and provisions the trees for it.
