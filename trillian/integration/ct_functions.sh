@@ -33,7 +33,7 @@ ct_prep_test() {
   echo "Provisioning logs for CT"
   ct_provision "${RPC_SERVER_1}"
 
-  # Wipe the CT test database
+  # Reset the CT test database
   yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
 
   echo "Launching CT personalities"
