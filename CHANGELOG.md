@@ -19,7 +19,7 @@ An optional LRU cache can be enabled by providing the following flags.
 - `cache_size`
 - `cache_ttl`
 
-This change is tested in Cloud Build tests using the `mysql:8.2` Docker image.
+This change is tested in Cloud Build tests using the `mysql:8.4` Docker image as of the time of writing.
 
 ### Submission proxy: Root compatibility checking
 
