@@ -68,6 +68,9 @@ ct_prep_test() {
         PROMETHEUS_PID=$!
     fi
   fi
+
+  echo "Importing schema via resetctdb.sh"
+  ${CT_GO_PATH}/scripts/resetctdb.sh --only_import_schema
 }
 
 # ct_provision generates a CT configuration file and provisions the trees for it.
