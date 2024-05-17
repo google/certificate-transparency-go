@@ -78,6 +78,7 @@ main() {
   if [ -z ${REPLY+x} ] || [[ $REPLY =~ ^[Yy]$ ]]
   then
     if [[ ${ONLY_IMPORT_SCHEMA} = 'true' ]]
+    then
       echo "Importing schema only..."
       import_schema
       echo "Imported schema"
