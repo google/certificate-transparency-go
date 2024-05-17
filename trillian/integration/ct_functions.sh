@@ -34,6 +34,7 @@ ct_prep_test() {
   ct_provision "${RPC_SERVER_1}"
 
   # Reset the CT test database
+  export MYSQL_HOST="mysql"
   yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
 
   echo "Launching CT personalities"
