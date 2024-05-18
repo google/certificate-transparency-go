@@ -92,6 +92,7 @@ main() {
     # Debug log
     mysql "${FLAGS[@]}" -e "SHOW DATABASES;"
     mysql "${FLAGS[@]}" -e "SHOW GRANTS FOR ${MYSQL_USER}@'${MYSQL_USER_HOST}';"
+    mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} -e "SHOW TABLES;"
 
     echo "Reset Complete"
   fi
