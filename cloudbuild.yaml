@@ -91,7 +91,7 @@ steps:
       export MYSQL_HOST="mysql"
       export MYSQL_ROOT_PASSWORD="zaphod"
       export MYSQL_USER_HOST="%"
-      yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
+      yes | bash "$${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
   waitFor: ['prepare']
 
 # Run the presubmit tests
