@@ -36,7 +36,7 @@ ct_prep_test() {
   # Reset the CT test database
   export MYSQL_HOST="mysql"
   export MYSQL_ROOT_PASSWORD="zaphod"
-  export MYSQL_USER_HOST="%"
+  # export MYSQL_USER_HOST="%"
   yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
 
   echo "Launching CT personalities"
