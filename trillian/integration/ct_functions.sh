@@ -33,12 +33,6 @@ ct_prep_test() {
   echo "Provisioning logs for CT"
   ct_provision "${RPC_SERVER_1}"
 
-  # Reset the CT test database
-  export MYSQL_HOST="mysql"
-  export MYSQL_ROOT_PASSWORD="zaphod"
-  export MYSQL_USER_HOST="%"
-  yes | bash "${CT_GO_PATH}/scripts/resetctdb.sh" --verbose
-
   echo "Launching CT personalities"
   for ((i=0; i < http_server_count; i++)); do
     local port=$(pick_unused_port)

@@ -88,12 +88,6 @@ main() {
       die "Error: Failed to flush privileges."
     mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} < ${CT_GO_PATH}/trillian/ctfe/storage/mysql/schema.sql || \
       die "Error: Failed to import schema in '${MYSQL_DATABASE}' database."
-    
-    # Debug log
-    mysql "${FLAGS[@]}" -e "SHOW DATABASES;"
-    mysql "${FLAGS[@]}" -e "SHOW GRANTS FOR ${MYSQL_USER}@'${MYSQL_USER_HOST}';"
-    mysql "${FLAGS[@]}" -e "USE ${MYSQL_DATABASE}; SHOW TABLES;"
-    mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} -e "SHOW TABLES;"
 
     echo "Reset Complete"
   fi
