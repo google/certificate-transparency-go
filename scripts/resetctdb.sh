@@ -82,10 +82,17 @@ main() {
       die "Error: Failed to create database '${MYSQL_DATABASE}'."
     mysql "${FLAGS[@]}" -e "CREATE USER IF NOT EXISTS ${MYSQL_USER}@'${MYSQL_USER_HOST}' IDENTIFIED BY '${MYSQL_PASSWORD}';" || \
       die "Error: Failed to create user '${MYSQL_USER}@${MYSQL_USER_HOST}'."
-    mysql "${FLAGS[@]}" -e "GRANT ALL ON ${MYSQL_DATABASE}.* TO ${MYSQL_USER}@'${MYSQL_USER_HOST}'" || \
+    mysql "${FLAGS[@]}" -e "GRANT ALL ON ${MYSQL_DATABASE}.* TO ${MYSQL_USER}@'${MYSQL_USER_HOST}';" || \
       die "Error: Failed to grant '${MYSQL_USER}' user all privileges on '${MYSQL_DATABASE}'."
+    mysql "${FLAGS[@]}" -e "FLUSH PRIVILEGES;" || \
+      die "Error: Failed to flush privileges."
     mysql "${FLAGS[@]}" -D ${MYSQL_DATABASE} < ${CT_GO_PATH}/trillian/ctfe/storage/mysql/schema.sql || \
       die "Error: Failed to import schema in '${MYSQL_DATABASE}' database."
+    
+    # Debug log
+    mysql "${FLAGS[@]}" -e "SHOW DATABASES;"
+    mysql "${FLAGS[@]}" -e "SHOW GRANTS FOR ${MYSQL_USER}@'${MYSQL_USER_HOST}';"
+
     echo "Reset Complete"
   fi
 }
