@@ -8,7 +8,7 @@ To reduce CT/Trillian database storage by deduplication of the entire issuance c
 
 Existing logs are not affected by this change. 
 
-Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto). See [example](trillian/examples/deployment/docker/ctfe/ct_server.cfg).
+Log operators can choose to opt-in this change for new CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto) and importing the [database schema](trillian/ctfe/storage/mysql/schema.sql). See [example](trillian/examples/deployment/docker/ctfe/ct_server.cfg).
 
 - `ctfe_storage_connection_string`
 - `extra_data_issuance_chain_storage_backend`
