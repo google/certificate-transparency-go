@@ -181,7 +181,6 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	}
 
 	// Initialise IssuanceChainService with IssuanceChainStorage and IssuanceChainCache.
-	// issuanceChainStorage is nil for Trillian gRPC or mysql.IssuanceChainStorage when MySQL is the prefix in database connection string.
 	issuanceChainStorage, err := storage.NewIssuanceChainStorage(ctx, vCfg.ExtraDataIssuanceChainStorageBackend, vCfg.CTFEStorageConnectionString)
 	if err != nil {
 		return nil, err
