@@ -144,6 +144,8 @@ func (s *issuanceChainService) FixLogLeaf(ctx context.Context, leaf *trillian.Lo
 		return nil
 	}
 
+	// As the struct stored in leaf.ExtraData is unknown, the only way is to try to unmarshal with each possible struct.
+	// Try to unmarshal with ct.PrecertChainEntryHash struct.
 	var precertChainHash ct.PrecertChainEntryHash
 	if rest, err := tls.Unmarshal(leaf.ExtraData, &precertChainHash); err == nil && len(rest) == 0 {
 		var chain []ct.ASN1Cert
@@ -173,6 +175,7 @@ func (s *issuanceChainService) FixLogLeaf(ctx context.Context, leaf *trillian.Lo
 		return nil
 	}
 
+	// Try to unmarshal with ct.CertificateChainHash struct.
 	var certChainHash ct.CertificateChainHash
 	if rest, err := tls.Unmarshal(leaf.ExtraData, &certChainHash); err == nil && len(rest) == 0 {
 		var entries []ct.ASN1Cert
