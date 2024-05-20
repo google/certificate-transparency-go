@@ -51,33 +51,33 @@ func ExtraDataForChain(cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool) ([
 	return tls.Marshal(extra)
 }
 
-func BuildLogLeafWithHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, hash []byte, isPrecert bool) (trillian.LogLeaf, error) {
-	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, chain, hash, isPrecert)
+func BuildLogLeafWithHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
+	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, chain, chainHash, isPrecert)
 }
 
 // ExtraDataForChainWithHash creates the extra data associated with a log entry as
 // described in RFC6962 section 4.6.
-func ExtraDataForChainWithHash(cert ct.ASN1Cert, chain []ct.ASN1Cert, hash []byte, isPrecert bool) ([]byte, error) {
+func ExtraDataForChainWithHash(cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) ([]byte, error) {
 	var extra interface{}
 
 	if isPrecert {
 		// For a pre-cert, the extra data is a TLS-encoded PrecertChainEntry.
 		extra = ct.PrecertChainEntryHash{
 			PreCertificate:    cert,
-			IssuanceChainHash: hash,
+			IssuanceChainHash: chainHash,
 		}
 	} else {
 		// For a certificate, the extra data is a TLS-encoded:
 		//   ASN.1Cert certificate_chain<0..2^24-1>;
 		// containing the chain after the leaf.
 		extra = ct.CertificateChainHash{
-			IssuanceChainHash: hash,
+			IssuanceChainHash: chainHash,
 		}
 	}
 	return tls.Marshal(extra)
 }
 
-func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, hash []byte, isPrecert bool) (trillian.LogLeaf, error) {
+func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize Merkle leaf: %v", logPrefix, err)
@@ -85,10 +85,10 @@ func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int6
 	}
 
 	var extraData []byte
-	if hash == nil {
+	if chainHash == nil {
 		extraData, err = ExtraDataForChain(cert, chain, isPrecert)
 	} else {
-		extraData, err = ExtraDataForChainWithHash(cert, chain, hash, isPrecert)
+		extraData, err = ExtraDataForChainWithHash(cert, chain, chainHash, isPrecert)
 	}
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
