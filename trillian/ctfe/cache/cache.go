@@ -24,14 +24,17 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe/cache/noop"
 )
 
+// Type represents the cache type.
 type Type string
 
+// Type constants for the cache type.
 const (
 	Unknown Type = ""
 	NOOP    Type = "noop"
 	LRU     Type = "lru"
 )
 
+// Option represents the cache option, which includes the cache size and time-to-live.
 type Option struct {
 	Size int
 	TTL  time.Duration
