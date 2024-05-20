@@ -46,14 +46,14 @@ func newIssuanceChainService(s storage.IssuanceChainStorage, c cache.IssuanceCha
 	return service
 }
 
-func (s *issuanceChainService) IsCTFEStorageEnabled() bool {
+func (s *issuanceChainService) isCTFEStorageEnabled() bool {
 	return s.storage != nil
 }
 
 // GetByHash returns the issuance chain with hash as the input.
 func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]byte, error) {
 	// Return err if CTFE storage backend is not enabled.
-	if !s.IsCTFEStorageEnabled() {
+	if !s.isCTFEStorageEnabled() {
 		return nil, errors.New("failed to GetByHash when storage is nil")
 	}
 
@@ -84,7 +84,7 @@ func (s *issuanceChainService) GetByHash(ctx context.Context, hash []byte) ([]by
 // of the chain.
 func (s *issuanceChainService) add(ctx context.Context, chain []byte) ([]byte, error) {
 	// Return err if CTFE storage backend is not enabled.
-	if !s.IsCTFEStorageEnabled() {
+	if !s.isCTFEStorageEnabled() {
 		return nil, errors.New("failed to Add when storage is nil")
 	}
 
@@ -112,7 +112,7 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 	// If CTFE storage is enabled for issuance chain, add the chain to storage
 	// and cache, and then build log leaf. If Trillian gRPC is enabled for
 	// issuance chain, build the log leaf.
-	if s.IsCTFEStorageEnabled() {
+	if s.isCTFEStorageEnabled() {
 		issuanceChain, err := asn1.Marshal(raw[1:])
 		if err != nil {
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to marshal issuance chain: %s", err)
@@ -140,7 +140,7 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 // PrecertChainEntryHash, CertificateChainHash).
 func (s *issuanceChainService) FixLogLeaf(ctx context.Context, leaf *trillian.LogLeaf) error {
 	// Skip if CTFE storage backend is not enabled.
-	if !s.IsCTFEStorageEnabled() {
+	if !s.isCTFEStorageEnabled() {
 		return nil
 	}
 
