@@ -121,7 +121,7 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 		if err != nil {
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
 		}
-		leaf, err := util.BuildLogLeafWithHash(logPrefix, *merkleLeaf, 0, raw[0], nil, hash, isPrecert)
+		leaf, err := util.BuildLogLeafWithChainHash(logPrefix, *merkleLeaf, 0, raw[0], hash, isPrecert)
 		if err != nil {
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
 		}

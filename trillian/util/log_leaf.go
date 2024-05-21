@@ -51,8 +51,8 @@ func ExtraDataForChain(cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool) ([
 	return tls.Marshal(extra)
 }
 
-func BuildLogLeafWithHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
-	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, chain, chainHash, isPrecert)
+func BuildLogLeafWithChainHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
+	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, nil, chainHash, isPrecert)
 }
 
 // ExtraDataForChainHash creates the extra data associated with a log entry as
