@@ -77,6 +77,9 @@ func ExtraDataForChainHash(cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (
 	return tls.Marshal(extra)
 }
 
+// buildLogLeaf builds the trillian.LogLeaf. The chainHash argument controls
+// whether ExtraDataForChain or ExtraDataForChainHash method will be called.
+// If chainHash is not nil, but neither is chain, then chain will be ignored.
 func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
