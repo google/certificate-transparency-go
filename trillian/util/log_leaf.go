@@ -55,9 +55,9 @@ func BuildLogLeafWithHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIn
 	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, chain, chainHash, isPrecert)
 }
 
-// ExtraDataForChainWithHash creates the extra data associated with a log entry as
-// described in RFC6962 section 4.6.
-func ExtraDataForChainWithHash(cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) ([]byte, error) {
+// ExtraDataForChainHash creates the extra data associated with a log entry as
+// described in RFC6962 section 4.6 except the chain being replaced with its hash.
+func ExtraDataForChainHash(cert ct.ASN1Cert, chainHash []byte, isPrecert bool) ([]byte, error) {
 	var extra interface{}
 
 	if isPrecert {
@@ -88,7 +88,7 @@ func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int6
 	if chainHash == nil {
 		extraData, err = ExtraDataForChain(cert, chain, isPrecert)
 	} else {
-		extraData, err = ExtraDataForChainWithHash(cert, chain, chainHash, isPrecert)
+		extraData, err = ExtraDataForChainHash(cert, chainHash, isPrecert)
 	}
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
