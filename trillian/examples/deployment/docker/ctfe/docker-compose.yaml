@@ -66,6 +66,7 @@ services:
     volumes:
       - ctfe_config:/ctfe-config:ro
     depends_on:
+      - db
       - trillian-log-server
 
 volumes:

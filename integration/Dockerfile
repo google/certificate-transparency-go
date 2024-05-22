@@ -7,7 +7,7 @@ WORKDIR /testbase
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 
-RUN apt-get update && apt-get -y install build-essential curl docker-compose lsof netcat-openbsd unzip wget xxd
+RUN apt-get update && apt-get -y install build-essential curl docker-compose lsof mariadb-client netcat-openbsd unzip wget xxd
 
 RUN cd /usr/bin && curl -L -O https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux64 && mv jq-linux64 /usr/bin/jq && chmod +x /usr/bin/jq
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.1

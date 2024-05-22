@@ -29,6 +29,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/storage"
 	"github.com/google/certificate-transparency-go/trillian/util"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -72,6 +74,10 @@ type InstanceOptions struct {
 	// MaskInternalErrors indicates if internal server errors should be masked
 	// or returned to the user containing the full error message.
 	MaskInternalErrors bool
+	// CacheType is the CTFE cache type.
+	CacheType cache.Type
+	// CacheOption includes the cache size and time-to-live (TTL).
+	CacheOption cache.Option
 }
 
 // Instance is a set up log/mirror instance. It must be created with the
@@ -174,7 +180,20 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 		return nil, fmt.Errorf("failed to parse RejectExtensions: %v", err)
 	}
 
-	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource))
+	// Initialise IssuanceChainService with IssuanceChainStorage and IssuanceChainCache.
+	issuanceChainStorage, err := storage.NewIssuanceChainStorage(ctx, vCfg.ExtraDataIssuanceChainStorageBackend, vCfg.CTFEStorageConnectionString)
+	if err != nil {
+		return nil, err
+	}
+	// issuanceChainCache is nil if the cache related flags are not defined.
+	issuanceChainCache, err := cache.NewIssuanceChainCache(ctx, opts.CacheType, opts.CacheOption)
+	if err != nil {
+		return nil, err
+	}
+
+	issuanceChainService := newIssuanceChainService(issuanceChainStorage, issuanceChainCache)
+
+	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource), issuanceChainService)
 	return logInfo, nil
 }
 

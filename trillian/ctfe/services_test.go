@@ -39,7 +39,7 @@ func TestIssuanceChainServiceAddAndGet(t *testing.T) {
 	issuanceChainService := newIssuanceChainService(storage, cache)
 
 	for _, test := range tests {
-		hash, err := issuanceChainService.Add(ctx, test.chain)
+		hash, err := issuanceChainService.add(ctx, test.chain)
 		if err != nil {
 			t.Errorf("IssuanceChainService.Add(): %v", err)
 		}

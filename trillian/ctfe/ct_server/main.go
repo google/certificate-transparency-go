@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
@@ -73,6 +74,9 @@ var (
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in submitted chains")
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
 	pkcs11ModulePath   = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
+	cacheType          = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
+	cacheSize          = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
+	cacheTTL           = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -218,7 +222,19 @@ func main() {
 	// client.
 	var publicKeys []crypto.PublicKey
 	for _, c := range cfg.LogConfigs.Config {
-		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
+		inst, err := setupAndRegister(ctx,
+			clientMap[c.LogBackendName],
+			*rpcDeadline,
+			c,
+			corsMux,
+			*handlerPrefix,
+			*maskInternalErrors,
+			cache.Type(*cacheType),
+			cache.Option{
+				Size: *cacheSize,
+				TTL:  *cacheTTL,
+			},
+		)
 		if err != nil {
 			klog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
@@ -330,7 +346,7 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool) (*ctfe.Instance, error) {
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool, cacheType cache.Type, cacheOption cache.Option) (*ctfe.Instance, error) {
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -343,6 +359,8 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		MetricFactory:      prometheus.MetricFactory{},
 		RequestLog:         new(ctfe.DefaultRequestLog),
 		MaskInternalErrors: maskInternalErrors,
+		CacheType:          cacheType,
+		CacheOption:        cacheOption,
 	}
 	if *quotaRemote {
 		klog.Info("Enabling quota for requesting IP")
