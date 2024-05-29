@@ -51,6 +51,8 @@ func ExtraDataForChain(cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool) ([
 	return tls.Marshal(extra)
 }
 
+// BuildLogLeafWithChainHash returns a Trillian LogLeaf structure for a
+// (pre-)cert and the chain of certificates leading it up to a known root.
 func BuildLogLeafWithChainHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (*trillian.LogLeaf, error) {
 	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, nil, chainHash, isPrecert)
 }
