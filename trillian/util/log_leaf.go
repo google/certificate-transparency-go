@@ -58,7 +58,7 @@ func BuildLogLeafWithChainHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, l
 // ExtraDataForChainHash creates the extra data associated with a log entry as
 // described in RFC6962 section 4.6 except the chain being replaced with its hash.
 func ExtraDataForChainHash(cert ct.ASN1Cert, chainHash []byte, isPrecert bool) ([]byte, error) {
-	var extra interface{}
+	var extra any
 
 	if isPrecert {
 		// For a pre-cert, the extra data is a TLS-encoded PrecertChainEntry.
