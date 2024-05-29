@@ -126,13 +126,15 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 			return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
 		}
 		return leaf, nil
-	} else {
-		leaf, err := util.BuildLogLeaf(logPrefix, *merkleLeaf, 0, raw[0], raw[1:], isPrecert)
-		if err != nil {
-			return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
-		}
-		return leaf, nil
 	}
+
+	// Trillian gRPC
+	leaf, err := util.BuildLogLeaf(logPrefix, *merkleLeaf, 0, raw[0], raw[1:], isPrecert)
+	if err != nil {
+		return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
+	}
+	return leaf, nil
+
 }
 
 // FixLogLeaf recreates and populates the LogLeaf.ExtraData if CTFE storage
