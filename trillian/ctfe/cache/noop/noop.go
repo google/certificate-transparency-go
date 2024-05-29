@@ -17,6 +17,7 @@ package noop
 
 import "context"
 
+// IssuanceChainCache is a no-op implementation of the IssuanceChainCache interface.
 type IssuanceChainCache struct{}
 
 func (c *IssuanceChainCache) Get(_ context.Context, key []byte) ([]byte, error) {
