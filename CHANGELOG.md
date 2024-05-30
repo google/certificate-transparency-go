@@ -2,6 +2,16 @@
 
 ## HEAD
 
+## v1.2.1
+
+### Fixes
+
+* Fix Go potential bugs and maintainability by @roger2hk in https://github.com/google/certificate-transparency-go/pull/1496
+
+### Dependency update
+
+* Bump google.golang.org/grpc from 1.63.2 to 1.64.0 by @dependabot in https://github.com/google/certificate-transparency-go/pull/1482
+
 ## v1.2.0
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
