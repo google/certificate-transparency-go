@@ -115,15 +115,15 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 	if s.isCTFEStorageEnabled() {
 		issuanceChain, err := asn1.Marshal(raw[1:])
 		if err != nil {
-			return &trillian.LogLeaf{}, fmt.Errorf("failed to marshal issuance chain: %s", err)
+			return nil, fmt.Errorf("failed to marshal issuance chain: %s", err)
 		}
 		hash, err := s.add(ctx, issuanceChain)
 		if err != nil {
-			return &trillian.LogLeaf{}, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
+			return nil, fmt.Errorf("failed to add issuance chain into CTFE storage: %s", err)
 		}
 		leaf, err := util.BuildLogLeafWithChainHash(logPrefix, *merkleLeaf, 0, raw[0], hash, isPrecert)
 		if err != nil {
-			return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
+			return nil, fmt.Errorf("failed to build LogLeaf: %s", err)
 		}
 		return leaf, nil
 	}
@@ -131,7 +131,7 @@ func (s *issuanceChainService) BuildLogLeaf(ctx context.Context, chain []*x509.C
 	// Trillian gRPC
 	leaf, err := util.BuildLogLeaf(logPrefix, *merkleLeaf, 0, raw[0], raw[1:], isPrecert)
 	if err != nil {
-		return &trillian.LogLeaf{}, fmt.Errorf("failed to build LogLeaf: %s", err)
+		return nil, fmt.Errorf("failed to build LogLeaf: %s", err)
 	}
 	return leaf, nil
 

@@ -86,7 +86,7 @@ func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int6
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize Merkle leaf: %v", logPrefix, err)
-		return &trillian.LogLeaf{}, err
+		return nil, err
 	}
 
 	var extraData []byte
@@ -97,7 +97,7 @@ func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int6
 	}
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
-		return &trillian.LogLeaf{}, err
+		return nil, err
 	}
 	// leafIDHash allows Trillian to detect duplicate entries, so this should be
 	// a hash over the cert data.
