@@ -32,6 +32,7 @@ const (
 	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES (?, ?)"
 )
 
+// IssuanceChainStorage is a MySQL implementation of the IssuanceChainStorage interface.
 type IssuanceChainStorage struct {
 	db *sql.DB
 }

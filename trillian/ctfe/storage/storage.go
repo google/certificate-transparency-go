@@ -41,9 +41,9 @@ func NewIssuanceChainStorage(ctx context.Context, backend configpb.LogConfig_Iss
 	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE:
 		if strings.HasPrefix(dbConn, "mysql") {
 			return mysql.NewIssuanceChainStorage(ctx, dbConn), nil
-		} else {
-			return nil, errors.New("failed to initialise IssuanceChainService due to unsupported driver in CTFE storage connection string")
 		}
+
+		return nil, errors.New("failed to initialise IssuanceChainService due to unsupported driver in CTFE storage connection string")
 	}
 
 	return nil, errors.New("unsupported issuance chain storage backend")

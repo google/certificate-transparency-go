@@ -28,7 +28,7 @@ import (
 func BuildLogLeaf(logPrefix string,
 	merkleLeaf ct.MerkleTreeLeaf, leafIndex int64,
 	cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool,
-) (trillian.LogLeaf, error) {
+) (*trillian.LogLeaf, error) {
 	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, chain, nil, isPrecert)
 }
 
@@ -51,14 +51,16 @@ func ExtraDataForChain(cert ct.ASN1Cert, chain []ct.ASN1Cert, isPrecert bool) ([
 	return tls.Marshal(extra)
 }
 
-func BuildLogLeafWithChainHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
+// BuildLogLeafWithChainHash returns a Trillian LogLeaf structure for a
+// (pre-)cert and the chain of certificates leading it up to a known root.
+func BuildLogLeafWithChainHash(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (*trillian.LogLeaf, error) {
 	return buildLogLeaf(logPrefix, merkleLeaf, leafIndex, cert, nil, chainHash, isPrecert)
 }
 
 // ExtraDataForChainHash creates the extra data associated with a log entry as
 // described in RFC6962 section 4.6 except the chain being replaced with its hash.
 func ExtraDataForChainHash(cert ct.ASN1Cert, chainHash []byte, isPrecert bool) ([]byte, error) {
-	var extra interface{}
+	var extra any
 
 	if isPrecert {
 		// For a pre-cert, the extra data is a TLS-encoded PrecertChainEntry.
@@ -80,11 +82,11 @@ func ExtraDataForChainHash(cert ct.ASN1Cert, chainHash []byte, isPrecert bool) (
 // buildLogLeaf builds the trillian.LogLeaf. The chainHash argument controls
 // whether ExtraDataForChain or ExtraDataForChainHash method will be called.
 // If chainHash is not nil, but neither is chain, then chain will be ignored.
-func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (trillian.LogLeaf, error) {
+func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int64, cert ct.ASN1Cert, chain []ct.ASN1Cert, chainHash []byte, isPrecert bool) (*trillian.LogLeaf, error) {
 	leafData, err := tls.Marshal(merkleLeaf)
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize Merkle leaf: %v", logPrefix, err)
-		return trillian.LogLeaf{}, err
+		return nil, err
 	}
 
 	var extraData []byte
@@ -95,12 +97,12 @@ func buildLogLeaf(logPrefix string, merkleLeaf ct.MerkleTreeLeaf, leafIndex int6
 	}
 	if err != nil {
 		klog.Warningf("%s: Failed to serialize chain for ExtraData: %v", logPrefix, err)
-		return trillian.LogLeaf{}, err
+		return nil, err
 	}
 	// leafIDHash allows Trillian to detect duplicate entries, so this should be
 	// a hash over the cert data.
 	leafIDHash := sha256.Sum256(cert.Data)
-	return trillian.LogLeaf{
+	return &trillian.LogLeaf{
 		LeafValue:        leafData,
 		ExtraData:        extraData,
 		LeafIndex:        leafIndex,
