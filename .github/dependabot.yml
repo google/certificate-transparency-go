@@ -3,34 +3,69 @@ updates:
 - package-ecosystem: gomod
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /integration
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /internal/witness/cmd/feeder
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /internal/witness/cmd/witness
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /trillian/examples/deployment/docker/ctfe
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /trillian/examples/deployment/docker/envsubst
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
