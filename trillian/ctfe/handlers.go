@@ -256,6 +256,11 @@ func NewCertValidationOpts(trustedRoots *x509util.PEMCertPool, currentTime time.
 	return vOpts
 }
 
+type leafChainBuilder interface {
+	BuildLogLeaf(ctx context.Context, chain []*x509.Certificate, logPrefix string, merkleLeaf *ct.MerkleTreeLeaf, isPrecert bool) (*trillian.LogLeaf, error)
+	FixLogLeaf(ctx context.Context, leaf *trillian.LogLeaf) error
+}
+
 // logInfo holds information for a specific log instance.
 type logInfo struct {
 	// LogPrefix is a pre-formatted string identifying the log for diagnostics
@@ -279,7 +284,7 @@ type logInfo struct {
 	// sthGetter provides STHs for the log
 	sthGetter STHGetter
 	// issuanceChainService provides the issuance chain add and get operations
-	issuanceChainService *issuanceChainService
+	issuanceChainService leafChainBuilder
 }
 
 // newLogInfo creates a new instance of logInfo.
@@ -288,7 +293,7 @@ func newLogInfo(
 	validationOpts CertValidationOpts,
 	signer crypto.Signer,
 	timeSource util.TimeSource,
-	issuanceChainService *issuanceChainService,
+	issuanceChainService leafChainBuilder,
 ) *logInfo {
 	vCfg := instanceOpts.Validated
 	cfg := vCfg.Config
@@ -388,6 +393,10 @@ func (li *logInfo) getSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 	return sth, nil
 }
 
+func (li *logInfo) buildLeaf(ctx context.Context, chain []*x509.Certificate, merkleLeaf *ct.MerkleTreeLeaf, isPrecert bool) (*trillian.LogLeaf, error) {
+	return li.issuanceChainService.BuildLogLeaf(ctx, chain, li.LogPrefix, merkleLeaf, isPrecert)
+}
+
 // ParseBodyAsJSONChain tries to extract cert-chain out of request.
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := io.ReadAll(r.Body)
@@ -470,7 +479,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("failed to build MerkleTreeLeaf: %s", err)
 	}
-	leaf, err := li.issuanceChainService.BuildLogLeaf(ctx, chain, li.LogPrefix, merkleLeaf, isPrecert)
+	leaf, err := li.buildLeaf(ctx, chain, merkleLeaf, isPrecert)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -947,14 +956,6 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 	}
 
 	return validPath, nil
-}
-
-func extractRawCerts(chain []*x509.Certificate) []ct.ASN1Cert {
-	raw := make([]ct.ASN1Cert, len(chain))
-	for i, cert := range chain {
-		raw[i] = ct.ASN1Cert{Data: cert.Raw}
-	}
-	return raw
 }
 
 // marshalAndWriteAddChainResponse is used by add-chain and add-pre-chain to create and write

@@ -165,7 +165,7 @@ func setupTest(t *testing.T, pemRoots []string, signer crypto.Signer) handlerTes
 	cfg := &configpb.LogConfig{LogId: 0x42, Prefix: "test", IsMirror: false}
 	vCfg := &ValidatedLogConfig{Config: cfg}
 	iOpts := InstanceOptions{Validated: vCfg, Client: info.client, Deadline: time.Millisecond * 500, MetricFactory: monitoring.InertMetricFactory{}, RequestLog: new(DefaultRequestLog)}
-	info.li = newLogInfo(iOpts, vOpts, signer, fakeTimeSource, newIssuanceChainService(nil, nil))
+	info.li = newLogInfo(iOpts, vOpts, signer, fakeTimeSource, &directIssuanceChainService{})
 
 	for _, pemRoot := range pemRoots {
 		if !info.roots.AppendCertsFromPEM([]byte(pemRoot)) {

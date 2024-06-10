@@ -185,13 +185,17 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	// issuanceChainCache is nil if the cache related flags are not defined.
+	if issuanceChainStorage == nil {
+		return newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource), &directIssuanceChainService{}), nil
+	}
+
+	// We are storing chains outside of Trillian, so set up cache and service.
 	issuanceChainCache, err := cache.NewIssuanceChainCache(ctx, opts.CacheType, opts.CacheOption)
 	if err != nil {
 		return nil, err
 	}
 
-	issuanceChainService := newIssuanceChainService(issuanceChainStorage, issuanceChainCache)
+	issuanceChainService := newIndirectIssuanceChainService(issuanceChainStorage, issuanceChainCache)
 
 	logInfo := newLogInfo(opts, validationOpts, signer, new(util.SystemTimeSource), issuanceChainService)
 	return logInfo, nil
