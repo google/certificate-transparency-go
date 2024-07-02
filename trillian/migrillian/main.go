@@ -18,16 +18,20 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
 
@@ -57,6 +61,7 @@ var (
 
 	maxIdleConnsPerHost = flag.Int("max_idle_conns_per_host", 10, "Max idle HTTP connections per host (0 = DefaultMaxIdleConnsPerHost)")
 	maxIdleConns        = flag.Int("max_idle_conns", 100, "Max number of idle HTTP connections across all hosts (0 = unlimited)")
+	tlsCACertFile       = flag.String("tls-ca-cert", "", "CA certificate file to use for secure connections with Trillian server")
 )
 
 func main() {
@@ -77,7 +82,11 @@ func main() {
 	}
 
 	klog.Infof("Dialling Trillian backend: %v", *backend)
-	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	dialOpts, err := NewClientDialOptionsFromFlags(*backend)
+	if err != nil {
+		klog.Exitf("Failed to determine dial options: %v", err)
+	}
+	conn, err := grpc.Dial(*backend, dialOpts[0], grpc.WithBlock())
 	if err != nil {
 		klog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
@@ -115,6 +124,35 @@ func main() {
 	go util.AwaitSignal(cctx, cancel)
 
 	core.RunMigration(cctx, ctrls)
+}
+
+// NewClientDialOptionsFromFlags returns a list of grpc.DialOption values to be
+// passed as DialOption arguments to grpc.Dial. It configures TLS credentials
+// if a CA certificate file is specified, otherwise it uses insecure credentials.
+func NewClientDialOptionsFromFlags(backend string) ([]grpc.DialOption, error) {
+	dialOpts := []grpc.DialOption{}
+
+	if *tlsCACertFile == "" {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+
+		tlsCaCert, err := os.ReadFile(filepath.Clean(*tlsCACertFile))
+		if err != nil {
+			return nil, err
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(tlsCaCert) {
+			return nil, fmt.Errorf("failed to append CA certificate to pool")
+		}
+		creds := credentials.NewTLS(&tls.Config{
+			ServerName: backend,
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+		})
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	}
+
+	return dialOpts, nil
 }
 
 // getController creates a single log migration Controller.
