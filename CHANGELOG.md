@@ -2,6 +2,8 @@
 
 ## HEAD
 
+* Add TLS support for Trillian: By using `--trillian_tls_ca_cert_file` flag, users can provide a CA certificate, that is used to establish a secure communication with Trillian log server. In https://github.com/google/certificate-transparency-go/pull/1525
+
 ## v1.2.1
 
 ### Fixes
