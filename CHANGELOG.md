@@ -6,6 +6,10 @@
 
 * Add TLS support for ct_server: By using `--tls_certificate` and `--tls_key` flags, users can provide a service certificate and key, that enables the server to handle HTTPS requests. In https://github.com/google/certificate-transparency-go/pull/1523
 
+### Fixes
+
+* Fix ct_server TLS configuration: When TLS on ct_server is enable, use ListenAndServeTLS instead of ListenAndServe.
+
 ## v1.2.1
 
 ### Fixes
