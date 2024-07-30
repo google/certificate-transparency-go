@@ -337,7 +337,11 @@ func main() {
 		klog.Info("HTTP server shutdown")
 	})
 
-	err = srv.ListenAndServe()
+	if *tlsCert != "" && *tlsKey != "" {
+		err = srv.ListenAndServeTLS("", "")
+	} else {
+		err = srv.ListenAndServe()
+	}
 	if err != http.ErrServerClosed {
 		klog.Warningf("Server exited: %v", err)
 	}
