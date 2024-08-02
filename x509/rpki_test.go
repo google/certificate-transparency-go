@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build amd64 || arm64 || ppc64le || ppc64 || mips64le || mips64 || s390x
+// +build amd64 arm64 ppc64le ppc64 mips64le mips64 s390x
+
 package x509
 
 import (
