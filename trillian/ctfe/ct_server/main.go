@@ -49,6 +49,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/naming/endpoints"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 	"google.golang.org/protobuf/proto"
@@ -57,29 +58,30 @@ import (
 
 // Global flags that affect all log instances.
 var (
-	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
-	tlsCert            = flag.String("tls_certificate", "", "Path to server TLS certificate")
-	tlsKey             = flag.String("tls_key", "", "Path to server TLS private key")
-	metricsEndpoint    = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
-	rpcBackend         = flag.String("log_rpc_server", "", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
-	rpcDeadline        = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
-	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	logConfig          = flag.String("log_config", "", "File holding log config in text proto format")
-	maxGetEntries      = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
-	etcdServers        = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
-	etcdHTTPService    = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
-	etcdMetricsService = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
-	maskInternalErrors = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
-	tracing            = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
-	tracingProjectID   = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
-	tracingPercent     = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
-	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
-	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in submitted chains")
-	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
-	pkcs11ModulePath   = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-	cacheType          = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
-	cacheSize          = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
-	cacheTTL           = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
+	httpEndpoint          = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
+	tlsCert               = flag.String("tls_certificate", "", "Path to server TLS certificate")
+	tlsKey                = flag.String("tls_key", "", "Path to server TLS private key")
+	metricsEndpoint       = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
+	rpcBackend            = flag.String("log_rpc_server", "", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
+	rpcDeadline           = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	getSTHInterval        = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
+	logConfig             = flag.String("log_config", "", "File holding log config in text proto format")
+	maxGetEntries         = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
+	etcdServers           = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
+	etcdHTTPService       = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
+	etcdMetricsService    = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	maskInternalErrors    = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
+	tracing               = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
+	tracingProjectID      = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
+	tracingPercent        = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
+	quotaRemote           = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
+	quotaIntermediate     = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in submitted chains")
+	handlerPrefix         = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
+	pkcs11ModulePath      = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
+	cacheType             = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
+	cacheSize             = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
+	cacheTTL              = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
+	trillianTlsCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -135,7 +137,16 @@ func main() {
 		metricsAt = *httpEndpoint
 	}
 
-	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
+	dialOpts := []grpc.DialOption{}
+	if *trillianTlsCACertFile != "" {
+		creds, err := credentials.NewClientTLSFromFile(*trillianTlsCACertFile, "")
+		if err != nil {
+			klog.Exitf("Failed to create TLS credentials from Trillian CA certificate: %v", err)
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	}
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
