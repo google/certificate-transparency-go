@@ -81,7 +81,7 @@ var (
 	cacheType             = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
 	cacheSize             = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
 	cacheTTL              = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
-	trillianTlsCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
+	trillianTLSCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -138,8 +138,8 @@ func main() {
 	}
 
 	dialOpts := []grpc.DialOption{}
-	if *trillianTlsCACertFile != "" {
-		creds, err := credentials.NewClientTLSFromFile(*trillianTlsCACertFile, "")
+	if *trillianTLSCACertFile != "" {
+		creds, err := credentials.NewClientTLSFromFile(*trillianTLSCACertFile, "")
 		if err != nil {
 			klog.Exitf("Failed to create TLS credentials from Trillian CA certificate: %v", err)
 		}
