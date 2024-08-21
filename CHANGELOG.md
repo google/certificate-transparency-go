@@ -2,6 +2,9 @@
 
 ## HEAD
 
+* Recommended Go version for development: 1.22
+  * Using a different version can lead to presubmits failing due to unexpected diffs.
+
 * Add TLS support for Trillian: By using `--trillian_tls_ca_cert_file` flag, users can provide a CA certificate, that is used to establish a secure communication with Trillian log server. In https://github.com/google/certificate-transparency-go/pull/1551
 
 * Add TLS support for ct_server: By using `--tls_certificate` and `--tls_key` flags, users can provide a service certificate and key, that enables the server to handle HTTPS requests. In https://github.com/google/certificate-transparency-go/pull/1523
