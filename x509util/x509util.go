@@ -898,3 +898,55 @@ func ParseSCTsFromCertificate(certBytes []byte) ([]*ct.SignedCertificateTimestam
 	}
 	return ParseSCTsFromSCTList(&cert.SCTList)
 }
+
+// Control function only permitting TCP connections to port 80 and 443 on public IP
+// addresses for SSRF mitigation. This function can be used when sending a GET 
+// request to an untrusted URL. 
+func safeSocketControl(network string, address string, conn syscall.RawConn) error {
+	if !(network == "tcp4" || network == "tcp6") {
+		return fmt.Errorf("%s is not a safe network type", network)
+	}
+
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("%s is not a valid host/port pair: %s", address, err)
+	}
+
+	IPaddress := net.ParseIP(host)
+	if IPaddress == nil {
+		return fmt.Errorf("%s is not a valid IP address", host)
+
+	}
+	if IsPrivate(IPaddress) {
+		return fmt.Errorf("%s is not a public IP address", IPaddress) 
+	}
+
+	if !(port == "80" || port == "443") {
+		return fmt.Errorf("%s is not a safe port number", port)
+	}
+
+	return nil
+}
+
+// Numbers below match those used by http.DefaultClient
+safeDialer := &net.Dialer{
+	Timeout: 30 * time.Second,
+	KeepAlive: 30 * time.Second,
+	DualStack: true,
+	Control: safeSocketControl,
+}
+
+safeTransport := &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: safeDialer.DialContext,
+	ForceAttemptHTTP2: true,
+	MaxIdleConns: 100,
+	IdleConnTimeout: 90 * time.Second,
+	TLSHandshakeTimeout: 10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
+safeClient := &http.Client{
+	Transport: safeTransport,
+}
+

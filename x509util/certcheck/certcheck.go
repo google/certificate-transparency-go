@@ -127,20 +127,21 @@ func chainFromSite(target string) ([]*x509.Certificate, error) {
 	if u.Scheme != "https" {
 		return nil, fmt.Errorf("%s: non-https URL provided", target)
 	}
-	host := u.Host
-	if !strings.Contains(host, ":") {
-		host += ":443"
-	}
-
-	// Insecure TLS connection here so we can always proceed.
-	conn, err := tls.Dial("tcp", host, &tls.Config{InsecureSkipVerify: true})
+	
+	resp, err := safeClient.Get(target)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to dial %q: %v", target, host, err)
+		return nil, fmt.Errorf("%s: failed to fetch URL: %v", target, err)
 	}
-	defer conn.Close()
+	defer resp.body.Close()
+
+	// Extract certificate chain from response
+	tslConn, ok := resp.TLS.(*tls.ConnectionState)
+	if !ok {
+		return nil, fmt.Errorf("%s: failed to get TLS connection state", target)
+	}
 
 	// Convert base crypto/x509.Certificates to our forked x509.Certificate type.
-	goChain := conn.ConnectionState().PeerCertificates
+	goChain := tslConn.PeerCertificates
 	var nfe *x509.NonFatalErrors
 	chain := make([]*x509.Certificate, len(goChain))
 	for i, goCert := range goChain {

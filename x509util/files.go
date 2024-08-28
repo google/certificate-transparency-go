@@ -45,9 +45,9 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 		return ReadPossiblePEMFile(target, blockname)
 	}
 
-	rsp, err := http.Get(target)
+	rsp, err := safeClient.Get(target)
 	if err != nil {
-		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
+		return nil, fmt.Errorf("failed to safeClient.Get(%q): %v", target, err)
 	}
 	data, err := io.ReadAll(rsp.Body)
 	if err != nil {
