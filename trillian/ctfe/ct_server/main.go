@@ -82,7 +82,7 @@ var (
 	cacheSize             = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
 	cacheTTL              = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 	trillianTLSCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
-	idleConnTimeout       = flag.Duration("idle_connection_timeout", time.Second*30, "Timeout after which idle connections will be closed by server")
+	idleConnTimeout       = flag.Duration("idle_connection_timeout", time.Second*0, "Timeout after which idle connections will be closed by server")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
