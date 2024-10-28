@@ -59,6 +59,7 @@ import (
 // Global flags that affect all log instances.
 var (
 	httpEndpoint          = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
+	httpIdleTimeout       = flag.Duration("http_idle_timeout", -1*time.Second, "Timeout after which idle connections will be closed by server")
 	tlsCert               = flag.String("tls_certificate", "", "Path to server TLS certificate")
 	tlsKey                = flag.String("tls_key", "", "Path to server TLS private key")
 	metricsEndpoint       = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
@@ -82,7 +83,6 @@ var (
 	cacheSize             = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
 	cacheTTL              = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 	trillianTLSCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
-	idleConnTimeout       = flag.Duration("idle_connection_timeout", time.Second*0, "Timeout after which idle connections will be closed by server")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -331,19 +331,14 @@ func main() {
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		srv = http.Server{
-			Addr:        *httpEndpoint,
-			Handler:     handler,
-			TLSConfig:   tlsConfig,
-			IdleTimeout: *idleConnTimeout,
-		}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler, TLSConfig: tlsConfig}
 	} else {
-		srv = http.Server{
-			Addr:        *httpEndpoint,
-			Handler:     handler,
-			IdleTimeout: *idleConnTimeout,
-		}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler}
 	}
+	if *httpIdleTimeout > 0 {
+		srv.IdleTimeout = *httpIdleTimeout
+	}
+
 	shutdownWG := new(sync.WaitGroup)
 	go awaitSignal(func() {
 		shutdownWG.Add(1)
