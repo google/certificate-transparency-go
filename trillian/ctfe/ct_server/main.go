@@ -59,6 +59,7 @@ import (
 // Global flags that affect all log instances.
 var (
 	httpEndpoint          = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
+	httpIdleTimeout       = flag.Duration("http_idle_timeout", -1*time.Second, "Timeout after which idle connections will be closed by server")
 	tlsCert               = flag.String("tls_certificate", "", "Path to server TLS certificate")
 	tlsKey                = flag.String("tls_key", "", "Path to server TLS private key")
 	metricsEndpoint       = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
@@ -334,6 +335,10 @@ func main() {
 	} else {
 		srv = http.Server{Addr: *httpEndpoint, Handler: handler}
 	}
+	if *httpIdleTimeout > 0 {
+		srv.IdleTimeout = *httpIdleTimeout
+	}
+
 	shutdownWG := new(sync.WaitGroup)
 	go awaitSignal(func() {
 		shutdownWG.Add(1)
