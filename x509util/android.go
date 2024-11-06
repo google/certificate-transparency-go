@@ -158,6 +158,7 @@ type AuthorizationList struct {
 	DeviceUniqueAttestation   asn1.RawValue `asn1:"optional,explicit,tag:720"`
 	IdentityCredentialKey     asn1.RawValue `asn1:"optional,explicit,tag:721"`
 	AttestationIdSecondImei   []byte        `asn1:"optional,explicit,tag:723"`
+	ModuleHash                []byte        `asn1:"optional,explicit,tag:724"`
 }
 
 // AttestInfoFromCert retrieves and parses an Android attestation information extension
@@ -380,6 +381,7 @@ func showKeyAuthorizations(buf *bytes.Buffer, auths AuthorizationList, prefix st
 	showNullValue(buf, prefix, "Device Unique Attestation", auths.DeviceUniqueAttestation)
 	showNullValue(buf, prefix, "Identity Credential Key", auths.IdentityCredentialKey)
 	showOptionalHexUtf8(buf, prefix, "Attestation Id Second IMEI", auths.AttestationIdSecondImei)
+	showOptionalHex(buf, prefix, "Module Hash", auths.ModuleHash)
 }
 
 func enumsToString(vals []int, fp func(int) string) string {
