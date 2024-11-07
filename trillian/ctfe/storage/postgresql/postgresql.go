@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/klog/v2"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/go-sql-driver/postgresql"
+	"k8s.io/klog/v2"
 )
 
 const (
