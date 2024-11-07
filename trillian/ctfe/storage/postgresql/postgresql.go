@@ -97,11 +97,5 @@ func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Enable strict SQL mode to ensure consistent behaviour among different storage engines when handling invalid or missing values in data-change statements.
-	if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
-		klog.Warningf("failed to set strict mode on postgresql db: %s", err)
-		return nil, err
-	}
-
 	return db, nil
 }
