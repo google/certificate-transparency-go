@@ -90,7 +90,7 @@ func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 		return nil, errors.New("expect data source name to start with postgresql")
 	}
 
-	db, err := sql.Open("postgresql", conn[1])
+	db, err := sql.Open("pgx", conn[1])
 	if err != nil {
 		// Don't log data source name as it could contain credentials.
 		klog.Errorf("could not open PostgreSQL database, check config: %s", err)
