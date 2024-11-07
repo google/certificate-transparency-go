@@ -12,13 +12,13 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
--- PostgreSQL / MariaDB version of the CTFE database schema
+-- PostgreSQL version of the CTFE database schema
 
 -- "IssuanceChain" table contains the hash and value pairs of the issuance chain.
-CREATE TABLE IF NOT EXISTS `IssuanceChain` (
+CREATE TABLE IF NOT EXISTS IssuanceChain (
   -- Hash of the chain of intermediate certificates and root certificates.
-  `IdentityHash` VARBINARY(255) NOT NULL,
+  IdentityHash bytea NOT NULL,
   -- Chain data of intermediate certificates and root certificates.
-  `ChainValue`   LONGBLOB NOT NULL,
-  PRIMARY KEY (`IdentityHash`)
+  ChainValue   bytea NOT NULL,
+  PRIMARY KEY (IdentityHash)
 );
