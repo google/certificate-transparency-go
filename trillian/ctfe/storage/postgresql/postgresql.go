@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	selectIssuanceChainByKeySQL = "SELECT c.ChainValue FROM IssuanceChain AS c WHERE c.IdentityHash = ?"
-	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES (?, ?)"
+	selectIssuanceChainByKeySQL = "SELECT c.ChainValue FROM IssuanceChain AS c WHERE c.IdentityHash = $1"
+	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES ($1, $2)"
 )
 
 // IssuanceChainStorage is a PostgreSQL implementation of the IssuanceChainStorage interface.
