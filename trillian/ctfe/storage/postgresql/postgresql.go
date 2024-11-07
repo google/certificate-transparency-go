@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package mysql defines the IssuanceChainStorage type, which implements IssuanceChainStorage interface with FindByKey and Add methods.
-package mysql
+// Package postgresql defines the IssuanceChainStorage type, which implements IssuanceChainStorage interface with FindByKey and Add methods.
+package postgresql
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/postgresql"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES (?, ?)"
 )
 
-// IssuanceChainStorage is a MySQL implementation of the IssuanceChainStorage interface.
+// IssuanceChainStorage is a PostgreSQL implementation of the IssuanceChainStorage interface.
 type IssuanceChainStorage struct {
 	db *sql.DB
 }
@@ -69,8 +69,8 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 	_, err := s.db.ExecContext(ctx, insertIssuanceChainSQL, key, chain)
 	if err != nil {
 		// Ignore duplicated key error.
-		var mysqlErr *mysql.MySQLError
-		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		var postgresqlErr *postgresql.PostgreSQLError
+		if errors.As(err, &postgresqlErr) && postgresqlErr.Number == 1062 {
 			return nil
 		}
 		return err
@@ -84,22 +84,22 @@ func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
 	// Verify data source name format.
 	conn := strings.Split(dataSourceName, "://")
 	if len(conn) != 2 {
-		return nil, errors.New("could not parse MySQL data source name")
+		return nil, errors.New("could not parse PostgreSQL data source name")
 	}
-	if conn[0] != "mysql" {
-		return nil, errors.New("expect data source name to start with mysql")
+	if conn[0] != "postgresql" {
+		return nil, errors.New("expect data source name to start with postgresql")
 	}
 
-	db, err := sql.Open("mysql", conn[1])
+	db, err := sql.Open("postgresql", conn[1])
 	if err != nil {
 		// Don't log data source name as it could contain credentials.
-		klog.Errorf("could not open MySQL database, check config: %s", err)
+		klog.Errorf("could not open PostgreSQL database, check config: %s", err)
 		return nil, err
 	}
 
 	// Enable strict SQL mode to ensure consistent behaviour among different storage engines when handling invalid or missing values in data-change statements.
 	if _, err := db.ExecContext(ctx, "SET sql_mode = 'STRICT_ALL_TABLES'"); err != nil {
-		klog.Warningf("failed to set strict mode on mysql db: %s", err)
+		klog.Warningf("failed to set strict mode on postgresql db: %s", err)
 		return nil, err
 	}
 

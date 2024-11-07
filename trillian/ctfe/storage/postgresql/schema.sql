@@ -12,7 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
--- MySQL / MariaDB version of the CTFE database schema
+-- PostgreSQL / MariaDB version of the CTFE database schema
 
 -- "IssuanceChain" table contains the hash and value pairs of the issuance chain.
 CREATE TABLE IF NOT EXISTS `IssuanceChain` (
