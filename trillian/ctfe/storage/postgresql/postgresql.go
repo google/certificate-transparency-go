@@ -88,8 +88,8 @@ func open(dataSourceName string) (*sql.DB, error) {
 	if len(conn) != 2 {
 		return nil, errors.New("could not parse PostgreSQL data source name")
 	}
-	if conn[0] != "postgresql" {
-		return nil, errors.New("expect data source name to start with postgresql")
+	if conn[0] != "postgresql" && conn[0] != "postgres" {
+		return nil, errors.New("expect data source name to start with postgresql or postgres")
 	}
 
 	db, err := sql.Open("pgx", conn[1])
