@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"k8s.io/klog/v2"
@@ -69,8 +71,8 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 	_, err := s.db.ExecContext(ctx, insertIssuanceChainSQL, key, chain)
 	if err != nil {
 		// Ignore duplicated key error.
-		var postgresqlErr *postgresql.PostgreSQLError
-		if errors.As(err, &postgresqlErr) && postgresqlErr.Number == 1062 {
+		var postgresqlErr *pgconn.PgError
+		if errors.As(err, &postgresqlErr) && postgresqlErr.Code == pgerrcode.UniqueViolation {
 			return nil
 		}
 		return err
