@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/storage/mysql"
+	"github.com/google/certificate-transparency-go/trillian/ctfe/storage/postgresql"
 )
 
 // IssuanceChainStorage is an interface which allows CTFE binaries to use different storage implementations for issuance chains.
@@ -33,7 +34,8 @@ type IssuanceChainStorage interface {
 	Add(ctx context.Context, key []byte, chain []byte) error
 }
 
-// NewIssuanceChainStorage returns nil for Trillian gRPC or mysql.IssuanceChainStorage when MySQL is the prefix in database connection string.
+// NewIssuanceChainStorage returns nil for Trillian gRPC, or mysql.IssuanceChainStorage or postgresql.IssuanceChainStorage
+// when mysql or postgres is the prefix in database connection string.
 func NewIssuanceChainStorage(ctx context.Context, backend configpb.LogConfig_IssuanceChainStorageBackend, dbConn string) (IssuanceChainStorage, error) {
 	switch backend {
 	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC:
@@ -41,6 +43,8 @@ func NewIssuanceChainStorage(ctx context.Context, backend configpb.LogConfig_Iss
 	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE:
 		if strings.HasPrefix(dbConn, "mysql") {
 			return mysql.NewIssuanceChainStorage(ctx, dbConn), nil
+		} else if strings.HasPrefix(dbConn, "postgres") {
+			return postgresql.NewIssuanceChainStorage(ctx, dbConn), nil
 		}
 
 		return nil, errors.New("failed to initialise IssuanceChainService due to unsupported driver in CTFE storage connection string")
