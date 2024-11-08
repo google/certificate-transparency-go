@@ -41,7 +41,7 @@ type IssuanceChainStorage struct {
 
 // NewIssuanceChainStorage takes the database connection string as the input and return the IssuanceChainStorage.
 func NewIssuanceChainStorage(ctx context.Context, dbConn string) *IssuanceChainStorage {
-	db, err := open(ctx, dbConn)
+	db, err := open(dbConn)
 	if err != nil {
 		klog.Exitf(fmt.Sprintf("failed to open database: %v", err))
 	}
@@ -82,7 +82,7 @@ func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte
 }
 
 // open takes the data source name and returns the sql.DB object.
-func open(ctx context.Context, dataSourceName string) (*sql.DB, error) {
+func open(dataSourceName string) (*sql.DB, error) {
 	// Verify data source name format.
 	conn := strings.Split(dataSourceName, "://")
 	if len(conn) != 2 {
