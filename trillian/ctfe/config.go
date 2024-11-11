@@ -26,6 +26,7 @@ import (
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/configpb"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/klog/v2"
@@ -221,11 +222,16 @@ func ValidateLogConfig(cfg *configpb.LogConfig) (*ValidatedLogConfig, error) {
 			return nil, errors.New("missing ctfe_storage_connection_string when issuance chain storage backend is CTFE")
 		}
 		// Validate CTFEStorageConnectionString
-		if !strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
+		if strings.HasPrefix(cfg.CtfeStorageConnectionString, "mysql") {
+			if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
+				return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
+			}
+		} else if strings.HasPrefix(cfg.CtfeStorageConnectionString, "postgres") {
+			if _, err := pgconn.ParseConfig(cfg.CtfeStorageConnectionString); err != nil {
+				return nil, errors.New("failed to parse ctfe_storage_connection_string for postgresql pgx driver")
+			}
+		} else {
 			return nil, errors.New("unsupported driver in ctfe_storage_connection_string")
-		}
-		if _, err := mysql.ParseDSN(strings.Split(cfg.CtfeStorageConnectionString, "://")[1]); err != nil {
-			return nil, errors.New("failed to parse ctfe_storage_connection_string for mysql driver")
 		}
 		vCfg.CTFEStorageConnectionString = cfg.CtfeStorageConnectionString
 	case configpb.LogConfig_ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC:
