@@ -21,51 +21,16 @@ updates:
         - "*"
 
 - package-ecosystem: docker
-  directory: /integration
+  directories:
+    - /integration
+    - /internal/witness/cmd/feeder
+    - /internal/witness/cmd/witness
+    - /trillian/examples/deployment/docker/ctfe
+    - /trillian/examples/deployment/docker/envsubst
   schedule:
     interval: weekly
   groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /internal/witness/cmd/feeder
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /internal/witness/cmd/witness
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /trillian/examples/deployment/docker/ctfe
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /trillian/examples/deployment/docker/envsubst
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
+    docker-deps:
       applies-to: version-updates
       patterns:
         - "*"
