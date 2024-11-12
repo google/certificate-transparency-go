@@ -339,6 +339,9 @@ type LogConfig struct {
 	// MySQL/MariaDB:
 	// mysql://[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
 	//
+	// PostgreSQL:
+	// postgresql://[username[:password]@][host][:port][/dbname][?param1=value1&...&paramN=valueN]
+	//
 	// This is required when the issuance chain storage backend is CTFE.
 	//
 	// Warning: CT log operators are advised not to re-use the same connection
