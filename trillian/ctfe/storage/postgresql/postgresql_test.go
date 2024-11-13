@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -41,7 +42,7 @@ func TestIssuanceChainFindByKeySuccess(t *testing.T) {
 	testKey := sha256.Sum256(testVal)
 
 	issuanceChainMockRows := sqlmock.NewRows([]string{"ChainValue"}).AddRow(testVal)
-	mock.ExpectQuery(selectIssuanceChainByKeySQL).WillReturnRows(issuanceChainMockRows)
+	mock.ExpectQuery(strings.ReplaceAll(selectIssuanceChainByKeySQL, "$", "\\$")).WillReturnRows(issuanceChainMockRows)
 
 	storage := mockIssuanceChainStorage(db)
 	got, err := storage.FindByKey(context.Background(), testKey[:])
