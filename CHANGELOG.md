@@ -8,7 +8,7 @@ This feature now supports PostgreSQL, in addition to the support for MySQL/Maria
 
 Log operators can choose to enable this feature for new PostgreSQL-based CT logs by adding new CTFE configs in the [LogMultiConfig](trillian/ctfe/configpb/config.proto) and importing the [database schema](trillian/ctfe/storage/postgresql/schema.sql). The other available options are documented in the [v1.2.0](#v1.2.0) changelog entry.
 
-This change is tested in Cloud Build tests using the `postgresql:17` Docker image as of the time of writing.
+This change is tested in Cloud Build tests using the `postgres:17` Docker image as of the time of writing.
 
 * Add IssuanceChainStorage PostgreSQL implementation by @robstradling in https://github.com/google/certificate-transparency-go/pull/1618
 
