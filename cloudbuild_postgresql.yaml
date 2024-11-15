@@ -51,6 +51,11 @@ steps:
     # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
     export TRILLIAN_LOCATION="$$(go list -f '{{.Dir}}' github.com/google/trillian)"
 
+    # To test #1618 with Cloud Build we need to use Trillian's master branch.
+    # TODO: Remove this after the next Trillian release after v1.6.1.
+    git clone https://github.com/google/trillian trillian_master
+    export TRILLIAN_LOCATION="$$(pwd)/trillian_master"
+
     # We need to fix up Trillian's docker-compose to connect to the CloudBuild network to that tests can use it:
     echo -e "networks:\n      default:\n        external:\n          name: cloudbuild" >> $${TRILLIAN_LOCATION}/examples/deployment/postgresql/docker-compose.yml
 
