@@ -4,6 +4,7 @@
 [![GoDoc](https://godoc.org/github.com/google/certificate-transparency-go?status.svg)](https://godoc.org/github.com/google/certificate-transparency-go)
 ![CodeQL workflow](https://github.com/google/certificate-transparency-go/actions/workflows/codeql.yml/badge.svg)
 
+
 This repository holds Go code related to
 [Certificate Transparency](https://www.certificate-transparency.org/) (CT).  The
 repository requires Go version 1.22.
