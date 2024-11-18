@@ -89,6 +89,7 @@ steps:
 
       # Reset the CT test database
       export CT_GO_PATH="$$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)"
+      export POSTGRESQL_HOST="postgresql"
       yes | bash "$${CT_GO_PATH}/scripts/resetpgctdb.sh" --verbose
   waitFor: ['prepare']
 
