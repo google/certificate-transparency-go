@@ -44,9 +44,9 @@ steps:
   - |
     # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
     docker pull gcr.io/$PROJECT_ID/log_server:latest
-    docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
+    docker tag gcr.io/$PROJECT_ID/log_server:latest postgresql_trillian-log-server
     docker pull gcr.io/$PROJECT_ID/log_signer:latest
-    docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
+    docker tag gcr.io/$PROJECT_ID/log_signer:latest postgresql_trillian-log-signer
 
     # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
     export TRILLIAN_LOCATION="$$(go list -f '{{.Dir}}' github.com/google/trillian)"
@@ -85,7 +85,7 @@ steps:
       go test ./...
 
       # Wait for trillian logserver to be up
-      until nc -z deployment_trillian-log-server_1 8090; do echo .; sleep 5; done
+      until nc -z postgresql_trillian-log-server_1 8090; do echo .; sleep 5; done
 
       # Reset the CT test database
       export CT_GO_PATH="$$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)"
@@ -100,8 +100,8 @@ steps:
   env:
     - 'GOFLAGS='
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
-    - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
-    - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -109,8 +109,8 @@ steps:
   env:
     - 'GOFLAGS=-race'
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
-    - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
-    - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -119,8 +119,8 @@ steps:
     - 'GOFLAGS='
     - 'PRESUBMIT_OPTS=--no-linters --no-generate --coverage'
     - 'WITH_ETCD=true'
-    - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
-    - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -129,8 +129,8 @@ steps:
     - 'GOFLAGS=-race'
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'WITH_ETCD=true'
-    - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
-    - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -139,8 +139,8 @@ steps:
     - 'GOFLAGS=-race --tags=pkcs11'
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'WITH_PKCS11=true'
-    - 'TRILLIAN_LOG_SERVERS=deployment_trillian-log-server_1:8090'
-    - 'TRILLIAN_LOG_SERVER_1=deployment_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
+    - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
   waitFor: ['ci-ready']
 
 # Collect and submit codecoverage reports
