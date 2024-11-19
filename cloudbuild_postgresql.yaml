@@ -17,10 +17,5 @@ substitutions:
 logsBucket: 'gs://trillian-cloudbuild-logs'
 
 steps:
-- id: 'noop'
-  entrypoint: 'bash'
-  args: ['-c', 'exit 0']
-
-- id: 'noop'
-  entrypoint: 'bash'
-  args: ['-c', 'exit 0']
+- name: 'bash'
+- name: 'bash'
