@@ -20,3 +20,7 @@ steps:
 - name: 'noop'
   entrypoint: 'bash'
   args: ['-c', 'exit 0']
+
+- name: 'noop'
+  entrypoint: 'bash'
+  args: ['-c', 'exit 0']
