@@ -1,0 +1,21 @@
+timeout: 1200s
+options:
+  machineType: N1_HIGHCPU_32
+  volumes:
+  - name: go-modules
+    path: /go
+  env:
+  - GOPROXY=https://proxy.golang.org
+  - PROJECT_ROOT=github.com/google/certificate-transparency-go
+  - GOPATH=/go
+
+substitutions:
+  _CLUSTER_NAME: trillian-opensource-ci
+  _MASTER_ZONE: us-central1-a
+
+# Cloud Build logs sent to GCS bucket
+logsBucket: 'gs://trillian-cloudbuild-logs'
+
+steps:
+- name: 'bash'
+- name: 'bash'
