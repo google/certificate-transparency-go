@@ -101,6 +101,7 @@ steps:
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
+    - 'CONFIG_SUBDIR=/postgresql'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -110,6 +111,7 @@ steps:
     - 'PRESUBMIT_OPTS=--no-linters --no-generate'
     - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
+    - 'CONFIG_SUBDIR=/postgresql'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -120,6 +122,7 @@ steps:
     - 'WITH_ETCD=true'
     - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
+    - 'CONFIG_SUBDIR=/postgresql'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -130,6 +133,7 @@ steps:
     - 'WITH_ETCD=true'
     - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
+    - 'CONFIG_SUBDIR=/postgresql'
   waitFor: ['ci-ready']
 
 - name: gcr.io/$PROJECT_ID/ct_testbase
@@ -140,6 +144,7 @@ steps:
     - 'WITH_PKCS11=true'
     - 'TRILLIAN_LOG_SERVERS=postgresql_trillian-log-server_1:8090'
     - 'TRILLIAN_LOG_SERVER_1=postgresql_trillian-log-server_1:8090'
+    - 'CONFIG_SUBDIR=/postgresql'
   waitFor: ['ci-ready']
 
 # Collect and submit codecoverage reports
