@@ -104,8 +104,8 @@ main() {
         die "Error: Failed to grant '${POSTGRESQL_USER}' user all privileges on '${POSTGRESQL_DATABASE}'."
       $CMD "${FLAGS[@]}" -d ${POSTGRESQL_DATABASE} < ${CT_GO_PATH}/trillian/ctfe/storage/postgresql/schema.sql || \
         die "Error: Failed to create tables in '${POSTGRESQL_DATABASE}' database."
-      $CMD "${FLAGS[@]}" -c "GRANT INSERT, SELECT ON IssuanceChain TO ${POSTGRESQL_USER};" || \
-        die "Error: Failed to grant '${POSTGRESQL_USER}' INSERT and SELECT privileges on IssuanceChain."
+      $CMD "${FLAGS[@]}" -d ${POSTGRESQL_DATABASE} -c "GRANT INSERT, SELECT ON IssuanceChain TO ${POSTGRESQL_USER};" || \
+        die "Error: Failed to grant '${POSTGRESQL_USER}' INSERT and SELECT privileges on IssuanceChain in '${POSTGRESQL_DATABASE}' database."
       echo "Reset Complete"
   fi
 }
