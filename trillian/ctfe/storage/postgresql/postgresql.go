@@ -40,7 +40,7 @@ type IssuanceChainStorage struct {
 }
 
 // NewIssuanceChainStorage takes the database connection string as the input and return the IssuanceChainStorage.
-func NewIssuanceChainStorage(ctx context.Context, dbConn string) *IssuanceChainStorage {
+func NewIssuanceChainStorage(_ context.Context, dbConn string) *IssuanceChainStorage {
 	db, err := open(dbConn)
 	if err != nil {
 		klog.Exitf(fmt.Sprintf("failed to open database: %v", err))
