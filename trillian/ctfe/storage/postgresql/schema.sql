@@ -16,7 +16,7 @@
 
 -- "IssuanceChain" table contains the hash and value pairs of the issuance chain.
 CREATE TABLE IF NOT EXISTS IssuanceChain (
-  -- Hash of the chain of intermediate certificates and root certificates.
+  -- Fixed-length hash of the chain of intermediate certificates and root certificates.
   IdentityHash bytea NOT NULL,
   -- Chain data of intermediate certificates and root certificates.
   ChainValue   bytea NOT NULL,
