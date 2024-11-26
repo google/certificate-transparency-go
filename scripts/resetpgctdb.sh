@@ -17,6 +17,8 @@ Accepts environment variables:
 - POSTGRESQL_USER: The name to give to the new CT user (default: cttest).
 - POSTGRESQL_PASSWORD: The password to use for the new CT user
   (default: beeblebrox).
+- POSTGRESQL_INSECURE: If set, the script will not set a password for the new CT
+  user (default: true).
 - POSTGRESQL_IN_CONTAINER: If set, the script will assume it is running in a Docker
   container and will exec into the container to operate (default: false).
 - POSTGRESQL_CONTAINER_NAME: The name of the Docker container to exec into (default:
