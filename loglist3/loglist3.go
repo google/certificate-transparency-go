@@ -39,8 +39,10 @@ const (
 	LogListURL = "https://www.gstatic.com/ct/log_list/v3/log_list.json"
 	// LogListSignatureURL has the URL for the signature over Google Chrome's log list.
 	LogListSignatureURL = "https://www.gstatic.com/ct/log_list/v3/log_list.sig"
-	// AllLogListURL has the URL for the list of all known logs (which isn't signed).
+	// AllLogListURL has the URL for the list of all known logs.
 	AllLogListURL = "https://www.gstatic.com/ct/log_list/v3/all_logs_list.json"
+	// AllLogListSignatureURL has the URL for the signature over the list of all known logs.
+	AllLogListSignatureURL = "https://www.gstatic.com/ct/log_list/v3/all_logs_list.sig"
 )
 
 // Manually mapped from https://www.gstatic.com/ct/log_list/v3/log_list_schema.json
