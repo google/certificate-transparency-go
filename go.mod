@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgerrcode v0.0.0-20240316143900-6e2875d9b438
-	github.com/jackc/pgx/v5 v5.7.1
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/prometheus/client_golang v1.20.5
@@ -25,11 +25,11 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.17
 	go.etcd.io/etcd/etcdctl/v3 v3.5.17
 	go.etcd.io/etcd/v3 v3.5.17
-	golang.org/x/crypto v0.31.0
-	golang.org/x/net v0.32.0
-	golang.org/x/time v0.8.0
-	google.golang.org/grpc v1.69.0
-	google.golang.org/protobuf v1.36.0
+	golang.org/x/crypto v0.32.0
+	golang.org/x/net v0.34.0
+	golang.org/x/time v0.9.0
+	google.golang.org/grpc v1.69.2
+	google.golang.org/protobuf v1.36.1
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/klog/v2 v2.130.1
 )
@@ -128,7 +128,7 @@ require (
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.27.0 // indirect
 	google.golang.org/api v0.207.0 // indirect
