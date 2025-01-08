@@ -74,7 +74,8 @@ type Operator struct {
 	TiledLogs []*TiledLog `json:"tiled_logs"`
 }
 
-// Log describes a single CT log.
+// Log describes a single RFC 6962 CT log. It is nearly the same as the TiledLog struct,
+// but has a single URL field instead of SubmissionURL and MonitoringURL fields.
 type Log struct {
 	// Description is a human-readable string that describes the log.
 	Description string `json:"description,omitempty"`
@@ -102,7 +103,8 @@ type Log struct {
 	Type string `json:"log_type,omitempty"`
 }
 
-// TiledLog describes a static-ct-api log
+// TiledLog describes a Static CT API log. It is nearly the same as the Log struct,
+// but has both SubmissionURL and MonitoringURL fields instead of a single URL field.
 type TiledLog struct {
 	// Description is a human-readable string that describes the log.
 	Description string `json:"description,omitempty"`
