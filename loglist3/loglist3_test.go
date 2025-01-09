@@ -117,6 +117,7 @@ var sampleLogList = LogList{
 					},
 				},
 			},
+			TiledLogs: make([]*TiledLog, 0),
 		},
 		{
 			Name:  "Bob's CT Log Shop",
@@ -146,6 +147,7 @@ var sampleLogList = LogList{
 					},
 				},
 			},
+			TiledLogs: make([]*TiledLog, 0),
 		},
 	},
 }
@@ -165,9 +167,11 @@ func TestJSONMarshal(t *testing.T) {
 				`{"description":"Google 'Icarus' log","log_id":"KTxRllTIOWW6qlD8WAfUt2+/WHopctykwwz05UVH9Hg=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETtK8v7MICve56qTHHDhhBOuV4IlUaESxZryCfk9QbG9co/CqPvTsgPDbCpp6oFtyAHwlDhnvr7JijXRD9Cb2FA==","url":"https://ct.googleapis.com/icarus/","dns":"icarus.ct.googleapis.com","mmd":86400,"state":{"usable":{"timestamp":"2018-02-27T00:00:00Z"}}},` +
 				`{"description":"Google 'Racketeer' log","log_id":"7kEv4llINIlh4vPgjGgugT7A/3cLbXUXF2OvMBT/l2g=","key":"Hy2TPTZ2yq9ASMmMZiB9SZEUx5WNH5G0Ft5Tm9vKMcPXA+ic/Ap3gg6fXzBJR8zLkt5lQjvKMdbHYMGv7yrsZg==","url":"https://ct.googleapis.com/racketeer/","dns":"racketeer.ct.googleapis.com","mmd":86400},` +
 				`{"description":"Google 'Rocketeer' log","log_id":"7ku9t3XOYLrhQmkfq+GeZqMPfl+wctiDAMR7iXqo/cs=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIFsYyDzBi7MxCAC/oJBXK7dHjG+1aLCOkHjpoHPqTyghLpzA9BYbqvnV16mAw04vUjyYASVGJCUoI3ctBcJAeg==","url":"https://ct.googleapis.com/rocketeer/","dns":"rocketeer.ct.googleapis.com","mmd":86400},` +
-				`{"description":"Google 'Argon2020' log","log_id": "sh4FzIuizYogTodm+Su5iiUgZ2va+nDnsklTLe+LkF4=","key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6Tx2p1yKY4015NyIYvdrk36es0uAc1zA4PQ+TGRY+3ZjUTIYY9Wyu+3q/147JG4vNVKLtDWarZwVqGkg6lAYzA==","url":"https://ct.googleapis.com/logs/argon2020/","dns":"argon2020.ct.googleapis.com","mmd":86400,"state":{"qualified":{"timestamp":"2018-02-27T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2020-01-01T00:00:00Z","end_exclusive":"2021-01-01T00:00:00Z"}}]},` +
+				`{"description":"Google 'Argon2020' log","log_id": "sh4FzIuizYogTodm+Su5iiUgZ2va+nDnsklTLe+LkF4=","key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6Tx2p1yKY4015NyIYvdrk36es0uAc1zA4PQ+TGRY+3ZjUTIYY9Wyu+3q/147JG4vNVKLtDWarZwVqGkg6lAYzA==","url":"https://ct.googleapis.com/logs/argon2020/","dns":"argon2020.ct.googleapis.com","mmd":86400,"state":{"qualified":{"timestamp":"2018-02-27T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2020-01-01T00:00:00Z","end_exclusive":"2021-01-01T00:00:00Z"}}],` +
+				`"tiled_logs":[]},` +
 				`{"name":"Bob's CT Log Shop","email":["bob@example.com"],"logs":[` +
-				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"https://log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"previous_operators":[ {"name":"Alice's Shady Log","end_time":"2014-11-06T12:00:00Z"}],"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2014-11-07T12:00:00Z","end_exclusive":"2015-03-07T12:00:00Z"}}]}]}`,
+				`{"description":"Bob's Dubious Log","log_id":"zbUXm3/BwEb+6jETaj+PAC5hgvr4iW/syLL1tatgSQA=","key":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==","url":"https://log.bob.io","dns":"dubious-bob.ct.googleapis.com","mmd":86400,"previous_operators":[ {"name":"Alice's Shady Log","end_time":"2014-11-06T12:00:00Z"}],"state":{"retired":{"timestamp":"2016-04-15T00:00:00Z"}},"temporal_interval":{"start_inclusive":"2014-11-07T12:00:00Z","end_exclusive":"2015-03-07T12:00:00Z"}}],` +
+				`"tiled_logs":[]}]}`,
 		},
 	}
 
