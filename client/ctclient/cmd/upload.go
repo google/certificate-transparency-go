@@ -50,7 +50,7 @@ func runUpload(ctx context.Context) {
 	if certChain == "" {
 		klog.Exitf("No certificate chain file specified with -cert_chain")
 	}
-	chain, _ := chainFromFile(certChain)
+	chain, _, _ := chainFromFile(certChain)
 
 	// Examine the leaf to see if it looks like a pre-certificate.
 	isPrecert := false
@@ -74,6 +74,7 @@ func runUpload(ctx context.Context) {
 	}
 	// Calculate the leaf hash.
 	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
+	leafEntry.TimestampedEntry.Extensions = sct.Extensions
 	leafHash, err := ct.LeafHashForLeaf(leafEntry)
 	if err != nil {
 		klog.Exitf("Failed to create hash of leaf: %v", err)
@@ -84,6 +85,11 @@ func runUpload(ctx context.Context) {
 	fmt.Printf("Uploaded chain of %d certs to %v log at %v, timestamp: %d (%v)\n", len(chain), sct.SCTVersion, logClient.BaseURI(), sct.Timestamp, when)
 	fmt.Printf("LogID: %x\n", sct.LogID.KeyID[:])
 	fmt.Printf("LeafHash: %x\n", leafHash)
+	if len(sct.Extensions) > 0 {
+		fmt.Printf("Extensions: %x\n", sct.Extensions)
+	} else {
+		fmt.Printf("Extensions: (nil)\n")
+	}
 	fmt.Printf("Signature: %v\n", signatureToString(&sct.Signature))
 
 	age := time.Since(when)
