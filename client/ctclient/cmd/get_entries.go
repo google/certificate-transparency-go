@@ -80,6 +80,9 @@ func showRawLogEntry(rle *ct.RawLogEntry) {
 	ts := rle.Leaf.TimestampedEntry
 	when := ct.TimestampToTime(ts.Timestamp)
 	fmt.Printf("Index=%d Timestamp=%d (%v) ", rle.Index, ts.Timestamp, when)
+	if len(ts.Extensions) > 0 {
+		fmt.Printf("Extensions=%x ", ts.Extensions)
+	}
 
 	switch ts.EntryType {
 	case ct.X509LogEntryType:

@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -35,15 +36,16 @@ import (
 )
 
 var (
-	leafHash  string
-	certChain string
-	timestamp int64
-	treeSize  uint64
+	leafHash   string
+	certChain  string
+	timestamp  int64
+	treeSize   uint64
+	extensions string
 )
 
 func init() {
 	cmd := cobra.Command{
-		Use:     fmt.Sprintf("get-inclusion-proof %s {--leaf_hash=hash | --cert_chain=file} [--timestamp=ts] [--size=N]", connectionFlags),
+		Use:     fmt.Sprintf("get-inclusion-proof %s {--leaf_hash=hash | --cert_chain=file} [--timestamp=ts] [--size=N] [--extensions=exts]", connectionFlags),
 		Aliases: []string{"getinclusionproof", "inclusion-proof", "inclusion"},
 		Short:   "Fetch and verify the inclusion proof for an entry",
 		Args:    cobra.MaximumNArgs(0),
@@ -54,6 +56,7 @@ func init() {
 	cmd.Flags().StringVar(&leafHash, "leaf_hash", "", "Leaf hash to retrieve (as hex string or base64)")
 	cmd.Flags().StringVar(&certChain, "cert_chain", "", "Name of file containing certificate chain as concatenated PEM files")
 	cmd.Flags().Int64Var(&timestamp, "timestamp", 0, "Timestamp to use for inclusion checking")
+	cmd.Flags().StringVar(&extensions, "extensions", "", "CT extensions in SCT (as hex string)")
 	cmd.Flags().Uint64Var(&treeSize, "size", 0, "Tree size to query at")
 	rootCmd.AddCommand(&cmd)
 }
@@ -61,6 +64,14 @@ func init() {
 // runGetInclusionProof runs the get-inclusion-proof command.
 func runGetInclusionProof(ctx context.Context) {
 	logClient := connect(ctx)
+	var ctexts ct.CTExtensions
+	if len(extensions) > 0 {
+		exts, err := hex.DecodeString(extensions)
+		if err != nil {
+			klog.Exitf("Invalid --extensions supplied: %v", err)
+		}
+		ctexts = ct.CTExtensions(exts)
+	}
 	var hash []byte
 	if len(leafHash) > 0 {
 		var err error
@@ -70,12 +81,15 @@ func runGetInclusionProof(ctx context.Context) {
 		}
 	} else if len(certChain) > 0 {
 		// Build a leaf hash from the chain and a timestamp.
-		chain, entryTimestamp := chainFromFile(certChain)
+		chain, entryTimestamp, entryCTExts := chainFromFile(certChain)
 		if timestamp != 0 {
 			entryTimestamp = timestamp // Use user-specified timestamp.
 		}
 		if entryTimestamp == 0 {
 			klog.Exit("No timestamp available to accompany certificate")
+		}
+		if len(entryCTExts) == 0 {
+			entryCTExts = ctexts
 		}
 
 		var leafEntry *ct.MerkleTreeLeaf
@@ -92,6 +106,7 @@ func runGetInclusionProof(ctx context.Context) {
 			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
 		}
 
+		leafEntry.TimestampedEntry.Extensions = entryCTExts
 		leafHash, err := ct.LeafHashForLeaf(leafEntry)
 		if err != nil {
 			klog.Exitf("Failed to create hash of leaf: %v", err)
@@ -139,7 +154,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	}
 }
 
-func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
+func chainFromFile(filename string) ([]ct.ASN1Cert, int64, []byte) {
 	contents, err := os.ReadFile(filename)
 	if err != nil {
 		klog.Exitf("Failed to read certificate file: %v", err)
@@ -160,9 +175,12 @@ func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 		klog.Exitf("No certificates found in %s", certChain)
 	}
 
-	// Also look for something like a text timestamp for convenience.
+	// Also look for something like a text timestamp and a hex extensions
+	// for convenience.
 	var timestamp int64
+	var extensions []byte
 	tsRE := regexp.MustCompile(`Timestamp[:=](\d+)`)
+	extsRE := regexp.MustCompile(`Extensions[:=]([a-fA-F0-9]+)`)
 	for _, line := range strings.Split(string(contents), "\n") {
 		x := tsRE.FindStringSubmatch(line)
 		if len(x) > 1 {
@@ -171,6 +189,13 @@ func chainFromFile(filename string) ([]ct.ASN1Cert, int64) {
 				break
 			}
 		}
+		x = extsRE.FindStringSubmatch(line)
+		if len(x) > 1 {
+			extensions, err = hex.DecodeString(x[1])
+			if err != nil {
+				break
+			}
+		}
 	}
-	return chain, timestamp
+	return chain, timestamp, extensions
 }
