@@ -3,6 +3,7 @@
 ## HEAD
 
 * Update ctclient tool to support SCT extensions field by @liweitianux in https://github.com/google/certificate-transparency-go/pull/1645
+* Bump go to 1.23
 
 ## v1.3.1
 
