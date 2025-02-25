@@ -19,7 +19,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/jackc/pgerrcode"
@@ -43,7 +42,7 @@ type IssuanceChainStorage struct {
 func NewIssuanceChainStorage(_ context.Context, dbConn string) *IssuanceChainStorage {
 	db, err := open(dbConn)
 	if err != nil {
-		klog.Exitf(fmt.Sprintf("failed to open database: %v", err))
+		klog.Exitf("failed to open database: %v", err)
 	}
 
 	return &IssuanceChainStorage{
