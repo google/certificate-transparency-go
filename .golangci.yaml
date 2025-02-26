@@ -1,20 +1,17 @@
 run:
-  deadline: 90s
-  skip-dirs:
-    - (^|/)x509($|/)
-    - (^|/)x509util($|/)
-    - (^|/)asn1($|/)
+  timeout: 90s
 
 linters-settings:
   gocyclo:
     min-complexity: 25
   depguard:
-    list-type: blacklist
-    packages:
-      - ^golang.org/x/net/context$
-      - github.com/gogo/protobuf/proto
-      - encoding/asn1
-      - crypto/x509
+    rules:
+      main:
+        deny:
+          - pkg: "^golang.org/x/net/context$"
+          - pkg: "github.com/gogo/protobuf/proto"
+          - pkg: "encoding/asn1"
+          - pkg: "crypto/x509"
 
 issues:
   exclude-use-default: false
@@ -26,3 +23,8 @@ issues:
       text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
     - linters: [staticcheck]
       text: 'SA1019: grpc.WithBlock is deprecated: this DialOption is not supported by NewClient'
+
+  exclude-files:
+    - (^|/)x509($|/)
+    - (^|/)x509util($|/)
+    - (^|/)asn1($|/)

@@ -103,7 +103,9 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(data))
+	if _, err := fmt.Fprint(w, string(data)); err != nil {
+		fmt.Printf("Error in fmt.Fprint: %v", err)
+	}
 }
 
 // HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
