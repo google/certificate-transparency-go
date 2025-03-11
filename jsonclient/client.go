@@ -56,12 +56,13 @@ type backoffer interface {
 // JSONClient provides common functionality for interacting with a JSON server
 // that uses cryptographic signatures.
 type JSONClient struct {
-	uri        string                // the base URI of the server. e.g. https://ct.googleapis/pilot
-	httpClient *http.Client          // used to interact with the server via HTTP
-	Verifier   *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
-	logger     Logger                // interface to use for logging warnings and errors
-	backoff    backoffer             // object used to store and calculate backoff information
-	userAgent  string                // If set, this is sent as the UserAgent header.
+	uri           string                // the base URI of the server. e.g. https://ct.googleapis/pilot
+	httpClient    *http.Client          // used to interact with the server via HTTP
+	Verifier      *ct.SignatureVerifier // nil for no verification (e.g. no public key available)
+	logger        Logger                // interface to use for logging warnings and errors
+	backoff       backoffer             // object used to store and calculate backoff information
+	userAgent     string                // If set, this is sent as the UserAgent header.
+	authorization string                // If set, this is sent as the Authorization header.
 }
 
 // Logger is a simple logging interface used to log internal errors and warnings
@@ -81,6 +82,8 @@ type Options struct {
 	PublicKeyDER []byte
 	// UserAgent, if set, will be sent as the User-Agent header with each request.
 	UserAgent string
+	// If set, this is sent as the Authorization header with each request.
+	Authorization string
 }
 
 // ParsePublicKey parses and returns the public key contained in opts.
@@ -150,12 +153,13 @@ func New(uri string, hc *http.Client, opts Options) (*JSONClient, error) {
 		logger = &basicLogger{}
 	}
 	return &JSONClient{
-		uri:        strings.TrimRight(uri, "/"),
-		httpClient: hc,
-		Verifier:   verifier,
-		logger:     logger,
-		backoff:    &backoff{},
-		userAgent:  opts.UserAgent,
+		uri:           strings.TrimRight(uri, "/"),
+		httpClient:    hc,
+		Verifier:      verifier,
+		logger:        logger,
+		backoff:       &backoff{},
+		userAgent:     opts.UserAgent,
+		authorization: opts.Authorization,
 	}, nil
 }
 
@@ -185,6 +189,9 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	}
 	if len(c.userAgent) != 0 {
 		httpReq.Header.Set("User-Agent", c.userAgent)
+	}
+	if len(c.authorization) != 0 {
+		httpReq.Header.Add("Authorization", c.authorization)
 	}
 
 	httpRsp, err := ctxhttp.Do(ctx, c.httpClient, httpReq)
@@ -233,6 +240,9 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	}
 	if len(c.userAgent) != 0 {
 		httpReq.Header.Set("User-Agent", c.userAgent)
+	}
+	if len(c.authorization) != 0 {
+		httpReq.Header.Add("Authorization", c.authorization)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
