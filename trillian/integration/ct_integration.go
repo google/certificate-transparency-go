@@ -99,17 +99,21 @@ func (p RandomPool) Next() *client.LogClient {
 }
 
 // NewRandomPool creates a pool which returns a random client from list of servers.
-func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (ClientPool, error) {
+func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string, auth string) (ClientPool, error) {
 	opts := jsonclient.Options{
-		PublicKeyDER: pubKey.GetDer(),
-		UserAgent:    "ct-go-integrationtest/1.0",
+		PublicKeyDER:  pubKey.GetDer(),
+		UserAgent:     "ct-go-integrationtest/1.0",
+		Authorization: auth,
 	}
 
 	hc := &http.Client{Transport: DefaultTransport}
 
 	var pool RandomPool
 	for _, s := range strings.Split(servers, ",") {
-		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), hc, opts)
+		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+			s = "http://" + s
+		}
+		c, err := client.New(fmt.Sprintf("%s/%s", s, prefix), hc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LogClient instance: %v", err)
 		}
@@ -256,7 +260,7 @@ func (t *testInfo) checkPreCertEntry(ctx context.Context, precertIndex int64, tb
 // nolint: gocyclo
 func RunCTIntegrationForLog(cfg *configpb.LogConfig, servers, metricsServers, testdir string, mmd time.Duration, stats *logStats) error {
 	ctx := context.Background()
-	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
+	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix, "")
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}
@@ -621,7 +625,7 @@ func RunCTLifecycleForLog(cfg *configpb.LogConfig, servers, metricsServers, admi
 	}
 
 	ctx := context.Background()
-	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
+	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix, "")
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}

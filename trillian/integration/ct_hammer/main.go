@@ -47,6 +47,7 @@ import (
 var (
 	banner      = flag.Bool("banner", true, "Display intro")
 	httpServers = flag.String("ct_http_servers", "localhost:8092", "Comma-separated list of (assumed interchangeable) servers, each as address:port")
+	bearerToken = flag.String("bearer_token", "", "The bearer token for authentication with servers. Not set if empty. For GCP this is the result of `gcloud auth print-identity-token`")
 
 	// Options for synthetic cert generation.
 	testDir      = flag.String("testdata_dir", "testdata", "Name of directory with test data")
@@ -270,7 +271,11 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
-		pool, err := integration.NewRandomPool(*httpServers, c.PublicKey, c.Prefix)
+		var auth string
+		if *bearerToken != "" {
+			auth = fmt.Sprintf("Bearer %s", *bearerToken)
+		}
+		pool, err := integration.NewRandomPool(*httpServers, c.PublicKey, c.Prefix, auth)
 		if err != nil {
 			klog.Exitf("Failed to create client pool: %v", err)
 		}
