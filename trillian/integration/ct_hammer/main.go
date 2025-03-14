@@ -271,7 +271,10 @@ func main() {
 	var wg sync.WaitGroup
 	for _, c := range cfg {
 		wg.Add(1)
-		auth := fmt.Sprintf("Bearer %s", *bearerToken)
+		var auth string
+		if *bearerToken != "" {
+			auth = fmt.Sprintf("Bearer %s", *bearerToken)
+		}
 		pool, err := integration.NewRandomPool(*httpServers, c.PublicKey, c.Prefix, auth)
 		if err != nil {
 			klog.Exitf("Failed to create client pool: %v", err)
