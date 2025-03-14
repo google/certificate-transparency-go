@@ -110,7 +110,10 @@ func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string, auth
 
 	var pool RandomPool
 	for _, s := range strings.Split(servers, ",") {
-		c, err := client.New(fmt.Sprintf("http://%s/%s", s, prefix), hc, opts)
+		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+			s = "http://" + s
+		}
+		c, err := client.New(fmt.Sprintf("%s/%s", s, prefix), hc, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LogClient instance: %v", err)
 		}
