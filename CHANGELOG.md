@@ -6,6 +6,7 @@
 * Update ctclient tool to support SCT extensions field by @liweitianux in https://github.com/google/certificate-transparency-go/pull/1645
 * Bump go to 1.23
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
+* [preloader] support Bearer token Authentication for non temporal logs.
 
 ## v1.3.1
 
