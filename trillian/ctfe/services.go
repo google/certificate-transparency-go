@@ -198,7 +198,7 @@ func (s *indirectIssuanceChainService) add(ctx context.Context, chain []byte) ([
 	hash := issuanceChainHash(chain)
 
 	// If present in cache, then the chain is already stored.
-	if _, err := s.cache.Get(ctx, hash); err == nil {
+	if cachedChain, err := s.cache.Get(ctx, hash); err == nil && cachedChain != nil {
 		return hash, nil
 	}
 
