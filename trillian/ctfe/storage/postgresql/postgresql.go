@@ -21,8 +21,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"k8s.io/klog/v2"
@@ -30,7 +28,7 @@ import (
 
 const (
 	selectIssuanceChainByKeySQL = "SELECT c.ChainValue FROM IssuanceChain AS c WHERE c.IdentityHash = $1"
-	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES ($1, $2)"
+	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES ($1, $2) ON CONFLICT DO NOTHING"
 )
 
 // IssuanceChainStorage is a PostgreSQL implementation of the IssuanceChainStorage interface.
@@ -68,16 +66,7 @@ func (s *IssuanceChainStorage) FindByKey(ctx context.Context, key []byte) ([]byt
 // Add inserts the key-value pair of issuance chain.
 func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte) error {
 	_, err := s.db.ExecContext(ctx, insertIssuanceChainSQL, key, chain)
-	if err != nil {
-		// Ignore duplicated key error.
-		var postgresqlErr *pgconn.PgError
-		if errors.As(err, &postgresqlErr) && postgresqlErr.Code == pgerrcode.UniqueViolation {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // open takes the data source name and returns the sql.DB object.

@@ -8,6 +8,10 @@
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
 * [preloader] support Bearer token Authentication for non temporal logs.
 
+### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
+
+* Suppress unnecessary duplicate key errors in the IssuanceChainStorage PostgreSQL implementation by @robstradling in https://github.com/google/certificate-transparency-go/pull/1678
+
 ## v1.3.1
 
 * Add AllLogListSignatureURL by @AlexLaroche in https://github.com/google/certificate-transparency-go/pull/1634
