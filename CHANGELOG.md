@@ -11,6 +11,7 @@
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 
 * Suppress unnecessary duplicate key errors in the IssuanceChainStorage PostgreSQL implementation by @robstradling in https://github.com/google/certificate-transparency-go/pull/1678
+* Only store IssuanceChain if not cached by @robstradling in https://github.com/google/certificate-transparency-go/pull/1679
 
 ## v1.3.1
 
