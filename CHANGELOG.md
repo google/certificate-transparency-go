@@ -7,6 +7,7 @@
 * Bump go to 1.23
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
 * [preloader] support Bearer token Authentication for non temporal logs.
+* [preloader] support end indexes
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 

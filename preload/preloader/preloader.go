@@ -46,6 +46,7 @@ var (
 	parallelFetch         = flag.Int("parallel_fetch", 2, "Number of concurrent GetEntries fetches")
 	parallelSubmit        = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
 	startIndex            = flag.Int64("start_index", 0, "Log index to start scanning at")
+	endIndex              = flag.Int64("end_index", 0, "Log index to stop scanning at. If set to 0, will be reassigned to the log's current size.")
 	sctInputFile          = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 	precertsOnly          = flag.Bool("precerts_only", false, "Only match precerts")
 	tlsTimeout            = flag.Duration("tls_timeout", 30*time.Second, "TLS handshake timeout (see http.Transport)")
@@ -181,6 +182,7 @@ func main() {
 			BatchSize:     *batchSize,
 			ParallelFetch: *parallelFetch,
 			StartIndex:    *startIndex,
+			EndIndex:      *endIndex,
 		},
 		Matcher:     scanner.MatchAll{},
 		PrecertOnly: *precertsOnly,
