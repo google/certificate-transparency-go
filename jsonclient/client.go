@@ -34,7 +34,6 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/x509"
-	"golang.org/x/net/context/ctxhttp"
 	"k8s.io/klog/v2"
 )
 
@@ -171,7 +170,8 @@ func (c *JSONClient) BaseURI() string {
 // GetAndParse makes a HTTP GET call to the given path, and attempts to parse
 // the response as a JSON representation of the rsp structure.  Returns the
 // http.Response, the body of the response, and an error (which may be of
-// type RspError if the HTTP response was available).
+// type RspError if the HTTP response was available). It returns an error
+// if the response status code is not 200 OK.
 func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[string]string, rsp interface{}) (*http.Response, []byte, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("context.Context required")
@@ -183,7 +183,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	}
 	fullURI := fmt.Sprintf("%s%s?%s", c.uri, path, vals.Encode())
 	klog.V(2).Infof("GET %s", fullURI)
-	httpReq, err := http.NewRequest(http.MethodGet, fullURI, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURI, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -194,20 +194,17 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 		httpReq.Header.Add("Authorization", c.authorization)
 	}
 
-	httpRsp, err := ctxhttp.Do(ctx, c.httpClient, httpReq)
+	httpRsp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	// Read everything now so http.Client can reuse the connection.
 	body, err := io.ReadAll(httpRsp.Body)
-	if err := httpRsp.Body.Close(); err != nil {
-		return nil, nil, err
-	}
 	if err != nil {
-		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %v", err), StatusCode: httpRsp.StatusCode, Body: body}
+		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %w", err), StatusCode: httpRsp.StatusCode, Body: body}
 	}
-
+	if err := httpRsp.Body.Close(); err != nil {
+		return nil, nil, RspError{Err: fmt.Errorf("failed to close response body: %w", err), StatusCode: httpRsp.StatusCode, Body: body}
+	}
 	if httpRsp.StatusCode != http.StatusOK {
 		return nil, nil, RspError{Err: fmt.Errorf("got HTTP Status %q", httpRsp.Status), StatusCode: httpRsp.StatusCode, Body: body}
 	}
@@ -223,6 +220,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 // parameters, and attempts to parse the response as a JSON representation of
 // the rsp structure. Returns the http.Response, the body of the response, and
 // an error (which may be of type RspError if the HTTP response was available).
+// It does NOT return an error if the response status code is not 200 OK.
 func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp interface{}) (*http.Response, []byte, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("context.Context required")
@@ -234,7 +232,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	}
 	fullURI := fmt.Sprintf("%s%s", c.uri, path)
 	klog.V(2).Infof("POST %s", fullURI)
-	httpReq, err := http.NewRequest(http.MethodPost, fullURI, bytes.NewReader(postBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURI, bytes.NewReader(postBody))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -246,20 +244,16 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	httpRsp, err := ctxhttp.Do(ctx, c.httpClient, httpReq)
-
-	// Read all of the body, if there is one, so that the http.Client can do Keep-Alive.
-	var body []byte
-	if httpRsp != nil {
-		body, err = io.ReadAll(httpRsp.Body)
-		if err := httpRsp.Body.Close(); err != nil {
-			return nil, nil, err
-		}
-	}
+	httpRsp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		if httpRsp != nil {
-			return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
-		}
+		return nil, nil, err
+	}
+	body, err := io.ReadAll(httpRsp.Body)
+	if err != nil {
+		_ = httpRsp.Body.Close()
+		return nil, nil, err
+	}
+	if err := httpRsp.Body.Close(); err != nil {
 		return nil, nil, err
 	}
 	if httpRsp.Request.Method != http.MethodPost {
@@ -268,7 +262,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	}
 
 	if httpRsp.StatusCode == http.StatusOK {
-		if err = json.Unmarshal(body, &rsp); err != nil {
+		if err := json.Unmarshal(body, &rsp); err != nil {
 			return nil, nil, RspError{StatusCode: httpRsp.StatusCode, Body: body, Err: err}
 		}
 	}
@@ -302,7 +296,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		httpRsp, body, err := c.PostAndParse(ctx, path, req, rsp)
 		if err != nil {
 			// Don't retry context errors.
-			if err == context.Canceled || err == context.DeadlineExceeded {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil, nil, err
 			}
 			wait := c.backoff.set(nil)
