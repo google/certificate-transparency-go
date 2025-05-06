@@ -48,7 +48,6 @@ import (
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
-	"golang.org/x/net/context/ctxhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -905,13 +904,13 @@ func (ls *logStats) fromServer(ctx context.Context, servers string) (*logStats, 
 
 	got := newLogStats(int64(ls.logID))
 	for _, s := range strings.Split(servers, ",") {
-		httpReq, err := http.NewRequest(http.MethodGet, "http://"+s+"/metrics", nil)
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+s+"/metrics", nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build GET request: %v", err)
 		}
 		c := new(http.Client)
 
-		httpRsp, err := ctxhttp.Do(ctx, c, httpReq)
+		httpRsp, err := c.Do(httpReq)
 		if err != nil {
 			return nil, fmt.Errorf("getting stats failed: %v", err)
 		}

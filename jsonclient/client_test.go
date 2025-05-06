@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -516,15 +517,15 @@ func TestCancelledContext(t *testing.T) {
 
 	var result TestStruct
 	_, _, err = logClient.GetAndParse(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("GetAndParse() = (_,_,%v), want %q", err, context.Canceled)
 	}
 	_, _, err = logClient.PostAndParse(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("PostAndParse() = (_,_,%v), want %q", err, context.Canceled)
 	}
 	_, _, err = logClient.PostAndParseWithRetry(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("PostAndParseWithRetry() = (_,_,%v), want %q", err, context.Canceled)
 	}
 }
