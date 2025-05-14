@@ -14,6 +14,18 @@
 * Suppress unnecessary duplicate key errors in the IssuanceChainStorage PostgreSQL implementation by @robstradling in https://github.com/google/certificate-transparency-go/pull/1678
 * Only store IssuanceChain if not cached by @robstradling in https://github.com/google/certificate-transparency-go/pull/1679
 
+### CTFE Rate Limiting Of Non-Fresh Submissions
+
+To protect a log from being flooded with requests for "old" certificates, optional rate limiting for "non-fresh submissions" can be configured by providing the following flags:
+
+- `non_fresh_submission_age`
+- `non_fresh_submission_burst`
+- `non_fresh_submission_limit`
+
+This can help to ensure that the log maintains its ability to (1) accept "fresh" submissions and (2) distribute all log entries to monitors.
+
+* [CTFE] Configurable mechanism to rate-limit non-fresh submissions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1698
+
 ## v1.3.1
 
 * Add AllLogListSignatureURL by @AlexLaroche in https://github.com/google/certificate-transparency-go/pull/1634
