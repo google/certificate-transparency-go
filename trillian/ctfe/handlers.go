@@ -470,6 +470,11 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	for _, cert := range chain {
 		li.RequestLog.AddCertToChain(ctx, cert)
 	}
+
+	if rateLimitNonFreshSubmission(li, chain[0]) {
+		return http.StatusTooManyRequests, fmt.Errorf("rate-limited submission considered to be non-fresh")
+	}
+
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
 	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano)
@@ -956,6 +961,16 @@ func verifyAddChain(li *logInfo, req ct.AddChainRequest, expectingPrecert bool) 
 	}
 
 	return validPath, nil
+}
+
+func rateLimitNonFreshSubmission(li *logInfo, leafCert *x509.Certificate) bool {
+	if li.instanceOpts.NonFreshSubmissionLimiter != nil {
+		if li.TimeSource.Now().Add(-li.instanceOpts.FreshSubmissionMaxAge).After(leafCert.NotBefore) {
+			return !li.instanceOpts.NonFreshSubmissionLimiter.Allow()
+		}
+	}
+
+	return false
 }
 
 // marshalAndWriteAddChainResponse is used by add-chain and add-pre-chain to create and write
