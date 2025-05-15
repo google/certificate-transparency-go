@@ -2,6 +2,7 @@
 
 ## HEAD
 
+* [migrillian] remove etcd support in #1699
 * Bump golangci-lint from 1.55.1 to 1.61.0 (developers should update to this version).
 * Update ctclient tool to support SCT extensions field by @liweitianux in https://github.com/google/certificate-transparency-go/pull/1645
 * Bump go to 1.23
