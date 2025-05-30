@@ -184,6 +184,7 @@ func (info handlerTestInfo) getHandlers() map[string]AppHandler {
 		"get-entries":         {Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet},
 		"get-roots":           {Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet},
 		"get-entry-and-proof": {Info: info.li, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet},
+		"logV3JSON":           {Info: info.li, Handler: logV3JSON, Name: "LogV3JSON", Method: http.MethodGet},
 	}
 }
 
@@ -2168,6 +2169,30 @@ func TestGetEntryAndProof(t *testing.T) {
 		if diff := pretty.Compare(&resp, test.wantRsp); diff != "" {
 			t.Errorf("getEntryAndProof(%q) diff:\n%v", test.req, diff)
 		}
+	}
+}
+
+func TestGetLogV3JSON(t *testing.T) {
+	info := setupTest(t, nil, nil)
+	defer info.mockCtrl.Finish()
+	handler := AppHandler{Info: info.li, Handler: logV3JSON, Name: "LogV3JSON", Method: http.MethodGet}
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/log.v3.json", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if got, want := w.Code, http.StatusOK; got != want {
+		t.Fatalf("http.Get(logV3JSON)=%d; want %d", got, want)
+	}
+
+	var parsedJSON map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &parsedJSON); err != nil {
+		t.Fatalf("json.Unmarshal(%q)=%q; want nil", w.Body.Bytes(), err)
+	}
+	if got := len(parsedJSON); got < 4 {
+		t.Errorf("len(json)=%d; want >=4", got)
 	}
 }
 
