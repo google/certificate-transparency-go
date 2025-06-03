@@ -9,6 +9,7 @@
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
 * [preloader] support Bearer token Authentication for non temporal logs.
 * [preloader] support end indexes
+* [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 
