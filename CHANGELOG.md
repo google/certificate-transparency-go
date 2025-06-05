@@ -9,6 +9,7 @@
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
 * [preloader] support Bearer token Authentication for non temporal logs.
 * [preloader] support end indexes
+* [CTFE] Short cache max-age when get-entries returns fewer entries than requested by @robstradling in https://github.com/google/certificate-transparency-go/pull/1707
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 
