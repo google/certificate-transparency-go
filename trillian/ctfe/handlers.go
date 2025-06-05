@@ -57,6 +57,8 @@ const (
 	cacheControlHeader = "Cache-Control"
 	// Value for Cache-Control header when response contains immutable data, i.e. entries or proofs. Allows the response to be cached for 1 day.
 	cacheControlImmutable = "public, max-age=86400"
+	// Value for Cache-Control header when response contains immutable but partial data, i.e. fewer entries than requested. Allows the response to be cached for 1 minute.
+	cacheControlPartial = "public, max-age=60"
 	// HTTP content type header
 	contentTypeHeader string = "Content-Type"
 	// MIME content type for JSON
@@ -805,7 +807,11 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		return http.StatusInternalServerError, fmt.Errorf("failed to process leaves returned from backend: %s", err)
 	}
 
-	w.Header().Set(cacheControlHeader, cacheControlImmutable)
+	if len(rsp.Leaves) < int(count) {
+		w.Header().Set(cacheControlHeader, cacheControlPartial)
+	} else {
+		w.Header().Set(cacheControlHeader, cacheControlImmutable)
+	}
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
