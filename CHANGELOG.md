@@ -15,6 +15,7 @@
 * [preloader] support end indexes
 * [CTFE] Short cache max-age when get-entries returns fewer entries than requested by @robstradling in https://github.com/google/certificate-transparency-go/pull/1707
 * [CTFE] Disalllow mismatching signature algorithm identifiers in #702.
+* [jsonclient] surface HTTP Do and Read errors #1695 by @FiloSottile 
 
 ### CTFE Storage Saving: Extra Data Issuance Chain Deduplication
 
