@@ -1,6 +1,7 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
 ## HEAD
+ * [preloader] Parse klog flags.
 
 ## v1.3.2
 

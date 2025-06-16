@@ -131,8 +131,9 @@ func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 }
 
 func main() {
-	flag.Parse()
+	klog.InitFlags(nil)
 	klog.CopyStandardLogTo("WARNING")
+	flag.Parse()
 
 	var sctFileWriter io.Writer
 	var err error
