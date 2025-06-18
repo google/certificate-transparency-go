@@ -73,7 +73,15 @@ func runUpload(ctx context.Context) {
 		exitWithDetails(err)
 	}
 	// Calculate the leaf hash.
-	leafEntry := ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
+	var leafEntry *ct.MerkleTreeLeaf
+	if isPrecert {
+		leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, sct.Timestamp)
+		if err != nil {
+			klog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
+		}
+	} else {
+		leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], sct.Timestamp)
+	}
 	leafEntry.TimestampedEntry.Extensions = sct.Extensions
 	leafHash, err := ct.LeafHashForLeaf(leafEntry)
 	if err != nil {
