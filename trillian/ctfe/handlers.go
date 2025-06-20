@@ -955,7 +955,7 @@ func logV3JSON(_ context.Context, li *logInfo, w http.ResponseWriter, r *http.Re
 	var logV3 logV3
 
 	if li.instanceOpts.Validated.Config.Logv3Url == "" {
-		return http.StatusNotFound, nil
+		return http.StatusNotFound, fmt.Errorf("logV3JSON: logv3_url is not set in config")
 	}
 
 	if li.signer != nil {
