@@ -2175,6 +2175,7 @@ func TestGetEntryAndProof(t *testing.T) {
 func TestGetLogV3JSON(t *testing.T) {
 	info := setupTest(t, nil, nil)
 	defer info.mockCtrl.Finish()
+	info.li.instanceOpts.Validated.Config.Logv3Url = "http://example.com"
 	handler := AppHandler{Info: info.li, Handler: logV3JSON, Name: "LogV3JSON", Method: http.MethodGet}
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com/log.v3.json", nil)
