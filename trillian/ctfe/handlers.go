@@ -104,6 +104,7 @@ const (
 	GetEntriesName        = EntrypointName("GetEntries")
 	GetRootsName          = EntrypointName("GetRoots")
 	GetEntryAndProofName  = EntrypointName("GetEntryAndProof")
+	LogV3JSONName         = EntrypointName("LogV3JSON")
 )
 
 var (
@@ -148,7 +149,7 @@ func setupMetrics(mf monitoring.MetricFactory) {
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
-var Entrypoints = []EntrypointName{AddChainName, AddPreChainName, GetSTHName, GetSTHConsistencyName, GetProofByHashName, GetEntriesName, GetRootsName, GetEntryAndProofName}
+var Entrypoints = []EntrypointName{AddChainName, AddPreChainName, GetSTHName, GetSTHConsistencyName, GetProofByHashName, GetEntriesName, GetRootsName, GetEntryAndProofName, LogV3JSONName}
 
 // PathHandlers maps from a path to the relevant AppHandler instance.
 type PathHandlers map[string]AppHandler
@@ -363,6 +364,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetEntriesPath:        AppHandler{Info: li, Handler: getEntries, Name: GetEntriesName, Method: http.MethodGet},
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
+		prefix + ct.LogV3JSONPath:         AppHandler{Info: li, Handler: logV3JSON, Name: LogV3JSONName, Method: http.MethodGet},
 	}
 	// Remove endpoints not provided by readonly logs and mirrors.
 	if li.instanceOpts.Validated.Config.IsReadonly || li.instanceOpts.Validated.Config.IsMirror {
@@ -933,6 +935,66 @@ func rpcGetEntryAndProof(ctx context.Context, li *logInfo, req *trillian.GetEntr
 	}
 
 	return rsp, http.StatusOK, nil
+}
+
+type temporalInterval struct {
+	StartInclusive string `json:"start_inclusive"`
+	EndExclusive   string `json:"end_exclusive"`
+}
+
+type logV3 struct {
+	Key              string            `json:"key"`
+	LogID            string            `json:"log_id"`
+	MMD              int32             `json:"mmd"`
+	TemporalInterval *temporalInterval `json:"temporal_interval,omitempty"`
+	Url              string            `json:"url"`
+}
+
+// logV3JSON returns a JSON object containing information about the log instance, to help satisfy a requirement of the Chrome CT Log Policy.
+func logV3JSON(_ context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	var logV3 logV3
+
+	if li.instanceOpts.Validated.Config.Logv3Url == "" {
+		return http.StatusNotFound, fmt.Errorf("logV3JSON: logv3_url is not set in config")
+	}
+
+	if li.signer != nil {
+		key, err := x509.MarshalPKIXPublicKey(li.signer.Public())
+		if err != nil {
+			klog.Warningf("%s: logV3JSON failed to marshal public key: %v", li.LogPrefix, err)
+			return http.StatusInternalServerError, fmt.Errorf("logV3JSON failed to marshal public key: %s", err)
+		}
+		sha256Key := sha256.Sum256(key)
+		logV3.Key = base64.StdEncoding.EncodeToString(key)
+		logV3.LogID = base64.StdEncoding.EncodeToString(sha256Key[:])
+	}
+
+	logV3.MMD = li.instanceOpts.Validated.Config.MaxMergeDelaySec
+	logV3.Url = li.instanceOpts.Validated.Config.Logv3Url
+
+	if li.instanceOpts.Validated.NotAfterStart != nil || li.instanceOpts.Validated.NotAfterLimit != nil {
+		logV3.TemporalInterval = &temporalInterval{}
+		if li.instanceOpts.Validated.NotAfterStart != nil {
+			logV3.TemporalInterval.StartInclusive = li.instanceOpts.Validated.NotAfterStart.UTC().Format(time.RFC3339)
+		}
+		if li.instanceOpts.Validated.NotAfterLimit != nil {
+			logV3.TemporalInterval.EndExclusive = li.instanceOpts.Validated.NotAfterLimit.UTC().Format(time.RFC3339)
+		}
+	}
+
+	jsonData, err := json.Marshal(logV3)
+	if err != nil {
+		klog.Warningf("%s: logV3JSON failed: %v", li.LogPrefix, err)
+		return http.StatusInternalServerError, fmt.Errorf("logV3JSON failed with: %s", err)
+	}
+
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if _, err = w.Write(jsonData); err != nil {
+		klog.Warningf("%s: logV3JSON failed to write response: %v", li.LogPrefix, err)
+		return http.StatusInternalServerError, fmt.Errorf("logV3JSON failed to write response: %s", err)
+	}
+
+	return http.StatusOK, nil
 }
 
 // getRPCDeadlineTime calculates the future time an RPC should expire based on our config
