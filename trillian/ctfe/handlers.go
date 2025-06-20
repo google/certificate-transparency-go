@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -955,6 +954,10 @@ type logV3 struct {
 func logV3JSON(_ context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	var logV3 logV3
 
+	if li.instanceOpts.Validated.Config.Logv3Url == "" {
+		return http.StatusNotFound, nil
+	}
+
 	if li.signer != nil {
 		key, err := x509.MarshalPKIXPublicKey(li.signer.Public())
 		if err != nil {
@@ -967,25 +970,7 @@ func logV3JSON(_ context.Context, li *logInfo, w http.ResponseWriter, r *http.Re
 	}
 
 	logV3.MMD = li.instanceOpts.Validated.Config.MaxMergeDelaySec
-
-	if r.URL != nil {
-		u := url.URL{
-			Scheme: r.URL.Scheme,
-			User:   r.URL.User,
-			Host:   r.URL.Host,
-			Path:   li.instanceOpts.Validated.Config.Prefix,
-		}
-		if u.Scheme == "" {
-			u.Scheme = "https"
-		}
-		if u.Host == "" {
-			u.Host = r.Header.Get("X-Forwarded-Host")
-			if u.Host == "" {
-				u.Host = r.Header.Get("Host")
-			}
-		}
-		logV3.Url = u.String()
-	}
+	logV3.Url = li.instanceOpts.Validated.Config.Logv3Url
 
 	if li.instanceOpts.Validated.NotAfterStart != nil || li.instanceOpts.Validated.NotAfterLimit != nil {
 		logV3.TemporalInterval = &temporalInterval{}
