@@ -2,6 +2,7 @@
 
 ## HEAD
  * [preloader] Parse klog flags.
+* [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
 
 ## v1.3.2
 
@@ -14,7 +15,6 @@
 * [ct_hammer] support HTTPS and Bearer token for Authentication.
 * [preloader] support Bearer token Authentication for non temporal logs.
 * [preloader] support end indexes
-* [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
 * [CTFE] Short cache max-age when get-entries returns fewer entries than requested by @robstradling in https://github.com/google/certificate-transparency-go/pull/1707
 * [CTFE] Disalllow mismatching signature algorithm identifiers in #702.
 * [jsonclient] surface HTTP Do and Read errors #1695 by @FiloSottile 
