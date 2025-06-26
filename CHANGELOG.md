@@ -1,8 +1,9 @@
 # CERTIFICATE-TRANSPARENCY-GO Changelog
 
 ## HEAD
- * [preloader] Parse klog flags.
+* [preloader] Parse klog flags.
 * [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
+* [preloader] add continuous mode.
 
 ## v1.3.2
 
