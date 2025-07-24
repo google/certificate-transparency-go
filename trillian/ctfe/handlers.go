@@ -465,6 +465,9 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Check the contents of the request and convert to slice of certificates.
 	addChainReq, err := ParseBodyAsJSONChain(r)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "certificate chain exceeds") {
+			return http.StatusRequestEntityTooLarge, fmt.Errorf("%s: %v", li.LogPrefix, err)
+		}
 		return http.StatusBadRequest, fmt.Errorf("%s: failed to parse add-chain body: %s", li.LogPrefix, err)
 	}
 	// Log the DERs now because they might not parse as valid X.509.
