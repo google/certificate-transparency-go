@@ -248,6 +248,11 @@ func TestPostHandlersFailure(t *testing.T) {
 		{"malformed-json", strings.NewReader("{ !$%^& not valid json "), http.StatusBadRequest},
 		{"empty-chain", strings.NewReader(`{ "chain": [] }`), http.StatusBadRequest},
 		{"wrong-chain", strings.NewReader(`{ "chain": [ "test" ] }`), http.StatusBadRequest},
+		{
+			"too-large-body",
+			strings.NewReader(fmt.Sprintf(`{ "chain": [ "%s" ] }`, strings.Repeat("A", 600000))),
+			http.StatusBadRequest,
+		},
 	}
 
 	info := setupTest(t, []string{cttestonly.FakeCACertPEM}, nil)

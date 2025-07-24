@@ -405,6 +405,10 @@ func (li *logInfo) buildLeaf(ctx context.Context, chain []*x509.Certificate, mer
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		if mbe, ok := err.(*http.MaxBytesError); ok {
+			klog.V(1).Infof("Request body exceeds %d-byte limit", mbe.Limit)
+			return ct.AddChainRequest{}, fmt.Errorf("certificate chain exceeds %d-byte limit", mbe.Limit)
+		}
 		klog.V(1).Infof("Failed to read request body: %v", err)
 		return ct.AddChainRequest{}, err
 	}
