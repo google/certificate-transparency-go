@@ -88,6 +88,7 @@ var (
 	cacheSize               = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
 	cacheTTL                = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 	trillianTLSCACertFile   = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
+	maxCertChainSize        = flag.Int64("max_cert_chain_size", 512000, "Maximum size of certificate chain in bytes for add-chain and add-pre-chain endpoints (default: 512000 bytes = 500KB)")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -448,7 +449,12 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		return nil, err
 	}
 	for path, handler := range inst.Handlers {
-		mux.Handle(lhp+path, handler)
+		if strings.HasSuffix(path, "/add-chain") || strings.HasSuffix(path, "/add-pre-chain") {
+			klog.Infof("Applying MaxBytesHandler to %s with limit %d bytes", lhp+path, *maxCertChainSize)
+			mux.Handle(lhp+path, http.MaxBytesHandler(handler, *maxCertChainSize))
+		} else {
+			mux.Handle(lhp+path, handler)
+		}
 	}
 	return inst, nil
 }

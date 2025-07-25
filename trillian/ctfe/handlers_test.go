@@ -240,24 +240,36 @@ func TestGetHandlersRejectPost(t *testing.T) {
 func TestPostHandlersFailure(t *testing.T) {
 	var tests = []struct {
 		descr string
-		body  io.Reader
+		body  func() io.Reader
 		want  int
 	}{
-		{"nil", nil, http.StatusBadRequest},
-		{"''", strings.NewReader(""), http.StatusBadRequest},
-		{"malformed-json", strings.NewReader("{ !$%^& not valid json "), http.StatusBadRequest},
-		{"empty-chain", strings.NewReader(`{ "chain": [] }`), http.StatusBadRequest},
-		{"wrong-chain", strings.NewReader(`{ "chain": [ "test" ] }`), http.StatusBadRequest},
+		{"nil", func() io.Reader { return nil }, http.StatusBadRequest},
+		{"''", func() io.Reader { return strings.NewReader("") }, http.StatusBadRequest},
+		{"malformed-json", func() io.Reader { return strings.NewReader("{ !$%^& not valid json ") }, http.StatusBadRequest},
+		{"empty-chain", func() io.Reader { return strings.NewReader(`{ "chain": [] }`) }, http.StatusBadRequest},
+		{"wrong-chain", func() io.Reader { return strings.NewReader(`{ "chain": [ "test" ] }`) }, http.StatusBadRequest},
+		{"too-large-body", func() io.Reader {
+			return strings.NewReader(fmt.Sprintf(`{ "chain": [ "%s" ] }`, strings.Repeat("A", 600000)))
+		}, http.StatusRequestEntityTooLarge},
 	}
 
 	info := setupTest(t, []string{cttestonly.FakeCACertPEM}, nil)
 	defer info.mockCtrl.Finish()
+	maxCertChainSize := int64(500 * 1024)
 	for path, handler := range info.postHandlers() {
 		t.Run(path, func(t *testing.T) {
-			s := httptest.NewServer(handler)
+			var wrappedHandler http.Handler
+			if path == "add-chain" || path == "add-pre-chain" {
+				wrappedHandler = http.MaxBytesHandler(http.Handler(handler), maxCertChainSize)
+			} else {
+				wrappedHandler = handler
+			}
+
+			s := httptest.NewServer(wrappedHandler)
+			defer s.Close()
 
 			for _, test := range tests {
-				resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body)
+				resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body())
 				if err != nil {
 					t.Errorf("http.Post(%s,%s)=(_,%q); want (_,nil)", path, test.descr, err)
 					continue
