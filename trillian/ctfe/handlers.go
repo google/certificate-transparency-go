@@ -405,6 +405,10 @@ func (li *logInfo) buildLeaf(ctx context.Context, chain []*x509.Certificate, mer
 func ParseBodyAsJSONChain(r *http.Request) (ct.AddChainRequest, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		if mbe, ok := err.(*http.MaxBytesError); ok {
+			klog.V(1).Infof("Request body exceeds %d-byte limit", mbe.Limit)
+			return ct.AddChainRequest{}, fmt.Errorf("certificate chain exceeds %d-byte limit: %w", mbe.Limit, err)
+		}
 		klog.V(1).Infof("Failed to read request body: %v", err)
 		return ct.AddChainRequest{}, err
 	}
@@ -461,6 +465,10 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	// Check the contents of the request and convert to slice of certificates.
 	addChainReq, err := ParseBodyAsJSONChain(r)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return http.StatusRequestEntityTooLarge, fmt.Errorf("%s: %v", li.LogPrefix, err)
+		}
 		return http.StatusBadRequest, fmt.Errorf("%s: failed to parse add-chain body: %s", li.LogPrefix, err)
 	}
 	// Log the DERs now because they might not parse as valid X.509.
