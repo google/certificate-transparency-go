@@ -47,6 +47,7 @@ var (
 	parallelSubmit        = flag.Int("parallel_submit", 2, "Number of concurrent add-[pre]-chain requests")
 	startIndex            = flag.Int64("start_index", 0, "Log index to start scanning at")
 	endIndex              = flag.Int64("end_index", 0, "Log index to stop scanning at. If set to 0, will be reassigned to the log's current size.")
+	continuous            = flag.Bool("continuous", false, "When set to true, will continuously fetch new STHs and new entries. end_index must be set to 0. The preloader will eventually stop if no new STH is published.")
 	sctInputFile          = flag.String("sct_file", "", "File to save SCTs & leaf data to")
 	precertsOnly          = flag.Bool("precerts_only", false, "Only match precerts")
 	tlsTimeout            = flag.Duration("tls_timeout", 30*time.Second, "TLS handshake timeout (see http.Transport)")
@@ -131,8 +132,9 @@ func precertSubmitter(ctx context.Context, addedCerts chan<- *preload.AddedCert,
 }
 
 func main() {
-	flag.Parse()
+	klog.InitFlags(nil)
 	klog.CopyStandardLogTo("WARNING")
+	flag.Parse()
 
 	var sctFileWriter io.Writer
 	var err error
@@ -177,12 +179,17 @@ func main() {
 		klog.Exitf("Failed to create client for source log: %v", err)
 	}
 
+	if *continuous && *endIndex != 0 {
+		klog.Exitf("continuous flag set to true, and endIndex to %d. Set endIndex to 0 to use the preloader in continuous mode.", *endIndex)
+	}
+
 	opts := scanner.ScannerOptions{
 		FetcherOptions: scanner.FetcherOptions{
 			BatchSize:     *batchSize,
 			ParallelFetch: *parallelFetch,
 			StartIndex:    *startIndex,
 			EndIndex:      *endIndex,
+			Continuous:    *continuous,
 		},
 		Matcher:     scanner.MatchAll{},
 		PrecertOnly: *precertsOnly,

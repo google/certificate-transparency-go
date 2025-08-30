@@ -16,7 +16,7 @@ repository requires Go version 1.23.
 
 ## Support
 
-- Slack: https://transparency-dev.slack.com/ ([invitation](https://join.slack.com/t/transparency-dev/shared_invite/zt-27pkqo21d-okUFhur7YZ0rFoJVIOPznQ))
+- Slack: https://transparency-dev.slack.com/ ([invitation](https://transparency.dev/slack/))
 
 ## Repository Structure
 
@@ -85,7 +85,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh
