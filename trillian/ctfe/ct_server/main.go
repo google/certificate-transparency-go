@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -48,6 +49,7 @@ import (
 	"github.com/tomasen/realip"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/naming/endpoints"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
@@ -58,31 +60,35 @@ import (
 
 // Global flags that affect all log instances.
 var (
-	httpEndpoint          = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
-	httpIdleTimeout       = flag.Duration("http_idle_timeout", -1*time.Second, "Timeout after which idle connections will be closed by server")
-	tlsCert               = flag.String("tls_certificate", "", "Path to server TLS certificate")
-	tlsKey                = flag.String("tls_key", "", "Path to server TLS private key")
-	metricsEndpoint       = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
-	rpcBackend            = flag.String("log_rpc_server", "", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
-	rpcDeadline           = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
-	getSTHInterval        = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	logConfig             = flag.String("log_config", "", "File holding log config in text proto format")
-	maxGetEntries         = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
-	etcdServers           = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
-	etcdHTTPService       = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
-	etcdMetricsService    = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
-	maskInternalErrors    = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
-	tracing               = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
-	tracingProjectID      = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
-	tracingPercent        = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
-	quotaRemote           = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
-	quotaIntermediate     = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in submitted chains")
-	handlerPrefix         = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
-	pkcs11ModulePath      = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
-	cacheType             = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
-	cacheSize             = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
-	cacheTTL              = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
-	trillianTLSCACertFile = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
+	httpEndpoint            = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")
+	httpIdleTimeout         = flag.Duration("http_idle_timeout", -1*time.Second, "Timeout after which idle connections will be closed by server")
+	tlsCert                 = flag.String("tls_certificate", "", "Path to server TLS certificate")
+	tlsKey                  = flag.String("tls_key", "", "Path to server TLS private key")
+	metricsEndpoint         = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
+	rpcBackend              = flag.String("log_rpc_server", "", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
+	rpcDeadline             = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
+	getSTHInterval          = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
+	logConfig               = flag.String("log_config", "", "File holding log config in text proto format")
+	maxGetEntries           = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
+	etcdServers             = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
+	etcdHTTPService         = flag.String("etcd_http_service", "trillian-ctfe-http", "Service name to announce our HTTP endpoint under")
+	etcdMetricsService      = flag.String("etcd_metrics_service", "trillian-ctfe-metrics-http", "Service name to announce our HTTP metrics endpoint under")
+	maskInternalErrors      = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
+	tracing                 = flag.Bool("tracing", false, "If true opencensus Stackdriver tracing will be enabled. See https://opencensus.io/.")
+	tracingProjectID        = flag.String("tracing_project_id", "", "project ID to pass to stackdriver. Can be empty for GCP, consult docs for other platforms.")
+	tracingPercent          = flag.Int("tracing_percent", 0, "Percent of requests to be traced. Zero is a special case to use the DefaultSampler")
+	quotaRemote             = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
+	quotaIntermediate       = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in submitted chains")
+	nonFreshSubmissionAge   = flag.Duration("non_fresh_submission_age", time.Hour*24, "Maximum age of a fresh submission")
+	nonFreshSubmissionBurst = flag.Int("non_fresh_submission_burst", 1, "Maximum burst size when rate-limiting non-fresh submissions")
+	nonFreshSubmissionLimit = flag.String("non_fresh_submission_limit", "", "Maximum rate at which non-fresh submissions will be accepted (e.g., \"30/1s\"; or \"\" to disable)")
+	handlerPrefix           = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
+	pkcs11ModulePath        = flag.String("pkcs11_module_path", "", "Path to the PKCS#11 module to use for keys that use the PKCS#11 interface")
+	cacheType               = flag.String("cache_type", "noop", "Supported cache type: noop, lru (Default: noop)")
+	cacheSize               = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
+	cacheTTL                = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
+	trillianTLSCACertFile   = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
+	maxCertChainSize        = flag.Int64("max_cert_chain_size", 512000, "Maximum size of certificate chain in bytes for add-chain and add-pre-chain endpoints (default: 512000 bytes = 500KB)")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -302,7 +308,7 @@ func main() {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			metricsServer := http.Server{Addr: metricsAt, Handler: mux}
+			metricsServer := http.Server{Addr: metricsAt, Handler: mux, MaxHeaderBytes: 128 * 1024}
 			err := metricsServer.ListenAndServe()
 			klog.Warningf("Metrics server exited: %v", err)
 		}()
@@ -331,9 +337,9 @@ func main() {
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		srv = http.Server{Addr: *httpEndpoint, Handler: handler, TLSConfig: tlsConfig}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler, TLSConfig: tlsConfig, MaxHeaderBytes: 128 * 1024}
 	} else {
-		srv = http.Server{Addr: *httpEndpoint, Handler: handler}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler, MaxHeaderBytes: 128 * 1024}
 	}
 	if *httpIdleTimeout > 0 {
 		srv.IdleTimeout = *httpIdleTimeout
@@ -412,6 +418,20 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		klog.Info("Enabling quota for intermediate certificates")
 		opts.CertificateQuotaUser = ctfe.QuotaUserForCert
 	}
+	if *nonFreshSubmissionLimit != "" {
+		if s := strings.SplitN(*nonFreshSubmissionLimit, "/", 2); len(s) != 2 {
+			return nil, fmt.Errorf("could not parse non-fresh submission rate limit [%s]", *nonFreshSubmissionLimit)
+		} else if s0, err := strconv.Atoi(s[0]); err != nil {
+			return nil, fmt.Errorf("could not parse non-fresh submission rate limit quantity ['%s' of '%s']", s[0], *nonFreshSubmissionLimit)
+		} else if s1, err := time.ParseDuration(s[1]); err != nil {
+			return nil, fmt.Errorf("could not parse non-fresh submission rate limit duration ['%s' of '%s']", s[1], *nonFreshSubmissionLimit)
+		} else {
+			opts.FreshSubmissionMaxAge = *nonFreshSubmissionAge
+			opts.NonFreshSubmissionLimiter = rate.NewLimiter(rate.Every(s1/time.Duration(s0)), *nonFreshSubmissionBurst)
+			klog.Infof("Enabling rate limiting at %f req/sec for non-fresh submissions", opts.NonFreshSubmissionLimiter.Limit())
+		}
+	}
+
 	// Full handler pattern will be of the form "/logs/yyz/ct/v1/add-chain", where "/logs" is the
 	// HandlerPrefix and "yyz" is the c.Prefix for this particular log. Use the default
 	// HandlerPrefix unless the log config overrides it. The custom prefix in
@@ -429,7 +449,12 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 		return nil, err
 	}
 	for path, handler := range inst.Handlers {
-		mux.Handle(lhp+path, handler)
+		if strings.HasSuffix(path, "/add-chain") || strings.HasSuffix(path, "/add-pre-chain") {
+			klog.Infof("Applying MaxBytesHandler to %s with limit %d bytes", lhp+path, *maxCertChainSize)
+			mux.Handle(lhp+path, http.MaxBytesHandler(handler, *maxCertChainSize))
+		} else {
+			mux.Handle(lhp+path, handler)
+		}
 	}
 	return inst, nil
 }

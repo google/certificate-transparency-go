@@ -157,6 +157,10 @@ message LogConfig {
     ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE = 1;
   }
   IssuanceChainStorageBackend extra_data_issuance_chain_storage_backend = 21;
+
+  // The "url" string to be emitted by the /log.v3.json endpoint.
+  // If this string is empty (the default), the /log.v3.json endpoint will not be served.
+  string logv3_url = 22;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so

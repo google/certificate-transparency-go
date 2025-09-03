@@ -6,7 +6,7 @@
 
 This repository holds Go code related to
 [Certificate Transparency](https://www.certificate-transparency.org/) (CT).  The
-repository requires Go version 1.22.
+repository requires Go version 1.23.
 
  - [Repository Structure](#repository-structure)
  - [Trillian CT Personality](#trillian-ct-personality)
@@ -16,7 +16,7 @@ repository requires Go version 1.22.
 
 ## Support
 
-- Slack: https://transparency-dev.slack.com/ ([invitation](https://join.slack.com/t/transparency-dev/shared_invite/zt-27pkqo21d-okUFhur7YZ0rFoJVIOPznQ))
+- Slack: https://transparency-dev.slack.com/ ([invitation](https://transparency.dev/slack/))
 
 ## Repository Structure
 
@@ -85,7 +85,7 @@ pull requests for review.
 
 ```bash
 # Install golangci-lint
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.1
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
 
 # Run code generation, build, test and linters
 ./scripts/presubmit.sh

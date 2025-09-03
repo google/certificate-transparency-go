@@ -184,6 +184,7 @@ func (info handlerTestInfo) getHandlers() map[string]AppHandler {
 		"get-entries":         {Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet},
 		"get-roots":           {Info: info.li, Handler: getRoots, Name: "GetRoots", Method: http.MethodGet},
 		"get-entry-and-proof": {Info: info.li, Handler: getEntryAndProof, Name: "GetEntryAndProof", Method: http.MethodGet},
+		"logV3JSON":           {Info: info.li, Handler: logV3JSON, Name: "LogV3JSON", Method: http.MethodGet},
 	}
 }
 
@@ -239,24 +240,36 @@ func TestGetHandlersRejectPost(t *testing.T) {
 func TestPostHandlersFailure(t *testing.T) {
 	var tests = []struct {
 		descr string
-		body  io.Reader
+		body  func() io.Reader
 		want  int
 	}{
-		{"nil", nil, http.StatusBadRequest},
-		{"''", strings.NewReader(""), http.StatusBadRequest},
-		{"malformed-json", strings.NewReader("{ !$%^& not valid json "), http.StatusBadRequest},
-		{"empty-chain", strings.NewReader(`{ "chain": [] }`), http.StatusBadRequest},
-		{"wrong-chain", strings.NewReader(`{ "chain": [ "test" ] }`), http.StatusBadRequest},
+		{"nil", func() io.Reader { return nil }, http.StatusBadRequest},
+		{"''", func() io.Reader { return strings.NewReader("") }, http.StatusBadRequest},
+		{"malformed-json", func() io.Reader { return strings.NewReader("{ !$%^& not valid json ") }, http.StatusBadRequest},
+		{"empty-chain", func() io.Reader { return strings.NewReader(`{ "chain": [] }`) }, http.StatusBadRequest},
+		{"wrong-chain", func() io.Reader { return strings.NewReader(`{ "chain": [ "test" ] }`) }, http.StatusBadRequest},
+		{"too-large-body", func() io.Reader {
+			return strings.NewReader(fmt.Sprintf(`{ "chain": [ "%s" ] }`, strings.Repeat("A", 600000)))
+		}, http.StatusRequestEntityTooLarge},
 	}
 
 	info := setupTest(t, []string{cttestonly.FakeCACertPEM}, nil)
 	defer info.mockCtrl.Finish()
+	maxCertChainSize := int64(500 * 1024)
 	for path, handler := range info.postHandlers() {
 		t.Run(path, func(t *testing.T) {
-			s := httptest.NewServer(handler)
+			var wrappedHandler http.Handler
+			if path == "add-chain" || path == "add-pre-chain" {
+				wrappedHandler = http.MaxBytesHandler(http.Handler(handler), maxCertChainSize)
+			} else {
+				wrappedHandler = handler
+			}
+
+			s := httptest.NewServer(wrappedHandler)
+			defer s.Close()
 
 			for _, test := range tests {
-				resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body)
+				resp, err := http.Post(s.URL+"/ct/v1/"+path, "application/json", test.body())
 				if err != nil {
 					t.Errorf("http.Post(%s,%s)=(_,%q); want (_,nil)", path, test.descr, err)
 					continue
@@ -332,10 +345,10 @@ func TestGetRoots(t *testing.T) {
 	if got := len(certs); got != 2 {
 		t.Fatalf("len(%q)=%d; want 2", certs, got)
 	}
-	if got, want := certs[0], strings.Replace(caCertB64, "\n", "", -1); got != want {
+	if got, want := certs[0], strings.ReplaceAll(caCertB64, "\n", ""); got != want {
 		t.Errorf("certs[0]=%s; want %s", got, want)
 	}
-	if got, want := certs[1], strings.Replace(intermediateCertB64, "\n", "", -1); got != want {
+	if got, want := certs[1], strings.ReplaceAll(intermediateCertB64, "\n", ""); got != want {
 		t.Errorf("certs[1]=%s; want %s", got, want)
 	}
 }
@@ -2171,6 +2184,31 @@ func TestGetEntryAndProof(t *testing.T) {
 	}
 }
 
+func TestGetLogV3JSON(t *testing.T) {
+	info := setupTest(t, nil, nil)
+	defer info.mockCtrl.Finish()
+	info.li.instanceOpts.Validated.Config.Logv3Url = "http://example.com"
+	handler := AppHandler{Info: info.li, Handler: logV3JSON, Name: "LogV3JSON", Method: http.MethodGet}
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/log.v3.json", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if got, want := w.Code, http.StatusOK; got != want {
+		t.Fatalf("http.Get(logV3JSON)=%d; want %d", got, want)
+	}
+
+	var parsedJSON map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &parsedJSON); err != nil {
+		t.Fatalf("json.Unmarshal(%q)=%q; want nil", w.Body.Bytes(), err)
+	}
+	if got := len(parsedJSON); got < 4 {
+		t.Errorf("len(json)=%d; want >=4", got)
+	}
+}
+
 func createJSONChain(t *testing.T, p x509util.PEMCertPool) io.Reader {
 	t.Helper()
 	var req ct.AddChainRequest
@@ -2229,7 +2267,7 @@ func (d dlMatcher) Matches(x interface{}) bool {
 		return false // we never make RPC calls without a deadline set
 	}
 
-	return deadlineTime == fakeDeadlineTime
+	return deadlineTime.Equal(fakeDeadlineTime)
 }
 
 func (d dlMatcher) String() string {

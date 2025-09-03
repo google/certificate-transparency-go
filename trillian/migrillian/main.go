@@ -22,11 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
@@ -40,18 +37,14 @@ import (
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/google/trillian/util"
 	"github.com/google/trillian/util/election2"
-	etcdelect "github.com/google/trillian/util/election2/etcd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
 	cfgPath = flag.String("config", "", "Path to migration config file")
 
-	forceMaster   = flag.Bool("force_master", false, "If true, assume master for all logs")
-	etcdServers   = flag.String("etcd_servers", "", "A comma-separated list of etcd servers; no etcd registration if empty")
-	lockDir       = flag.String("lock_file_path", "/migrillian/master", "etcd lock file directory path")
-	electionDelay = flag.Duration("election_delay", 0, "Max random pause before participating in master election")
-	backend       = flag.String("backend", "", "GRPC endpoint to connect to Trillian logservers")
+	forceMaster = flag.Bool("force_master", false, "If true, assume master for all logs")
+	backend     = flag.String("backend", "", "GRPC endpoint to connect to Trillian logservers")
 
 	metricsEndpoint = flag.String("metrics_endpoint", "localhost:8099", "Endpoint for serving metrics")
 
@@ -137,7 +130,6 @@ func getController(
 	}
 
 	opts := core.OptionsFromConfig(cfg)
-	opts.StartDelay = *electionDelay
 	return core.NewController(opts, ctClient, plClient, ef, mf), nil
 }
 
@@ -195,26 +187,9 @@ func getElectionFactory() (election2.Factory, func()) {
 		klog.Warning("Acting as master for all logs")
 		return election2.NoopFactory{}, func() {}
 	}
-	if len(*etcdServers) == 0 {
-		klog.Exit("Either --force_master or --etcd_servers must be supplied")
-	}
-
-	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   strings.Split(*etcdServers, ","),
-		DialTimeout: 5 * time.Second,
-	})
-	if err != nil || cli == nil {
-		klog.Exitf("Failed to create etcd client: %v", err)
-	}
-	closeFn := func() {
-		if err := cli.Close(); err != nil {
-			klog.Warningf("etcd client Close(): %v", err)
-		}
-	}
-
-	hostname, _ := os.Hostname()
-	instanceID := fmt.Sprintf("%s.%d", hostname, os.Getpid())
-	factory := etcdelect.NewFactory(instanceID, cli, *lockDir)
-
-	return factory, closeFn
+	// There isn't any evidence of anyone running Migrillian. Of this possibly zero
+	// set, it's presumed that zero people require etcd. If we're wrong we could re-add
+	// support, but removing until there's any demand.
+	klog.Exit("Migrillian no longer supports etcd. Please raise an issue in this repo if this affects you. Use --force_master to run without election.")
+	return nil, nil
 }

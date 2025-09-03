@@ -103,7 +103,9 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(data))
+	if _, err := fmt.Fprint(w, string(data)); err != nil {
+		fmt.Printf("Error in fmt.Fprint: %v", err)
+	}
 }
 
 // HandleAddPreChain handles multiplexed add-pre-chain HTTP request.
@@ -117,7 +119,7 @@ func (s *ProxyServer) HandleAddChain(w http.ResponseWriter, r *http.Request) {
 }
 
 func stringToHTML(s string) template.HTML {
-	return template.HTML(strings.Replace(template.HTMLEscapeString(string(s)), "\n", "<br>", -1))
+	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(string(s)), "\n", "<br>"))
 }
 
 // InfoData wraps data field required for info-page.

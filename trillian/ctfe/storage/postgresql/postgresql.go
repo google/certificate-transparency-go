@@ -19,11 +19,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"k8s.io/klog/v2"
@@ -31,7 +28,7 @@ import (
 
 const (
 	selectIssuanceChainByKeySQL = "SELECT c.ChainValue FROM IssuanceChain AS c WHERE c.IdentityHash = $1"
-	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES ($1, $2)"
+	insertIssuanceChainSQL      = "INSERT INTO IssuanceChain(IdentityHash, ChainValue) VALUES ($1, $2) ON CONFLICT DO NOTHING"
 )
 
 // IssuanceChainStorage is a PostgreSQL implementation of the IssuanceChainStorage interface.
@@ -43,7 +40,7 @@ type IssuanceChainStorage struct {
 func NewIssuanceChainStorage(_ context.Context, dbConn string) *IssuanceChainStorage {
 	db, err := open(dbConn)
 	if err != nil {
-		klog.Exitf(fmt.Sprintf("failed to open database: %v", err))
+		klog.Exitf("failed to open database: %v", err)
 	}
 
 	return &IssuanceChainStorage{
@@ -69,16 +66,7 @@ func (s *IssuanceChainStorage) FindByKey(ctx context.Context, key []byte) ([]byt
 // Add inserts the key-value pair of issuance chain.
 func (s *IssuanceChainStorage) Add(ctx context.Context, key []byte, chain []byte) error {
 	_, err := s.db.ExecContext(ctx, insertIssuanceChainSQL, key, chain)
-	if err != nil {
-		// Ignore duplicated key error.
-		var postgresqlErr *pgconn.PgError
-		if errors.As(err, &postgresqlErr) && postgresqlErr.Code == pgerrcode.UniqueViolation {
-			return nil
-		}
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // open takes the data source name and returns the sql.DB object.

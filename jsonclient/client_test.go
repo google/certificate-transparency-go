@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -134,7 +135,9 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 		defer mu.Unlock()
 		switch r.URL.Path {
 		case "/struct/path":
-			fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`)
+			if _, err := fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`); err != nil {
+				t.Errorf("Failed to fmt.Fprintf: %v", err)
+			}
 		case "/struct/params":
 			var s TestStruct
 			if r.Method == http.MethodGet {
@@ -145,15 +148,17 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				decoder := json.NewDecoder(r.Body)
 				err := decoder.Decode(&s)
 				if err != nil {
-					t.Fatalf("Failed to decode: " + err.Error())
+					t.Fatalf("Failed to decode: %v", err)
 				}
 				defer func() {
 					if err := r.Body.Close(); err != nil {
-						t.Fatalf("Failed to close request body: " + err.Error())
+						t.Fatalf("Failed to close request body: %v", err)
 					}
 				}()
 			}
-			fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "data": "%s"}`, s.TreeSize, s.Timestamp, s.Data)
+			if _, err := fmt.Fprintf(w, `{"tree_size": %d, "timestamp": %d, "data": "%s"}`, s.TreeSize, s.Timestamp, s.Data); err != nil {
+				t.Errorf("Failed to fmt.Fprintf: %v", err)
+			}
 		case "/error":
 			var params TestParams
 			if r.Method == http.MethodGet {
@@ -162,17 +167,20 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				decoder := json.NewDecoder(r.Body)
 				err := decoder.Decode(&params)
 				if err != nil {
-					t.Fatalf("Failed to decode: " + err.Error())
+					t.Fatalf("Failed to decode: %v", err)
 				}
 				defer func() {
 					if err := r.Body.Close(); err != nil {
-						t.Fatalf("Failed to close request body: " + err.Error())
+						t.Fatalf("Failed to close request body: %v", err)
 					}
 				}()
 			}
 			http.Error(w, "error page", params.RespCode)
 		case "/malformed":
-			fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99`) // no closing }
+			// no closing }
+			if _, err := fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99`); err != nil {
+				t.Errorf("Failed to fmt.Fprintf: %v", err)
+			}
 		case "/retry":
 			if failCount > 0 {
 				failCount--
@@ -185,7 +193,9 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 					w.WriteHeader(http.StatusRequestTimeout)
 				}
 			} else {
-				fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`)
+				if _, err := fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`); err != nil {
+					t.Errorf("Failed to fmt.Fprintf: %v", err)
+				}
 			}
 		case "/retry-rfc1123":
 			if failCount > 0 {
@@ -193,18 +203,24 @@ func MockServer(t *testing.T, failCount int, retryAfter int) *httptest.Server {
 				w.Header().Add("Retry-After", time.Now().Add(time.Duration(retryAfter)*time.Second).Format(time.RFC1123))
 				w.WriteHeader(http.StatusServiceUnavailable)
 			} else {
-				fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`)
+				if _, err := fmt.Fprintf(w, `{"tree_size": 11, "timestamp": 99}`); err != nil {
+					t.Errorf("Failed to fmt.Fprintf: %v", err)
+				}
 			}
 		case "/useragent/banana":
 			if got, want := r.Header.Get("User-Agent"), "banana"; got != want {
 				w.WriteHeader(400)
 			}
-			fmt.Fprintf(w, `{}`)
+			if _, err := fmt.Fprintf(w, `{}`); err != nil {
+				t.Errorf("Failed to fmt.Fprintf: %v", err)
+			}
 		case "/useragent/none":
 			if got, want := r.Header.Get("User-Agent"), ""; got != want {
 				w.WriteHeader(400)
 			}
-			fmt.Fprintf(w, `{}`)
+			if _, err := fmt.Fprintf(w, `{}`); err != nil {
+				t.Errorf("Failed to fmt.Fprintf: %v", err)
+			}
 		default:
 			t.Fatalf("Unhandled URL path: %s", r.URL.Path)
 		}
@@ -501,15 +517,15 @@ func TestCancelledContext(t *testing.T) {
 
 	var result TestStruct
 	_, _, err = logClient.GetAndParse(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("GetAndParse() = (_,_,%v), want %q", err, context.Canceled)
 	}
 	_, _, err = logClient.PostAndParse(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("PostAndParse() = (_,_,%v), want %q", err, context.Canceled)
 	}
 	_, _, err = logClient.PostAndParseWithRetry(ctx, "/struct/path", nil, &result)
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("PostAndParseWithRetry() = (_,_,%v), want %q", err, context.Canceled)
 	}
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
+	"golang.org/x/time/rate"
 	"k8s.io/klog/v2"
 )
 
@@ -67,6 +68,15 @@ type InstanceOptions struct {
 	// limited. If unset, no quota will be requested for intermediate
 	// certificates.
 	CertificateQuotaUser func(*x509.Certificate) string
+	// FreshSubmissionMaxAge is the maximum age of a fresh submission.
+	// Freshness is determined by comparing the NotBefore timestamp of
+	// the first certificate in the submitted chain against the current time.
+	FreshSubmissionMaxAge time.Duration
+	// NonFreshSubmissionLimiter limits the rate at which this log instance
+	// will accept non-fresh submissions.
+	// This is used to prevent the log from being flooded with requests for
+	// "old" certificates.
+	NonFreshSubmissionLimiter *rate.Limiter
 	// STHStorage provides STHs of a source log for the mirror. Only mirror
 	// instances will use it, i.e. when IsMirror == true in the config. If it is
 	// empty then the DefaultMirrorSTHStorage will be used.
