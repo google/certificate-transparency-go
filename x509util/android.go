@@ -123,6 +123,7 @@ type AuthorizationList struct {
 	CallerNonce               asn1.RawValue `asn1:"optional,explicit,tag:7"`
 	MinMacLength              int           `asn1:"optional,explicit,tag:8,default:-1"`
 	EcCurve                   int           `asn1:"optional,explicit,tag:10,default:-1"`
+	MlDsaVariant              int           `asn1:"optional,explicit,tag:11,default:-1"`
 	RsaPublicExponent         int           `asn1:"optional,explicit,tag:200,default:-1"`
 	MgfDigest                 []int         `asn1:"optional,explicit,tag:203,set"`
 	RollbackResistance        asn1.RawValue `asn1:"optional,explicit,tag:303"`
@@ -307,6 +308,9 @@ func showKeyAuthorizations(buf *bytes.Buffer, auths AuthorizationList, prefix st
 	if auths.EcCurve != -1 {
 		buf.WriteString(fmt.Sprintf("%sEcCurve: %s\n", prefix, ecCurveToString(auths.EcCurve)))
 	}
+	if auths.MlDsaVariant != -1 {
+		buf.WriteString(fmt.Sprintf("%sMlDsaVariant: %s\n", prefix, mldsaVariantToString(auths.MlDsaVariant)))
+	}
 	if auths.RsaPublicExponent != -1 {
 		buf.WriteString(fmt.Sprintf("%sRsa Public Exponent: %d\n", prefix, auths.RsaPublicExponent))
 	}
@@ -421,6 +425,8 @@ func algorithmToString(v int) string {
 		return "RSA"
 	case 3:
 		return "EC"
+	case 4:
+		return "ML-DSA"
 	case 32:
 		return "AES"
 	case 33:
@@ -496,6 +502,16 @@ func ecCurveToString(v int) string {
 		return "P_521"
 	case 4:
 		return "CURVE_25519"
+	}
+	return fmt.Sprintf("UNKNOWN(%d)", v)
+}
+
+func mldsaVariantToString(v int) string {
+	switch v {
+	case 1:
+		return "ML-DSA-65"
+	case 2:
+		return "ML-DSA-87"
 	}
 	return fmt.Sprintf("UNKNOWN(%d)", v)
 }

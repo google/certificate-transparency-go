@@ -324,6 +324,9 @@ const (
 	Ed25519
 	RSAESOAEP
 	X25519
+	MlDsa44
+	MlDsa65
+	MlDsa87
 )
 
 var publicKeyAlgoName = [...]string{
@@ -333,6 +336,9 @@ var publicKeyAlgoName = [...]string{
 	Ed25519:   "Ed25519",
 	RSAESOAEP: "RSAESOAEP",
 	X25519:    "X25519",
+	MlDsa44:   "ML-DSA-44",
+	MlDsa65:   "ML-DSA-65",
+	MlDsa87:   "ML-DSA-87",
 }
 
 func (algo PublicKeyAlgorithm) String() string {
@@ -589,6 +595,9 @@ var (
 	OIDPublicKeyRSAObsolete = asn1.ObjectIdentifier{2, 5, 8, 1, 1}
 	OIDPublicKeyEd25519     = oidSignatureEd25519
 	OIDPublicKeyX25519      = asn1.ObjectIdentifier{1, 3, 101, 110}
+	OIDPublicKeyMlDsa44     = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 17}
+	OIDPublicKeyMlDsa65     = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
+	OIDPublicKeyMlDsa87     = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 )
 
 func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm {
@@ -605,6 +614,12 @@ func getPublicKeyAlgorithmFromOID(oid asn1.ObjectIdentifier) PublicKeyAlgorithm 
 		return Ed25519
 	case oid.Equal(OIDPublicKeyX25519):
 		return X25519
+	case oid.Equal(OIDPublicKeyMlDsa44):
+		return MlDsa44
+	case oid.Equal(OIDPublicKeyMlDsa65):
+		return MlDsa65
+	case oid.Equal(OIDPublicKeyMlDsa87):
+		return MlDsa87
 	}
 	return UnknownPublicKeyAlgorithm
 }
