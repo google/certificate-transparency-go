@@ -17,6 +17,7 @@ package loglist3
 import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 // LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
@@ -96,6 +97,14 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
+	logMessage := "Root compatible logs: \n"
+	for _, ctLog := range d.usableLl.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
+		for _, l := range ctLog.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.Info(logMessage)
 	return compatible
 }
 
@@ -125,5 +134,14 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
+	logMessage := "Temporal compatible: \n"
+	for _, ctLog := range d.usableLl.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
+		for _, l := range ctLog.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.Info(logMessage)
 	return compatible
 }
+
