@@ -29,6 +29,11 @@ type LogRoots map[string]*x509util.PEMCertPool
 // Compatible creates a new LogList containing only Logs matching the temporal,
 // root-acceptance and Log-status conditions.
 func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots) LogList {
+	logURLs := make([]string, 0, len(roots))
+	for logURL := range roots {
+		logURLs = append(logURLs, logURL)
+	}
+	klog.Info(logURLs)
 	active := ll.TemporallyCompatible(cert)
 	// Do not check root compatbility if roots are not being provided.
 	if certRoot == nil {
