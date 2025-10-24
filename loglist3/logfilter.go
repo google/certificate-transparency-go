@@ -15,8 +15,11 @@
 package loglist3
 
 import (
+	"fmt"
+
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"k8s.io/klog/v2"
 )
 
 // LogRoots maps Log-URLs (stated at LogList) to the pools of their accepted
@@ -26,6 +29,11 @@ type LogRoots map[string]*x509util.PEMCertPool
 // Compatible creates a new LogList containing only Logs matching the temporal,
 // root-acceptance and Log-status conditions.
 func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate, roots LogRoots) LogList {
+	logURLs := make([]string, 0, len(roots))
+	for logURL := range roots {
+		logURLs = append(logURLs, logURL)
+	}
+	klog.V(1).Info(logURLs)
 	active := ll.TemporallyCompatible(cert)
 	// Do not check root compatbility if roots are not being provided.
 	if certRoot == nil {
@@ -96,6 +104,14 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
+	logMessage := "Root compatible operators: \n"
+	for _, operator := range ll.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
+		for _, l := range operator.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.V(1).Info(logMessage)
 	return compatible
 }
 
@@ -125,5 +141,14 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
+	logMessage := "Temporal compatible logs: \n"
+	for _, operator := range ll.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
+		for _, l := range operator.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.V(1).Info(logMessage)
 	return compatible
 }
+

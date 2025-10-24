@@ -292,6 +292,14 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	if err != nil {
 		return nil, err
 	}
+	logMessage := "Compatible logs: \n"
+	for _, operator := range compatibleLogs.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
+		for _, l := range operator.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.V(1).Info(logMessage)
 
 	// Distinguish between precerts and certificates.
 	isPrecert, err := ctfe.IsPrecertificate(parsedChain[0])
@@ -373,6 +381,14 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	usableStat := []loglist3.LogStatus{loglist3.UsableLogStatus}
 	active := ll.SelectByStatus(usableStat)
 	d.usableLl = &active
+	logMessage := "Usable logs: \n"
+	for _, operator := range d.usableLl.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
+		for _, l := range operator.Logs {
+			logMessage += fmt.Sprintf("\t%s\n", l.URL)
+		}
+	}
+	klog.Info(logMessage)
 	pendingQualifiedStat := []loglist3.LogStatus{
 		loglist3.PendingLogStatus, loglist3.QualifiedLogStatus}
 	pending := ll.SelectByStatus(pendingQualifiedStat)
