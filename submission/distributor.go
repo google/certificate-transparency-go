@@ -293,8 +293,8 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 		return nil, err
 	}
 	logMessage := "Compatible logs: \n"
-	for _, ctLog := range compatibleLogs.Operators {
-		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
+	for _, operator := range compatibleLogs.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
 		for _, l := range ctLog.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
@@ -382,8 +382,8 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	active := ll.SelectByStatus(usableStat)
 	d.usableLl = &active
 	logMessage := "Usable logs: \n"
-	for _, ctLog := range d.usableLl.Operators {
-		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
+	for _, operator := range d.usableLl.Operators {
+		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
 		for _, l := range ctLog.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
