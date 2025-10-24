@@ -107,7 +107,7 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 	logMessage := "Root compatible operators: \n"
 	for _, operator := range ll.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
-		for _, l := range ctLog.Logs {
+		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
@@ -144,7 +144,7 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 	logMessage := "Temporal compatible logs: \n"
 	for _, operator := range ll.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
-		for _, l := range ctLog.Logs {
+		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}

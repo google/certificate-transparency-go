@@ -295,7 +295,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 	logMessage := "Compatible logs: \n"
 	for _, operator := range compatibleLogs.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
-		for _, l := range ctLog.Logs {
+		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
@@ -384,7 +384,7 @@ func NewDistributor(ll *loglist3.LogList, plc ctpolicy.CTPolicy, lcBuilder LogCl
 	logMessage := "Usable logs: \n"
 	for _, operator := range d.usableLl.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
-		for _, l := range ctLog.Logs {
+		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
