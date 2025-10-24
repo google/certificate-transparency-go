@@ -33,7 +33,7 @@ func (ll *LogList) Compatible(cert *x509.Certificate, certRoot *x509.Certificate
 	for logURL := range roots {
 		logURLs = append(logURLs, logURL)
 	}
-	klog.Info(logURLs)
+	klog.V(1).Info(logURLs)
 	active := ll.TemporallyCompatible(cert)
 	// Do not check root compatbility if roots are not being provided.
 	if certRoot == nil {
@@ -104,14 +104,14 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
-	logMessage := "Root compatible logs: \n"
+	logMessage := "Root compatible operators: \n"
 	for _, ctLog := range ll.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
 		for _, l := range ctLog.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
-	klog.Info(logMessage)
+	klog.V(1).Info(logMessage)
 	return compatible
 }
 
@@ -141,14 +141,14 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 			compatible.Operators = append(compatible.Operators, &compatibleOp)
 		}
 	}
-	logMessage := "Temporal compatible: \n"
+	logMessage := "Temporal compatible operators: \n"
 	for _, ctLog := range ll.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", ctLog.Name)
 		for _, l := range ctLog.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
-	klog.Info(logMessage)
+	klog.V(1).Info(logMessage)
 	return compatible
 }
 

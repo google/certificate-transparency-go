@@ -299,7 +299,7 @@ func (d *Distributor) addSomeChain(ctx context.Context, rawChain [][]byte, loadP
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
 		}
 	}
-	klog.Info(logMessage)
+	klog.V(1).Info(logMessage)
 
 	// Distinguish between precerts and certificates.
 	isPrecert, err := ctfe.IsPrecertificate(parsedChain[0])
