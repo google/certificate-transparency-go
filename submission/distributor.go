@@ -148,7 +148,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 					}
 					continue
 				}
-				klog.Infof("logURL: %v\nbase64 root: %v", logURL, base64.StdEncoding.EncodeToString(parsed.Raw))
+				klog.V(1).Infof("logURL: %v\nbase64 root: %v", logURL, base64.StdEncoding.EncodeToString(parsed.Raw))
 				res.Roots.AddCert(parsed)
 			}
 			ch <- res
