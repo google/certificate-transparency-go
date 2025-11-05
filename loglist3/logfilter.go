@@ -16,6 +16,7 @@ package loglist3
 
 import (
 	"fmt"
+	"encoding/base64"
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
@@ -94,7 +95,12 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 			if certRoot == nil {
 				continue
 			}
-
+			// Print out log roots for debugging purposes
+			logRoots := fmt.Sprintf("log roots for %v:\n", l.URL)
+			for _, cert := roots[l.URL].RawCertificates() {
+				logRoots += fmt.Sprintf("%v\n", base64.StdEncoding.EncodeToString(cert))
+			}
+			klog.V(1).Info(logRoots)
 			// Check root is accepted.
 			if roots[l.URL].Included(certRoot) {
 				compatibleOp.Logs = append(compatibleOp.Logs, l)
@@ -105,7 +111,7 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 		}
 	}
 	logMessage := "Root compatible operators: \n"
-	for _, operator := range ll.Operators {
+	for _, operator := range compatible.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
 		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)
@@ -142,7 +148,7 @@ func (ll *LogList) TemporallyCompatible(cert *x509.Certificate) LogList {
 		}
 	}
 	logMessage := "Temporal compatible logs: \n"
-	for _, operator := range ll.Operators {
+	for _, operator := range compatible.Operators {
 		logMessage += fmt.Sprintf("Operator: %s\n", operator.Name)
 		for _, l := range operator.Logs {
 			logMessage += fmt.Sprintf("\t%s\n", l.URL)

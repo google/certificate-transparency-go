@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"encoding/base64"
 
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/ctpolicy"
@@ -147,6 +148,7 @@ func (d *Distributor) RefreshRoots(ctx context.Context) map[string]error {
 					}
 					continue
 				}
+				klog.Infof("logURL: %v\nbase64 root: %v", logURL, base64.StdEncoding.EncodeToString(parsed.Raw))
 				res.Roots.AddCert(parsed)
 			}
 			ch <- res
