@@ -97,7 +97,7 @@ func (ll *LogList) RootCompatible(certRoot *x509.Certificate, roots LogRoots) Lo
 			}
 			// Print out log roots for debugging purposes
 			logRoots := fmt.Sprintf("log roots for %v:\n", l.URL)
-			for _, cert := roots[l.URL].RawCertificates() {
+			for _, cert := range roots[l.URL].RawCertificates() {
 				logRoots += fmt.Sprintf("%v\n", base64.StdEncoding.EncodeToString(cert))
 			}
 			klog.V(1).Info(logRoots)
