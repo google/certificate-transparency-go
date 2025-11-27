@@ -115,7 +115,7 @@ the original files. The recommended way to do this is by using the Docker
 image used by the Cloud Build:
 
 ```shell
-docker build -f ./integration/cloudbuild/testbase/Dockerfile -t ctgo-builder .
+docker build -f ./integration/Dockerfile -t ctgo-builder .
 docker run -it --mount type=bind,src="$(pwd)",target=/src ctgo-builder /bin/bash -c "cd /src; ./scripts/install_deps.sh; go generate -x ./..."
 ```
 
@@ -131,10 +131,10 @@ Alternatively, you can install the prerequisites locally:
     compatible and tested:
 
     ```
-    cd $(go list -f '{{ .Dir }}' github.com/google/trillian); \
+    cd $(go list -f '{{ .Dir }}' github.com/google/certificate-transparency-go); \
     go install github.com/golang/mock/mockgen; \
     go install google.golang.org/protobuf/proto; \
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@v.1.34.1; \
+    go install google.golang.org/protobuf/cmd/protoc-gen-go; \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc; \
     go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc; \
     go install golang.org/x/tools/cmd/stringer
