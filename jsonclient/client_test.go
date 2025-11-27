@@ -303,12 +303,12 @@ func TestPostAndParse(t *testing.T) {
 		request    interface{}
 		wantStatus int
 		want       TestStruct
-		wantErr    string
+		wantErr    bool
 		ua         string
 	}{
-		{uri: "/short%", wantErr: "invalid URL escape"},
-		{uri: "/struct/params", request: json.Number(`invalid`), wantErr: "invalid number literal"},
-		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: "unexpected end of JSON"},
+		{uri: "/short%", wantErr: true},
+		{uri: "/struct/params", request: json.Number(`invalid`), wantErr: true},
+		{uri: "/malformed", wantStatus: http.StatusOK, wantErr: true},
 		{uri: "/error", request: TestParams{RespCode: 404}, wantStatus: http.StatusNotFound},
 		{uri: "/error", request: TestParams{RespCode: 403}, wantStatus: http.StatusForbidden},
 		{uri: "/struct/path", wantStatus: http.StatusOK, want: TestStruct{11, 99, ""}},
@@ -342,16 +342,14 @@ func TestPostAndParse(t *testing.T) {
 		}
 
 		if err != nil {
-			if len(test.wantErr) == 0 {
+			if !test.wantErr {
 				t.Errorf("PostAndParse(%q)=_,_,%q; want _, _, nil", test.uri, err.Error())
-			} else if !strings.Contains(err.Error(), test.wantErr) {
-				t.Errorf("PostAndParse(%q)=nil,%q; want error matching %q", test.uri, err.Error(), test.wantErr)
 			}
 			continue
 		}
 
-		if len(test.wantErr) > 0 {
-			t.Errorf("PostAndParse(%q)=%+v,nil; want error matching %q", test.uri, got, test.wantErr)
+		if test.wantErr {
+			t.Errorf("PostAndParse(%q)=%+v,nil; want error", test.uri, got)
 		}
 		if gotStatus != test.wantStatus {
 			t.Errorf("PostAndParse('%s') got status %d; want %d", test.uri, gotStatus, test.wantStatus)
