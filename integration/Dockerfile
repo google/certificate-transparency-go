@@ -1,6 +1,6 @@
 # This Dockerfile builds a base image for the certificate-transparency-go CloudBuild integration testing.
 # See https://hub.docker.com/_/golang for the set of golang base images.
-FROM golang:1.25.3-bookworm@sha256:ee420c17fa013f71eca6b35c3547b854c838d4f26056a34eb6171bba5bf8ece4 as ct_testbase
+FROM golang:1.25.3-bookworm@sha256:ee420c17fa013f71eca6b35c3547b854c838d4f26056a34eb6171bba5bf8ece4 AS ct_testbase
 
 WORKDIR /testbase
 
@@ -19,11 +19,11 @@ RUN mkdir protoc && \
     unzip -o ${PROTOC_ZIP} -d /usr/local bin/protoc && \
     unzip -o ${PROTOC_ZIP} -d /usr/local 'include/*' \
     )
-ENV PATH /usr/local/bin:$PATH
+ENV PATH=/usr/local/bin:$PATH
 
 COPY ./integration/test-runner.sh /testbase/
 
-ENV GOPATH /go
-ENV PATH $GOPATH/bin:/testbase/protoc/bin:$PATH
+ENV GOPATH=/go
+ENV PATH=$GOPATH/bin:/testbase/protoc/bin:$PATH
 
-CMD /bin/bash -exc /testbase/test-runner.sh
+CMD ["/bin/bash", "-exc", "/testbase/test-runner.sh"]
