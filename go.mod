@@ -13,25 +13,25 @@ require (
 	github.com/google/trillian v1.7.2
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/jackc/pgx/v5 v5.7.6
+	github.com/jackc/pgx/v5 v5.8.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-sqlite3 v1.14.32
+	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/prometheus/client_golang v1.23.2
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rs/cors v1.11.1
 	github.com/sergi/go-diff v1.4.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/transparency-dev/merkle v0.0.2
-	go.etcd.io/etcd/client/v3 v3.6.6
-	go.etcd.io/etcd/etcdctl/v3 v3.6.6
-	go.etcd.io/etcd/v3 v3.6.6
-	golang.org/x/crypto v0.45.0
+	go.etcd.io/etcd/client/v3 v3.6.7
+	go.etcd.io/etcd/etcdctl/v3 v3.6.7
+	go.etcd.io/etcd/v3 v3.6.7
+	golang.org/x/crypto v0.46.0
 	golang.org/x/time v0.14.0
-	google.golang.org/grpc v1.77.0
+	google.golang.org/grpc v1.78.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/klog/v2 v2.130.1
 )
@@ -119,12 +119,12 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.6 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.6 // indirect
-	go.etcd.io/etcd/etcdutl/v3 v3.6.6 // indirect
-	go.etcd.io/etcd/pkg/v3 v3.6.6 // indirect
-	go.etcd.io/etcd/server/v3 v3.6.6 // indirect
-	go.etcd.io/etcd/tests/v3 v3.6.6 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.7 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.7 // indirect
+	go.etcd.io/etcd/etcdutl/v3 v3.6.7 // indirect
+	go.etcd.io/etcd/pkg/v3 v3.6.7 // indirect
+	go.etcd.io/etcd/server/v3 v3.6.7 // indirect
+	go.etcd.io/etcd/tests/v3 v3.6.7 // indirect
 	go.etcd.io/gofail v0.2.0 // indirect
 	go.etcd.io/raft/v3 v3.6.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
@@ -141,17 +141,17 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.32.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
-	golang.org/x/tools v0.38.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/tools v0.39.0 // indirect
 	google.golang.org/api v0.226.0 // indirect
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
