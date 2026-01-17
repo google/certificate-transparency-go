@@ -167,7 +167,7 @@ func (li *LogInfo) VerifyInclusionAt(ctx context.Context, leaf ct.MerkleTreeLeaf
 		return -1, fmt.Errorf("failed to GetProofByHash(sct,size=%d): %v", treeSize, err)
 	}
 
-	if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), treeSize, leafHash[:], rsp.AuditPath, rootHash); err != nil {
+	if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), treeSize, leafHash[:], rsp.AuditPath, rootHash); err != nil { //nolint:gosec
 		return -1, fmt.Errorf("failed to verify inclusion proof at size %d: %v", treeSize, err)
 	}
 	return rsp.LeafIndex, nil

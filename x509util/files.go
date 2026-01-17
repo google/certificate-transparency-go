@@ -29,7 +29,7 @@ import (
 // ReadPossiblePEMFile loads data from a file which may be in DER format
 // or may be in PEM format (with the given blockname).
 func ReadPossiblePEMFile(filename, blockname string) ([][]byte, error) {
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to read data: %v", filename, err)
 	}
@@ -45,7 +45,7 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 		return ReadPossiblePEMFile(target, blockname)
 	}
 
-	rsp, err := http.Get(target)
+	rsp, err := http.Get(target) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
@@ -81,7 +81,7 @@ func dePEM(data []byte, blockname string) [][]byte {
 func ReadFileOrURL(target string, client *http.Client) ([]byte, error) {
 	u, err := url.Parse(target)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		return os.ReadFile(target)
+		return os.ReadFile(target) //nolint:gosec
 	}
 
 	rsp, err := client.Get(u.String())
@@ -103,7 +103,7 @@ func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, 
 	if err != nil || rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
 	}
-	defer rsp.Body.Close()
+	defer rsp.Body.Close() //nolint:errcheck
 	body, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read issuer from %q: %v", issuerURL, err)

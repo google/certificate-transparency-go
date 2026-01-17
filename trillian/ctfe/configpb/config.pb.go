@@ -18,6 +18,7 @@
 // 	protoc        v3.20.1
 // source: trillian/ctfe/configpb/config.proto
 
+//nolint:gosec // G103: generated code
 package configpb
 
 import (

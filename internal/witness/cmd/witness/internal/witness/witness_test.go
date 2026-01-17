@@ -35,6 +35,7 @@ var (
 	// https://play.golang.org/p/KUXRShKdYTb to sign things with loaded
 	// keys.  Importantly, need to switch to using MarshalPKCS8PrivateKey
 	// for the witness keys.
+	//nolint:gosec // G101: test key
 	mSK = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIECRHc4ORynd+lpqWYmjCIAmDjyLEJZSuvv4KdcIi+hEoAoGCCqGSM49
 AwEHoUQDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/tOZ+GUrGjNC0CrTqSylMuU1f
@@ -45,8 +46,9 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/
 tOZ+GUrGjNC0CrTqSylMuU1fAcWDaKYB/Yr3fq/5lNqJBRjsOnI4KkaEtw==
 -----END PUBLIC KEY-----`)
 	mID = "fRThG/6Ymon8NnpRMQJIgCMgjtrBVnOidYenOB0n6FI="
+	//nolint:gosec // G101: test key
 	bSK = `-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIICRst6QhwffAkeOQGIhcCSmB7/LYQXevwrv8TD9FjU7oAoGCCqGSM49
+MHcCAQEEIICRst6QhwffAkeOQGIhcCSmB7/LYQXevwrv8TD9FjU7oAoGCCqGSm49
 AwEHoUQDQgAE5FTw9vYXDEFiZb9kS1LV7GzU1Mo/xQ8D2Vnkl7WqNTB2kJ45aTtl
 F2bBk8i50oWNRlRLyi5MVl7j+6LVhMiBeA==
 -----END EC PRIVATE KEY-----`

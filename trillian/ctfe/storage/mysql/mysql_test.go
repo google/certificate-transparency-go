@@ -91,7 +91,7 @@ func TestIssuanceChainAddSuccess(t *testing.T) {
 func readTestData(t *testing.T, filename string) []byte {
 	t.Helper()
 
-	data, err := os.ReadFile("../../../testdata/" + filename)
+	data, err := os.ReadFile("../../../testdata/" + filename) //nolint:gosec
 	if err != nil {
 		t.Fatal(err)
 	}

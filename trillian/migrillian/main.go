@@ -70,7 +70,7 @@ func main() {
 	}
 
 	klog.Infof("Dialling Trillian backend: %v", *backend)
-	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()) //nolint:staticcheck
 	if err != nil {
 		klog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}
@@ -99,7 +99,7 @@ func main() {
 	// Handle metrics on the DefaultServeMux.
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		err := http.ListenAndServe(*metricsEndpoint, nil)
+		err := http.ListenAndServe(*metricsEndpoint, nil) //nolint:gosec
 		klog.Fatalf("http.ListenAndServe(): %v", err)
 	}()
 

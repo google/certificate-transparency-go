@@ -96,14 +96,14 @@ func runGetInclusionProof(ctx context.Context) {
 		cert, err := x509.ParseCertificate(chain[0].Data)
 		if x509.IsFatal(err) {
 			klog.Warningf("Failed to parse leaf certificate: %v", err)
-			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
+			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp)) //nolint:gosec
 		} else if cert.IsPrecertificate() {
-			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(entryTimestamp))
+			leafEntry, err = ct.MerkleTreeLeafFromRawChain(chain, ct.PrecertLogEntryType, uint64(entryTimestamp)) //nolint:gosec
 			if err != nil {
 				klog.Exitf("Failed to build pre-certificate leaf entry: %v", err)
 			}
 		} else {
-			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp))
+			leafEntry = ct.CreateX509MerkleTreeLeaf(chain[0], uint64(entryTimestamp)) //nolint:gosec
 		}
 
 		leafEntry.TimestampedEntry.Extensions = entryCTExts
@@ -114,7 +114,7 @@ func runGetInclusionProof(ctx context.Context) {
 		hash = leafHash[:]
 
 		// Print a warning if this timestamp is still within the MMD window.
-		when := ct.TimestampToTime(uint64(entryTimestamp))
+		when := ct.TimestampToTime(uint64(entryTimestamp)) //nolint:gosec
 		if age := time.Since(when); age < logMMD {
 			klog.Warningf("WARNING: Timestamp (%v) is with MMD window (%v), log may not have incorporated this entry yet.", when, logMMD)
 		}
@@ -147,7 +147,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 	}
 	if sth != nil {
 		// If we retrieved an STH we can verify the proof.
-		if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil {
+		if err := proof.VerifyInclusion(rfc6962.DefaultHasher, uint64(rsp.LeafIndex), sth.TreeSize, hash, rsp.AuditPath, sth.SHA256RootHash[:]); err != nil { //nolint:gosec
 			klog.Exitf("Failed to VerifyInclusion(%d, %d)=%v", rsp.LeafIndex, sth.TreeSize, err)
 		}
 		fmt.Printf("Verified that hash %x + proof = root hash %x\n", hash, sth.SHA256RootHash)
@@ -155,7 +155,7 @@ func getInclusionProofForHash(ctx context.Context, logClient client.CheckLogClie
 }
 
 func chainFromFile(filename string) ([]ct.ASN1Cert, int64, []byte) {
-	contents, err := os.ReadFile(filename)
+	contents, err := os.ReadFile(filename) //nolint:gosec
 	if err != nil {
 		klog.Exitf("Failed to read certificate file: %v", err)
 	}

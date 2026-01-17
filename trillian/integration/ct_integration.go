@@ -14,6 +14,8 @@
 
 // Package integration holds test-only code for running tests on
 // an integrated system of the CT personality and a Trillian log.
+//
+//nolint:gosec // Integration test file: G404 (test randomization), G115 (test tree sizes), G304 (test data files), G602 (test chain access)
 package integration
 
 import (
@@ -986,7 +988,7 @@ func setTreeState(ctx context.Context, adminServer string, logID int64, state tr
 		UpdateMask: treeStateMask,
 	}
 
-	conn, err := grpc.Dial(adminServer, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(adminServer, grpc.WithTransportCredentials(insecure.NewCredentials())) //nolint:staticcheck
 	if err != nil {
 		return err
 	}

@@ -53,7 +53,7 @@ type constraintsSpec struct {
 	ok   []string
 	bad  []string
 	ekus []string
-	cn   string
+	cn   string //nolint:staticcheck // U1000: field reserved for future use
 }
 
 type leafSpec struct {
@@ -1621,7 +1621,7 @@ var nameConstraintsTests = []nameConstraintsTest{
 
 func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
 	var serialBytes [16]byte
-	rand.Read(serialBytes[:])
+	rand.Read(serialBytes[:]) //nolint:errcheck
 
 	template := &Certificate{
 		SerialNumber: new(big.Int).SetBytes(serialBytes[:]),
@@ -1652,7 +1652,7 @@ func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.
 
 func makeConstraintsLeafCert(leaf leafSpec, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {
 	var serialBytes [16]byte
-	rand.Read(serialBytes[:])
+	rand.Read(serialBytes[:]) //nolint:errcheck
 
 	template := &Certificate{
 		SerialNumber: new(big.Int).SetBytes(serialBytes[:]),
@@ -1986,7 +1986,7 @@ func TestConstraintCases(t *testing.T) {
 		if logInfo {
 			certAsPEM := func(cert *Certificate) string {
 				var buf bytes.Buffer
-				pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+				pem.Encode(&buf, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}) //nolint:errcheck
 				return buf.String()
 			}
 			t.Errorf("#%d: root:\n%s", i, certAsPEM(rootPool.certs[0]))
@@ -1996,7 +1996,7 @@ func TestConstraintCases(t *testing.T) {
 		for _, key := range keys {
 			privateKeys.Put(key)
 		}
-		keys = keys[:0]
+		keys = keys[:0] //nolint:staticcheck // SA4006: intentional reset for next iteration
 	}
 }
 
@@ -2009,7 +2009,7 @@ func writePEMsToTempFile(certs []*Certificate) *os.File {
 	pemBlock := &pem.Block{Type: "CERTIFICATE"}
 	for _, cert := range certs {
 		pemBlock.Bytes = cert.Raw
-		pem.Encode(file, pemBlock)
+		pem.Encode(file, pemBlock) //nolint:errcheck
 	}
 
 	return file
@@ -2022,7 +2022,7 @@ func testChainAgainstOpenSSL(leaf *Certificate, intermediates, roots *CertPool) 
 	if debugOpenSSLFailure {
 		println("roots file:", rootsFile.Name())
 	} else {
-		defer os.Remove(rootsFile.Name())
+		defer os.Remove(rootsFile.Name()) //nolint:errcheck
 	}
 	args = append(args, "-CAfile", rootsFile.Name())
 
@@ -2031,7 +2031,7 @@ func testChainAgainstOpenSSL(leaf *Certificate, intermediates, roots *CertPool) 
 		if debugOpenSSLFailure {
 			println("intermediates file:", intermediatesFile.Name())
 		} else {
-			defer os.Remove(intermediatesFile.Name())
+			defer os.Remove(intermediatesFile.Name()) //nolint:errcheck
 		}
 		args = append(args, "-untrusted", intermediatesFile.Name())
 	}
@@ -2040,7 +2040,7 @@ func testChainAgainstOpenSSL(leaf *Certificate, intermediates, roots *CertPool) 
 	if debugOpenSSLFailure {
 		println("leaf file:", leafFile.Name())
 	} else {
-		defer os.Remove(leafFile.Name())
+		defer os.Remove(leafFile.Name()) //nolint:errcheck
 	}
 	args = append(args, leafFile.Name())
 

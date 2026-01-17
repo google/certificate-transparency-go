@@ -2303,8 +2303,8 @@ func makeGetRootResponseForTest(t *testing.T, stamp, treeSize int64, hash []byte
 	t.Helper()
 	return &trillian.GetLatestSignedLogRootResponse{
 		SignedLogRoot: mustMarshalRoot(t, &types.LogRootV1{
-			TimestampNanos: uint64(stamp),
-			TreeSize:       uint64(treeSize),
+			TimestampNanos: uint64(stamp),    //nolint:gosec
+			TreeSize:       uint64(treeSize), //nolint:gosec
 			RootHash:       hash,
 		}),
 	}

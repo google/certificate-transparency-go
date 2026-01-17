@@ -117,7 +117,7 @@ func (i int64Encoder) Encode(dst []byte) {
 	n := i.Len()
 
 	for j := 0; j < n; j++ {
-		dst[j] = byte(i >> uint((n-1-j)*8))
+		dst[j] = byte(i >> uint((n-1-j)*8)) //nolint:gosec
 	}
 }
 
@@ -138,7 +138,7 @@ func appendBase128Int(dst []byte, n int64) []byte {
 	l := base128IntLength(n)
 
 	for i := l - 1; i >= 0; i-- {
-		o := byte(n >> uint(i*7))
+		o := byte(n >> uint(i*7)) //nolint:gosec
 		o &= 0x7f
 		if i != 0 {
 			o |= 0x80
@@ -188,7 +188,7 @@ func appendLength(dst []byte, i int) []byte {
 	n := lengthLength(i)
 
 	for ; n > 0; n-- {
-		dst = append(dst, byte(i>>uint((n-1)*8)))
+		dst = append(dst, byte(i>>uint((n-1)*8))) //nolint:gosec
 	}
 
 	return dst
@@ -204,7 +204,7 @@ func lengthLength(i int) (numBytes int) {
 }
 
 func appendTagAndLength(dst []byte, t tagAndLength) []byte {
-	b := uint8(t.class) << 6
+	b := uint8(t.class) << 6 //nolint:gosec
 	if t.isCompound {
 		b |= 0x20
 	}
@@ -213,7 +213,7 @@ func appendTagAndLength(dst []byte, t tagAndLength) []byte {
 		dst = append(dst, b)
 		dst = appendBase128Int(dst, int64(t.tag))
 	} else {
-		b |= uint8(t.tag)
+		b |= uint8(t.tag) //nolint:gosec
 		dst = append(dst, b)
 	}
 

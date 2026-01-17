@@ -295,6 +295,7 @@ func readVarUint(data []byte, info *fieldInfo) (uint64, error) {
 	if info == nil || !info.countSet {
 		return 0, structuralError{info.fieldName(), "no field size information available"}
 	}
+	//nolint:gosec // info.count is a small field size
 	if len(data) < int(info.count) {
 		return 0, syntaxError{info.fieldName(), "truncated variable-length integer"}
 	}
@@ -365,7 +366,7 @@ func parseField(v reflect.Value, data []byte, initOffset int, info *fieldInfo) (
 			return offset, err
 		}
 		v.SetUint(val)
-		offset += int(info.count)
+		offset += int(info.count) //nolint:gosec
 		return offset, nil
 	case reflect.Struct:
 		structType := fieldType
@@ -468,8 +469,8 @@ func parseField(v reflect.Value, data []byte, initOffset int, info *fieldInfo) (
 		if err != nil {
 			return offset, err
 		}
-		datalen := int(varlen)
-		offset += int(info.count)
+		datalen := int(varlen)      //nolint:gosec
+		offset += int(info.count) //nolint:gosec
 		rest = rest[info.count:]
 
 		if datalen > len(rest) {
@@ -535,7 +536,7 @@ func marshalField(out *bytes.Buffer, v reflect.Value, info *fieldInfo) error {
 		return nil
 	case uint16Type:
 		scratch := make([]byte, 2)
-		binary.BigEndian.PutUint16(scratch, uint16(v.Uint()))
+		binary.BigEndian.PutUint16(scratch, uint16(v.Uint())) //nolint:gosec
 		out.Write(scratch)
 		return nil
 	case uint24Type:
@@ -549,7 +550,7 @@ func marshalField(out *bytes.Buffer, v reflect.Value, info *fieldInfo) error {
 		return nil
 	case uint32Type:
 		scratch := make([]byte, 4)
-		binary.BigEndian.PutUint32(scratch, uint32(v.Uint()))
+		binary.BigEndian.PutUint32(scratch, uint32(v.Uint())) //nolint:gosec
 		out.Write(scratch)
 		return nil
 	case uint64Type:
@@ -655,7 +656,7 @@ func marshalField(out *bytes.Buffer, v reflect.Value, info *fieldInfo) error {
 		}
 		bytes := make([]byte, datalen)
 		for i := 0; i < datalen; i++ {
-			bytes[i] = uint8(v.Index(i).Uint())
+			bytes[i] = uint8(v.Index(i).Uint()) //nolint:gosec
 		}
 		_, err := out.Write(bytes)
 		return err
@@ -670,16 +671,16 @@ func marshalField(out *bytes.Buffer, v reflect.Value, info *fieldInfo) error {
 			// Fast version for []byte: first write the length as info.count bytes.
 			datalen := v.Len()
 			scratch := make([]byte, 8)
-			binary.BigEndian.PutUint64(scratch, uint64(datalen))
+			binary.BigEndian.PutUint64(scratch, uint64(datalen)) //nolint:gosec // non-negative
 			out.Write(scratch[(8 - info.count):])
 
-			if err := info.check(uint64(datalen), prefix); err != nil {
+			if err := info.check(uint64(datalen), prefix); err != nil { //nolint:gosec
 				return err
 			}
 			// Then just write the data.
 			bytes := make([]byte, datalen)
 			for i := 0; i < datalen; i++ {
-				bytes[i] = uint8(v.Index(i).Uint())
+				bytes[i] = uint8(v.Index(i).Uint()) //nolint:gosec
 			}
 			_, err := out.Write(bytes)
 			return err
@@ -693,7 +694,7 @@ func marshalField(out *bytes.Buffer, v reflect.Value, info *fieldInfo) error {
 		}
 
 		// Now insert (and check) the size.
-		size := uint64(innerBuf.Len())
+		size := uint64(innerBuf.Len()) //nolint:gosec // non-negative
 		if err := info.check(size, prefix); err != nil {
 			return err
 		}

@@ -90,7 +90,7 @@ func TestCreateSignatureVerifySignatureRoundTrip(t *testing.T) {
 		{PEM2PrivKey(testdata.EcdsaPrivateKeyPKCS8PEM), PEM2PK(testdata.EcdsaPublicKeyPEM), tls.SHA256},
 	}
 	seed := time.Now().UnixNano()
-	r := mathrand.New(mathrand.NewSource(seed))
+	r := mathrand.New(mathrand.NewSource(seed)) //nolint:gosec
 	for _, test := range tests {
 		for j := 0; j < 1; j++ {
 			dataLen := 10 + r.Intn(100)

@@ -489,14 +489,17 @@ func TestContextRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result TestStruct
+	//nolint:staticcheck // SA1012: intentionally testing nil context behavior
 	_, _, err = logClient.GetAndParse(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("GetAndParse() succeeded with empty Context")
 	}
+	//nolint:staticcheck // SA1012: intentionally testing nil context behavior
 	_, _, err = logClient.PostAndParse(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("PostAndParse() succeeded with empty Context")
 	}
+	//nolint:staticcheck // SA1012: intentionally testing nil context behavior
 	_, _, err = logClient.PostAndParseWithRetry(nil, "/struct/path", nil, &result)
 	if err == nil {
 		t.Errorf("PostAndParseWithRetry() succeeded with empty Context")

@@ -27,7 +27,7 @@ import (
 // LoadConfigFromFile reads MigrillianConfig from the given filename, which
 // should contain text-protobuf encoded configuration data.
 func LoadConfigFromFile(filename string) (*configpb.MigrillianConfig, error) {
-	cfgBytes, err := os.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

@@ -489,7 +489,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
-	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano)
+	timeMillis := uint64(li.TimeSource.Now().UnixNano() / millisPerNano) //nolint:gosec
 
 	// Build the MerkleTreeLeaf that gets sent to the backend, and make a trillian.LogLeaf for it.
 	merkleLeaf, err := ct.MerkleTreeLeafFromChain(chain, etype, timeMillis)
@@ -641,7 +641,7 @@ func getSTHConsistency(ctx context.Context, li *logInfo, w http.ResponseWriter, 
 			return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
 		}
 		// We can get here with a tree size too small to satisfy the proof.
-		if currentRoot.TreeSize < uint64(second) {
+		if currentRoot.TreeSize < uint64(second) { //nolint:gosec
 			return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", second, currentRoot.TreeSize)
 		}
 
@@ -785,7 +785,7 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
 	}
-	if currentRoot.TreeSize <= uint64(start) {
+	if currentRoot.TreeSize <= uint64(start) { //nolint:gosec
 		// If the returned tree is too small to contain any leaves return the 4xx
 		// explicitly here.
 		return http.StatusBadRequest, fmt.Errorf("need tree size: %d to get leaves but only got: %d", start+1, currentRoot.TreeSize)
@@ -894,7 +894,7 @@ func getEntryAndProof(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	if err := currentRoot.UnmarshalBinary(rsp.GetSignedLogRoot().GetLogRoot()); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to unmarshal root: %v", rsp.GetSignedLogRoot().GetLogRoot())
 	}
-	if currentRoot.TreeSize < uint64(treeSize) {
+	if currentRoot.TreeSize < uint64(treeSize) { //nolint:gosec
 		// If tree size is not large enough return the 4xx here, would previously
 		// have come from the error status mapping above.
 		return http.StatusBadRequest, fmt.Errorf("need tree size: %d for proof but only got: %d", req.TreeSize, currentRoot.TreeSize)

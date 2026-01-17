@@ -18,6 +18,7 @@
 // 	protoc        v3.20.1
 // source: client/configpb/multilog.proto
 
+//nolint:gosec // G103: generated code
 package configpb
 
 import (

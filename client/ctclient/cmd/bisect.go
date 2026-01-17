@@ -68,12 +68,14 @@ func runBisect(ctx context.Context) {
 	}
 	// Performing a binary search assumes that the timestamps are monotonically
 	// increasing.
+	//nolint:gosec // G115: tree size won't exceed int max in practice
 	idx := sort.Search(int(sth.TreeSize), func(idx int) bool {
 		klog.V(1).Infof("check timestamp at index %d", idx)
 		entry := getEntry(int64(idx))
-		return entry.Leaf.TimestampedEntry.Timestamp >= uint64(target)
+		return entry.Leaf.TimestampedEntry.Timestamp >= uint64(target) //nolint:gosec
 	})
-	when := ct.TimestampToTime(uint64(target))
+	when := ct.TimestampToTime(uint64(target)) //nolint:gosec
+	//nolint:gosec // G115: tree size won't exceed int max in practice
 	if idx >= int(sth.TreeSize) {
 		fmt.Printf("No entry with timestamp>=%d (%v) found up to tree size %d\n", target, when, sth.TreeSize)
 		return

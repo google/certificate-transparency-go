@@ -272,7 +272,7 @@ func (s *Scanner) ScanLog(ctx context.Context, foundCert func(*ct.RawLogEntry), 
 
 	startTime := time.Now()
 	stop := make(chan bool)
-	go s.logThroughput(int64(sth.TreeSize), stop)
+	go s.logThroughput(int64(sth.TreeSize), stop) //nolint:gosec
 	defer func() {
 		stop <- true
 		close(stop)

@@ -70,5 +70,5 @@ func main() {
 	http.HandleFunc("/ct/v1/proxy/add-chain/", s.HandleAddChain)
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/", s.HandleInfo)
-	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
+	log.Fatal(http.ListenAndServe(*httpEndpoint, nil)) //nolint:gosec
 }

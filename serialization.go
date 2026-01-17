@@ -310,6 +310,7 @@ func LogEntryFromLeaf(index int64, leaf *LeafEntry) (*LogEntry, error) {
 
 // TimestampToTime converts a timestamp in the style of RFC 6962 (milliseconds
 // since UNIX epoch) to a Go Time.
+//nolint:gosec // G115: division and modulo ensure values fit in int64
 func TimestampToTime(ts uint64) time.Time {
 	secs := int64(ts / 1000)
 	msecs := int64(ts % 1000)

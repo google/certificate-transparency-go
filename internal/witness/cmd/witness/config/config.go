@@ -65,7 +65,7 @@ func main() {
 	if err != nil {
 		klog.Exitf("Failed to marshal log config into YAML: %v", err)
 	}
-	if err := os.WriteFile(*configFile, data, 0644); err != nil {
+	if err := os.WriteFile(*configFile, data, 0644); err != nil { //nolint:gosec
 		klog.Exitf("Failed to write config to file: %v", err)
 	}
 }

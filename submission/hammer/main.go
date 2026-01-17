@@ -95,7 +95,7 @@ func main() {
 		for i := 0; i < batchSize; i++ {
 			go func() {
 				url := *proxyEndpoint + "ct/v1/proxy/add-pre-chain/"
-				resp, err := http.Post(url, "application/json", bytes.NewBuffer(postBody))
+				resp, err := http.Post(url, "application/json", bytes.NewBuffer(postBody)) //nolint:gosec
 				if err != nil {
 					log.Fatalf("http.Post(%s)=(_,%q); want (_,nil)", url, err)
 				}

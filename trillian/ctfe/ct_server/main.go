@@ -152,7 +152,7 @@ func main() {
 		}
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 	} else {
-		dialOpts = append(dialOpts, grpc.WithInsecure())
+		dialOpts = append(dialOpts, grpc.WithInsecure()) //nolint:staticcheck
 	}
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
@@ -218,9 +218,9 @@ func main() {
 		if len(beMap) == 1 {
 			// If there's only one of them we use the blocking option as we can't
 			// serve anything until connected.
-			dialOpts = append(dialOpts, grpc.WithBlock())
+			dialOpts = append(dialOpts, grpc.WithBlock()) //nolint:staticcheck
 		}
-		conn, err := grpc.Dial(be.BackendSpec, dialOpts...)
+		conn, err := grpc.Dial(be.BackendSpec, dialOpts...) //nolint:staticcheck
 		if err != nil {
 			klog.Exitf("Could not dial RPC server: %v: %v", be, err)
 		}
@@ -308,7 +308,7 @@ func main() {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			metricsServer := http.Server{Addr: metricsAt, Handler: mux, MaxHeaderBytes: 128 * 1024}
+			metricsServer := http.Server{Addr: metricsAt, Handler: mux, MaxHeaderBytes: 128 * 1024} //nolint:gosec
 			err := metricsServer.ListenAndServe()
 			klog.Warningf("Metrics server exited: %v", err)
 		}()
@@ -327,7 +327,7 @@ func main() {
 	}
 
 	// Bring up the HTTP server and serve until we get a signal not to.
-	srv := http.Server{}
+	srv := http.Server{} //nolint:gosec
 	if *tlsCert != "" && *tlsKey != "" {
 		cert, err := tls.LoadX509KeyPair(*tlsCert, *tlsKey)
 		if err != nil {
@@ -337,9 +337,9 @@ func main() {
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		srv = http.Server{Addr: *httpEndpoint, Handler: handler, TLSConfig: tlsConfig, MaxHeaderBytes: 128 * 1024}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler, TLSConfig: tlsConfig, MaxHeaderBytes: 128 * 1024} //nolint:gosec
 	} else {
-		srv = http.Server{Addr: *httpEndpoint, Handler: handler, MaxHeaderBytes: 128 * 1024}
+		srv = http.Server{Addr: *httpEndpoint, Handler: handler, MaxHeaderBytes: 128 * 1024} //nolint:gosec
 	}
 	if *httpIdleTimeout > 0 {
 		srv.IdleTimeout = *httpIdleTimeout

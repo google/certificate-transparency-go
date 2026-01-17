@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:gosec // G101: test keys only
 package testonly
 
 // KEYS IN THIS FILE ARE ONLY FOR TESTING. They must not be used by production code.

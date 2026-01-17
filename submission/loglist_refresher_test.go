@@ -225,7 +225,7 @@ func TestNewLogListRefresherUpdate(t *testing.T) {
 			}
 
 			// Simulate Log list update.
-			if err := os.WriteFile(f, []byte(tc.llNext), 0755); err != nil {
+			if err := os.WriteFile(f, []byte(tc.llNext), 0755); err != nil { //nolint:gosec
 				t.Fatalf("os.WriteFile(%q, %q) = %q, want nil", f, tc.llNext, err)
 			}
 

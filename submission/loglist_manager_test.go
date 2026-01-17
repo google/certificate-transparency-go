@@ -114,7 +114,7 @@ First:
 	}
 
 	sampleLogListUpdate := strings.Replace(testdata.SampleLogList3, "ct.googleapis.com/racketeer/", "ct.googleapis.com/racketeer/v2/", 1)
-	if err := os.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil {
+	if err := os.WriteFile(f, []byte(sampleLogListUpdate), 0644); err != nil { //nolint:gosec
 		t.Fatalf("unable to update Log-list data file: %q", err)
 	}
 	select {

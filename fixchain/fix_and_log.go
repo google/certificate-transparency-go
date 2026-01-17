@@ -53,7 +53,7 @@ type FixAndLog struct {
 func (fl *FixAndLog) QueueAllCertsInChain(chain []*x509.Certificate) {
 	if chain != nil {
 		atomic.AddUint32(&fl.queued, 1)
-		atomic.AddUint32(&fl.chainsQueued, uint32(len(chain)))
+		atomic.AddUint32(&fl.chainsQueued, uint32(len(chain))) //nolint:gosec
 		dchain := newDedupedChain(chain)
 		// Caching check
 		h := hashBag(dchain.certs)

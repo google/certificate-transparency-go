@@ -269,7 +269,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 // waitForBackoff blocks until the defined backoff interval or context has expired, if the returned
 // not before time is in the past it returns immediately.
 func (c *JSONClient) waitForBackoff(ctx context.Context) error {
-	dur := time.Until(c.backoff.until().Add(time.Millisecond * time.Duration(rand.Intn(int(maxJitter.Seconds()*1000)))))
+	dur := time.Until(c.backoff.until().Add(time.Millisecond * time.Duration(rand.Intn(int(maxJitter.Seconds()*1000))))) //nolint:gosec // G404: jitter doesn't need crypto rand
 	if dur < 0 {
 		dur = 0
 	}
