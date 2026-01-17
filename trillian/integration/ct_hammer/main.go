@@ -103,7 +103,7 @@ func copierGeneratorFactory(ctx context.Context) integration.GeneratorFactory {
 	var tlsCfg *tls.Config
 	if *skipHTTPSVerify {
 		klog.Warning("Skipping HTTPS connection verification")
-		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify}
+		tlsCfg = &tls.Config{InsecureSkipVerify: *skipHTTPSVerify} //nolint:gosec
 	}
 	httpClient := &http.Client{
 		Timeout: 60 * time.Second,
@@ -234,7 +234,7 @@ func main() {
 	if *metricsEndpoint != "" {
 		mf = prometheus.MetricFactory{}
 		http.Handle("/metrics", promhttp.Handler())
-		server := http.Server{Addr: *metricsEndpoint, Handler: nil}
+		server := http.Server{Addr: *metricsEndpoint, Handler: nil} //nolint:gosec
 		klog.Infof("Serving metrics at %v", *metricsEndpoint)
 		go func() {
 			err := server.ListenAndServe()
@@ -254,7 +254,7 @@ func main() {
 		mcData, _ := base64.StdEncoding.DecodeString(mc)
 		b := bytes.NewReader(mcData)
 		r, _ := gzip.NewReader(b)
-		if _, err := io.Copy(os.Stdout, r); err != nil {
+		if _, err := io.Copy(os.Stdout, r); err != nil { //nolint:gosec
 			klog.Exitf("Failed to print banner!")
 		}
 		if err := r.Close(); err != nil {

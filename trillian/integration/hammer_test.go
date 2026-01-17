@@ -310,7 +310,7 @@ func newFakeCTServer(t *testing.T) (*fakeCTServer, *client.LogClient) {
 	mux.HandleFunc("/ct/v1/get-sth", s.getSTH)
 	mux.HandleFunc("/ct/v1/get-sth-consistency", s.getConsistency)
 
-	s.server = &http.Server{Handler: mux}
+	s.server = &http.Server{Handler: mux} //nolint:gosec
 	go s.serve()
 
 	lc, err := client.New(fmt.Sprintf("http://%s", s.lis.Addr()), nil, jsonclient.Options{})

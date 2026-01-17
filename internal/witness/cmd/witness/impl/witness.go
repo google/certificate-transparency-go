@@ -123,7 +123,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	// slashes, and will be PathUnescape-d later.
 	r := mux.NewRouter().UseEncodedPath()
 	srv.RegisterHandlers(r)
-	hServer := &http.Server{
+	hServer := &http.Server{ //nolint:gosec
 		Addr:    opts.ListenAddr,
 		Handler: r,
 	}

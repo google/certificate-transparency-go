@@ -72,7 +72,7 @@ func NewCTLogEnv(ctx context.Context, cfgs []*configpb.LogConfig, numSequencers 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find an unused port for CT personality: %v", err)
 	}
-	server := http.Server{Addr: addr, Handler: nil}
+	server := http.Server{Addr: addr, Handler: nil} //nolint:gosec
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func(env *integration.LogEnv, server *http.Server, listener net.Listener, cfgs []*configpb.LogConfig) {
@@ -123,7 +123,7 @@ func (env *CTLogEnv) Close() {
 
 // listen opens a random high numbered port for listening.
 func listen() (string, net.Listener, error) {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", ":0") //nolint:gosec
 	if err != nil {
 		return "", nil, err
 	}

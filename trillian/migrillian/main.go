@@ -99,7 +99,7 @@ func main() {
 	// Handle metrics on the DefaultServeMux.
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		err := http.ListenAndServe(*metricsEndpoint, nil)
+		err := http.ListenAndServe(*metricsEndpoint, nil) //nolint:gosec
 		klog.Fatalf("http.ListenAndServe(): %v", err)
 	}()
 

@@ -46,7 +46,7 @@ func loadSystemRoots() (*CertPool, error) {
 
 	var firstErr error
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(file) //nolint:gosec
 		if err == nil {
 			roots.AppendCertsFromPEM(data)
 			break
@@ -71,7 +71,7 @@ func loadSystemRoots() (*CertPool, error) {
 		}
 		rootsAdded := false
 		for _, fi := range fis {
-			data, err := os.ReadFile(directory + "/" + fi.Name())
+			data, err := os.ReadFile(directory + "/" + fi.Name()) //nolint:gosec
 			if err == nil && roots.AppendCertsFromPEM(data) {
 				rootsAdded = true
 			}

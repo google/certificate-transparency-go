@@ -14,6 +14,8 @@
 
 // Package testdata holds files, data and code for testing.
 // KEYS IN THIS FILE ARE ONLY FOR TESTING. They must not be used by production code.
+//
+//nolint:gosec // G101: test keys only
 package testdata
 
 // DemoPrivateKeyPass is the password for DemoPrivateKey

@@ -40,6 +40,7 @@ import (
 var (
 	// https://play.golang.org/p/gCY2Zi2BJ8G to generate keys and
 	// https://play.golang.org/p/KUXRShKdYTb to sign things with loaded keys.
+	//nolint:gosec // G101: test key
 	mSK = `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIECRHc4ORynd+lpqWYmjCIAmDjyLEJZSuvv4KdcIi+hEoAoGCCqGSM49
 AwEHoUQDQgAEn1Ahe5/kYQgqYk1kSzp0ZCvL1Cf/tOZ+GUrGjNC0CrTqSylMuU1f

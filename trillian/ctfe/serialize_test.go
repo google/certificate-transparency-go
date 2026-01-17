@@ -177,7 +177,7 @@ func TestSignV1TreeHead(t *testing.T) {
 
 	// But changing the contents does change the signature.
 	for i := 0; i < 5; i++ {
-		sth.TreeSize = uint64(11 + i)
+		sth.TreeSize = uint64(11 + i) //nolint:gosec
 		if err := signV1TreeHead(signer, &sth, &cache); err != nil {
 			t.Errorf("signV1TreeHead()=%v; want nil", err)
 		}

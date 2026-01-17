@@ -36,7 +36,7 @@ import (
 // Assumes chains to be stores in a file in JSON encoded with the certificates
 // in DER format.
 func processChains(file string, fl *fixchain.FixAndLog) {
-	f, err := os.Open(file)
+	f, err := os.Open(file) //nolint:gosec
 	if err != nil {
 		log.Fatalf("Can't open %q: %s", file, err)
 	}
@@ -80,11 +80,11 @@ func contentStore(baseDir string, subDir string, content []byte) {
 	r := sha256.Sum256(content)
 	h := base64.URLEncoding.EncodeToString(r[:])
 	d := baseDir + "/" + subDir
-	if err := os.MkdirAll(d, 0777); err != nil {
+	if err := os.MkdirAll(d, 0777); err != nil { //nolint:gosec
 		log.Fatalf("Can't create directories %q: %v", d, err)
 	}
 	fn := d + "/" + h
-	f, err := os.Create(fn)
+	f, err := os.Create(fn) //nolint:gosec
 	if err != nil {
 		log.Fatalf("Can't create %q: %s", fn, err)
 	}

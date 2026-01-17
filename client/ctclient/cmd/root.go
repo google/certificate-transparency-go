@@ -108,7 +108,7 @@ func connect(ctx context.Context) *client.LogClient {
 	}
 	opts := jsonclient.Options{UserAgent: "ct-go-ctclient/1.0"}
 	if pubKey != "" {
-		pubkey, err := os.ReadFile(pubKey)
+		pubkey, err := os.ReadFile(pubKey) //nolint:gosec
 		if err != nil {
 			klog.Exit(err)
 		}

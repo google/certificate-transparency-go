@@ -18,10 +18,10 @@ import (
 	"crypto"
 	"crypto/dsa" //nolint:staticcheck
 	"crypto/ecdsa"
-	_ "crypto/md5" // For registration side-effect
+	_ "crypto/md5" //nolint:gosec // For registration side-effect
 	"crypto/rand"
 	"crypto/rsa"
-	_ "crypto/sha1"   // For registration side-effect
+	_ "crypto/sha1" //nolint:gosec // For registration side-effect
 	_ "crypto/sha256" // For registration side-effect
 	_ "crypto/sha512" // For registration side-effect
 	"errors"

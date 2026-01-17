@@ -211,11 +211,11 @@ func mustCreateSignatureVerifier(t *testing.T, pk crypto.PublicKey) SignatureVer
 }
 
 func corruptByteAt(b []byte, pos int) {
-	b[pos] ^= byte(mrand.Intn(255) + 1)
+	b[pos] ^= byte(mrand.Intn(255) + 1) //nolint:gosec
 }
 
 func corruptBytes(b []byte) {
-	corruptByteAt(b, mrand.Intn(len(b)))
+	corruptByteAt(b, mrand.Intn(len(b))) //nolint:gosec
 }
 
 func expectVerifySCTToFail(t *testing.T, sv SignatureVerifier, sct SignedCertificateTimestamp, msg string) {
@@ -422,7 +422,7 @@ func TestNewSignatureVerifierFailsWithBadKeyParametersForEC(t *testing.T) {
 }
 
 func TestNewSignatureVerifierFailsWithBadKeyParametersForRSA(t *testing.T) {
-	k, err := rsa.GenerateKey(rand.Reader, 1024)
+	k, err := rsa.GenerateKey(rand.Reader, 1024) //nolint:gosec
 	if err != nil {
 		t.Fatalf("Failed to generate 1024 bit RSA key: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestWillAllowNonCompliantECKeyWithOverride(t *testing.T) {
 
 func TestWillAllowNonCompliantRSAKeyWithOverride(t *testing.T) {
 	AllowVerificationWithNonCompliantKeys = true
-	k, err := rsa.GenerateKey(rand.Reader, 1024)
+	k, err := rsa.GenerateKey(rand.Reader, 1024) //nolint:gosec
 	if err != nil {
 		t.Fatalf("Failed to generate 1024 bit RSA key: %v", err)
 	}

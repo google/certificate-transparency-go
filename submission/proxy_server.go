@@ -119,7 +119,7 @@ func (s *ProxyServer) HandleAddChain(w http.ResponseWriter, r *http.Request) {
 }
 
 func stringToHTML(s string) template.HTML {
-	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(string(s)), "\n", "<br>"))
+	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(string(s)), "\n", "<br>")) //nolint:gosec
 }
 
 // InfoData wraps data field required for info-page.

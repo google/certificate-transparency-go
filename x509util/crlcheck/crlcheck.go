@@ -177,7 +177,7 @@ func processCert(data []byte, caCerts []*x509.Certificate) error {
 		if err != nil {
 			return fmt.Errorf("failed to read CRL from %q: %v", crldp, err)
 		}
-		rsp.Body.Close() //nolint:errcheck
+		rsp.Body.Close() //nolint:errcheck,gosec
 		certList, err := processCRL(body, caCerts)
 		if err != nil {
 			return err

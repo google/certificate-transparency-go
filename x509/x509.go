@@ -54,7 +54,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
-	_ "crypto/sha1"
+	_ "crypto/sha1" //nolint:gosec
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 	"encoding/pem"

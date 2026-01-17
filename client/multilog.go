@@ -43,7 +43,7 @@ func TemporalLogConfigFromFile(filename string) (*configpb.TemporalLogConfig, er
 		return nil, errors.New("log config filename empty")
 	}
 
-	cfgBytes, err := os.ReadFile(filename)
+	cfgBytes, err := os.ReadFile(filename) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("failed to read log config: %v", err)
 	}

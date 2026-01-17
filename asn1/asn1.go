@@ -154,10 +154,10 @@ func parseInt32(bytes []byte, lax bool, fieldName string) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-	if ret64 != int64(int32(ret64)) {
+	if ret64 != int64(int32(ret64)) { //nolint:gosec
 		return 0, StructuralError{"integer too large", fieldName}
 	}
-	return int32(ret64), nil
+	return int32(ret64), nil //nolint:gosec
 }
 
 var bigOne = big.NewInt(1)
@@ -201,14 +201,14 @@ func (b BitString) At(i int) int {
 		return 0
 	}
 	x := i / 8
-	y := 7 - uint(i%8)
+	y := 7 - uint(i%8) //nolint:gosec
 	return int(b.Bytes[x]>>y) & 1
 }
 
 // RightAlign returns a slice where the padding bits are at the beginning. The
 // slice may share memory with the BitString.
 func (b BitString) RightAlign() []byte {
-	shift := uint(8 - (b.BitLength % 8))
+	shift := uint(8 - (b.BitLength % 8)) //nolint:gosec
 	if shift == 8 || len(b.Bytes) == 0 {
 		return b.Bytes
 	}

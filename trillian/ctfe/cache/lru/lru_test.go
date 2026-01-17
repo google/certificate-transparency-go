@@ -56,7 +56,7 @@ func setupTestData(t *testing.T, filenames ...string) map[string][]byte {
 	data := make(map[string][]byte, len(filenames))
 
 	for _, filename := range filenames {
-		val, err := os.ReadFile("../../../testdata/" + filename)
+		val, err := os.ReadFile("../../../testdata/" + filename) //nolint:gosec
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -31,7 +31,7 @@ func weightedRandomSample(weights map[string]float32) (string, error) {
 		}
 		sum += w
 	}
-	r := rand.Float32() * sum
+	r := rand.Float32() * sum //nolint:gosec // G404: random selection doesn't need crypto rand
 	for itemName, w := range weights {
 		if w == 0.0 {
 			continue

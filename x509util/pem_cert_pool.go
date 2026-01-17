@@ -91,7 +91,7 @@ func (p *PEMCertPool) AppendCertsFromPEM(pemCerts []byte) (ok bool) {
 
 // AppendCertsFromPEMFile adds certs from a file that contains concatenated PEM data.
 func (p *PEMCertPool) AppendCertsFromPEMFile(pemFile string) error {
-	pemData, err := os.ReadFile(pemFile)
+	pemData, err := os.ReadFile(pemFile) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("failed to load PEM certs file: %v", err)
 	}

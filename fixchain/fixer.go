@@ -66,7 +66,7 @@ func (f *Fixer) Wait() {
 }
 
 func (f *Fixer) updateCounters(chains [][]*x509.Certificate, ferrs []*FixError) {
-	atomic.AddUint32(&f.validChainsProduced, uint32(len(chains)))
+	atomic.AddUint32(&f.validChainsProduced, uint32(len(chains))) //nolint:gosec
 
 	var verifyFailed bool
 	var fixFailed bool

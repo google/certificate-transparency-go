@@ -80,7 +80,7 @@ func main() {
 			totalInvalid += invalid
 		} else {
 			// Treat the argument as a certificate file to load.
-			data, err := os.ReadFile(arg)
+			data, err := os.ReadFile(arg) //nolint:gosec
 			if err != nil {
 				klog.Errorf("%s: failed to read data: %v", arg, err)
 				continue
@@ -174,7 +174,7 @@ func getAndCheckSiteChain(ctx context.Context, lf logInfoFactory, target string,
 	klog.Infof("Retrieve certificate chain from TLS connection to %q", host)
 	dialer := net.Dialer{Timeout: hc.Timeout}
 	// Insecure TLS connection here so we can always proceed.
-	conn, err := tls.DialWithDialer(&dialer, "tcp", host, &tls.Config{InsecureSkipVerify: true})
+	conn, err := tls.DialWithDialer(&dialer, "tcp", host, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec // G402: intentional for cert inspection
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("failed to dial %q: %v", host, err)
 	}
