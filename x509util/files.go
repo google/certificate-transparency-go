@@ -103,7 +103,7 @@ func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, 
 	if err != nil || rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
 	}
-	defer rsp.Body.Close()
+	defer rsp.Body.Close() //nolint:errcheck
 	body, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read issuer from %q: %v", issuerURL, err)

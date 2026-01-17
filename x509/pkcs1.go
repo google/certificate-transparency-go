@@ -122,7 +122,9 @@ func MarshalPKCS1PrivateKey(key *rsa.PrivateKey) []byte {
 		Qinv:    key.Precomputed.Qinv,
 	}
 
+	//nolint:staticcheck // SA1019: CRTValues needed for PKCS#1 format compatibility
 	priv.AdditionalPrimes = make([]pkcs1AdditionalRSAPrime, len(key.Precomputed.CRTValues))
+	//nolint:staticcheck // SA1019: CRTValues needed for PKCS#1 format compatibility
 	for i, values := range key.Precomputed.CRTValues {
 		priv.AdditionalPrimes[i].Prime = key.Primes[2+i]
 		priv.AdditionalPrimes[i].Exp = values.Exp

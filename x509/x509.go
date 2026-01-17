@@ -129,7 +129,7 @@ func marshalPublicKey(pub interface{}) (publicKeyBytes []byte, publicKeyAlgorith
 		// RFC 3279, Section 2.3.1.
 		publicKeyAlgorithm.Parameters = asn1.NullRawValue
 	case *ecdsa.PublicKey:
-		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
+		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y) //nolint:staticcheck // SA1019: needed for X.509 compatibility
 		oid, ok := OIDFromNamedCurve(pub.Curve)
 		if !ok {
 			return nil, pkix.AlgorithmIdentifier{}, errors.New("x509: unsupported elliptic curve")
@@ -1441,7 +1441,7 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		if namedCurve == nil {
 			return nil, fmt.Errorf("x509: unsupported elliptic curve %v", namedCurveOID)
 		}
-		x, y := elliptic.Unmarshal(namedCurve, asn1Data)
+		x, y := elliptic.Unmarshal(namedCurve, asn1Data) //nolint:staticcheck // SA1019: needed for X.509 compatibility
 		if x == nil {
 			return nil, errors.New("x509: failed to unmarshal elliptic curve point")
 		}
@@ -1856,7 +1856,7 @@ func parseCertificate(in *certificate, tbsOnly bool) (*Certificate, error) {
 	var issuer, subject pkix.RDNSequence
 	if rest, err := asn1.Unmarshal(in.TBSCertificate.Subject.FullBytes, &subject); err != nil {
 		var laxErr error
-		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Subject.FullBytes, &subject, "lax")
+		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Subject.FullBytes, &subject, "lax") //nolint:staticcheck // SA4006: rest not needed in lax mode
 		if laxErr != nil {
 			return nil, laxErr
 		}
@@ -1866,7 +1866,7 @@ func parseCertificate(in *certificate, tbsOnly bool) (*Certificate, error) {
 	}
 	if rest, err := asn1.Unmarshal(in.TBSCertificate.Issuer.FullBytes, &issuer); err != nil {
 		var laxErr error
-		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Issuer.FullBytes, &issuer, "lax")
+		rest, laxErr = asn1.UnmarshalWithParams(in.TBSCertificate.Issuer.FullBytes, &issuer, "lax") //nolint:staticcheck // SA4006: rest not needed in lax mode
 		if laxErr != nil {
 			return nil, laxErr
 		}

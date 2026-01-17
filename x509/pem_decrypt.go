@@ -102,6 +102,8 @@ func IsEncryptedPEMBlock(b *pem.Block) bool {
 }
 
 // IncorrectPasswordError is returned when an incorrect password is detected.
+//
+//nolint:staticcheck // ST1012: name kept for API compatibility
 var IncorrectPasswordError = errors.New("x509: decryption password incorrect")
 
 // DecryptPEMBlock takes a password encrypted PEM block and the password used to

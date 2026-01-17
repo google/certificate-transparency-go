@@ -83,8 +83,8 @@ func TestEnvVars(t *testing.T) {
 	defer func() {
 		certFiles = origCertFiles
 		certDirectories = origCertDirectories
-		os.Setenv(certFileEnv, origFile)
-		os.Setenv(certDirEnv, origDir)
+		os.Setenv(certFileEnv, origFile) //nolint:errcheck
+		os.Setenv(certDirEnv, origDir)  //nolint:errcheck
 	}()
 
 	for _, tc := range testCases {

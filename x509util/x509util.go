@@ -85,7 +85,7 @@ func OIDInExtensions(oid asn1.ObjectIdentifier, extensions []pkix.Extension) (in
 }
 
 // String formatting for various X.509/ASN.1 types
-func bitStringToString(b asn1.BitString) string { // nolint:deadcode,unused
+func bitStringToString(b asn1.BitString) string { //nolint:deadcode,unused,staticcheck
 	result := hex.EncodeToString(b.Bytes)
 	bitsLeft := b.BitLength % 8
 	if bitsLeft != 0 {
@@ -163,7 +163,7 @@ func publicKeyToString(_ x509.PublicKeyAlgorithm, pub interface{}) string {
 		buf.WriteString("                G:\n")
 		appendHexData(&buf, pub.G.Bytes(), 15, "                    ")
 	case *ecdsa.PublicKey:
-		data := elliptic.Marshal(pub.Curve, pub.X, pub.Y)
+		data := elliptic.Marshal(pub.Curve, pub.X, pub.Y) //nolint:staticcheck // SA1019: needed for X.509 compatibility
 		oid, ok := x509.OIDFromNamedCurve(pub.Curve)
 		if !ok {
 			return "                <unsupported elliptic curve>"
@@ -252,7 +252,7 @@ func extKeyUsageToString(u x509.ExtKeyUsage) string {
 	}
 }
 
-func attributeOIDToString(oid asn1.ObjectIdentifier) string { // nolint:deadcode,unused
+func attributeOIDToString(oid asn1.ObjectIdentifier) string { //nolint:deadcode,unused,staticcheck
 	switch {
 	case oid.Equal(pkix.OIDCountry):
 		return "Country"

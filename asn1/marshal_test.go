@@ -323,7 +323,7 @@ func BenchmarkMarshal(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, test := range marshalTests {
-			Marshal(test.in)
+			Marshal(test.in) //nolint:errcheck
 		}
 	}
 }

@@ -70,7 +70,7 @@ func main() {
 	}
 
 	klog.Infof("Dialling Trillian backend: %v", *backend)
-	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.Dial(*backend, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()) //nolint:staticcheck
 	if err != nil {
 		klog.Exitf("Could not dial Trillian server: %v: %v", *backend, err)
 	}

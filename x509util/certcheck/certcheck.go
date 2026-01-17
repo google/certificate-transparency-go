@@ -137,7 +137,7 @@ func chainFromSite(target string) ([]*x509.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to dial %q: %v", target, host, err)
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck
 
 	// Convert base crypto/x509.Certificates to our forked x509.Certificate type.
 	goChain := conn.ConnectionState().PeerCertificates
