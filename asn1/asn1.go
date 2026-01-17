@@ -139,8 +139,8 @@ func parseInt64(bytes []byte, lax bool, fieldName string) (ret int64, err error)
 	}
 
 	// Shift up and down in order to sign extend the result.
-	ret <<= 64 - uint8(len(bytes))*8
-	ret >>= 64 - uint8(len(bytes))*8
+	ret <<= 64 - uint8(len(bytes))*8 //nolint:gosec
+	ret >>= 64 - uint8(len(bytes))*8 //nolint:gosec
 	return
 }
 
