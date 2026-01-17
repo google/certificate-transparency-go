@@ -172,7 +172,7 @@ func idHashCertData(_ int64, entry *ct.RawLogEntry) []byte {
 
 func idHashLeafIndex(index int64, _ *ct.RawLogEntry) []byte {
 	data := make([]byte, 8)
-	binary.LittleEndian.PutUint64(data, uint64(index))
+	binary.LittleEndian.PutUint64(data, uint64(index)) //nolint:gosec
 	hash := sha256.Sum256(data)
 	return hash[:]
 }

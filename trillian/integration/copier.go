@@ -132,7 +132,7 @@ func NewCopyChainGeneratorFromOpts(ctx context.Context, client *client.LogClient
 		if err != nil {
 			return nil, fmt.Errorf("failed to get STH for source log: %v", err)
 		}
-		startIndex = rand.Int63n(int64(sth.TreeSize))
+		startIndex = rand.Int63n(int64(sth.TreeSize)) //nolint:gosec
 		klog.Infof("starting CopyChainGenerator from index %d (of %d) in source log", startIndex, sth.TreeSize)
 	}
 

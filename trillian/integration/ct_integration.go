@@ -14,6 +14,8 @@
 
 // Package integration holds test-only code for running tests on
 // an integrated system of the CT personality and a Trillian log.
+//
+//nolint:gosec // Integration test file: G404 (test randomization), G115 (test tree sizes), G304 (test data files), G602 (test chain access)
 package integration
 
 import (

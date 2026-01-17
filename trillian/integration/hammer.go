@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:gosec // G404: test utility uses math/rand for load test randomization, not security
 package integration
 
 import (

@@ -91,7 +91,7 @@ func connect(ctx context.Context) *client.LogClient {
 	var tlsCfg *tls.Config
 	if skipHTTPSVerify {
 		klog.Warning("Skipping HTTPS connection verification")
-		tlsCfg = &tls.Config{InsecureSkipVerify: skipHTTPSVerify}
+		tlsCfg = &tls.Config{InsecureSkipVerify: skipHTTPSVerify} //nolint:gosec
 	}
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,

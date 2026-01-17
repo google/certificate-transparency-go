@@ -108,7 +108,7 @@ func (sg *MirrorSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, erro
 		return nil, err
 	}
 
-	sth, err := sg.st.GetMirrorSTH(ctx, int64(currentRoot.TreeSize)) // nolint:staticcheck
+	sth, err := sg.st.GetMirrorSTH(ctx, int64(currentRoot.TreeSize)) //nolint:staticcheck,gosec
 	if err != nil {
 		return nil, err
 	}

@@ -119,7 +119,7 @@ func (f *Fetcher) Prepare(ctx context.Context) (*ct.SignedTreeHead, error) {
 	}
 	klog.V(1).Infof("%s: Got STH with %d certs", f.uri, sth.TreeSize)
 
-	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size {
+	if size := int64(sth.TreeSize); f.opts.EndIndex == 0 || f.opts.EndIndex > size { //nolint:gosec
 		klog.V(1).Infof("%s: Reset EndIndex from %d to %d", f.uri, f.opts.EndIndex, size)
 		f.opts.EndIndex = size
 	}
@@ -231,8 +231,8 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 		}
 	}
 
-	lastSize := uint64(f.opts.EndIndex)
-	targetSize := lastSize + uint64(f.opts.BatchSize)
+	lastSize := uint64(f.opts.EndIndex)              //nolint:gosec
+	targetSize := lastSize + uint64(f.opts.BatchSize) //nolint:gosec
 	quickDeadline := time.Now().Add(quickDur)
 
 	return f.sthBackoff.Retry(ctx, func() error {
@@ -251,7 +251,7 @@ func (f *Fetcher) updateSTH(ctx context.Context) error {
 			f.sthBackoff.Reset() // Growth is presumably fast, set next pause to Min.
 		}
 		f.sth = sth
-		f.opts.EndIndex = int64(sth.TreeSize)
+		f.opts.EndIndex = int64(sth.TreeSize) //nolint:gosec
 		return nil
 	})
 }

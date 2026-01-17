@@ -83,7 +83,7 @@ func dumpData(entry *ct.RawLogEntry) {
 	if len(entry.Cert.Data) > 0 {
 		name := fmt.Sprintf("%s-%014d-%s.der", prefix, entry.Index, suffix)
 		filename := path.Join(*dumpDir, name)
-		if err := os.WriteFile(filename, entry.Cert.Data, 0644); err != nil {
+		if err := os.WriteFile(filename, entry.Cert.Data, 0644); err != nil { //nolint:gosec
 			log.Printf("Failed to dump data for %s at index %d: %v", prefix, entry.Index, err)
 		}
 	}
@@ -91,7 +91,7 @@ func dumpData(entry *ct.RawLogEntry) {
 	for ii := 0; ii < len(entry.Chain); ii++ {
 		name := fmt.Sprintf("%s-%014d-%02d.der", prefix, entry.Index, ii)
 		filename := path.Join(*dumpDir, name)
-		if err := os.WriteFile(filename, entry.Chain[ii].Data, 0644); err != nil {
+		if err := os.WriteFile(filename, entry.Chain[ii].Data, 0644); err != nil { //nolint:gosec
 			log.Printf("Failed to dump data for CA at index %d: %v", entry.Index, err)
 		}
 	}
@@ -174,7 +174,7 @@ func createMatcherFromFlags(logClient *client.LogClient) (interface{}, error) {
 		return scanner.MatchSerialNumber{SerialNumber: sn}, nil
 	}
 	if *sctTimestamp != 0 {
-		log.Printf("Using SCT Timestamp matcher on %d (%v)", *sctTimestamp, time.Unix(0, int64(*sctTimestamp*1000000)))
+		log.Printf("Using SCT Timestamp matcher on %d (%v)", *sctTimestamp, time.Unix(0, int64(*sctTimestamp*1000000))) //nolint:gosec
 		return scanner.MatchSCTTimestamp{Timestamp: *sctTimestamp}, nil
 	}
 	certRegex, precertRegex := createRegexes(*matchSubjectRegex)

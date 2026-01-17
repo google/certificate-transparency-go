@@ -270,15 +270,15 @@ func (c *Controller) fetchTail(ctx context.Context, begin uint64) (uint64, error
 
 	fo := c.opts.FetcherOptions
 	if fo.Continuous { // Ignore range parameters in continuous mode.
-		fo.StartIndex, fo.EndIndex = int64(treeSize), 0
+		fo.StartIndex, fo.EndIndex = int64(treeSize), 0 //nolint:gosec
 		// Use non-continuous Fetcher, as we implement continuity in Controller.
 		// TODO(pavelkalinnikov): Don't overload Fetcher's Continuous flag.
 		fo.Continuous = false
 	} else if fo.StartIndex < 0 {
-		fo.StartIndex = int64(treeSize)
+		fo.StartIndex = int64(treeSize) //nolint:gosec
 	}
-	if int64(begin) > fo.StartIndex {
-		fo.StartIndex = int64(begin)
+	if int64(begin) > fo.StartIndex { //nolint:gosec
+		fo.StartIndex = int64(begin) //nolint:gosec
 	}
 	klog.Infof("%s: fetching range [%d, %d)", c.label, fo.StartIndex, fo.EndIndex)
 
@@ -388,7 +388,7 @@ func sleepRandom(ctx context.Context, base, spread time.Duration) error {
 func randDuration(base, spread time.Duration) time.Duration {
 	d := base
 	if spread != 0 {
-		d += time.Duration(rand.Int63n(int64(spread)))
+		d += time.Duration(rand.Int63n(int64(spread))) //nolint:gosec // G404: jitter doesn't need crypto/rand
 	}
 	return d
 }
