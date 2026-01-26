@@ -17,6 +17,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +30,8 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 )
+
+const maxUpdateRequestBodyBytes int64 = 512000
 
 // Server is the core handler implementation of the witness.
 type Server struct {
@@ -51,9 +54,16 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot parse URL: %v", err.Error()), http.StatusBadRequest)
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxUpdateRequestBodyBytes)
+	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
+		status := http.StatusBadRequest
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), status)
 		return
 	}
 	var req api.UpdateRequest

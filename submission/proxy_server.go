@@ -17,6 +17,7 @@ package submission
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -28,6 +29,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/ctfe"
 	"github.com/google/trillian/monitoring"
 )
+
+const maxAddChainBodyBytes int64 = 512000
 
 // ProxyServer wraps Proxy and handles HTTP-requests for it.
 type ProxyServer struct {
@@ -73,9 +76,15 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 		http.NotFound(w, r)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAddChainBodyBytes)
+	defer r.Body.Close()
 	addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
 	if err != nil {
 		rc := http.StatusBadRequest
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			rc = http.StatusRequestEntityTooLarge
+		}
 		pre := ""
 		if asPreChain {
 			pre = "pre-"
