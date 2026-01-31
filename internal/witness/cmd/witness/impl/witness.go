@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	ct "github.com/google/certificate-transparency-go"
 	ih "github.com/google/certificate-transparency-go/internal/witness/cmd/witness/internal/http"
@@ -124,8 +125,12 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	r := mux.NewRouter().UseEncodedPath()
 	srv.RegisterHandlers(r)
 	hServer := &http.Server{
-		Addr:    opts.ListenAddr,
-		Handler: r,
+		Addr:              opts.ListenAddr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
 	}
 	e := make(chan error, 1)
 	go func() {

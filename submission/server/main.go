@@ -70,5 +70,13 @@ func main() {
 	http.HandleFunc("/ct/v1/proxy/add-chain/", s.HandleAddChain)
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/", s.HandleInfo)
-	log.Fatal(http.ListenAndServe(*httpEndpoint, nil))
+	srv := &http.Server{
+		Addr:              *httpEndpoint,
+		Handler:           nil,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+	}
+	log.Fatal(srv.ListenAndServe())
 }
