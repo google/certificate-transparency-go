@@ -24,7 +24,9 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -88,10 +90,19 @@ var (
 	cacheSize               = flag.Int("cache_size", -1, "Size parameter set to 0 makes cache of unlimited size")
 	cacheTTL                = flag.Duration("cache_ttl", -1*time.Second, "Providing 0 TTL turns expiring off")
 	trillianTLSCACertFile   = flag.String("trillian_tls_ca_cert_file", "", "CA certificate file to use for secure connections with Trillian server")
+	trillianInsecureBackend = flag.Bool("trillian_insecure_backend", false, "Allow plaintext gRPC connections to Trillian backends (unsafe; prefer --trillian_tls_ca_cert_file). If unset, plaintext is only allowed for local backends (loopback/unix).")
 	maxCertChainSize        = flag.Int64("max_cert_chain_size", 512000, "Maximum size of certificate chain in bytes for add-chain and add-pre-chain endpoints (default: 512000 bytes = 500KB)")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
+
+type trillianTransportMode string
+
+const (
+	trillianTransportTLS            trillianTransportMode = "tls"
+	trillianTransportPlaintextLocal trillianTransportMode = "plaintext_local"
+	trillianTransportPlaintextFlag  trillianTransportMode = "plaintext_flag"
+)
 
 // nolint:staticcheck
 func main() {
@@ -145,15 +156,6 @@ func main() {
 	}
 
 	dialOpts := []grpc.DialOption{}
-	if *trillianTLSCACertFile != "" {
-		creds, err := credentials.NewClientTLSFromFile(*trillianTLSCACertFile, "")
-		if err != nil {
-			klog.Exitf("Failed to create TLS credentials from Trillian CA certificate: %v", err)
-		}
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithInsecure())
-	}
 	if len(*etcdServers) > 0 {
 		// Use etcd to provide endpoint resolution.
 		cfg := clientv3.Config{Endpoints: strings.Split(*etcdServers, ","), DialTimeout: 5 * time.Second}
@@ -209,6 +211,28 @@ func main() {
 	} else {
 		klog.Infof("Using regular DNS resolver")
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`))
+	}
+
+	backendSpecs := make([]string, 0, len(beMap))
+	for _, be := range beMap {
+		backendSpecs = append(backendSpecs, be.BackendSpec)
+	}
+	securityOpt, mode, err := trillianBackendDialOption(*trillianTLSCACertFile, *trillianInsecureBackend, backendSpecs)
+	if err != nil {
+		klog.Exitf("%v", err)
+	}
+	if securityOpt != nil {
+		dialOpts = append(dialOpts, securityOpt)
+	}
+	switch mode {
+	case trillianTransportPlaintextLocal:
+		klog.Warning("Using plaintext gRPC for local Trillian backends (loopback/unix). This is unsafe across untrusted networks; configure --trillian_tls_ca_cert_file to use TLS.")
+	case trillianTransportPlaintextFlag:
+		klog.Warning("Using plaintext gRPC for Trillian backends because --trillian_insecure_backend is set. This is unsafe across untrusted networks; prefer --trillian_tls_ca_cert_file.")
+	case trillianTransportTLS:
+		// No extra log; TLS is the safe default.
+	default:
+		klog.Warningf("Unknown Trillian transport mode: %q", mode)
 	}
 
 	// Dial all our log backends.
@@ -371,6 +395,61 @@ func main() {
 	// in which case it'll block until the HTTP server has gracefully shutdown
 	shutdownWG.Wait()
 	klog.Flush()
+}
+
+func trillianBackendDialOption(trillianTLSCACertFile string, allowInsecure bool, backendSpecs []string) (grpc.DialOption, trillianTransportMode, error) {
+	if trillianTLSCACertFile != "" {
+		creds, err := credentials.NewClientTLSFromFile(trillianTLSCACertFile, "")
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create TLS credentials from Trillian CA certificate: %w", err)
+		}
+		return grpc.WithTransportCredentials(creds), trillianTransportTLS, nil
+	}
+
+	if allowInsecure {
+		return grpc.WithInsecure(), trillianTransportPlaintextFlag, nil
+	}
+
+	for _, backendSpec := range backendSpecs {
+		if !isLocalBackendSpec(backendSpec) {
+			return nil, "", fmt.Errorf("refusing to use plaintext gRPC to non-local Trillian backend %q without --trillian_tls_ca_cert_file (set --trillian_insecure_backend to override)", backendSpec)
+		}
+	}
+	return grpc.WithInsecure(), trillianTransportPlaintextLocal, nil
+}
+
+func isLocalBackendSpec(backendSpec string) bool {
+	// Common local-only schemes.
+	if strings.HasPrefix(backendSpec, "unix:") || strings.HasPrefix(backendSpec, "unix://") {
+		return true
+	}
+
+	addr := backendSpec
+	if strings.Contains(backendSpec, "://") {
+		if u, err := url.Parse(backendSpec); err == nil {
+			if u.Scheme == "unix" {
+				return true
+			}
+			if u.Host != "" {
+				addr = u.Host
+			} else if u.Path != "" {
+				addr = strings.TrimPrefix(u.Path, "/")
+			}
+		}
+	}
+
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // awaitSignal waits for standard termination signals, then runs the given
