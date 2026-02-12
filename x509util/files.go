@@ -18,6 +18,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,6 +26,20 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 )
+
+// rejectPrivateHost returns an error if the URL host is a loopback,
+// link-local, or private IP address.
+func rejectPrivateHost(u *url.URL) error {
+	host := u.Hostname()
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return nil
+	}
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
+		return fmt.Errorf("refusing to fetch URL with private/loopback host: %q", u.String())
+	}
+	return nil
+}
 
 // ReadPossiblePEMFile loads data from a file which may be in DER format
 // or may be in PEM format (with the given blockname).
@@ -45,10 +60,19 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 		return ReadPossiblePEMFile(target, blockname)
 	}
 
+	u, err := url.Parse(target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL %q: %v", target, err)
+	}
+	if err := rejectPrivateHost(u); err != nil {
+		return nil, err
+	}
+
 	rsp, err := http.Get(target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
+	defer rsp.Body.Close()
 	data, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to io.ReadAll(%q): %v", target, err)
@@ -84,10 +108,15 @@ func ReadFileOrURL(target string, client *http.Client) ([]byte, error) {
 		return os.ReadFile(target)
 	}
 
+	if err := rejectPrivateHost(u); err != nil {
+		return nil, err
+	}
+
 	rsp, err := client.Get(u.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
+	defer rsp.Body.Close()
 	return io.ReadAll(rsp.Body)
 }
 
@@ -99,6 +128,18 @@ func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, 
 		return nil, nil
 	}
 	issuerURL := cert.IssuingCertificateURL[0]
+
+	u, err := url.Parse(issuerURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid issuer URL %q: %v", issuerURL, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("unsupported scheme %q in issuer URL %q", u.Scheme, issuerURL)
+	}
+	if err := rejectPrivateHost(u); err != nil {
+		return nil, err
+	}
+
 	rsp, err := client.Get(issuerURL)
 	if err != nil || rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
