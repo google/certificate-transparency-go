@@ -7,6 +7,9 @@
 * [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
 * [preloader] add continuous mode.
 * [CTFE] Enforce max request body size using `http.MaxBytesHandler`.
+* Support tiled logs in the loglist3 logfilter functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1762
+* Add FindTiledLog* functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1763
+
 
 ## v1.3.2
 
