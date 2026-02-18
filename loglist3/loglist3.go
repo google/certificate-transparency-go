@@ -417,6 +417,122 @@ func (ll *LogList) FuzzyFindLog(input string) []*Log {
 	return nil
 }
 
+// FindTiledLogByName returns all tiled logs whose names contain the given string.
+func (ll *LogList) FindTiledLogByName(name string) []*TiledLog {
+	name = strings.ToLower(name)
+	var results []*TiledLog
+	for _, op := range ll.Operators {
+		for _, log := range op.TiledLogs {
+			if strings.Contains(strings.ToLower(log.Description), name) {
+				results = append(results, log)
+			}
+		}
+	}
+	return results
+}
+
+// FindTiledLogByURL finds the tiled log with the given URL.
+func (ll *LogList) FindTiledLogByURL(url string) *TiledLog {
+	for _, op := range ll.Operators {
+		for _, log := range op.TiledLogs {
+			// Don't count trailing slashes
+			if strings.TrimRight(log.SubmissionURL, "/") == strings.TrimRight(url, "/") {
+				return log
+			} else if strings.TrimRight(log.MonitoringURL, "/") == strings.TrimRight(url, "/") {
+				return log
+			}
+		}
+	}
+	return nil
+}
+
+// FindTiledLogByKeyHash finds the tiled log with the given key hash.
+func (ll *LogList) FindTiledLogByKeyHash(keyhash [sha256.Size]byte) *TiledLog {
+	for _, op := range ll.Operators {
+		for _, log := range op.TiledLogs {
+			if bytes.Equal(log.LogID, keyhash[:]) {
+				return log
+			}
+		}
+	}
+	return nil
+}
+
+// FindTiledLogByKeyHashPrefix finds all tiled logs whose key hash starts with the prefix.
+func (ll *LogList) FindTiledLogByKeyHashPrefix(prefix string) []*TiledLog {
+	var results []*TiledLog
+	for _, op := range ll.Operators {
+		for _, log := range op.TiledLogs {
+			hh := hex.EncodeToString(log.LogID[:])
+			if strings.HasPrefix(hh, prefix) {
+				results = append(results, log)
+			}
+		}
+	}
+	return results
+}
+
+// FindTiledLogByKey finds the tiled log with the given DER-encoded key.
+func (ll *LogList) FindTiledLogByKey(key []byte) *TiledLog {
+	for _, op := range ll.Operators {
+		for _, log := range op.TiledLogs {
+			if bytes.Equal(log.Key[:], key) {
+				return log
+			}
+		}
+	}
+	return nil
+}
+
+// FuzzyFindTiledLog tries to find tiled logs that match the given unspecified input,
+// whose format is unspecified.  This generally returns a single tiled log, but
+// if text input that matches multiple tiled log descriptions is provided, then
+// multiple tiled logs may be returned.
+func (ll *LogList) FuzzyFindTiledLog(input string) []*TiledLog {
+	input = strings.Trim(input, " \t")
+	if logs := ll.FindTiledLogByName(input); len(logs) > 0 {
+		return logs
+	}
+	if log := ll.FindTiledLogByURL(input); log != nil {
+		return []*TiledLog{log}
+	}
+	// Try assuming the input is binary data of some form.  First base64:
+	if data, err := base64.StdEncoding.DecodeString(input); err == nil {
+		if len(data) == sha256.Size {
+			var hash [sha256.Size]byte
+			copy(hash[:], data)
+			if log := ll.FindTiledLogByKeyHash(hash); log != nil {
+				return []*TiledLog{log}
+			}
+		}
+		if log := ll.FindTiledLogByKey(data); log != nil {
+			return []*TiledLog{log}
+		}
+	}
+	// Now hex, but strip all internal whitespace first.
+	input = stripInternalSpace(input)
+	if data, err := hex.DecodeString(input); err == nil {
+		if len(data) == sha256.Size {
+			var hash [sha256.Size]byte
+			copy(hash[:], data)
+			if log := ll.FindTiledLogByKeyHash(hash); log != nil {
+				return []*TiledLog{log}
+			}
+		}
+		if log := ll.FindTiledLogByKey(data); log != nil {
+			return []*TiledLog{log}
+		}
+	}
+	// Finally, allow hex strings with an odd number of digits.
+	if hexDigits.MatchString(input) {
+		if logs := ll.FindTiledLogByKeyHashPrefix(input); len(logs) > 0 {
+			return logs
+		}
+	}
+
+	return nil
+}
+
 func stripInternalSpace(input string) string {
 	return strings.Map(func(r rune) rune {
 		if !unicode.IsSpace(r) {
