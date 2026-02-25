@@ -9,7 +9,7 @@
 * [CTFE] Enforce max request body size using `http.MaxBytesHandler`.
 * Support tiled logs in the loglist3 logfilter functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1762
 * Add FindTiledLog* functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1763
-
+* Remove internal witness. 
 
 ## v1.3.2
 
