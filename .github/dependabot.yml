@@ -23,8 +23,6 @@ updates:
 - package-ecosystem: docker
   directories:
     - /integration
-    - /internal/witness/cmd/feeder
-    - /internal/witness/cmd/witness
     - /trillian/examples/deployment/docker/ctfe
     - /trillian/examples/deployment/docker/envsubst
   schedule:
