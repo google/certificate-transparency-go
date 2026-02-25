@@ -77,7 +77,11 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxAddChainBodyBytes)
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			fmt.Printf("Error closing request body: %v", err)
+		}
+	}()
 	addChainReq, err := ctfe.ParseBodyAsJSONChain(r)
 	if err != nil {
 		rc := http.StatusBadRequest
