@@ -2,14 +2,74 @@
 
 ## HEAD
 
-* Bump Go from 1.23 to 1.24.
-* [preloader] Parse klog flags.
+## v1.3.3
+
+### CTFE
+* set explicit http server timeouts by @1seal in https://github.com/google/certificate-transparency-go/pull/1755
+* Regenerate protos by @phbnf in https://github.com/google/certificate-transparency-go/pull/1743
+* Update instructions to generate protos by @phbnf in https://github.com/google/certificate-transparency-go/pull/1742
+* ctfe: Enforce max request and header size limits by @fghanmi in https://github.com/google/certificate-transparency-go/pull/1720
 * [CTFE] Add a /log.v3.json endpoint to help satisfy a requirement of the Chrome CT Log Policy by @robstradling in https://github.com/google/certificate-transparency-go/pull/1703
-* [preloader] add continuous mode.
-* [CTFE] Enforce max request body size using `http.MaxBytesHandler`.
+
+### Tools
+
+#### Log list library
+
 * Support tiled logs in the loglist3 logfilter functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1762
 * Add FindTiledLog* functions by @robstradling in https://github.com/google/certificate-transparency-go/pull/1763
-* Remove internal witness. 
+
+#### Submission proxy
+
+* Cap request body size in submission proxy by @1seal in https://github.com/google/certificate-transparency-go/pull/1754
+* add some additional log messages around CT log compatibility  by @breadyzhang in https://github.com/google/certificate-transparency-go/pull/1734
+
+#### Other
+
+* jsonclient: don't depend on error text from other packages in tests by @neild in https://github.com/google/certificate-transparency-go/pull/1741
+* Parse klog flags in preloader. by @phbnf in https://github.com/google/certificate-transparency-go/pull/1711
+* Fix incorrect leaf hash calculation for precertificates in upload command by @Barre in https://github.com/google/certificate-transparency-go/pull/1710
+
+### Misc
+
+* Remove internal witness by @roger2hk in https://github.com/google/certificate-transparency-go/pull/1765
+* Update transparency-dev slack invite link by @taknira in https://github.com/google/certificate-transparency-go/pull/1718
+
+### Dependency updates
+
+* Bump golangci-lint version to v2.10.1 by @roger2hk in https://github.com/google/certificate-transparency-go/pull/1769
+* Bump the all-deps group with 7 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1768
+* Bump github/codeql-action from 4.32.0 to 4.32.4 in the all-deps group by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1767
+* Bump the docker-deps group across 2 directories with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1766
+* Bump filippo.io/edwards25519 from 1.1.0 to 1.1.1 by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1764
+* Bump the docker-deps group across 5 directories with 3 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1758
+* Bump the all-deps group with 3 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1757
+* Bump golang.org/x/crypto from 0.46.0 to 0.47.0 in the all-deps group by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1756
+* Bumped linter and fixed a potential race condition by @mhutchinson in https://github.com/google/certificate-transparency-go/pull/1753
+* Bump the docker-deps group across 5 directories with 3 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1750
+* Bump the all-deps group with 9 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1749
+* Bump the all-deps group across 1 directory with 5 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1748
+* Bump the all-deps group with 4 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1745
+* Bump the docker-deps group across 4 directories with 1 update by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1744
+* Bump golang.org/x/crypto from 0.43.0 to 0.45.0 by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1740
+* Bump the docker-deps group across 5 directories with 3 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1737
+* Bump the all-deps group with 4 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1736
+* Bump the all-deps group with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1735
+* Bump Go from 1.23 to 1.24 by @roger2hk in https://github.com/google/certificate-transparency-go/pull/1733
+* Bump the docker-deps group across 4 directories with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1732
+* Bump the all-deps group with 10 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1731
+* Bump the all-deps group with 3 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1730
+* Bump the docker-deps group across 4 directories with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1727
+* Bump the all-deps group with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1726
+* Bump the all-deps group with 6 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1725
+* Bump github/codeql-action from 3.29.2 to 3.29.5 in the all-deps group by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1723
+* Bump the docker-deps group across 5 directories with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1722
+* Bump the all-deps group with 8 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1721
+* Bump the all-deps group with 8 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1717
+* Bump the docker-deps group across 4 directories with 2 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1716
+* Bump github/codeql-action from 3.29.0 to 3.29.2 in the all-deps group by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1715
+* add continuous mode by @phbnf in https://github.com/google/certificate-transparency-go/pull/1714
+* Bump golangci-lint from 2.0.2 to 2.1.6 by @roger2hk in https://github.com/google/certificate-transparency-go/pull/1713
+* Bump the all-deps group with 4 updates by @dependabot[bot] in https://github.com/google/certificate-transparency-go/pull/1706
 
 ## v1.3.2
 
