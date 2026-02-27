@@ -301,6 +301,7 @@ func (c *JSONClient) PostAndParseWithRetry(ctx context.Context, path string, req
 		} else {
 			switch httpRsp.StatusCode {
 			case http.StatusOK:
+				c.backoff.decreaseMultiplier()
 				return httpRsp, body, nil
 			case http.StatusRequestTimeout:
 				// Request timeout, retry immediately
