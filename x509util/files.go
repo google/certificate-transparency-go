@@ -15,6 +15,7 @@
 package x509util
 
 import (
+	"context"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -27,18 +28,73 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-// rejectPrivateHost returns an error if the URL host is a loopback,
-// link-local, or private IP address.
+// isPrivateIP reports whether ip is loopback, link-local, or private.
+func isPrivateIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate()
+}
+
+// rejectPrivateHost returns an error if the URL host is a literal private IP.
+// For hostname-based URLs the resolved addresses are checked at dial time by
+// safeTransport; this function catches the obvious literal-IP case early.
 func rejectPrivateHost(u *url.URL) error {
 	host := u.Hostname()
 	ip := net.ParseIP(host)
 	if ip == nil {
 		return nil
 	}
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
+	if isPrivateIP(ip) {
 		return fmt.Errorf("refusing to fetch URL with private/loopback host: %q", u.String())
 	}
 	return nil
+}
+
+// safeTransport returns an *http.Transport whose DialContext resolves the
+// hostname and rejects connections to private/loopback addresses.  This
+// defends against DNS-rebinding and hostname-to-private-IP attacks.
+func safeTransport() *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ia := range ips {
+				if isPrivateIP(ia.IP) {
+					return nil, fmt.Errorf("refusing to connect: %q resolves to private/loopback address %s", host, ia.IP)
+				}
+			}
+			var d net.Dialer
+			return d.DialContext(ctx, network, net.JoinHostPort(host, port))
+		},
+	}
+}
+
+// rejectPrivateRedirect is an http.Client CheckRedirect function that blocks
+// redirects targeting private/loopback hosts (literal IP or resolved).
+func rejectPrivateRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	return rejectPrivateHost(req.URL)
+}
+
+// safeClient returns an *http.Client that blocks requests and redirects
+// targeting private/loopback addresses.  If base is non-nil its Timeout and
+// Jar are preserved.
+func safeClient(base *http.Client) *http.Client {
+	c := &http.Client{
+		Transport:     safeTransport(),
+		CheckRedirect: rejectPrivateRedirect,
+	}
+	if base != nil {
+		c.Timeout = base.Timeout
+		c.Jar = base.Jar
+	}
+	return c
 }
 
 // ReadPossiblePEMFile loads data from a file which may be in DER format
@@ -68,7 +124,7 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 		return nil, err
 	}
 
-	rsp, err := http.Get(target)
+	rsp, err := safeClient(nil).Get(target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
@@ -112,7 +168,7 @@ func ReadFileOrURL(target string, client *http.Client) ([]byte, error) {
 		return nil, err
 	}
 
-	rsp, err := client.Get(u.String())
+	rsp, err := safeClient(client).Get(u.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
@@ -140,7 +196,7 @@ func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, 
 		return nil, err
 	}
 
-	rsp, err := client.Get(issuerURL)
+	rsp, err := safeClient(client).Get(issuerURL)
 	if err != nil || rsp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
 	}

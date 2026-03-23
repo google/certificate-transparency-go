@@ -15,6 +15,8 @@
 package x509util
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 )
@@ -46,5 +48,30 @@ func TestRejectPrivateHost(t *testing.T) {
 				t.Errorf("rejectPrivateHost(%q) error = %v, wantErr = %v", tt.rawURL, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestRedirectToLoopback(t *testing.T) {
+	// Server that redirects to a loopback address.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://127.0.0.1/secret", http.StatusFound)
+	}))
+	defer srv.Close()
+
+	_, err := ReadFileOrURL(srv.URL+"/start", srv.Client())
+	if err == nil {
+		t.Fatal("expected error for redirect to loopback, got nil")
+	}
+}
+
+func TestSafeClientBlocksLocalhostHostname(t *testing.T) {
+	// safeTransport resolves hostnames before connecting.  "localhost"
+	// resolves to 127.0.0.1 / ::1 on every platform, so a request to it
+	// must be rejected even though rejectPrivateHost (literal-IP check)
+	// would pass a hostname through.
+	c := safeClient(nil)
+	_, err := c.Get("http://localhost:1/should-not-connect")
+	if err == nil {
+		t.Fatal("expected error for localhost hostname, got nil")
 	}
 }
