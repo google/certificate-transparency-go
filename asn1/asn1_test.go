@@ -1283,3 +1283,57 @@ func TestBMPString(t *testing.T) {
 		}
 	}
 }
+
+func TestUnmarshalMaxNestingDepth(t *testing.T) {
+	// Build a deeply nested ASN.1 SEQUENCE structure.
+	buildNested := func(depth int) []byte {
+		integer := []byte{0x02, 0x01, 0x01}
+		emptySeq := []byte{0x30, 0x00}
+		wrapSeq := func(content []byte) []byte {
+			l := len(content)
+			if l < 128 {
+				return append([]byte{0x30, byte(l)}, content...)
+			}
+			n := 0
+			tmp := l
+			for tmp > 0 {
+				n++
+				tmp >>= 8
+			}
+			hdr := make([]byte, 2+n)
+			hdr[0] = 0x30
+			hdr[1] = 0x80 | byte(n)
+			for i := n; i > 0; i-- {
+				hdr[1+i] = byte(l)
+				l >>= 8
+			}
+			return append(hdr, content...)
+		}
+		inner := wrapSeq(append(integer, emptySeq...))
+		for i := 1; i < depth; i++ {
+			inner = wrapSeq(append(integer, wrapSeq(inner)...))
+		}
+		return inner
+	}
+
+	type TreeNode struct {
+		Value    int
+		Children []TreeNode
+	}
+
+	// Moderate depth should succeed.
+	var node TreeNode
+	_, err := Unmarshal(buildNested(100), &node)
+	if err != nil {
+		t.Fatalf("Unmarshal at depth 100 failed: %v", err)
+	}
+
+	// Exceeding maxNestingDepth should return an error, not crash.
+	_, err = Unmarshal(buildNested(maxNestingDepth+1), &node)
+	if err == nil {
+		t.Fatal("Unmarshal should have failed for deeply nested input")
+	}
+	if _, ok := err.(StructuralError); !ok {
+		t.Fatalf("expected StructuralError, got %T: %v", err, err)
+	}
+}

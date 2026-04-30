@@ -647,7 +647,7 @@ func parseTagAndLength(bytes []byte, initOffset int, fieldName string) (ret tagA
 // parseSequenceOf is used for SEQUENCE OF and SET OF values. It tries to parse
 // a number of ASN.1 values from the given byte slice and returns them as a
 // slice of Go values of the given type.
-func parseSequenceOf(bytes []byte, sliceType reflect.Type, elemType reflect.Type, lax bool, fieldName string) (ret reflect.Value, err error) {
+func parseSequenceOf(bytes []byte, sliceType reflect.Type, elemType reflect.Type, lax bool, fieldName string, depth int) (ret reflect.Value, err error) {
 	matchAny, expectedTag, compoundType, ok := getUniversalType(elemType)
 	if !ok {
 		err = StructuralError{"unknown Go type for slice", fieldName}
@@ -689,7 +689,7 @@ func parseSequenceOf(bytes []byte, sliceType reflect.Type, elemType reflect.Type
 	params := fieldParameters{lax: lax}
 	offset := 0
 	for i := 0; i < numElements; i++ {
-		offset, err = parseField(ret.Index(i), bytes, offset, params)
+		offset, err = parseField(ret.Index(i), bytes, offset, params, depth)
 		if err != nil {
 			return
 		}
@@ -707,6 +707,10 @@ var (
 	rawContentsType      = reflect.TypeOf(RawContent(nil))
 	bigIntType           = reflect.TypeOf(new(big.Int))
 )
+
+// maxNestingDepth is the maximum depth of nested ASN.1 structures
+// that Unmarshal will follow before returning an error.
+const maxNestingDepth = 10000
 
 // invalidLength reports whether offset + length > sliceLength, or if the
 // addition would overflow.
@@ -762,8 +766,12 @@ func iso8859_1ToUTF8(bytes []byte) string {
 // parseField is the main parsing function. Given a byte slice and an offset
 // into the array, it will try to parse a suitable ASN.1 value out and store it
 // in the given Value.
-func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParameters) (offset int, err error) {
+func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParameters, depth int) (offset int, err error) {
 	offset = initOffset
+	if depth > maxNestingDepth {
+		err = StructuralError{"exceeded maximum nesting depth", params.name}
+		return
+	}
 	fieldType := v.Type()
 
 	// If we have run out of data, it may be that there are optional elements at the end.
@@ -1041,7 +1049,7 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 			innerParams := parseFieldParameters(field.Tag.Get("asn1"))
 			innerParams.name = field.Name
 			innerParams.lax = params.lax
-			innerOffset, err = parseField(val.Field(i), innerBytes, innerOffset, innerParams)
+			innerOffset, err = parseField(val.Field(i), innerBytes, innerOffset, innerParams, depth+1)
 			if err != nil {
 				return
 			}
@@ -1057,7 +1065,7 @@ func parseField(v reflect.Value, bytes []byte, initOffset int, params fieldParam
 			reflect.Copy(val, reflect.ValueOf(innerBytes))
 			return
 		}
-		newSlice, err1 := parseSequenceOf(innerBytes, sliceType, sliceType.Elem(), params.lax, params.name)
+		newSlice, err1 := parseSequenceOf(innerBytes, sliceType, sliceType.Elem(), params.lax, params.name, depth+1)
 		if err1 == nil {
 			val.Set(newSlice)
 		}
@@ -1187,7 +1195,7 @@ func Unmarshal(b []byte, val interface{}) (rest []byte, err error) {
 // top-level element. The form of the params is the same as the field tags.
 func UnmarshalWithParams(b []byte, val interface{}, params string) (rest []byte, err error) {
 	v := reflect.ValueOf(val).Elem()
-	offset, err := parseField(v, b, 0, parseFieldParameters(params))
+	offset, err := parseField(v, b, 0, parseFieldParameters(params), 0)
 	if err != nil {
 		return nil, err
 	}
