@@ -16,6 +16,10 @@ package submission
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,6 +31,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/loglist3"
 	"github.com/google/certificate-transparency-go/schedule"
+	cttls "github.com/google/certificate-transparency-go/tls"
+	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -46,6 +52,52 @@ func createTempFile(data string) (string, error) {
 		return "", err
 	}
 	return f.Name(), nil
+}
+
+func createTempBytesFile(data []byte) (string, error) {
+	f, err := os.CreateTemp("", "")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Operation to close file failed: %v", err)
+		}
+	}()
+	if _, err := f.Write(data); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+func createSignedLogListFiles(t *testing.T, ll string) (string, string, string) {
+	t.Helper()
+
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey() = %v, want nil", err)
+	}
+	sig, err := cttls.CreateSignature(*privKey, cttls.SHA256, []byte(ll))
+	if err != nil {
+		t.Fatalf("tls.CreateSignature() = %v, want nil", err)
+	}
+	pubDER, err := ctx509.MarshalPKIXPublicKey(privKey.Public())
+	if err != nil {
+		t.Fatalf("x509.MarshalPKIXPublicKey() = %v, want nil", err)
+	}
+	pubKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
+	llPath, err := createTempFile(ll)
+	if err != nil {
+		t.Fatalf("createTempFile() = %v, want nil", err)
+	}
+	sigPath, err := createTempBytesFile(sig.Signature)
+	if err != nil {
+		if rmErr := os.Remove(llPath); rmErr != nil {
+			t.Fatalf("createTempBytesFile() = %v; cleanup err = %v", err, rmErr)
+		}
+		t.Fatalf("createTempBytesFile() = %v, want nil", err)
+	}
+	return llPath, sigPath, string(pubKeyPEM)
 }
 
 func ExampleLogListRefresher() {
@@ -115,6 +167,76 @@ func TestNewCustomLogListRefresher(t *testing.T) {
 	}
 	if transport.called != true {
 		t.Errorf("NewCustomLogListRefresher initialized with fakeTransport didn't call it on Refresh()")
+	}
+}
+
+func TestNewLogListRefresherBuiltInURLVerifiesSignature(t *testing.T) {
+	llr := NewLogListRefresher(loglist3.LogListURL)
+	got, ok := llr.(*logListRefresherImpl)
+	if !ok {
+		t.Fatalf("NewLogListRefresher(%q) returned %T, want *logListRefresherImpl", loglist3.LogListURL, llr)
+	}
+	if diff := cmp.Diff(loglist3.LogListSignatureURL, got.sigPath); diff != "" {
+		t.Fatalf("NewLogListRefresher(%q) sigPath diff (-want +got):\n%s", loglist3.LogListURL, diff)
+	}
+	if got.pubKey == nil {
+		t.Fatalf("NewLogListRefresher(%q) pubKey = nil, want non-nil", loglist3.LogListURL)
+	}
+}
+
+func TestNewVerifiedLogListRefresher(t *testing.T) {
+	ll := `{"operators": [{"id":0,"name":"Google"}]}`
+	llPath, sigPath, pubKeyPEM := createSignedLogListFiles(t, ll)
+	defer func() {
+		if err := os.Remove(llPath); err != nil {
+			t.Fatalf("Operation to remove temp file failed: %v", err)
+		}
+		if err := os.Remove(sigPath); err != nil {
+			t.Fatalf("Operation to remove temp file failed: %v", err)
+		}
+	}()
+
+	llr, err := NewVerifiedLogListRefresher(llPath, sigPath, pubKeyPEM)
+	if err != nil {
+		t.Fatalf("NewVerifiedLogListRefresher() = (_, %v), want (_, nil)", err)
+	}
+	got, err := llr.Refresh()
+	if err != nil {
+		t.Fatalf("llr.Refresh() = (_, %v), want (_, nil)", err)
+	}
+	want := &loglist3.LogList{Operators: []*loglist3.Operator{{Name: "Google"}}}
+	if diff := cmp.Diff(want, got.List); diff != "" {
+		t.Fatalf("llr.Refresh() LogList diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestNewVerifiedLogListRefresherRejectsBadSignature(t *testing.T) {
+	llPath, err := createTempFile(`{"operators": [{"id":0,"name":"Google"}]}`)
+	if err != nil {
+		t.Fatalf("createTempFile() = %v, want nil", err)
+	}
+	sigPath, err := createTempBytesFile([]byte("not-a-valid-signature"))
+	if err != nil {
+		if rmErr := os.Remove(llPath); rmErr != nil {
+			t.Fatalf("createTempBytesFile() = %v; cleanup err = %v", err, rmErr)
+		}
+		t.Fatalf("createTempBytesFile() = %v, want nil", err)
+	}
+	defer func() {
+		if err := os.Remove(llPath); err != nil {
+			t.Fatalf("Operation to remove temp file failed: %v", err)
+		}
+		if err := os.Remove(sigPath); err != nil {
+			t.Fatalf("Operation to remove temp file failed: %v", err)
+		}
+	}()
+
+	llr, err := NewVerifiedLogListRefresher(llPath, sigPath, chromeLogListPublicKeyPEM)
+	if err != nil {
+		t.Fatalf("NewVerifiedLogListRefresher() = (_, %v), want (_, nil)", err)
+	}
+	if _, err := llr.Refresh(); err == nil || !strings.Contains(err.Error(), "failed to verify") {
+		t.Fatalf("llr.Refresh() = (_, %v), want err containing %q", err, "failed to verify")
 	}
 }
 
