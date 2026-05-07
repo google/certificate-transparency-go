@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"math"
 	"sync"
 	"time"
 
@@ -1099,6 +1100,12 @@ func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64,
 	}
 	if start > end {
 		return 0, 0, fmt.Errorf("start (%d) and end (%d) is not a valid range", start, end)
+	}
+	// Guard against integer overflow: end-start+1 wraps to a negative number when
+	// end == math.MaxInt64, silently bypassing the maxRange cap below. Reject such
+	// values before computing the count.
+	if end == math.MaxInt64 {
+		return 0, 0, fmt.Errorf("end parameter value %d is too large", end)
 	}
 
 	count := end - start + 1
