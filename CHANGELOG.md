@@ -2,6 +2,8 @@
 
 ## HEAD
 
+* Added `--emit_proxy_headers` flag to ctfe by @mhutchinson
+
 ## v1.3.3
 
 ### CTFE
