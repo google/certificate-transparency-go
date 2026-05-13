@@ -49,6 +49,7 @@ import (
 var (
 	alignGetEntries   = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
 	getEntriesMetrics = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
+	emitProxyHeaders  = flag.Bool("emit_proxy_headers", false, "Set internal X-CTFE-* HTTP response headers for proxy consumption")
 )
 
 const (
@@ -818,6 +819,9 @@ func getEntries(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http
 		w.Header().Set(cacheControlHeader, cacheControlPartial)
 	} else {
 		w.Header().Set(cacheControlHeader, cacheControlImmutable)
+	}
+	if *emitProxyHeaders {
+		w.Header().Set("X-CTFE-Leaves-Fetched", strconv.Itoa(len(leaves)))
 	}
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	jsonData, err := json.Marshal(&jsonRsp)

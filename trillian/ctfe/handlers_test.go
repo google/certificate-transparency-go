@@ -2342,3 +2342,66 @@ func (m cmpMatcher) Matches(got interface{}) bool {
 func (m cmpMatcher) String() string {
 	return fmt.Sprintf("equals %v", m.want)
 }
+
+func TestGetEntriesProxyHeader(t *testing.T) {
+	merkleLeaf := ct.MerkleTreeLeaf{
+		Version:  ct.V1,
+		LeafType: ct.TimestampedEntryLeafType,
+		TimestampedEntry: &ct.TimestampedEntry{
+			Timestamp:  12345,
+			EntryType:  ct.X509LogEntryType,
+			X509Entry:  &ct.ASN1Cert{Data: []byte("certdata")},
+			Extensions: ct.CTExtensions{},
+		},
+	}
+	merkleBytes, err := tls.Marshal(merkleLeaf)
+	if err != nil {
+		t.Fatalf("tls.Marshal failed: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		emitHeader bool
+		wantHeader string
+	}{
+		{name: "header disabled", emitHeader: false, wantHeader: ""},
+		{name: "header enabled", emitHeader: true, wantHeader: "2"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func(old bool) { *emitProxyHeaders = old }(*emitProxyHeaders)
+			*emitProxyHeaders = tc.emitHeader
+
+			info := setupTest(t, nil, nil)
+			defer info.mockCtrl.Finish()
+
+			slr := mustMarshalRoot(t, &types.LogRootV1{TreeSize: 100})
+			leaves := []*trillian.LogLeaf{
+				{LeafIndex: 0, MerkleLeafHash: []byte("hash0"), LeafValue: merkleBytes, ExtraData: []byte("extra0")},
+				{LeafIndex: 1, MerkleLeafHash: []byte("hash1"), LeafValue: merkleBytes, ExtraData: []byte("extra1")},
+			}
+
+			glbrr := &trillian.GetLeavesByRangeRequest{LogId: 0x42, StartIndex: 0, Count: 2}
+			rsp := trillian.GetLeavesByRangeResponse{SignedLogRoot: slr, Leaves: leaves}
+			info.client.EXPECT().GetLeavesByRange(deadlineMatcher(), cmpMatcher{glbrr}).Return(&rsp, nil)
+
+			handler := AppHandler{Info: info.li, Handler: getEntries, Name: "GetEntries", Method: http.MethodGet}
+			req, err := http.NewRequest(http.MethodGet, "/ct/v1/get-entries?start=0&end=1", nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("getEntries returned %d, want %d", w.Code, http.StatusOK)
+			}
+
+			if got := w.Header().Get("X-CTFE-Leaves-Fetched"); got != tc.wantHeader {
+				t.Errorf("X-CTFE-Leaves-Fetched header = %q, want %q", got, tc.wantHeader)
+			}
+		})
+	}
+}
