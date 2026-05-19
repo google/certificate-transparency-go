@@ -11,8 +11,9 @@ import (
 	"encoding/pem"
 	"fmt"
 
+	"crypto/ed25519"
+
 	"github.com/google/certificate-transparency-go/x509"
-	"golang.org/x/crypto/ed25519"
 )
 
 func ExampleCertificate_Verify() {
