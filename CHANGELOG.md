@@ -2,6 +2,7 @@
 
 ## HEAD
 
+* Switch Ed25519 import from deprecated `golang.org/x/crypto/ed25519` to stdlib `crypto/ed25519` by @JasonPowr
 * Added `--emit_proxy_headers` flag to ctfe by @mhutchinson
 
 ## v1.3.3
