@@ -69,9 +69,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"crypto/ed25519"
+
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
-	"golang.org/x/crypto/ed25519"
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/tls"
