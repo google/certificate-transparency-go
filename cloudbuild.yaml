@@ -17,6 +17,7 @@ options:
   - GOPROXY=https://proxy.golang.org
   - PROJECT_ROOT=github.com/google/certificate-transparency-go
   - GOPATH=/go
+  - GOTOOLCHAIN=local
 
 substitutions:
   _CLUSTER_NAME: trillian-opensource-ci
