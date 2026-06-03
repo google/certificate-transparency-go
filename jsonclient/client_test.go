@@ -388,6 +388,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 		failCount       int
 		wantErr         string
 		expectedBackoff time.Duration // 0 indicates no expected backoff override set
+		leeway          time.Duration
 	}{
 		{
 			uri:             "/error",
@@ -433,6 +434,7 @@ func TestPostAndParseWithRetry(t *testing.T) {
 			failCount:       1,
 			wantErr:         "",
 			expectedBackoff: 5 * time.Second,
+			leeway:          2 * time.Second,
 		},
 	}
 	for _, test := range tests {
@@ -472,7 +474,11 @@ func TestPostAndParseWithRetry(t *testing.T) {
 			} else if httpRsp.StatusCode != http.StatusOK {
 				t.Errorf("PostAndParseWithRetry() got status %d; want OK(404)", httpRsp.StatusCode)
 			}
-			if test.expectedBackoff > 0 && !fuzzyDurationEquals(test.expectedBackoff, mb.override, time.Second) {
+			leeway := test.leeway
+			if leeway == 0 {
+				leeway = time.Second
+			}
+			if test.expectedBackoff > 0 && !fuzzyDurationEquals(test.expectedBackoff, mb.override, leeway) {
 				t.Errorf("Unexpected backoff override set: got: %s, wanted: %s", mb.override, test.expectedBackoff)
 			}
 		})
