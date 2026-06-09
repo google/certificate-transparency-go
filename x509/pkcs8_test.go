@@ -7,15 +7,13 @@ package x509
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/hex"
 	"reflect"
 	"strings"
 	"testing"
-
-	// TODO(robpercival): change this to crypto/ed25519 when Go 1.13 is min version
-	"golang.org/x/crypto/ed25519"
 )
 
 // Generated using:

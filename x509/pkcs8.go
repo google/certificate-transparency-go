@@ -6,15 +6,13 @@ package x509
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"errors"
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509/pkix"
-
-	// TODO(robpercival): change this to crypto/ed25519 when Go 1.13 is min version
-	"golang.org/x/crypto/ed25519"
 )
 
 // pkcs8 reflects an ASN.1, PKCS#8 PrivateKey. See

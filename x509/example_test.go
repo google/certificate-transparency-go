@@ -7,12 +7,12 @@ package x509_test
 import (
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/x509"
-	"golang.org/x/crypto/ed25519"
 )
 
 func ExampleCertificate_Verify() {
