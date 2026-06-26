@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package configpb;
 
-option go_package = "github.com/google/certificate-transparency-go/client/multilog/configpb";
+option go_package = "github.com/google/certificate-transparency-go/client/configpb";
 
 import "google/protobuf/timestamp.proto";
 
