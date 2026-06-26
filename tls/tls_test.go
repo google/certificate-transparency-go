@@ -29,6 +29,11 @@ type testStruct struct {
 	Enum   Enum `tls:"size:2"`
 }
 
+type testUint24AfterPrefix struct {
+	Prefix byte
+	Value  Uint24
+}
+
 type testVariant struct {
 	Which Enum    `tls:"size:1"`
 	Val16 *uint16 `tls:"selector:Which,val:0"`
@@ -234,6 +239,20 @@ func TestUnmarshalMarshalWithParamsRoundTrip(t *testing.T) {
 		} else if !bytes.Equal(data, inData) {
 			t.Errorf("Marshal(%+v)=%s,nil; want %s", inVal, hex.EncodeToString(data), test.data)
 		}
+	}
+}
+
+func TestUnmarshalUint24AfterPrefix(t *testing.T) {
+	var got testUint24AfterPrefix
+	rest, err := Unmarshal([]byte{0x41, 0x00, 0x00, 0x01}, &got)
+	if err != nil {
+		t.Fatalf("Unmarshal() returned error: %v", err)
+	}
+	if len(rest) != 0 {
+		t.Fatalf("Unmarshal() left %d trailing bytes", len(rest))
+	}
+	if got.Prefix != 0x41 || got.Value != 1 {
+		t.Fatalf("Unmarshal() = %+v, want Prefix 0x41 and Value 1", got)
 	}
 }
 
