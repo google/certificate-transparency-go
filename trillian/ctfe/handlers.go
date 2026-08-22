@@ -53,6 +53,7 @@ var (
 )
 
 const (
+	maxAddChainBodyBytes int64 = 512000 // limits add-chain/add-pre-chain body size to prevent memory exhaustion
 	// HTTP Cache-Control header
 	cacheControlHeader = "Cache-Control"
 	// Value for Cache-Control header when response contains immutable data, i.e. entries or proofs. Allows the response to be cached for 1 day.
@@ -464,6 +465,7 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 	}
 
 	// Check the contents of the request and convert to slice of certificates.
+	r.Body = http.MaxBytesReader(w, r.Body, maxAddChainBodyBytes)
 	addChainReq, err := ParseBodyAsJSONChain(r)
 	if err != nil {
 		var maxBytesErr *http.MaxBytesError
