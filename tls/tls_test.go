@@ -68,6 +68,11 @@ type testSliceOfSlices struct {
 	Inners []testInnerType `tls:"minlen:0,maxlen:65535"`
 }
 
+type testUint24AtOffset struct {
+	Prefix uint16
+	Val    Uint24
+}
+
 func TestMarshalUnmarshalRoundTrip(t *testing.T) {
 	thing := testStruct{Data: []byte{0x01, 0x02, 0x03}, IntVal: 42, Other: [4]byte{1, 2, 3, 4}, Enum: 17}
 	data, err := Marshal(thing)
@@ -187,6 +192,7 @@ func TestUnmarshalMarshalWithParamsRoundTrip(t *testing.T) {
 		// Note that maxval is just used to give enum size; it's not policed
 		{"20", "maxval:18", newEnum(32)},
 		{"020a0b", "minlen:1,maxlen:5", &[]byte{0xa, 0xb}},
+		{"0a0b010203", "", &testUint24AtOffset{Prefix: 0x0a0b, Val: 0x010203}},
 		{"020a0b0101010203040011", "", &testStruct{Data: []byte{0xa, 0xb}, IntVal: 0x101, Other: [4]byte{1, 2, 3, 4}, Enum: 17}},
 		{"000102", "", &testVariant{Which: 0, Val16: newUint16(0x0102)}},
 		{"0101020304", "", &testVariant{Which: 1, Val32: newUint32(0x01020304)}},
