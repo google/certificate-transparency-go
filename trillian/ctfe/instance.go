@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/trillian/ctfe/cache"
@@ -99,16 +100,28 @@ type Instance struct {
 }
 
 // RunUpdateSTH regularly updates the Instance STH so our metrics stay
-// up-to-date with any tree head changes that are not triggered by us.
+// up-to-date with any tree head changes that are not triggered by us, and
+// caches the STH in memory to serve get-sth requests without hitting the backend.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	c := i.li.instanceOpts.Validated.Config
 	klog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
+	i.li.hasUpdateLoop.Store(true)
 	schedule.Every(ctx, period, func(ctx context.Context) {
 		klog.V(1).Infof("Force internal get-sth for %v (%d)", c.Prefix, c.LogId)
-		if _, err := i.li.getSTH(ctx); err != nil {
+		if _, err := i.UpdateSTH(ctx); err != nil {
 			klog.Warningf("Failed to retrieve STH for %v (%d): %v", c.Prefix, c.LogId, err)
 		}
 	})
+}
+
+// UpdateSTH updates the Instance STH in memory and updates metrics.
+func (i *Instance) UpdateSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	return i.li.updateSTH(ctx)
+}
+
+// LastSTH returns the latest cached STH, or nil if none is cached yet.
+func (i *Instance) LastSTH() *ct.SignedTreeHead {
+	return i.li.getLastSTH()
 }
 
 // GetPublicKey returns the public key from the instance's signer.

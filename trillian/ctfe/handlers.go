@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/certificate-transparency-go/asn1"
@@ -289,6 +290,12 @@ type logInfo struct {
 	sthGetter STHGetter
 	// issuanceChainService provides the issuance chain add and get operations
 	issuanceChainService leafChainBuilder
+
+	// lastSTH caches the latest STH in memory so that get-sth requests can be served
+	// without issuing RPCs to the Trillian backend or consuming backend read quota.
+	lastSTH atomic.Pointer[ct.SignedTreeHead]
+	// hasUpdateLoop indicates whether a background UpdateSTH loop is running.
+	hasUpdateLoop atomic.Bool
 }
 
 // newLogInfo creates a new instance of logInfo.
@@ -301,8 +308,12 @@ func newLogInfo(
 ) *logInfo {
 	vCfg := instanceOpts.Validated
 	cfg := vCfg.Config
-
 	logID, prefix := cfg.LogId, cfg.Prefix
+	requestLog := instanceOpts.RequestLog
+	if requestLog == nil {
+		requestLog = new(DefaultRequestLog)
+	}
+
 	li := &logInfo{
 		logID:          logID,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
@@ -311,7 +322,7 @@ func newLogInfo(
 		TimeSource:     timeSource,
 		instanceOpts:   instanceOpts,
 		validationOpts: validationOpts,
-		RequestLog:     instanceOpts.RequestLog,
+		RequestLog:     requestLog,
 	}
 
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
@@ -322,6 +333,7 @@ func newLogInfo(
 	case vCfg.FrozenSTH != nil:
 		li.sthGetter = &FrozenSTHGetter{sth: vCfg.FrozenSTH}
 		frozenSTHTimestamp.Set(float64(vCfg.FrozenSTH.Timestamp), label)
+		li.setLastSTH(vCfg.FrozenSTH)
 
 	case cfg.IsMirror:
 		st := instanceOpts.STHStorage
@@ -383,6 +395,26 @@ func (li *logInfo) SendHTTPError(w http.ResponseWriter, statusCode int, err erro
 		errorBody += fmt.Sprintf("\n%v", err)
 	}
 	http.Error(w, errorBody, statusCode)
+}
+
+// getLastSTH returns the latest cached STH, or nil if none is cached yet.
+func (li *logInfo) getLastSTH() *ct.SignedTreeHead {
+	return li.lastSTH.Load()
+}
+
+// setLastSTH updates the latest cached STH in memory.
+func (li *logInfo) setLastSTH(sth *ct.SignedTreeHead) {
+	li.lastSTH.Store(sth)
+}
+
+// updateSTH fetches the latest STH from sthGetter, updates metrics, and caches it in memory.
+func (li *logInfo) updateSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	sth, err := li.getSTH(ctx)
+	if err != nil {
+		return nil, err
+	}
+	li.setLastSTH(sth)
+	return sth, nil
 }
 
 // getSTH returns the current STH as known to the STH getter, and updates tree
@@ -570,14 +602,21 @@ func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *htt
 }
 
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	qctx := ctx
-	if li.instanceOpts.RemoteQuotaUser != nil {
-		rqu := li.instanceOpts.RemoteQuotaUser(r)
-		qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
-	}
-	sth, err := li.getSTH(qctx)
-	if err != nil {
-		return li.toHTTPStatus(err), err
+	sth := li.getLastSTH()
+	if sth == nil {
+		qctx := ctx
+		if li.instanceOpts.RemoteQuotaUser != nil {
+			rqu := li.instanceOpts.RemoteQuotaUser(r)
+			qctx = context.WithValue(qctx, remoteQuotaCtxKey, rqu)
+		}
+		var err error
+		sth, err = li.getSTH(qctx)
+		if err != nil {
+			return li.toHTTPStatus(err), err
+		}
+		if li.hasUpdateLoop.Load() {
+			li.setLastSTH(sth)
+		}
 	}
 	if err := writeSTH(sth, w); err != nil {
 		return http.StatusInternalServerError, err
