@@ -184,31 +184,6 @@ steps:
   - -t
   - envsubst
   waitFor: ['ci_complete']
-- id: envsubst_kubernetes_configs
-  name: envsubst
-  args:
-  - trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
-  - trillian/examples/deployment/kubernetes/ctfe-service.yaml
-  - trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
-  env:
-  - PROJECT_ID=${PROJECT_ID}
-  - IMAGE_TAG=${COMMIT_SHA}
-  waitFor:
-  - build_envsubst
-- id: update_kubernetes_configs_dryrun
-  name: gcr.io/cloud-builders/kubectl
-  args:
-  - apply
-  - --dry-run=server
-  - -f=trillian/examples/deployment/kubernetes/ctfe-deployment.yaml
-  - -f=trillian/examples/deployment/kubernetes/ctfe-service.yaml
-  - -f=trillian/examples/deployment/kubernetes/ctfe-ingress.yaml
-  env:
-  - CLOUDSDK_COMPUTE_ZONE=${_MASTER_ZONE}
-  - CLOUDSDK_CONTAINER_CLUSTER=${_CLUSTER_NAME}
-  waitFor:
-  - envsubst_kubernetes_configs
-  - build_ctfe
 
 images:
 - gcr.io/${PROJECT_ID}/ctfe:${COMMIT_SHA}
