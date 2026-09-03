@@ -258,6 +258,13 @@ ASN1 OID: prime256v1
 NIST CURVE: P-256
 ```
 
+**Cross-check**: Convert the private and public key into DER format encoded as a hex string that can be set in the configuration file:
+```bash
+% openssl pkcs8 -in privkey.pem -topk8 -nocrypt -outform der -out privkey.der
+% xxd -p privkey.der | tr -d '\n' | sed 's/../\\x&/g' > privkey.hex
+```
+Copy the contents of privkey.hex (single line) into the private_key stanza in the configuration file. Repeat the process for the public key.
+
 **Cross-check**: Once the CTFE is configured and running
 ([below](#ctfe-start-up)), the `ctclient` command-line tool allows signature
 checking against the public key with the `--pub_key` option:
