@@ -336,7 +336,7 @@ func parseField(v reflect.Value, data []byte, initOffset int, info *fieldInfo) (
 		if len(rest) < 3 {
 			return offset, syntaxError{info.fieldName(), "truncated uint24"}
 		}
-		v.SetUint(uint64(data[0])<<16 | uint64(data[1])<<8 | uint64(data[2]))
+		v.SetUint(uint64(rest[0])<<16 | uint64(rest[1])<<8 | uint64(rest[2]))
 		offset += 3
 		return offset, nil
 	case uint32Type:
