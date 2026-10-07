@@ -2416,17 +2416,17 @@ func TestGetSTHCacheControl(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		cacheControl string
+		cacheSeconds uint
 		wantHeader   string
 	}{
-		{name: "default", cacheControl: "public, max-age=10", wantHeader: "public, max-age=10"},
-		{name: "custom", cacheControl: "max-age=60", wantHeader: "max-age=60"},
-		{name: "disabled", cacheControl: "", wantHeader: ""},
+		{name: "non-zero", cacheSeconds: 10, wantHeader: "public, max-age=10"},
+		{name: "over-limit", cacheSeconds: 11, wantHeader: "public, max-age=10"},
+		{name: "disabled", cacheSeconds: 0, wantHeader: ""},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			*getSTHCacheControl = tc.cacheControl
+			*getSTHCacheSeconds = tc.cacheSeconds
 
 			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)
 			defer info.mockCtrl.Finish()
