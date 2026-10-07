@@ -47,9 +47,10 @@ import (
 )
 
 var (
-	alignGetEntries   = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
-	getEntriesMetrics = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
-	emitProxyHeaders  = flag.Bool("emit_proxy_headers", false, "Set internal X-CTFE-* HTTP response headers for proxy consumption")
+	alignGetEntries    = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
+	getEntriesMetrics  = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
+	emitProxyHeaders   = flag.Bool("emit_proxy_headers", false, "Set internal X-CTFE-* HTTP response headers for proxy consumption")
+	getSTHCacheControl = flag.String("get_sth_cache_control", "", "Set cache-control header for get-sth responses. Set to empty string to disable.")
 )
 
 const (
@@ -599,6 +600,9 @@ func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if cc := *getSTHCacheControl; cc != "" {
+		w.Header().Set(cacheControlHeader, cc)
+	}
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %s", err)
