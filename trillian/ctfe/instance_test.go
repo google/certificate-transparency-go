@@ -321,7 +321,8 @@ func (f *fakeSTHGetter) setSTH(sth *ct.SignedTreeHead) {
 }
 
 func TestInstanceUpdateSTH(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
+
 	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	cfg := &configpb.LogConfig{
 		LogId:        42,
@@ -416,8 +417,7 @@ func TestInstanceUpdateSTH(t *testing.T) {
 }
 
 func TestInstanceRunUpdateSTH(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
 	cfg := &configpb.LogConfig{

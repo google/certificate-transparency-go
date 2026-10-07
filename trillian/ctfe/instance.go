@@ -99,9 +99,10 @@ type Instance struct {
 	li        *logInfo
 }
 
-// RunUpdateSTH regularly updates the Instance STH so our metrics stay
-// up-to-date with any tree head changes that are not triggered by us, and
-// caches the STH in memory to serve get-sth requests without hitting the backend.
+// RunUpdateSTH regularly updates the Instance STH and caches the STH in memory to
+// serve get-sth requests without hitting the backend.
+// As a side effect, this keeps metric up to date with latest tree head changes that are
+// not triggered by us.
 func (i *Instance) RunUpdateSTH(ctx context.Context, period time.Duration) {
 	c := i.li.instanceOpts.Validated.Config
 	klog.Infof("Start internal get-sth operations on %v (%d)", c.Prefix, c.LogId)
