@@ -145,7 +145,7 @@ func (c *LogClient) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
 func (c *LogClient) VerifySTHSignature(sth ct.SignedTreeHead) error {
 	if c.Verifier == nil {
 		// Can't verify signatures without a verifier
-		return nil
+		return fmt.Errorf("cannot verify STH signature: no verifier configured")
 	}
 	return c.Verifier.VerifySTHSignature(sth)
 }
@@ -154,7 +154,7 @@ func (c *LogClient) VerifySTHSignature(sth ct.SignedTreeHead) error {
 func (c *LogClient) VerifySCTSignature(sct ct.SignedCertificateTimestamp, ctype ct.LogEntryType, certData []ct.ASN1Cert) error {
 	if c.Verifier == nil {
 		// Can't verify signatures without a verifier
-		return nil
+		return fmt.Errorf("cannot verify SCT signature: no verifier configured")
 	}
 	leaf, err := ct.MerkleTreeLeafFromRawChain(certData, ctype, sct.Timestamp)
 	if err != nil {
