@@ -829,6 +829,91 @@ func TestGetSTH(t *testing.T) {
 	}
 }
 
+func TestGetSTHCached(t *testing.T) {
+	block, _ := pem.Decode([]byte(testdata.DemoPublicKey))
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to load public key: %v", err)
+	}
+	signer := testdata.NewSignerWithFixedSig(key, fakeSignature)
+	info := setupTest(t, []string{cttestonly.CACertPEM}, signer)
+	defer info.mockCtrl.Finish()
+
+	// Initially seed in-memory STH as would happen from UpdateSTH loop.
+	// Note: info.client has NO EXPECT calls for GetLatestSignedLogRoot,
+	// verifying that serving get-sth from cache does not issue any backend RPC.
+	cachedSTH1 := &ct.SignedTreeHead{
+		Version:        ct.V1,
+		TreeSize:       100,
+		Timestamp:      11111,
+		SHA256RootHash: ct.SHA256Hash(bytes.Repeat([]byte{0x01}, 32)),
+		TreeHeadSignature: ct.DigitallySigned{
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA256,
+				Signature: tls.ECDSA,
+			},
+			Signature: []byte("sig1"),
+		},
+	}
+	info.li.setLastSTH(cachedSTH1)
+
+	handler := AppHandler{Info: info.li, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet}
+
+	// First request: served from cache
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/ct/v1/get-sth", nil)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if got, want := w.Code, http.StatusOK; got != want {
+		t.Fatalf("GetSTH Code=%d, want %d", got, want)
+	}
+	var rsp1 ct.GetSTHResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &rsp1); err != nil {
+		t.Fatalf("Failed to unmarshal json response: %s", w.Body.Bytes())
+	}
+	if got, want := rsp1.TreeSize, uint64(100); got != want {
+		t.Errorf("GetSTH TreeSize=%d, want %d", got, want)
+	}
+	if got, want := rsp1.Timestamp, uint64(11111); got != want {
+		t.Errorf("GetSTH Timestamp=%d, want %d", got, want)
+	}
+
+	// Now simulate the UpdateSTH background loop updating the in-memory STH
+	cachedSTH2 := &ct.SignedTreeHead{
+		Version:        ct.V1,
+		TreeSize:       200,
+		Timestamp:      22222,
+		SHA256RootHash: ct.SHA256Hash(bytes.Repeat([]byte{0x02}, 32)),
+		TreeHeadSignature: ct.DigitallySigned{
+			Algorithm: tls.SignatureAndHashAlgorithm{
+				Hash:      tls.SHA256,
+				Signature: tls.ECDSA,
+			},
+			Signature: []byte("sig2"),
+		},
+	}
+	info.li.setLastSTH(cachedSTH2)
+
+	// Second request: served from updated in-memory cache, still zero backend RPCs
+	w2 := httptest.NewRecorder()
+	handler.ServeHTTP(w2, req)
+	if got, want := w2.Code, http.StatusOK; got != want {
+		t.Fatalf("GetSTH Code=%d, want %d", got, want)
+	}
+	var rsp2 ct.GetSTHResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &rsp2); err != nil {
+		t.Fatalf("Failed to unmarshal json response: %s", w2.Body.Bytes())
+	}
+	if got, want := rsp2.TreeSize, uint64(200); got != want {
+		t.Errorf("GetSTH TreeSize=%d, want %d", got, want)
+	}
+	if got, want := rsp2.Timestamp, uint64(22222); got != want {
+		t.Errorf("GetSTH Timestamp=%d, want %d", got, want)
+	}
+}
+
 func TestGetEntries(t *testing.T) {
 	// Create a couple of valid serialized ct.MerkleTreeLeaf objects
 	merkleLeaf1 := ct.MerkleTreeLeaf{

@@ -16,10 +16,13 @@ package ctfe
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -297,5 +300,176 @@ func TestErrorMasking(t *testing.T) {
 	if got, want := w.Body.String(), prefix+"\n"; got != want {
 		t.Errorf("SendHTTPError: got %s, want %s", got, want)
 	}
+}
 
+type fakeSTHGetter struct {
+	mu  sync.Mutex
+	sth *ct.SignedTreeHead
+	err error
+}
+
+func (f *fakeSTHGetter) GetSTH(ctx context.Context) (*ct.SignedTreeHead, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.sth, f.err
+}
+
+func (f *fakeSTHGetter) setSTH(sth *ct.SignedTreeHead) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sth = sth
+}
+
+func TestInstanceUpdateSTH(t *testing.T) {
+	ctx := t.Context()
+
+	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
+	cfg := &configpb.LogConfig{
+		LogId:        42,
+		Prefix:       "/testlog",
+		RootsPemFile: []string{"../testdata/fake-ca.cert"},
+		PrivateKey:   privKey,
+	}
+	vCfg, err := ValidateLogConfig(cfg)
+	if err != nil {
+		t.Fatalf("ValidateLogConfig(): %v", err)
+	}
+	opts := InstanceOptions{
+		Validated:     vCfg,
+		Deadline:      time.Second,
+		MetricFactory: monitoring.InertMetricFactory{},
+		CacheType:     cache.NOOP,
+		RequestLog:    new(DefaultRequestLog),
+	}
+	inst, err := SetUpInstance(ctx, opts)
+	if err != nil {
+		t.Fatalf("SetUpInstance(): %v", err)
+	}
+
+	fakeGetter := &fakeSTHGetter{
+		sth: &ct.SignedTreeHead{
+			Version:   ct.V1,
+			TreeSize:  50,
+			Timestamp: 1000,
+		},
+	}
+	inst.li.sthGetter = fakeGetter
+
+	if got := inst.LastSTH(); got != nil {
+		t.Fatalf("inst.LastSTH() = %v, want nil before update", got)
+	}
+
+	// UpdateSTH caches the STH
+	sth, err := inst.UpdateSTH(ctx)
+	if err != nil {
+		t.Fatalf("inst.UpdateSTH() err = %v, want nil", err)
+	}
+	if got, want := sth.TreeSize, uint64(50); got != want {
+		t.Errorf("UpdateSTH() TreeSize = %d, want %d", got, want)
+	}
+	if got := inst.LastSTH(); got == nil || got.TreeSize != 50 {
+		t.Fatalf("inst.LastSTH() = %v, want TreeSize=50", got)
+	}
+
+	// Verify getSTH HTTP handler serves the cached STH
+	handler, ok := inst.Handlers["/testlog"+ct.GetSTHPath]
+	if !ok {
+		t.Fatalf("could not find handler for %s", "/testlog"+ct.GetSTHPath)
+	}
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/testlog/ct/v1/get-sth", nil)
+	if err != nil {
+		t.Fatalf("http.NewRequest: %v", err)
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if got, want := w.Code, http.StatusOK; got != want {
+		t.Fatalf("handler.ServeHTTP code = %d, want %d", got, want)
+	}
+	var rsp ct.GetSTHResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &rsp); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if got, want := rsp.TreeSize, uint64(50); got != want {
+		t.Errorf("rsp.TreeSize = %d, want %d", got, want)
+	}
+
+	// Update to a new STH and verify get-sth serves the updated STH
+	fakeGetter.setSTH(&ct.SignedTreeHead{
+		Version:   ct.V1,
+		TreeSize:  75,
+		Timestamp: 2000,
+	})
+	if _, err := inst.UpdateSTH(ctx); err != nil {
+		t.Fatalf("inst.UpdateSTH() err = %v", err)
+	}
+	w2 := httptest.NewRecorder()
+	handler.ServeHTTP(w2, req)
+	if got, want := w2.Code, http.StatusOK; got != want {
+		t.Fatalf("handler.ServeHTTP code = %d, want %d", got, want)
+	}
+	var rsp2 ct.GetSTHResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &rsp2); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if got, want := rsp2.TreeSize, uint64(75); got != want {
+		t.Errorf("rsp.TreeSize = %d, want %d", got, want)
+	}
+}
+
+func TestInstanceRunUpdateSTH(t *testing.T) {
+	ctx := t.Context()
+
+	privKey := mustMarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/ct-http-server.privkey.pem", Password: "dirk"})
+	cfg := &configpb.LogConfig{
+		LogId:        43,
+		Prefix:       "/testlog2",
+		RootsPemFile: []string{"../testdata/fake-ca.cert"},
+		PrivateKey:   privKey,
+	}
+	vCfg, err := ValidateLogConfig(cfg)
+	if err != nil {
+		t.Fatalf("ValidateLogConfig(): %v", err)
+	}
+	opts := InstanceOptions{
+		Validated:     vCfg,
+		Deadline:      time.Second,
+		MetricFactory: monitoring.InertMetricFactory{},
+		CacheType:     cache.NOOP,
+		RequestLog:    new(DefaultRequestLog),
+	}
+	inst, err := SetUpInstance(ctx, opts)
+	if err != nil {
+		t.Fatalf("SetUpInstance(): %v", err)
+	}
+
+	fakeGetter := &fakeSTHGetter{
+		sth: &ct.SignedTreeHead{
+			Version:   ct.V1,
+			TreeSize:  10,
+			Timestamp: 500,
+		},
+	}
+	inst.li.sthGetter = fakeGetter
+
+	// Start RunUpdateSTH in background with a fast tick
+	go inst.RunUpdateSTH(ctx, 10*time.Millisecond)
+
+	// Wait for the background loop to populate the cache
+	time.Sleep(2 * time.Second)
+	if sth := inst.LastSTH(); sth == nil || sth.TreeSize != 10 {
+		t.Fatal("timed out waiting for RunUpdateSTH to populate LastSTH")
+	}
+
+	// Now advance the STH
+	fakeGetter.setSTH(&ct.SignedTreeHead{
+		Version:   ct.V1,
+		TreeSize:  20,
+		Timestamp: 600,
+	})
+
+	// Wait for background loop to update the cached STH
+	time.Sleep(2 * time.Second)
+	if sth := inst.LastSTH(); sth == nil || sth.TreeSize != 20 {
+		t.Fatal("timed out waiting for RunUpdateSTH to update LastSTH to 20")
+	}
 }
