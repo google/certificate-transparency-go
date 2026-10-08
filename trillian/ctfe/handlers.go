@@ -47,9 +47,16 @@ import (
 )
 
 var (
-	alignGetEntries   = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
-	getEntriesMetrics = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
-	emitProxyHeaders  = flag.Bool("emit_proxy_headers", false, "Set internal X-CTFE-* HTTP response headers for proxy consumption")
+	alignGetEntries    = flag.Bool("align_getentries", true, "Enable get-entries request alignment")
+	getEntriesMetrics  = flag.Bool("getentries_metrics", false, "Export get-entries distribution metrics")
+	emitProxyHeaders   = flag.Bool("emit_proxy_headers", false, "Set internal X-CTFE-* HTTP response headers for proxy consumption")
+	getSTHCacheSeconds = flag.Uint("get_sth_cache_seconds", 0, "Set cache-control header for get-sth responses to 'public, max-age=N'. Set to zero to disable.")
+
+	// MaxGetSTHCacheSeconds is the largest value that getSTHCacheSeconds can be set to.
+	// This is present in order to prevent operator mistakes where the cache TTL on the log's STH is
+	// set so high that outside observers are prevented from getting a timely view of an updated state.
+	// 10s seems like a good starting place for that limit to be set.
+	MaxGetSTHCacheSeconds = uint(10)
 )
 
 const (
@@ -299,6 +306,13 @@ func newLogInfo(
 	timeSource util.TimeSource,
 	issuanceChainService leafChainBuilder,
 ) *logInfo {
+	// This is a slightly unusual place to check this, but there's not really any other location.
+	// We do know, at least, that flow must come through here before a log can serve.
+	if *getSTHCacheSeconds > MaxGetSTHCacheSeconds {
+		klog.Warningf("getSTHCacheSeconds is set to %d, which is too high, clamping to %d", *getSTHCacheSeconds, MaxGetSTHCacheSeconds)
+		*getSTHCacheSeconds = MaxGetSTHCacheSeconds
+	}
+
 	vCfg := instanceOpts.Validated
 	cfg := vCfg.Config
 
@@ -315,6 +329,7 @@ func newLogInfo(
 	}
 
 	once.Do(func() { setupMetrics(instanceOpts.MetricFactory) })
+
 	label := strconv.FormatInt(logID, 10)
 	knownLogs.Set(1.0, label)
 
@@ -599,6 +614,9 @@ func writeSTH(sth *ct.SignedTreeHead, w http.ResponseWriter) error {
 	}
 
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if csec := *getSTHCacheSeconds; csec > 0 {
+		w.Header().Set(cacheControlHeader, fmt.Sprintf("public, max-age=%d", csec))
+	}
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %s", err)

@@ -2405,3 +2405,57 @@ func TestGetEntriesProxyHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSTHCacheControl(t *testing.T) {
+	block, _ := pem.Decode([]byte(testdata.DemoPublicKey))
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to load public key: %v", err)
+	}
+	signer := testdata.NewSignerWithFixedSig(key, fakeSignature)
+
+	tests := []struct {
+		name         string
+		cacheSeconds uint
+		wantHeader   string
+	}{
+		{name: "non-zero", cacheSeconds: 10, wantHeader: "public, max-age=10"},
+		{name: "over-limit", cacheSeconds: 11, wantHeader: "public, max-age=10"},
+		{name: "disabled", cacheSeconds: 0, wantHeader: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			*getSTHCacheSeconds = tc.cacheSeconds
+
+			info := setupTest(t, []string{cttestonly.CACertPEM}, signer)
+			defer info.mockCtrl.Finish()
+
+			rpcRsp := makeGetRootResponseForTest(t, 12345000000, 25, []byte("abcdabcdabcdabcdabcdabcdabcdabcd"))
+			srReq := &trillian.GetLatestSignedLogRootRequest{LogId: 0x42}
+			info.client.EXPECT().GetLatestSignedLogRoot(deadlineMatcher(), cmpMatcher{srReq}).Return(rpcRsp, nil)
+
+			req, err := http.NewRequest(http.MethodGet, "http://example.com/ct/v1/get-sth", nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+
+			handler := AppHandler{Info: info.li, Handler: getSTH, Name: "GetSTH", Method: http.MethodGet}
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("getSTH returned %d, want %d", w.Code, http.StatusOK)
+			}
+
+			if got := w.Header().Get("Cache-Control"); got != tc.wantHeader {
+				t.Errorf("Cache-Control header = %q, want %q", got, tc.wantHeader)
+			}
+			if tc.wantHeader == "" {
+				if _, ok := w.Header()["Cache-Control"]; ok {
+					t.Errorf("Cache-Control header is present, want omitted")
+				}
+			}
+		})
+	}
+}
