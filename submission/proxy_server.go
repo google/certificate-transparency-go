@@ -40,9 +40,9 @@ type ProxyServer struct {
 }
 
 // NewProxyServer creates ProxyServer instance. Call Run() to init.
-func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout time.Duration, mf monitoring.MetricFactory) *ProxyServer {
+func NewProxyServer(llr LogListRefresher, dBuilder DistributorBuilder, reqTimeout time.Duration, mf monitoring.MetricFactory) *ProxyServer {
 	s := &ProxyServer{addTimeout: reqTimeout}
-	s.p = NewProxy(NewLogListManager(NewLogListRefresher(logListPath), mf), dBuilder, mf)
+	s.p = NewProxy(NewLogListManager(llr, mf), dBuilder, mf)
 	return s
 }
 
