@@ -16,12 +16,14 @@ package x509util
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 
 	"github.com/google/certificate-transparency-go/x509"
+	"k8s.io/klog/v2"
 )
 
 // String for certificate blocks in BEGIN / END PEM headers
@@ -36,6 +38,7 @@ type PEMCertPool struct {
 	fingerprintToCertMap map[[sha256.Size]byte]x509.Certificate
 	rawCerts             []*x509.Certificate
 	certPool             *x509.CertPool
+	rejectedFingerprints map[[sha256.Size]byte]struct{}
 }
 
 // NewPEMCertPool creates a new, empty, instance of PEMCertPool.
@@ -43,9 +46,40 @@ func NewPEMCertPool() *PEMCertPool {
 	return &PEMCertPool{fingerprintToCertMap: make(map[[sha256.Size]byte]x509.Certificate), certPool: x509.NewCertPool()}
 }
 
+// NewPEMCertPoolWithRejectedFingerprints creates a new, empty, instance of PEMCertPool.
+// rejectedFingerprints is a list of hex-encoded SHA-256 SubjectPublicKeyInfo
+// fingerprints that should be rejected by the pool.
+func NewPEMCertPoolWithRejectedFingerprints(rejectedFingerprints []string) (*PEMCertPool, error) {
+	rejected := make(map[[sha256.Size]byte]struct{})
+	for _, f := range rejectedFingerprints {
+		b, err := hex.DecodeString(f)
+		if err != nil {
+			return nil, fmt.Errorf("invalid rejected fingerprint %q: %v", f, err)
+		}
+		if len(b) != sha256.Size {
+			return nil, fmt.Errorf("invalid rejected fingerprint length %q: expected %d bytes, got %d", f, sha256.Size, len(b))
+		}
+		var fingerprint [sha256.Size]byte
+		copy(fingerprint[:], b)
+		rejected[fingerprint] = struct{}{}
+	}
+	return &PEMCertPool{
+		fingerprintToCertMap: make(map[[sha256.Size]byte]x509.Certificate),
+		certPool:             x509.NewCertPool(),
+		rejectedFingerprints: rejected,
+	}, nil
+}
+
 // AddCert adds a certificate to a pool. Uses fingerprint to weed out duplicates.
 // cert must not be nil.
 func (p *PEMCertPool) AddCert(cert *x509.Certificate) {
+	if len(p.rejectedFingerprints) > 0 {
+		spkiFingerprint := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+		if _, exists := p.rejectedFingerprints[spkiFingerprint]; exists {
+			klog.Warningf("Rejecting certificate with SPKI fingerprint %x", spkiFingerprint)
+			return
+		}
+	}
 	fingerprint := sha256.Sum256(cert.Raw)
 	_, ok := p.fingerprintToCertMap[fingerprint]
 

@@ -15,6 +15,8 @@
 package x509util_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/pem"
 	"testing"
 
@@ -59,6 +61,51 @@ func TestLoadMultipleCertsFromPEM(t *testing.T) {
 	}
 	if got, want := len(pool.Subjects()), 2; got != want {
 		t.Fatalf("Got %d certs in pool, expected %d", got, want)
+	}
+}
+
+func TestRejectedFingerprints(t *testing.T) {
+	cert := parsePEM(t, pemCACert)
+	spkiFP := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
+
+	for _, tc := range []struct {
+		name      string
+		rejected  []string
+		wantCount int
+		wantErr   bool
+	}{
+		{
+			name:      "reject-by-spki-fingerprint",
+			rejected:  []string{hex.EncodeToString(spkiFP[:])},
+			wantCount: 0,
+		},
+		{
+			name:      "allow-non-matching",
+			rejected:  []string{"0000000000000000000000000000000000000000000000000000000000000000"},
+			wantCount: 1,
+		},
+		{
+			name:     "invalid-hex",
+			rejected: []string{"invalid-hex"},
+			wantErr:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pool, err := x509util.NewPEMCertPoolWithRejectedFingerprints(tc.rejected)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("NewPEMCertPoolWithRejectedFingerprints() = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NewPEMCertPoolWithRejectedFingerprints() = %v", err)
+			}
+			pool.AddCert(cert)
+			if got := len(pool.Subjects()); got != tc.wantCount {
+				t.Errorf("len(pool.Subjects()) = %d, want %d", got, tc.wantCount)
+			}
+		})
 	}
 }
 

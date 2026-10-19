@@ -251,6 +251,9 @@ type CertValidationOpts struct {
 	extKeyUsages []x509.ExtKeyUsage
 	// rejectExtIds contains a list of X.509 extension IDs to reject during chain verification.
 	rejectExtIds []asn1.ObjectIdentifier
+	// rejectIntermediates contains a list of hex-encoded SHA-256 SubjectPublicKeyInfo
+	// fingerprints of intermediate certificates to reject during chain verification.
+	rejectIntermediates []string
 }
 
 // NewCertValidationOpts builds validation options based on parameters.
