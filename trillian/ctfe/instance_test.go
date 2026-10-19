@@ -159,6 +159,27 @@ func TestSetUpInstance(t *testing.T) {
 			},
 			wantErr: "one",
 		},
+		{
+			desc: "valid-reject-intermediates",
+			cfg: &configpb.LogConfig{
+				LogId:               1,
+				Prefix:              "log",
+				RootsPemFile:        []string{"../testdata/fake-ca.cert"},
+				PrivateKey:          privKey,
+				RejectIntermediates: []string{"0000000000000000000000000000000000000000000000000000000000000000"},
+			},
+		},
+		{
+			desc: "invalid-reject-intermediates",
+			cfg: &configpb.LogConfig{
+				LogId:               1,
+				Prefix:              "log",
+				RootsPemFile:        []string{"../testdata/fake-ca.cert"},
+				PrivateKey:          privKey,
+				RejectIntermediates: []string{"invalid-hex"},
+			},
+			wantErr: "failed to parse RejectIntermediates",
+		},
 	}
 
 	for _, test := range tests {

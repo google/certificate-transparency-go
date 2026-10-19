@@ -176,18 +176,22 @@ func setUpLogInfo(ctx context.Context, opts InstanceOptions) (*logInfo, error) {
 	}
 
 	validationOpts := CertValidationOpts{
-		trustedRoots:    roots,
-		rejectExpired:   cfg.RejectExpired,
-		rejectUnexpired: cfg.RejectUnexpired,
-		notAfterStart:   vCfg.NotAfterStart,
-		notAfterLimit:   vCfg.NotAfterLimit,
-		acceptOnlyCA:    cfg.AcceptOnlyCa,
-		extKeyUsages:    vCfg.KeyUsages,
+		trustedRoots:        roots,
+		rejectExpired:       cfg.RejectExpired,
+		rejectUnexpired:     cfg.RejectUnexpired,
+		notAfterStart:       vCfg.NotAfterStart,
+		notAfterLimit:       vCfg.NotAfterLimit,
+		acceptOnlyCA:        cfg.AcceptOnlyCa,
+		extKeyUsages:        vCfg.KeyUsages,
+		rejectIntermediates: cfg.RejectIntermediates,
 	}
 	var err error
 	validationOpts.rejectExtIds, err = parseOIDs(cfg.RejectExtensions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse RejectExtensions: %v", err)
+	}
+	if _, err := x509util.NewPEMCertPoolWithRejectedFingerprints(cfg.RejectIntermediates); err != nil {
+		return nil, fmt.Errorf("failed to parse RejectIntermediates: %v", err)
 	}
 
 	// Initialise IssuanceChainService with IssuanceChainStorage and IssuanceChainCache.

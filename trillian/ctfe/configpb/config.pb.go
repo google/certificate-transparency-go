@@ -238,7 +238,7 @@ func (x *LogConfigSet) GetConfig() []*LogConfig {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 22
+// NEXT_ID: 24
 type LogConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ID of a Trillian tree that stores the log data. The tree type must be
@@ -339,9 +339,12 @@ type LogConfig struct {
 	ExtraDataIssuanceChainStorageBackend LogConfig_IssuanceChainStorageBackend `protobuf:"varint,21,opt,name=extra_data_issuance_chain_storage_backend,json=extraDataIssuanceChainStorageBackend,proto3,enum=configpb.LogConfig_IssuanceChainStorageBackend" json:"extra_data_issuance_chain_storage_backend,omitempty"`
 	// The "url" string to be emitted by the /log.v3.json endpoint.
 	// If this string is empty (the default), the /log.v3.json endpoint will not be served.
-	Logv3Url      string `protobuf:"bytes,22,opt,name=logv3_url,json=logv3Url,proto3" json:"logv3_url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Logv3Url string `protobuf:"bytes,22,opt,name=logv3_url,json=logv3Url,proto3" json:"logv3_url,omitempty"`
+	// A list of hex-encoded SHA-256 SubjectPublicKeyInfo fingerprints of
+	// intermediate certificates which should cause submissions to be rejected.
+	RejectIntermediates []string `protobuf:"bytes,23,rep,name=reject_intermediates,json=rejectIntermediates,proto3" json:"reject_intermediates,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *LogConfig) Reset() {
@@ -528,6 +531,13 @@ func (x *LogConfig) GetLogv3Url() string {
 	return ""
 }
 
+func (x *LogConfig) GetRejectIntermediates() []string {
+	if x != nil {
+		return x.RejectIntermediates
+	}
+	return nil
+}
+
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
 // that they can easily be parsed as a single proto.
 type LogMultiConfig struct {
@@ -669,7 +679,7 @@ const file_trillian_ctfe_configpb_config_proto_rawDesc = "" +
 	"\rLogBackendSet\x12.\n" +
 	"\abackend\x18\x01 \x03(\v2\x14.configpb.LogBackendR\abackend\";\n" +
 	"\fLogConfigSet\x12+\n" +
-	"\x06config\x18\x01 \x03(\v2\x13.configpb.LogConfigR\x06config\"\xc4\t\n" +
+	"\x06config\x18\x01 \x03(\v2\x13.configpb.LogConfigR\x06config\"\xf7\t\n" +
 	"\tLogConfig\x12\x15\n" +
 	"\x06log_id\x18\x01 \x01(\x03R\x05logId\x12\x16\n" +
 	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x126\n" +
@@ -697,7 +707,8 @@ const file_trillian_ctfe_configpb_config_proto_rawDesc = "" +
 	"\x11reject_extensions\x18\x12 \x03(\tR\x10rejectExtensions\x12C\n" +
 	"\x1ectfe_storage_connection_string\x18\x14 \x01(\tR\x1bctfeStorageConnectionString\x12\x88\x01\n" +
 	")extra_data_issuance_chain_storage_backend\x18\x15 \x01(\x0e2/.configpb.LogConfig.IssuanceChainStorageBackendR$extraDataIssuanceChainStorageBackend\x12\x1b\n" +
-	"\tlogv3_url\x18\x16 \x01(\tR\blogv3Url\"x\n" +
+	"\tlogv3_url\x18\x16 \x01(\tR\blogv3Url\x121\n" +
+	"\x14reject_intermediates\x18\x17 \x03(\tR\x13rejectIntermediates\"x\n" +
 	"\x1bIssuanceChainStorageBackend\x120\n" +
 	",ISSUANCE_CHAIN_STORAGE_BACKEND_TRILLIAN_GRPC\x10\x00\x12'\n" +
 	"#ISSUANCE_CHAIN_STORAGE_BACKEND_CTFE\x10\x01\"~\n" +
