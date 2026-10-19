@@ -15,7 +15,9 @@
 package ctfe
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"strings"
 	"testing"
@@ -248,6 +250,16 @@ func TestValidateChain(t *testing.T) {
 			wantPathLen: 2,
 			modifyOpts: func(v *CertValidationOpts) {
 				v.extKeyUsages = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
+			},
+		},
+		{
+			desc:    "reject-intermediate-by-spki-fingerprint",
+			chain:   pemsToDERChain(t, []string{testonly.LeafSignedByFakeIntermediateCertPEM, testonly.FakeIntermediateCertPEM}),
+			wantErr: true,
+			modifyOpts: func(v *CertValidationOpts) {
+				interm := pemToCert(t, testonly.FakeIntermediateCertPEM)
+				spkiFP := sha256.Sum256(interm.RawSubjectPublicKeyInfo)
+				v.rejectIntermediates = []string{hex.EncodeToString(spkiFP[:])}
 			},
 		},
 	}

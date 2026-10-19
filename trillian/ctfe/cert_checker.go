@@ -54,7 +54,10 @@ func IsPrecertificate(cert *x509.Certificate) (bool, error) {
 func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x509.Certificate, error) {
 	// First make sure the certs parse as X.509
 	chain := make([]*x509.Certificate, 0, len(rawChain))
-	intermediatePool := x509util.NewPEMCertPool()
+	intermediatePool, err := x509util.NewPEMCertPoolWithRejectedFingerprints(validationOpts.rejectIntermediates)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create intermediate pool: %v", err)
+	}
 
 	for i, certBytes := range rawChain {
 		cert, err := x509.ParseCertificate(certBytes)

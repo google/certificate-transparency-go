@@ -45,7 +45,7 @@ message LogConfigSet {
 
 // LogConfig describes the configuration options for a log instance.
 //
-// NEXT_ID: 22
+// NEXT_ID: 24
 message LogConfig {
   // The ID of a Trillian tree that stores the log data. The tree type must be
   // LOG for regular CT logs. For mirror logs it must be either PREORDERED_LOG
@@ -161,6 +161,10 @@ message LogConfig {
   // The "url" string to be emitted by the /log.v3.json endpoint.
   // If this string is empty (the default), the /log.v3.json endpoint will not be served.
   string logv3_url = 22;
+
+  // A list of hex-encoded SHA-256 SubjectPublicKeyInfo fingerprints of
+  // intermediate certificates which should cause submissions to be rejected.
+  repeated string reject_intermediates = 23;
 }
 
 // LogMultiConfig wraps up a LogBackendSet and corresponding LogConfigSet so
