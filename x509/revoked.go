@@ -8,6 +8,7 @@ package x509
 import (
 	"bytes"
 	"encoding/pem"
+	"errors"
 	"time"
 
 	"github.com/google/certificate-transparency-go/asn1"
@@ -157,6 +158,10 @@ func ParseCertificateListDER(derBytes []byte) (*CertificateList, error) {
 		return nil, &errs
 	} else if len(rest) != 0 {
 		errs.AddID(ErrTrailingCertList)
+		return nil, &errs
+	}
+	if pkixList.SignatureValue.BitLength%8 != 0 {
+		errs.AddID(ErrInvalidCertList, errors.New("signature bit length is not a multiple of 8"))
 		return nil, &errs
 	}
 

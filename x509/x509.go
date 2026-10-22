@@ -1839,6 +1839,9 @@ func parseCertificate(in *certificate, tbsOnly bool) (*Certificate, error) {
 	out.RawSubject = in.TBSCertificate.Subject.FullBytes
 	out.RawIssuer = in.TBSCertificate.Issuer.FullBytes
 
+	if !tbsOnly && in.SignatureValue.BitLength%8 != 0 {
+		return nil, errors.New("x509: signature bit length is not a multiple of 8")
+	}
 	out.Signature = in.SignatureValue.RightAlign()
 	out.SignatureAlgorithm = SignatureAlgorithmFromAI(in.TBSCertificate.SignatureAlgorithm)
 
@@ -2848,6 +2851,9 @@ func ParseDERCRL(derBytes []byte) (*pkix.CertificateList, error) {
 	} else if len(rest) != 0 {
 		return nil, errors.New("x509: trailing data after CRL")
 	}
+	if certList.SignatureValue.BitLength%8 != 0 {
+		return nil, errors.New("x509: CRL signature bit length is not a multiple of 8")
+	}
 	return certList, nil
 }
 
@@ -3250,6 +3256,9 @@ func ParseCertificateRequest(asn1Data []byte) (*CertificateRequest, error) {
 }
 
 func parseCertificateRequest(in *certificateRequest) (*CertificateRequest, error) {
+	if in.SignatureValue.BitLength%8 != 0 {
+		return nil, errors.New("x509: signature bit length is not a multiple of 8")
+	}
 	out := &CertificateRequest{
 		Raw:                      in.Raw,
 		RawTBSCertificateRequest: in.TBSCSR.Raw,

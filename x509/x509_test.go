@@ -2884,3 +2884,143 @@ func TestParseCertificateFail(t *testing.T) {
 		})
 	}
 }
+
+func TestNonWholeByteSignatureRejected(t *testing.T) {
+	// Generate an RSA test certificate.
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("rsa.GenerateKey() err = %v", err)
+	}
+	template := &Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "Non-Whole-Byte Test",
+		},
+		NotBefore: time.Unix(1000, 0),
+		NotAfter:  time.Unix(100000, 0),
+	}
+	certDER, err := CreateCertificate(rand.Reader, template, template, &rsaKey.PublicKey, rsaKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() err = %v", err)
+	}
+
+	// Verify that the original valid certificate parses.
+	if _, err := ParseCertificate(certDER); err != nil {
+		t.Fatalf("ParseCertificate(valid) err = %v, want nil", err)
+	}
+
+	// Test 1..7 unused bits for Certificate signature.
+	var rawCert certificate
+	if rest, err := asn1.Unmarshal(certDER, &rawCert); err != nil || len(rest) != 0 {
+		t.Fatalf("asn1.Unmarshal() err = %v, rest = %d", err, len(rest))
+	}
+	origBitLength := rawCert.SignatureValue.BitLength
+	for unusedBits := 1; unusedBits < 8; unusedBits++ {
+		t.Run(fmt.Sprintf("Certificate/unusedBits=%d", unusedBits), func(t *testing.T) {
+			malleableCert := rawCert
+			malleableCert.Raw = nil
+			malleableCert.SignatureValue.BitLength = origBitLength - unusedBits
+			sigBytes := bytes.Clone(rawCert.SignatureValue.Bytes)
+			sigBytes[len(sigBytes)-1] &= byte(0xff << unusedBits)
+			malleableCert.SignatureValue.Bytes = sigBytes
+			der, err := asn1.Marshal(malleableCert)
+			if err != nil {
+				t.Fatalf("asn1.Marshal() err = %v", err)
+			}
+			if _, err := ParseCertificate(der); err == nil {
+				t.Errorf("ParseCertificate() succeeded for signature with %d unused bits, want error", unusedBits)
+			} else if !strings.Contains(err.Error(), "signature bit length is not a multiple of 8") {
+				t.Errorf("ParseCertificate() err = %v, want 'signature bit length is not a multiple of 8'", err)
+			}
+		})
+	}
+
+	// Test ECDSA certificate signature.
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey() err = %v", err)
+	}
+	ecdsaCertDER, err := CreateCertificate(rand.Reader, template, template, &ecdsaKey.PublicKey, ecdsaKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate(ECDSA) err = %v", err)
+	}
+	var rawECDSACert certificate
+	if rest, err := asn1.Unmarshal(ecdsaCertDER, &rawECDSACert); err != nil || len(rest) != 0 {
+		t.Fatalf("asn1.Unmarshal(ECDSA) err = %v, rest = %d", err, len(rest))
+	}
+	rawECDSACert.Raw = nil
+	rawECDSACert.SignatureValue.BitLength = len(rawECDSACert.SignatureValue.Bytes)*8 - 1
+	ecdsaSigBytes := bytes.Clone(rawECDSACert.SignatureValue.Bytes)
+	ecdsaSigBytes[len(ecdsaSigBytes)-1] &= 0xfe
+	rawECDSACert.SignatureValue.Bytes = ecdsaSigBytes
+	malleableECDSADER, err := asn1.Marshal(rawECDSACert)
+	if err != nil {
+		t.Fatalf("asn1.Marshal(ECDSA) err = %v", err)
+	}
+	if _, err := ParseCertificate(malleableECDSADER); err == nil {
+		t.Errorf("ParseCertificate() succeeded for ECDSA non-whole byte signature, want error")
+	} else if !strings.Contains(err.Error(), "signature bit length is not a multiple of 8") {
+		t.Errorf("ParseCertificate(ECDSA) err = %v, want 'signature bit length is not a multiple of 8'", err)
+	}
+
+	// Test CertificateRequest (CSR).
+	csrTemplate := &CertificateRequest{
+		Subject: pkix.Name{CommonName: "Non-Whole-Byte CSR Test"},
+	}
+	csrDER, err := CreateCertificateRequest(rand.Reader, csrTemplate, rsaKey)
+	if err != nil {
+		t.Fatalf("CreateCertificateRequest() err = %v", err)
+	}
+	if _, err := ParseCertificateRequest(csrDER); err != nil {
+		t.Fatalf("ParseCertificateRequest(valid) err = %v, want nil", err)
+	}
+	var rawCSR certificateRequest
+	if rest, err := asn1.Unmarshal(csrDER, &rawCSR); err != nil || len(rest) != 0 {
+		t.Fatalf("asn1.Unmarshal() err = %v, rest = %d", err, len(rest))
+	}
+	rawCSR.Raw = nil
+	rawCSR.SignatureValue.BitLength = len(rawCSR.SignatureValue.Bytes)*8 - 1
+	csrSigBytes := bytes.Clone(rawCSR.SignatureValue.Bytes)
+	csrSigBytes[len(csrSigBytes)-1] &= 0xfe
+	rawCSR.SignatureValue.Bytes = csrSigBytes
+	malleableCSRDER, err := asn1.Marshal(rawCSR)
+	if err != nil {
+		t.Fatalf("asn1.Marshal() err = %v", err)
+	}
+	if _, err := ParseCertificateRequest(malleableCSRDER); err == nil {
+		t.Errorf("ParseCertificateRequest() succeeded for non-whole byte signature, want error")
+	} else if !strings.Contains(err.Error(), "signature bit length is not a multiple of 8") {
+		t.Errorf("ParseCertificateRequest() err = %v, want 'signature bit length is not a multiple of 8'", err)
+	}
+
+	// Test CRL.
+	crlDER, err := template.CreateCRL(rand.Reader, rsaKey, nil, time.Unix(1000, 0), time.Unix(10000, 0))
+	if err != nil {
+		t.Fatalf("CreateCRL() err = %v", err)
+	}
+	if _, err := ParseDERCRL(crlDER); err != nil {
+		t.Fatalf("ParseDERCRL(valid) err = %v, want nil", err)
+	}
+	var rawCRL pkix.CertificateList
+	if rest, err := asn1.Unmarshal(crlDER, &rawCRL); err != nil || len(rest) != 0 {
+		t.Fatalf("asn1.Unmarshal() err = %v, rest = %d", err, len(rest))
+	}
+	rawCRL.SignatureValue.BitLength = len(rawCRL.SignatureValue.Bytes)*8 - 1
+	crlSigBytes := bytes.Clone(rawCRL.SignatureValue.Bytes)
+	crlSigBytes[len(crlSigBytes)-1] &= 0xfe
+	rawCRL.SignatureValue.Bytes = crlSigBytes
+	malleableCRLDER, err := asn1.Marshal(rawCRL)
+	if err != nil {
+		t.Fatalf("asn1.Marshal() err = %v", err)
+	}
+	if _, err := ParseDERCRL(malleableCRLDER); err == nil {
+		t.Errorf("ParseDERCRL() succeeded for non-whole byte signature, want error")
+	} else if !strings.Contains(err.Error(), "signature bit length is not a multiple of 8") {
+		t.Errorf("ParseDERCRL() err = %v, want 'signature bit length is not a multiple of 8'", err)
+	}
+	if _, err := ParseCertificateListDER(malleableCRLDER); err == nil {
+		t.Errorf("ParseCertificateListDER() succeeded for non-whole byte signature, want error")
+	} else if !strings.Contains(err.Error(), "signature bit length is not a multiple of 8") {
+		t.Errorf("ParseCertificateListDER() err = %v, want 'signature bit length is not a multiple of 8'", err)
+	}
+}
