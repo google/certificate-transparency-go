@@ -26,6 +26,13 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
+// maxHTTPResponseBytes is the maximum number of bytes read from an HTTP
+// response when retrieving issuer certificates or CRLs from URLs embedded in
+// certificates. Responses larger than this limit are truncated and an error is
+// returned, preventing a malicious server from exhausting memory by returning
+// an unbounded body.
+const maxHTTPResponseBytes = 10 * 1024 * 1024 // 10 MiB
+
 // ReadPossiblePEMFile loads data from a file which may be in DER format
 // or may be in PEM format (with the given blockname).
 func ReadPossiblePEMFile(filename, blockname string) ([][]byte, error) {
@@ -49,7 +56,8 @@ func ReadPossiblePEMURL(target, blockname string) ([][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
-	data, err := io.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(rsp.Body, maxHTTPResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to io.ReadAll(%q): %v", target, err)
 	}
@@ -88,7 +96,8 @@ func ReadFileOrURL(target string, client *http.Client) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to http.Get(%q): %v", target, err)
 	}
-	return io.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	return io.ReadAll(io.LimitReader(rsp.Body, maxHTTPResponseBytes))
 }
 
 // GetIssuer attempts to retrieve the issuer for a certificate, by examining
@@ -104,7 +113,7 @@ func GetIssuer(cert *x509.Certificate, client *http.Client) (*x509.Certificate, 
 		return nil, fmt.Errorf("failed to get issuer from %q: %v", issuerURL, err)
 	}
 	defer rsp.Body.Close()
-	body, err := io.ReadAll(rsp.Body)
+	body, err := io.ReadAll(io.LimitReader(rsp.Body, maxHTTPResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read issuer from %q: %v", issuerURL, err)
 	}

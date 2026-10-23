@@ -36,7 +36,12 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 )
 
-const maxJitter = 250 * time.Millisecond
+const (
+	maxJitter = 250 * time.Millisecond
+	// maxResponseBodyBytes limits HTTP response body reads to prevent OOM when
+	// communicating with a CT log server returning an unexpectedly large response.
+	maxResponseBodyBytes = 32 * 1024 * 1024 // 32 MiB
+)
 
 type backoffer interface {
 	// set adjusts/increases the current backoff interval (typically on retryable failure);
@@ -196,7 +201,7 @@ func (c *JSONClient) GetAndParse(ctx context.Context, path string, params map[st
 	if err != nil {
 		return nil, nil, err
 	}
-	body, err := io.ReadAll(httpRsp.Body)
+	body, err := io.ReadAll(io.LimitReader(httpRsp.Body, maxResponseBodyBytes))
 	if err != nil {
 		return nil, nil, RspError{Err: fmt.Errorf("failed to read response body: %w", err), StatusCode: httpRsp.StatusCode, Body: body}
 	}
@@ -245,7 +250,7 @@ func (c *JSONClient) PostAndParse(ctx context.Context, path string, req, rsp int
 	if err != nil {
 		return nil, nil, err
 	}
-	body, err := io.ReadAll(httpRsp.Body)
+	body, err := io.ReadAll(io.LimitReader(httpRsp.Body, maxResponseBodyBytes))
 	if err != nil {
 		_ = httpRsp.Body.Close()
 		return nil, nil, err
