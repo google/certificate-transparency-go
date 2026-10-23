@@ -66,7 +66,7 @@ var (
 	metricsEndpoint         = flag.String("metrics_endpoint", "", "Endpoint for serving metrics; if left empty, metrics will be visible on --http_endpoint")
 	rpcBackend              = flag.String("log_rpc_server", "", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
 	rpcDeadline             = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
-	getSTHInterval          = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
+	getSTHInterval          = flag.Duration("get_sth_interval", time.Second*10, "Interval between internal get-sth operations (0 to disable)")
 	logConfig               = flag.String("log_config", "", "File holding log config in text proto format")
 	maxGetEntries           = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
 	etcdServers             = flag.String("etcd_servers", "", "A comma-separated list of etcd servers")
