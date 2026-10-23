@@ -796,3 +796,21 @@ func TestGetEntryAndProofErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestVerifySignaturesWithoutVerifier(t *testing.T) {
+	// Create a LogClient with nil Verifier (no public key in opts)
+	lc, err := client.New("http://localhost", nil, jsonclient.Options{})
+	if err != nil {
+		t.Fatalf("Failed to create LogClient: %v", err)
+	}
+
+	// VerifySTHSignature should return an error, not nil
+	if err := lc.VerifySTHSignature(ct.SignedTreeHead{}); err == nil {
+		t.Error("VerifySTHSignature: expected error with nil verifier, got nil")
+	}
+
+	// VerifySCTSignature should return an error, not nil
+	if err := lc.VerifySCTSignature(ct.SignedCertificateTimestamp{}, ct.X509LogEntryType, nil); err == nil {
+		t.Error("VerifySCTSignature: expected error with nil verifier, got nil")
+	}
+}
