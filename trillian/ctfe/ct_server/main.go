@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Temporary MPTCP fix, needs to be above package declaration:
+//go:debug multipathtcp=0
+
 // The ct_server binary runs the CT personality.
 package main
 
