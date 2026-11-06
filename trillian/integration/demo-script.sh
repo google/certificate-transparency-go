@@ -27,8 +27,8 @@ echo 'Reset MySQL database'
 yes | ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh
 
 echo 'Building Trillian log code'
-go build github.com/google/trillian/server/trillian_log_server/
-go build github.com/google/trillian/server/trillian_log_signer/
+go build github.com/google/trillian/cmd/trillian_log_server/
+go build github.com/google/trillian/cmd/trillian_log_signer/
 
 echo 'Start a Trillian Log server (do in separate terminal)'
 ./trillian_log_server --rpc_endpoint=localhost:6962 --http_endpoint=localhost:6963 --logtostderr &
