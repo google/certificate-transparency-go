@@ -1832,6 +1832,15 @@ func parseCertificate(in *certificate, tbsOnly bool) (*Certificate, error) {
 		return nil, errors.New("x509: mismatching signature algorithm identifiers")
 	}
 
+	// All the signature algorithms we support produce a whole number of
+	// bytes, but the signature is still encoded as a BIT STRING, and DER
+	// allows trailing padding bits as long as they are zero. RightAlign
+	// below shifts those bits away, so the same signature has several
+	// valid encodings and a log would store each of them as its own entry.
+	if in.SignatureValue.BitLength%8 != 0 {
+		return nil, errors.New("x509: signature BIT STRING has padding bits")
+	}
+
 	out := new(Certificate)
 	out.Raw = in.Raw
 	out.RawTBSCertificate = in.TBSCertificate.Raw
