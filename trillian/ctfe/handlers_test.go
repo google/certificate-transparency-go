@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1250,6 +1251,22 @@ func TestGetEntriesRanges(t *testing.T) {
 			end:    5000,
 			want:   http.StatusInternalServerError,
 			rpcEnd: MaxGetEntriesAllowed + MaxGetEntriesAllowed - 1,
+			rpc:    true,
+		},
+		{
+			desc:   "range too large, end is MaxInt64",
+			start:  0,
+			end:    math.MaxInt64,
+			want:   http.StatusInternalServerError,
+			rpcEnd: MaxGetEntriesAllowed - 1,
+			rpc:    true,
+		},
+		{
+			desc:   "range too large, end is MaxInt64, start not aligned",
+			start:  5,
+			end:    math.MaxInt64,
+			want:   http.StatusInternalServerError,
+			rpcEnd: MaxGetEntriesAllowed - 1,
 			rpc:    true,
 		},
 		{
