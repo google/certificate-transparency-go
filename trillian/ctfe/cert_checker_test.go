@@ -262,6 +262,11 @@ func TestValidateChain(t *testing.T) {
 				v.rejectIntermediates = []string{hex.EncodeToString(spkiFP[:])}
 			},
 		},
+		{
+			desc:    "chain-too-long",
+			chain:   make([][]byte, maxChainLength+1),
+			wantErr: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {

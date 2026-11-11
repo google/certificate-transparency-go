@@ -255,17 +255,9 @@ func TestPostHandlersFailure(t *testing.T) {
 
 	info := setupTest(t, []string{cttestonly.FakeCACertPEM}, nil)
 	defer info.mockCtrl.Finish()
-	maxCertChainSize := int64(500 * 1024)
 	for path, handler := range info.postHandlers() {
 		t.Run(path, func(t *testing.T) {
-			var wrappedHandler http.Handler
-			if path == "add-chain" || path == "add-pre-chain" {
-				wrappedHandler = http.MaxBytesHandler(http.Handler(handler), maxCertChainSize)
-			} else {
-				wrappedHandler = handler
-			}
-
-			s := httptest.NewServer(wrappedHandler)
+			s := httptest.NewServer(handler)
 			defer s.Close()
 
 			for _, test := range tests {
