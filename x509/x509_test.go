@@ -112,6 +112,31 @@ func TestParsePKIXPublicKeyEd25519(t *testing.T) {
 	}
 }
 
+func TestParsePKIXPublicKeyEd25519WrongSize(t *testing.T) {
+	block, _ := pem.Decode([]byte(pemPublicKeyEd25519))
+	var pki publicKeyInfo
+	if _, err := asn1.Unmarshal(block.Bytes, &pki); err != nil {
+		t.Fatalf("asn1.Unmarshal(Ed25519)=_,%v; want _,nil", err)
+	}
+	key := pki.PublicKey.RightAlign()
+	for _, size := range []int{0, ed25519.PublicKeySize - 1, ed25519.PublicKeySize + 1} {
+		t.Run(fmt.Sprintf("%d bytes", size), func(t *testing.T) {
+			wrong := make([]byte, size)
+			copy(wrong, key)
+			der, err := asn1.Marshal(publicKeyInfo{
+				Algorithm: pki.Algorithm,
+				PublicKey: asn1.BitString{Bytes: wrong, BitLength: 8 * size},
+			})
+			if err != nil {
+				t.Fatalf("asn1.Marshal()=nil,%v; want _,nil", err)
+			}
+			if pub, err := ParsePKIXPublicKey(der); err == nil {
+				t.Errorf("ParsePKIXPublicKey(%d-byte Ed25519 key)=%x,nil; want nil,error", size, pub)
+			}
+		})
+	}
+}
+
 // From RFC 8410 section 10.1.
 var pemPublicKeyEd25519 = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=
