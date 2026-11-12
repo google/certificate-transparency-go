@@ -25,6 +25,8 @@ import (
 	"github.com/google/certificate-transparency-go/x509util"
 )
 
+const maxChainLength = 100
+
 var (
 	ErrNoRFCCompliantPathFound = errors.New("no RFC compliant path to root found when trying to validate chain")
 )
@@ -52,6 +54,9 @@ func IsPrecertificate(cert *x509.Certificate) (bool, error) {
 // supplied in the chain. Then applies the RFC requirement that the path must involve all
 // the submitted chain in the order of submission.
 func ValidateChain(rawChain [][]byte, validationOpts CertValidationOpts) ([]*x509.Certificate, error) {
+	if len(rawChain) > maxChainLength {
+		return nil, fmt.Errorf("chain length %d exceeds maximum allowed length of %d", len(rawChain), maxChainLength)
+	}
 	// First make sure the certs parse as X.509
 	chain := make([]*x509.Certificate, 0, len(rawChain))
 	intermediatePool, err := x509util.NewPEMCertPoolWithRejectedFingerprints(validationOpts.rejectIntermediates)

@@ -89,6 +89,8 @@ const (
 	getEntryAndProofParamLeafIndex = "leaf_index"
 	// The name of the get-entry-and-proof tree size parameter
 	getEntryAndProofParamTreeSize = "tree_size"
+	// Max size of add-chain and add-pre-chain request body in bytes (512 KiB).
+	maxAddChainBody = 512 * 1024
 )
 
 var (
@@ -202,6 +204,9 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.Info.RequestLog.Status(logCtx, http.StatusBadRequest)
 			return
 		}
+	}
+	if a.Method == http.MethodPost {
+		r.Body = http.MaxBytesReader(w, r.Body, maxAddChainBody)
 	}
 
 	// Many/most of the handlers forward the request on to the Log RPC server; impose a deadline
