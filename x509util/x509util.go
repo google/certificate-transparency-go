@@ -636,6 +636,30 @@ func showAddressRange(prefix x509.IPAddressPrefix, afi uint16) string {
 
 }
 
+// showAddressRangeEnd describes one end of an RFC 3779 IPAddressRange. The
+// encoding of the minimum address omits its trailing zero bits, and that of
+// the maximum address omits its trailing one bits (RFC 3779 s2.1.2), so the
+// omitted bits of a maximum address have to be filled back in with ones.
+func showAddressRangeEnd(addr x509.IPAddressPrefix, afi uint16, isMax bool) string {
+	switch afi {
+	case x509.IPv4AddressFamilyIndicator, x509.IPv6AddressFamilyIndicator:
+		size := 4
+		if afi == x509.IPv6AddressFamilyIndicator {
+			size = 16
+		}
+		ip := make(net.IP, size)
+		copy(ip, addr.Bytes)
+		if isMax {
+			for bit := addr.BitLength; bit < 8*size; bit++ {
+				ip[bit/8] |= 0x80 >> (bit % 8)
+			}
+		}
+		return ip.String()
+	default:
+		return fmt.Sprintf("%x/%d", addr.Bytes, addr.BitLength)
+	}
+}
+
 func showRPKIAddressRanges(result *bytes.Buffer, cert *x509.Certificate) {
 	count, critical := OIDInExtensions(x509.OIDExtensionIPPrefixList, cert.Extensions)
 	if count > 0 {
@@ -664,7 +688,7 @@ func showRPKIAddressRanges(result *bytes.Buffer, cert *x509.Certificate) {
 				result.WriteString(fmt.Sprintf("                  %s\n", showAddressRange(prefix, afi)))
 			}
 			for _, ipRange := range blocks.AddressRanges {
-				result.WriteString(fmt.Sprintf("                  [%s, %s]\n", showAddressRange(ipRange.Min, afi), showAddressRange(ipRange.Max, afi)))
+				result.WriteString(fmt.Sprintf("                  [%s, %s]\n", showAddressRangeEnd(ipRange.Min, afi, false), showAddressRangeEnd(ipRange.Max, afi, true)))
 			}
 		}
 	}
