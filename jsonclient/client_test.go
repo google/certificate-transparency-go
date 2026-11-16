@@ -15,6 +15,7 @@
 package jsonclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/pem"
@@ -531,5 +532,25 @@ func TestCancelledContext(t *testing.T) {
 	_, _, err = logClient.PostAndParseWithRetry(ctx, "/struct/path", nil, &result)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("PostAndParseWithRetry() = (_,_,%v), want %q", err, context.Canceled)
+	}
+}
+
+func TestGetAndParseBodyTooLarge(t *testing.T) {
+	for _, size := range []int{maxResponseBodyBytes, maxResponseBodyBytes + 1} {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`"`))
+			w.Write(bytes.Repeat([]byte("a"), size-2))
+			w.Write([]byte(`"`))
+		}))
+		defer ts.Close()
+		logClient, err := New(ts.URL, &http.Client{}, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		_, _, err = logClient.GetAndParse(context.Background(), "/", nil, &got)
+		if tooLarge := size > maxResponseBodyBytes; (err != nil) != tooLarge {
+			t.Errorf("GetAndParse(%d byte body) error = %v, want error: %v", size, err, tooLarge)
+		}
 	}
 }

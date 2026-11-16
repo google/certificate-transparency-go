@@ -1169,12 +1169,12 @@ func parseGetEntriesRange(r *http.Request, maxRange, logID int64) (int64, int64,
 	if start > end {
 		return 0, 0, fmt.Errorf("start (%d) and end (%d) is not a valid range", start, end)
 	}
-
-	count := end - start + 1
-	if count > maxRange {
+	// end-start+1 overflows for start=0, end=MaxInt64, so compare end-start.
+	count := end - start
+	if count >= maxRange {
 		end = start + maxRange - 1
 	}
-	if *alignGetEntries && count >= maxRange {
+	if *alignGetEntries && count >= maxRange-1 {
 		// Truncate a "maximally sized" get-entries request at the next multiple
 		// of MaxGetEntriesAllowed.
 		// This is intended to coerce large runs of get-entries requests (e.g. by

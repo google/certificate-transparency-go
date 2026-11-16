@@ -6,6 +6,8 @@
 * Fix `tls.Unmarshal` decoding a `Uint24` field from the start of the buffer instead of the field's offset by @robstradling
 * Switch Ed25519 import from deprecated `golang.org/x/crypto/ed25519` to stdlib `crypto/ed25519` by @JasonPowr
 * Added `--emit_proxy_headers` flag to ctfe by @mhutchinson
+* Fix `get-entries` range check overflowing for `start=0&end=9223372036854775807` by @evilgensec
+* Cap HTTP response body size in `jsonclient` (32 MiB) and `x509util` URL fetches (10 MiB) by @evilgensec
 
 ## v1.3.3
 
