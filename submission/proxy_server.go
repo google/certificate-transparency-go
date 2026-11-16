@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -36,7 +37,7 @@ const maxAddChainBodyBytes int64 = 512000
 type ProxyServer struct {
 	p               *Proxy
 	addTimeout      time.Duration
-	loadPendingLogs bool
+	loadPendingLogs atomic.Bool
 }
 
 // NewProxyServer creates ProxyServer instance. Call Run() to init.
@@ -49,7 +50,7 @@ func NewProxyServer(logListPath string, dBuilder DistributorBuilder, reqTimeout 
 // Run starts regular Log list updates in the background, running until the
 // context is canceled. Blocks until initialization happens.
 func (s *ProxyServer) Run(ctx context.Context, logListRefreshInterval time.Duration, rootsRefreshInterval time.Duration, loadPendingLogs bool) {
-	s.loadPendingLogs = loadPendingLogs
+	s.loadPendingLogs.Store(loadPendingLogs)
 	s.p.Run(ctx, logListRefreshInterval, rootsRefreshInterval)
 
 	<-s.p.Init
@@ -100,10 +101,11 @@ func (s *ProxyServer) handleAddSomeChain(w http.ResponseWriter, r *http.Request,
 	defer cancel()
 
 	var scts []*AssignedSCT
+	loadPending := s.loadPendingLogs.Load()
 	if asPreChain {
-		scts, err = s.p.AddPreChain(ctx, addChainReq.Chain, s.loadPendingLogs)
+		scts, err = s.p.AddPreChain(ctx, addChainReq.Chain, loadPending)
 	} else {
-		scts, err = s.p.AddChain(ctx, addChainReq.Chain, s.loadPendingLogs)
+		scts, err = s.p.AddChain(ctx, addChainReq.Chain, loadPending)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
@@ -144,8 +146,13 @@ type InfoData struct {
 
 // HandleInfo handles info-page request.
 func (s *ProxyServer) HandleInfo(w http.ResponseWriter, r *http.Request) {
+	d := s.p.currentDistributor()
+	if d == nil {
+		http.Error(w, "proxy distributor is not initialized", http.StatusServiceUnavailable)
+		return
+	}
 	data := InfoData{
-		s.p.dist.policy.Name(),
+		d.policy.Name(),
 		stringToHTML(s.p.llWatcher.Source()),
 		stringToHTML(string(s.p.llWatcher.LastJSON())),
 	}

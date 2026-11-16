@@ -186,25 +186,36 @@ func (p *Proxy) restartDistributor(ctx context.Context, ll *loglist3.LogList) er
 	return nil
 }
 
+// currentDistributor returns a snapshot of the active Distributor (or nil),
+// read under distMu so that the Distributor built in restartDistributor is
+// safely published to request goroutines.
+func (p *Proxy) currentDistributor() *Distributor {
+	p.distMu.RLock()
+	defer p.distMu.RUnlock()
+	return p.dist
+}
+
 // AddPreChain passes call to underlying Distributor instance.
 func (p *Proxy) AddPreChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
-	if p.dist == nil {
+	d := p.currentDistributor()
+	if d == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
 
 	defer func(start time.Time) {
 		rspLatency.Observe(time.Since(start).Seconds(), "add-pre-chain")
 	}(time.Now())
-	return p.dist.AddPreChain(ctx, rawChain, loadPendingLogs)
+	return d.AddPreChain(ctx, rawChain, loadPendingLogs)
 }
 
 // AddChain passes call to underlying Distributor instance.
 func (p *Proxy) AddChain(ctx context.Context, rawChain [][]byte, loadPendingLogs bool) ([]*AssignedSCT, error) {
-	if p.dist == nil {
+	d := p.currentDistributor()
+	if d == nil {
 		return []*AssignedSCT{}, fmt.Errorf("proxy distributor is not initialized. call Run()")
 	}
 	defer func(start time.Time) {
 		rspLatency.Observe(time.Since(start).Seconds(), "add-chain")
 	}(time.Now())
-	return p.dist.AddChain(ctx, rawChain, loadPendingLogs)
+	return d.AddChain(ctx, rawChain, loadPendingLogs)
 }
