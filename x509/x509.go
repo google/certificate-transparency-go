@@ -1452,6 +1452,9 @@ func parsePublicKey(algo PublicKeyAlgorithm, keyData *publicKeyInfo, nfe *NonFat
 		}
 		return pub, nil
 	case Ed25519:
+		if len(asn1Data) != ed25519.PublicKeySize {
+			return nil, errors.New("x509: wrong Ed25519 public key size")
+		}
 		return ed25519.PublicKey(asn1Data), nil
 	default:
 		return nil, nil

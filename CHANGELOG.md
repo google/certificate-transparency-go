@@ -6,6 +6,7 @@
 * Fix `tls.Unmarshal` decoding a `Uint24` field from the start of the buffer instead of the field's offset by @robstradling
 * Switch Ed25519 import from deprecated `golang.org/x/crypto/ed25519` to stdlib `crypto/ed25519` by @JasonPowr
 * Added `--emit_proxy_headers` flag to ctfe by @mhutchinson
+* Reject Ed25519 public keys that are not 32 bytes in `x509` parsing, instead of panicking later in `ed25519.Verify` by @dnathe4th
 
 ## v1.3.3
 
