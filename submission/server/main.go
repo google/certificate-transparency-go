@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/google/certificate-transparency-go/submission"
+	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/klog/v2"
@@ -33,6 +34,8 @@ import (
 var (
 	httpEndpoint             = flag.String("http_endpoint", "localhost:5951", "Endpoint for HTTP (host:port)")
 	logListPath              = flag.String("loglist_path", "https://www.gstatic.com/ct/log_list/v3/log_list.json", "Path for list of CT Logs in JSON format")
+	logListSigPath           = flag.String("loglist_sig_path", "", "Optional path for the signature over the CT log list (URL or filename)")
+	logListPublicKeyPath     = flag.String("loglist_public_key", "", "Optional path for a PEM-encoded public key used to verify the CT log list signature")
 	logListRefreshInterval   = flag.Duration("loglist_refresh_interval", 24*time.Hour, "Interval between consecutive reads of Log-list")
 	rootsRefreshInterval     = flag.Duration("roots_refresh_interval", 24*time.Hour, "Interval between consecutive get-roots calls")
 	policyType               = flag.String("policy_type", "chrome", "CT-policy <chrome|apple>")
@@ -52,6 +55,25 @@ func parsePolicyType() submission.CTPolicyType {
 	return submission.ChromeCTPolicy
 }
 
+func buildLogListRefresher() submission.LogListRefresher {
+	if *logListSigPath == "" && *logListPublicKeyPath == "" {
+		return submission.NewLogListRefresher(*logListPath)
+	}
+	if *logListSigPath == "" || *logListPublicKeyPath == "" {
+		klog.Fatalf("flags -loglist_sig_path and -loglist_public_key must be provided together")
+	}
+
+	pubKeyPEM, err := x509util.ReadFileOrURL(*logListPublicKeyPath, &http.Client{Timeout: 10 * time.Second})
+	if err != nil {
+		klog.Fatalf("failed to read -loglist_public_key %q: %v", *logListPublicKeyPath, err)
+	}
+	llr, err := submission.NewVerifiedLogListRefresher(*logListPath, *logListSigPath, string(pubKeyPEM))
+	if err != nil {
+		klog.Fatalf("failed to configure log list signature verification: %v", err)
+	}
+	return llr
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -63,8 +85,9 @@ func main() {
 		lcb = submission.NewStubLogClient
 	}
 	mf := prometheus.MetricFactory{}
+	llr := buildLogListRefresher()
 
-	s := submission.NewProxyServer(*logListPath, submission.GetDistributorBuilder(plc, lcb, mf), *addPreChainTimeout, mf)
+	s := submission.NewProxyServer(llr, submission.GetDistributorBuilder(plc, lcb, mf), *addPreChainTimeout, mf)
 	s.Run(context.Background(), *logListRefreshInterval, *rootsRefreshInterval, *loadPendingQualifiedLogs)
 	http.HandleFunc("/ct/v1/proxy/add-pre-chain/", s.HandleAddPreChain)
 	http.HandleFunc("/ct/v1/proxy/add-chain/", s.HandleAddChain)
