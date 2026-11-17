@@ -403,7 +403,7 @@ func domainToReverseLabels(domain string) (reverseLabels []string, ok bool) {
 	return reverseLabels, true
 }
 
-func matchEmailConstraint(mailbox rfc2821Mailbox, constraint string) (bool, error) {
+func matchEmailConstraint(mailbox rfc2821Mailbox, constraint string, excluded bool) (bool, error) {
 	// If the constraint contains an @, then it specifies an exact mailbox
 	// name.
 	if strings.Contains(constraint, "@") {
@@ -416,10 +416,10 @@ func matchEmailConstraint(mailbox rfc2821Mailbox, constraint string) (bool, erro
 
 	// Otherwise the constraint is like a DNS constraint of the domain part
 	// of the mailbox.
-	return matchDomainConstraint(mailbox.domain, constraint)
+	return matchDomainConstraint(mailbox.domain, constraint, excluded)
 }
 
-func matchURIConstraint(uri *url.URL, constraint string) (bool, error) {
+func matchURIConstraint(uri *url.URL, constraint string, excluded bool) (bool, error) {
 	// From RFC 5280, Section 4.2.1.10:
 	// “a uniformResourceIdentifier that does not include an authority
 	// component with a host name specified as a fully qualified domain
@@ -446,7 +446,7 @@ func matchURIConstraint(uri *url.URL, constraint string) (bool, error) {
 		return false, fmt.Errorf("URI with IP (%q) cannot be matched against constraints", uri.String())
 	}
 
-	return matchDomainConstraint(host, constraint)
+	return matchDomainConstraint(host, constraint, excluded)
 }
 
 func matchIPConstraint(ip net.IP, constraint *net.IPNet) (bool, error) {
@@ -463,7 +463,7 @@ func matchIPConstraint(ip net.IP, constraint *net.IPNet) (bool, error) {
 	return true, nil
 }
 
-func matchDomainConstraint(domain, constraint string) (bool, error) {
+func matchDomainConstraint(domain, constraint string, excluded bool) (bool, error) {
 	// The meaning of zero length constraints is not specified, but this
 	// code follows NSS and accepts them as matching everything.
 	if len(constraint) == 0 {
@@ -473,6 +473,11 @@ func matchDomainConstraint(domain, constraint string) (bool, error) {
 	domainLabels, ok := domainToReverseLabels(domain)
 	if !ok {
 		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", domain)
+	}
+
+	wildcardDomain := false
+	if len(domain) > 0 && domain[0] == '*' {
+		wildcardDomain = true
 	}
 
 	// RFC 5280 says that a leading period in a domain name means that at
@@ -489,6 +494,11 @@ func matchDomainConstraint(domain, constraint string) (bool, error) {
 	constraintLabels, ok := domainToReverseLabels(constraint)
 	if !ok {
 		return false, fmt.Errorf("x509: internal error: cannot parse domain %q", constraint)
+	}
+
+	if excluded && wildcardDomain && len(domainLabels) > 1 && len(constraintLabels) > 0 {
+		domainLabels = domainLabels[:len(domainLabels)-1]
+		constraintLabels = constraintLabels[:len(constraintLabels)-1]
 	}
 
 	if len(domainLabels) < len(constraintLabels) ||
@@ -515,7 +525,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 	nameType string,
 	name string,
 	parsedName interface{},
-	match func(parsedName, constraint interface{}) (match bool, err error),
+	match func(parsedName, constraint interface{}, excluded bool) (match bool, err error),
 	permitted, excluded interface{}) error {
 
 	excludedValue := reflect.ValueOf(excluded)
@@ -527,7 +537,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 
 	for i := 0; i < excludedValue.Len(); i++ {
 		constraint := excludedValue.Index(i).Interface()
-		match, err := match(parsedName, constraint)
+		match, err := match(parsedName, constraint, true)
 		if err != nil {
 			return CertificateInvalidError{c, CANotAuthorizedForThisName, err.Error()}
 		}
@@ -549,7 +559,7 @@ func (c *Certificate) checkNameConstraints(count *int,
 		constraint := permittedValue.Index(i).Interface()
 
 		var err error
-		if ok, err = match(parsedName, constraint); err != nil {
+		if ok, err = match(parsedName, constraint, false); err != nil {
 			return CertificateInvalidError{c, CANotAuthorizedForThisName, err.Error()}
 		}
 
@@ -632,8 +642,8 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 				}
 
 				if err := c.checkNameConstraints(&comparisonCount, maxConstraintComparisons, "email address", name, mailbox,
-					func(parsedName, constraint interface{}) (bool, error) {
-						return matchEmailConstraint(parsedName.(rfc2821Mailbox), constraint.(string))
+					func(parsedName, constraint interface{}, excluded bool) (bool, error) {
+						return matchEmailConstraint(parsedName.(rfc2821Mailbox), constraint.(string), excluded)
 					}, c.PermittedEmailAddresses, c.ExcludedEmailAddresses); err != nil {
 					return err
 				}
@@ -645,8 +655,8 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 				}
 
 				if err := c.checkNameConstraints(&comparisonCount, maxConstraintComparisons, "DNS name", name, name,
-					func(parsedName, constraint interface{}) (bool, error) {
-						return matchDomainConstraint(parsedName.(string), constraint.(string))
+					func(parsedName, constraint interface{}, excluded bool) (bool, error) {
+						return matchDomainConstraint(parsedName.(string), constraint.(string), excluded)
 					}, c.PermittedDNSDomains, c.ExcludedDNSDomains); err != nil {
 					return err
 				}
@@ -659,8 +669,8 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 				}
 
 				if err := c.checkNameConstraints(&comparisonCount, maxConstraintComparisons, "URI", name, uri,
-					func(parsedName, constraint interface{}) (bool, error) {
-						return matchURIConstraint(parsedName.(*url.URL), constraint.(string))
+					func(parsedName, constraint interface{}, excluded bool) (bool, error) {
+						return matchURIConstraint(parsedName.(*url.URL), constraint.(string), excluded)
 					}, c.PermittedURIDomains, c.ExcludedURIDomains); err != nil {
 					return err
 				}
@@ -672,7 +682,7 @@ func (c *Certificate) isValid(certType int, currentChain []*Certificate, opts *V
 				}
 
 				if err := c.checkNameConstraints(&comparisonCount, maxConstraintComparisons, "IP address", ip.String(), ip,
-					func(parsedName, constraint interface{}) (bool, error) {
+					func(parsedName, constraint interface{}, _ bool) (bool, error) {
 						return matchIPConstraint(parsedName.(net.IP), constraint.(*net.IPNet))
 					}, c.PermittedIPRanges, c.ExcludedIPRanges); err != nil {
 					return err
